@@ -119,7 +119,6 @@ impl CubieCube {
     ]};
 
     const CO_OVERFLOW_MASK: __m128i = unsafe{ C {b: [0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0, 0, 0, 0, 0, 0, 0, 0] }.a };
-    const CO_NOT_OVERFLOW_MASK: __m128i = unsafe{ C {b: [0b11111011, 0b11111011, 0b11111011, 0b11111011, 0b11111011, 0b11111011, 0b11111011, 0b11111011, 0, 0, 0, 0, 0, 0, 0, 0] }.a };
     const TURN_CO_CHANGE: [__m128i; 6] = unsafe{[
         unsafe { C {b: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//U
         unsafe { C {b: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//D
@@ -140,7 +139,7 @@ impl CubieCube {
             //This code either subtracts 1 if there is no overflow (because we added 1 too much before), or 4, because this gives us the original addition mod 3.
             let corners_tmp = _mm_add_epi8(self.corners, CubieCube::TURN_CO_CHANGE[face as usize]);
             let overflow_bits = _mm_and_si128(corners_tmp, CubieCube::CO_OVERFLOW_MASK);
-            let not_overflow = _mm_srli_epi16::<2>(_mm_andnot_si128(overflow_bits, CubieCube::CO_OVERFLOW_MASK));
+            let not_overflow = _mm_srli_epi16::<2>(_mm_andnot_si128(corners_tmp, CubieCube::CO_OVERFLOW_MASK));
             let overflow_sub = _mm_or_si128(overflow_bits, not_overflow);
             self.corners = _mm_sub_epi8(corners_tmp, overflow_sub);
         }
@@ -197,7 +196,7 @@ mod cubie_tests {
 
     #[test]
     fn test_t_perm() {
-        let mut cube = super::CubieCube::new();
+        let mut cube = super::CubieCube::new_solved();
         let old_corners = cube.corners;
         let old_edges = cube.edges;
 
@@ -228,7 +227,7 @@ mod cubie_tests {
     }
 
     fn test_qt_faces(a: Face, b: Face) {
-        let mut cube = super::CubieCube::new();
+        let mut cube = super::CubieCube::new_solved();
         let old_corners = cube.corners;
         let old_edges = cube.edges;
 
@@ -246,7 +245,7 @@ mod cubie_tests {
     }
 
     fn test_ht_faces(a: Face, b: Face) {
-        let mut cube = super::CubieCube::new();
+        let mut cube = super::CubieCube::new_solved();
         let old_corners = cube.corners;
         let old_edges = cube.edges;
         for _ in 0..6 {
@@ -261,7 +260,7 @@ mod cubie_tests {
     }
 
     fn test_face(face: Face) {
-        let mut cube = super::CubieCube::new();
+        let mut cube = super::CubieCube::new_solved();
         let old_corners = cube.corners;
         let old_edges = cube.edges;
         cube.turn(face, Turn::Clockwise);

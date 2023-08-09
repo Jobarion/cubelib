@@ -1,6 +1,9 @@
-use std::arch::x86_64::{__m128i, __m256i, _mm_add_epi8, _mm_and_si128, _mm_andnot_si128, _mm_or_si128, _mm_set1_epi8, _mm_set_epi64x, _mm_set_epi8, _mm_shuffle_epi8, _mm_slli_epi64, _mm_srli_epi16, _mm_sub_epi8, _mm_xor_si128};
-use std::ops::Index;
-use crate::cube::{Cube, Face, Turn};
+use std::arch::x86_64::{__m128i, __m256i, _mm_add_epi8, _mm_and_si128, _mm_andnot_si128, _mm_extract_epi64, _mm_or_si128, _mm_set1_epi8, _mm_set_epi64x, _mm_set_epi8, _mm_shuffle_epi8, _mm_slli_epi64, _mm_srli_epi16, _mm_store_si128, _mm_sub_epi8, _mm_xor_si128};
+use std::fmt::{Display, Formatter};
+use crate::cube::{Color, Corner, CornerPosition, Cube, Edge, EdgePosition, Face, Turn};
+use crate::cube::Color::*;
+use crate::cube::EdgePosition::*;
+use crate::cube::CornerPosition::*;
 use crate::cube::Face::*;
 
 //http://kociemba.org/math/cubielevel.htm
@@ -27,6 +30,60 @@ impl CubieCube {
             corners: unsafe { _mm_slli_epi64::<5>(_mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, 7, 6, 5, 4, 3, 2, 1, 0)) },
         }
     }
+
+    pub fn count_bad_edges(&self) -> (u32, u32, u32) {
+        let edges = unsafe {
+            let mut a_arr = [0u64; 2];
+            _mm_store_si128(a_arr.as_mut_ptr() as *mut __m128i, self.edges);
+            a_arr
+        };
+        let ud = (edges[0] & CubieCube::BAD_EDGE_MASK_UD).count_ones() + (edges[1] & CubieCube::BAD_EDGE_MASK_UD).count_ones();
+        let fb = (edges[0] & CubieCube::BAD_EDGE_MASK_FB).count_ones() + (edges[1] & CubieCube::BAD_EDGE_MASK_FB).count_ones();
+        let rl = (edges[0] & CubieCube::BAD_EDGE_MASK_RL).count_ones() + (edges[1] & CubieCube::BAD_EDGE_MASK_RL).count_ones();
+        (ud, fb, rl)
+    }
+
+    fn get_corners(&self) -> [Corner; 8] {
+        let mut corner_bits = unsafe {
+            _mm_extract_epi64::<0>(self.corners) as u64
+        };
+        let mut corner_arr = [Corner {id: 0, orientation: 0}; 8];
+        for cid in 0..8 {
+            let corner = (corner_bits & 0xFF) as u8;
+            corner_bits >>= 8;
+            corner_arr[cid] = Corner {id: corner >> 5 , orientation: corner & 0x7};
+        }
+        corner_arr
+    }
+
+    fn get_edges(&self) -> [Edge; 12] {
+        let mut edges = unsafe {
+            let mut a_arr = [0u64; 2];
+            _mm_store_si128(a_arr.as_mut_ptr() as *mut __m128i, self.edges);
+            a_arr
+        };
+        let mut edge_arr = [Edge {id: 0, orientation: 0}; 12];
+
+        for eid in 0..8 {
+            let edge = (edges[0] & 0xFF) as u8;
+            edges[0] >>= 8;
+            edge_arr[eid] = Edge {id: edge >> 4 , orientation: (edge >> 2) & 1};
+        }
+        for eid in 8..12 {
+            let edge = (edges[1] & 0xFF) as u8;
+            edges[1] >>= 8;
+            edge_arr[eid] = Edge {id: edge >> 4 , orientation: (edge >> 2) & 1};
+        }
+
+        edge_arr
+
+    }
+}
+
+impl Display for CubieCube {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.fmt_display(f)
+    }
 }
 
 impl Cube for CubieCube {
@@ -36,9 +93,126 @@ impl Cube for CubieCube {
             self.unsafe_turn(face, turn_type);
         }
     }
+
+    fn get_facelets(&self) -> [[Color; 9]; 6] {
+
+        let corners = self.get_corners();
+        let edges = self.get_edges();
+        let mut facelets = [[None; 9]; 6];
+
+        //There has to be a better way
+        let c = |id: CornerPosition, twist: u8| {
+            let corner = corners[id as usize];
+            let twist_id = (3 - corner.orientation + twist) % 3;
+            CubieCube::CORNER_COLORS[corner.id as usize][twist_id as usize]
+        };
+
+        let e = |id: EdgePosition, flip: bool| {
+            let edge = edges[id as usize];
+            let eo_id = (edge.orientation + if flip { 1 } else { 0 }) % 2;
+            CubieCube::EDGE_COLORS[edge.id as usize][eo_id as usize]
+        };
+
+        facelets[Up][0] = c(UBL, 0);
+        facelets[Up][1] = e(UB, false);
+        facelets[Up][2] = c(UBR, 0);
+        facelets[Up][3] = e(UL, false);
+        facelets[Up][4] = White;
+        facelets[Up][5] = e(UR, false);
+        facelets[Up][6] = c(UFL, 0);
+        facelets[Up][7] = e(UF, false);
+        facelets[Up][8] = c(UFR, 0);
+
+        facelets[Down][0] = c(DFL, 0);
+        facelets[Down][1] = e(DF, false);
+        facelets[Down][2] = c(DFR, 0);
+        facelets[Down][3] = e(DL, false);
+        facelets[Down][4] = Yellow;
+        facelets[Down][5] = e(DR, false);
+        facelets[Down][6] = c(DBL, 0);
+        facelets[Down][7] = e(DB, false);
+        facelets[Down][8] = c(DBR, 0);
+
+        facelets[Front][0] = c(UFL, 1);
+        facelets[Front][1] = e(UF, true);
+        facelets[Front][2] = c(UFR, 2);
+        facelets[Front][3] = e(FL, false);
+        facelets[Front][4] = Green;
+        facelets[Front][5] = e(FR, false);
+        facelets[Front][6] = c(DFL, 2);
+        facelets[Front][7] = e(UF, true);
+        facelets[Front][8] = c(DFR, 1);
+
+        facelets[Back][0] = c(UBR, 1);
+        facelets[Back][1] = e(UB, true);
+        facelets[Back][2] = c(UBL, 2);
+        facelets[Back][3] = e(BR, false);
+        facelets[Back][4] = Blue;
+        facelets[Back][5] = e(BL, false);
+        facelets[Back][6] = c(DBR, 2);
+        facelets[Back][7] = e(DB, true);
+        facelets[Back][8] = c(DBL, 1);
+
+        facelets[Left][0] = c(UBL, 1);
+        facelets[Left][1] = e(UL, true);
+        facelets[Left][2] = c(UFL, 2);
+        facelets[Left][3] = e(BL, true);
+        facelets[Left][4] = Orange;
+        facelets[Left][5] = e(FL, true);
+        facelets[Left][6] = c(DBL, 2);
+        facelets[Left][7] = e(DL, true);
+        facelets[Left][8] = c(DFL, 1);
+
+        facelets[Right][0] = c(UFR, 1);
+        facelets[Right][1] = e(UR, true);
+        facelets[Right][2] = c(UBR, 2);
+        facelets[Right][3] = e(FR, true);
+        facelets[Right][4] = Red;
+        facelets[Right][5] = e(BR, true);
+        facelets[Right][6] = c(DFR, 2);
+        facelets[Right][7] = e(DR, true);
+        facelets[Right][8] = c(DBR, 1);
+
+        facelets
+    }
+
+    fn invert(&mut self) {
+        unimplemented!()
+    }
 }
 
 impl CubieCube {
+
+    const BAD_EDGE_MASK_UD: u64 = 0x0808080808080808;
+    const BAD_EDGE_MASK_FB: u64 = 0x0404040404040404;
+    const BAD_EDGE_MASK_RL: u64 = 0x0202020202020202;
+
+    pub const CORNER_COLORS: [[Color; 3]; 8] = [
+        [White, Orange, Blue],
+        [White, Blue, Red],
+        [White, Red, Green],
+        [White, Green, Orange],
+        [Yellow, Orange, Green],
+        [Yellow, Green, Red],
+        [Yellow, Red, Blue],
+        [Yellow, Blue, Orange]
+    ];
+
+    const EDGE_COLORS: [[Color; 2]; 12] = [
+        [White, Blue],
+        [White, Red],
+        [White, Green],
+        [White, Orange],
+        [Green, Red],
+        [Green, Orange],
+        [Blue, Red],
+        [Blue, Orange],
+        [Yellow, Green],
+        [Yellow, Red],
+        [Yellow, Blue],
+        [Yellow, Orange]
+    ];
+
     //UB UR UF UL FR FL BR BL DF DR DB DL
     // 0  1  2  3  4  5  6  7  8  9 10 11
     const TURN_EDGE_SHUFFLE: [[__m128i; 3]; 6] = unsafe {[
@@ -109,6 +283,8 @@ impl CubieCube {
         ],
     ]};
 
+    //UB UR UF UL FR FL BR BL DF DR DB DL
+    // 0  1  2  3  4  5  6  7  8  9 10 11
     const TURN_EO_FLIP: [__m128i; 6] = unsafe{[
         unsafe { C {b: [0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//U
         unsafe { C {b: [0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0] }.a },//D
@@ -145,6 +321,7 @@ impl CubieCube {
         }
     }
 }
+
 #[cfg(test)]
 mod cubie_tests {
     use std::arch::x86_64::{__m128i, _mm_store_si128};

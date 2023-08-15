@@ -1,4 +1,4 @@
-use std::arch::x86_64::{__m128i, __m256i, _mm_add_epi8, _mm_and_si128, _mm_andnot_si128, _mm_extract_epi64, _mm_or_si128, _mm_set1_epi8, _mm_set_epi64x, _mm_set_epi8, _mm_shuffle_epi8, _mm_slli_epi64, _mm_srli_epi16, _mm_store_si128, _mm_sub_epi8, _mm_xor_si128};
+use std::arch::x86_64::{__m128i, __m256i, _mm_add_epi8, _mm_and_si128, _mm_andnot_si128, _mm_extract_epi64, _mm_load_si128, _mm_loadl_epi64, _mm_or_si128, _mm_set1_epi8, _mm_set_epi64x, _mm_set_epi8, _mm_shuffle_epi8, _mm_slli_epi32, _mm_slli_epi64, _mm_srli_epi16, _mm_srli_epi32, _mm_store_si128, _mm_sub_epi8, _mm_xor_si128};
 use std::fmt::{Display, Formatter};
 use crate::cube::{Color, Corner, CornerPosition, Cube, Edge, EdgePosition, Face, Turn};
 use crate::cube::Color::*;
@@ -22,6 +22,14 @@ union C {
     b: [u8; 16],
 }
 
+#[repr(align(16))]
+#[derive(Debug, Clone, Copy)]
+struct AlignedU64([u64; 2]);
+
+#[repr(align(16))]
+#[derive(Debug, Clone, Copy)]
+struct AlignedU8([u8; 16]);
+
 impl CubieCube {
 
     pub fn new_solved() -> CubieCube {
@@ -32,8 +40,8 @@ impl CubieCube {
     }
 
     pub fn count_bad_edges(&self) -> (u32, u32, u32) {
+        let mut a_arr = AlignedU64([0u64; 2]).0;
         let edges = unsafe {
-            let mut a_arr = [0u64; 2];
             _mm_store_si128(a_arr.as_mut_ptr() as *mut __m128i, self.edges);
             a_arr
         };
@@ -140,7 +148,7 @@ impl Cube for CubieCube {
         facelets[Front][4] = Green;
         facelets[Front][5] = e(FR, false);
         facelets[Front][6] = c(DFL, 2);
-        facelets[Front][7] = e(UF, true);
+        facelets[Front][7] = e(DF, true);
         facelets[Front][8] = c(DFR, 1);
 
         facelets[Back][0] = c(UBR, 1);
@@ -177,7 +185,9 @@ impl Cube for CubieCube {
     }
 
     fn invert(&mut self) {
-        unimplemented!()
+        unsafe {
+            self.unsafe_invert();
+        }
     }
 }
 
@@ -319,6 +329,47 @@ impl CubieCube {
             let overflow_sub = _mm_or_si128(overflow_bits, not_overflow);
             self.corners = _mm_sub_epi8(corners_tmp, overflow_sub);
         }
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn unsafe_invert(&mut self) {
+        let edges = unsafe {
+            let mut a_arr = AlignedU8([0u8; 16]);
+            _mm_store_si128(a_arr.0.as_mut_ptr() as *mut __m128i, self.edges);
+            a_arr
+        };
+        //This essentially calculates the inverse of _mm_shuffle_epi8(solved_cube.edges, self.edges), same for corners
+        let mut edge_shuffle = edges.clone().0;
+        let edges = edges.0;
+        for i in 0..12 {
+            edge_shuffle[(edges[i] >> 4) as usize] = i as u8;
+        }
+        let edge_shuffle_mask = _mm_load_si128(edge_shuffle.as_ptr() as *const __m128i);
+
+        let mut corners = unsafe {
+            (_mm_extract_epi64::<0>(self.corners) as u64).to_le_bytes()
+        };
+        let mut corner_shuffle = corners.clone();
+        for i in 0..8 {
+            corner_shuffle[(corners[i] >> 5) as usize] = i as u8;
+        }
+        let corner_shuffle_mask = _mm_loadl_epi64(corner_shuffle.as_ptr() as *const __m128i);
+
+        //Splice together the edge permutation, and the EO of the edges on the inverse (see niss prediction to see how this works)
+        let ep = _mm_and_si128(_mm_shuffle_epi8(_mm_shuffle_epi8(self.edges, edge_shuffle_mask), edge_shuffle_mask), _mm_set1_epi8(0xF0_u8 as i8));
+        let eo_shuffle = _mm_shuffle_epi8(self.edges, _mm_srli_epi32::<4>(ep));
+        let eo = _mm_and_si128(eo_shuffle, _mm_set1_epi8(0b1110));
+
+        self.edges = _mm_or_si128(ep, eo);
+
+        //Same for corners, but additionally, CO 1 <-> 2 and CO 0 stays the same
+        let cp = _mm_and_si128(_mm_shuffle_epi8(_mm_shuffle_epi8(self.corners, corner_shuffle_mask), corner_shuffle_mask), _mm_set1_epi8(0b11100000_u8 as i8));
+        let co_shuffle = _mm_shuffle_epi8(self.corners, _mm_srli_epi32::<5>(cp));
+        let tmp = _mm_and_si128(_mm_add_epi8(co_shuffle, _mm_set1_epi8(1)), _mm_set1_epi8(2));
+        let co_flip_mask = _mm_or_si128(tmp, _mm_srli_epi32::<1>(tmp));
+        let co = _mm_and_si128(_mm_xor_si128(co_shuffle, co_flip_mask), _mm_set1_epi8(7));
+
+        self.corners = _mm_or_si128(cp, co);
     }
 }
 

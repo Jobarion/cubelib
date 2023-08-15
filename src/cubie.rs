@@ -333,25 +333,25 @@ impl CubieCube {
 
     #[target_feature(enable = "avx2")]
     unsafe fn unsafe_invert(&mut self) {
-        let edges = unsafe {
+        let edge_ids = unsafe {
             let mut a_arr = AlignedU8([0u8; 16]);
-            _mm_store_si128(a_arr.0.as_mut_ptr() as *mut __m128i, self.edges);
+            _mm_store_si128(a_arr.0.as_mut_ptr() as *mut __m128i, _mm_srli_epi32::<4>(_mm_and_si128(self.edges, _mm_set1_epi8(0xF0_u8 as i8))));
             a_arr
         };
         //This essentially calculates the inverse of _mm_shuffle_epi8(solved_cube.edges, self.edges), same for corners
-        let mut edge_shuffle = edges.clone().0;
-        let edges = edges.0;
+        let mut edge_shuffle = edge_ids.0;
+        let edges = edge_ids.0;
         for i in 0..12 {
-            edge_shuffle[(edges[i] >> 4) as usize] = i as u8;
+            edge_shuffle[edges[i] as usize] = i as u8;
         }
         let edge_shuffle_mask = _mm_load_si128(edge_shuffle.as_ptr() as *const __m128i);
 
-        let mut corners = unsafe {
-            (_mm_extract_epi64::<0>(self.corners) as u64).to_le_bytes()
+        let mut corner_ids = unsafe {
+            (_mm_extract_epi64::<0>(_mm_srli_epi32::<5>(_mm_and_si128(self.corners, _mm_set1_epi8(0xE0_u8 as i8)))) as u64).to_le_bytes()
         };
-        let mut corner_shuffle = corners.clone();
+        let mut corner_shuffle = corner_ids.clone();
         for i in 0..8 {
-            corner_shuffle[(corners[i] >> 5) as usize] = i as u8;
+            corner_shuffle[corner_ids[i] as usize] = i as u8;
         }
         let corner_shuffle_mask = _mm_loadl_epi64(corner_shuffle.as_ptr() as *const __m128i);
 

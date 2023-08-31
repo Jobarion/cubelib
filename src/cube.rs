@@ -1,7 +1,14 @@
-use std::fmt::{Display, Formatter, Pointer};
+use std::fmt::{Debug, Display, Formatter, Pointer, write};
 use std::ops::{Index, IndexMut};
+use std::str::FromStr;
+use crate::algs::Algorithm;
+use crate::cube::Face::*;
+use crate::cube::Turn::*;
 
-#[derive(Debug, Clone, Copy)]
+pub const FACES: [Face; 6] = [Up, Down, Front, Back, Left, Right];
+pub const TURNS: [Turn; 3] = [Clockwise, CounterClockwise, Half];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Face {
     Up = 0,
     Down = 1,
@@ -9,6 +16,35 @@ pub enum Face {
     Back = 3,
     Left = 4,
     Right = 5,
+}
+
+impl TryFrom<char> for Face {
+    type Error = ();
+
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value.to_ascii_uppercase() {
+            'U' => Ok(Self::Up),
+            'D' => Ok(Self::Down),
+            'F' => Ok(Self::Front),
+            'B' => Ok(Self::Back),
+            'L' => Ok(Self::Left),
+            'R' => Ok(Self::Right),
+            _ => Err(())
+        }
+    }
+}
+
+impl Into<char> for Face {
+    fn into(self) -> char {
+        match self {
+            Up => 'U',
+            Down => 'D',
+            Front => 'F',
+            Back => 'B',
+            Left => 'L',
+            Right => 'R',
+        }
+    }
 }
 
 impl<T, const N: usize> Index<Face> for [T; N] {
@@ -23,6 +59,58 @@ impl<T, const N: usize> IndexMut<Face> for [T; N] {
 
     fn index_mut(&mut self, index: Face) -> &mut Self::Output {
         &mut self[index as usize]
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub struct Move(pub Face, pub Turn);
+
+impl Move {
+    pub fn invert(&self) -> Move {
+        match *self {
+            Move(face, Clockwise) => Move(face, CounterClockwise),
+            Move(face, CounterClockwise) => Move(face, Clockwise),
+            Move(face, Half) => Move(face, Half),
+        }
+    }
+}
+
+impl Display for Move {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut face: String = String::from(<Face as Into<char>>::into(self.0));
+        let turn = match self.1 {
+            Clockwise => "",
+            CounterClockwise => "'",
+            Half => "2"
+        };
+        face.push_str(turn);
+        write!(f, "{}", face)
+    }
+}
+
+impl Debug for Move {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl FromStr for Move {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let mut chars = value.chars();
+        let face = chars.next().map_or(Err(()), |c|Face::try_from(c))?;
+        let turn = match chars.next() {
+            Some('2') => Ok(Turn::Half),
+            Some('\'') => Ok(Turn::CounterClockwise),
+            None => Ok(Turn::Clockwise),
+            _ => Err(())
+        }?;
+        if chars.next().is_none() {
+            Ok(Move(face, turn))
+        } else {
+            Err(())
+        }
     }
 }
 
@@ -75,7 +163,9 @@ pub struct Corner {
 #[derive(Debug, Clone, Copy)]
 pub struct Edge {
     pub id: u8,
-    pub orientation: u8,
+    pub oriented_ud: bool,
+    pub oriented_fb: bool,
+    pub oriented_rl: bool,
 }
 
 impl From<u32> for Face {
@@ -99,10 +189,27 @@ pub enum Turn {
     CounterClockwise = 2
 }
 
-pub trait Cube: Display {
-    fn turn(&mut self, face: Face, turn_type: Turn);
-    fn get_facelets(&self) -> [[Color; 9]; 6];
+pub trait Turnable {
+    fn turn(&mut self, m: Move);
+}
+
+
+pub trait Invertible {
     fn invert(&mut self);
+}
+
+pub trait Cube: Display + Turnable + Invertible {
+    fn get_facelets(&self) -> [[Color; 9]; 6];
+    fn apply(&mut self, alg: &Algorithm) {
+        for m in &alg.normal_moves {
+            self.turn(*m);
+        }
+        self.invert();
+        for m in &alg.inverse_moves {
+            self.turn(*m);
+        }
+        self.invert();
+    }
     fn fmt_display(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let facelets = self.get_facelets();
         let block_width = "   ";

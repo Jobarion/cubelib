@@ -1,11 +1,22 @@
 use std::fmt::{Debug, Display, Formatter};
+use std::ops::Add;
 use std::ptr::write;
 use std::str::FromStr;
 use crate::cube::Move;
 
+#[derive(PartialEq, Eq, Hash)]
 pub struct Algorithm {
     pub normal_moves: Vec<Move>,
     pub inverse_moves: Vec<Move>,
+}
+
+impl Clone for Algorithm {
+    fn clone(&self) -> Self {
+        Algorithm {
+            normal_moves: self.normal_moves.clone(),
+            inverse_moves: self.inverse_moves.clone()
+        }
+    }
 }
 
 impl Display for Algorithm {
@@ -24,7 +35,31 @@ impl Debug for Algorithm {
     }
 }
 
+impl Add for Algorithm {
+    type Output = Algorithm;
+
+    fn add(mut self, mut rhs: Self) -> Self::Output {
+        self.normal_moves.append(&mut rhs.normal_moves);
+        self.inverse_moves.append(&mut rhs.inverse_moves);
+        self
+    }
+}
+
 impl Algorithm {
+
+    pub fn new() -> Self {
+        Algorithm {
+            normal_moves: vec![],
+            inverse_moves: vec![]
+        }
+    }
+
+    pub fn reverse(mut self) -> Self {
+        self.normal_moves.reverse();
+        self.inverse_moves.reverse();
+        self
+    }
+
     pub fn len(&self) -> usize {
         self.normal_moves.len() + self.inverse_moves.len()
     }

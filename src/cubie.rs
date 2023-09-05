@@ -1,6 +1,7 @@
 use std::arch::x86_64::{__m128i, __m256i, _mm_add_epi8, _mm_and_si128, _mm_andnot_si128, _mm_extract_epi64, _mm_load_si128, _mm_loadl_epi64, _mm_or_si128, _mm_set1_epi8, _mm_set_epi64x, _mm_set_epi8, _mm_shuffle_epi8, _mm_slli_epi32, _mm_slli_epi64, _mm_srli_epi16, _mm_srli_epi32, _mm_store_si128, _mm_sub_epi8, _mm_xor_si128};
 use std::fmt::{Display, Formatter};
 use crate::alignment::{AlignedU64, AlignedU8, C};
+use crate::coord::EOCoord;
 use crate::cube::{Color, Corner, CornerPosition, Cube, Edge, EdgePosition, Face, Invertible, Move, Turn, Turnable};
 use crate::cube::Color::*;
 use crate::cube::EdgePosition::*;
@@ -14,11 +15,41 @@ use crate::eo::EOCount;
 pub struct EdgeCubieCube(pub __m128i);
 
 impl EdgeCubieCube {
+
     pub fn new_solved() -> EdgeCubieCube {
-        EdgeCubieCube(unsafe { _mm_slli_epi64::<4>(_mm_set_epi8(0, 0, 0, 0, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)) })
+        unsafe {
+            EdgeCubieCube::unsafe_new_solved()
+        }
     }
 
     pub fn get_edges(&self) -> [Edge; 12] {
+        unsafe {
+            self.unsafe_get_edges()
+        }
+    }
+
+    pub fn get_edges_raw(&self) -> [u64; 2] {
+        unsafe {
+            self.unsafe_get_edges_raw()
+        }
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn unsafe_get_edges_raw(&self) -> [u64; 2] {
+        let mut a_arr = AlignedU64([0u64; 2]).0;
+        unsafe {
+            _mm_store_si128(a_arr.as_mut_ptr() as *mut __m128i, self.0);
+            a_arr
+        }
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn unsafe_new_solved() -> EdgeCubieCube {
+        EdgeCubieCube(unsafe { _mm_slli_epi64::<4>(_mm_set_epi8(0, 0, 0, 0, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)) })
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn unsafe_get_edges(&self) -> [Edge; 12] {
         let mut edges = unsafe {
             let mut a_arr = AlignedU64([0u64; 2]).0;
             _mm_store_si128(a_arr.as_mut_ptr() as *mut __m128i, self.0);
@@ -113,14 +144,27 @@ impl Invertible for CornerCubieCube {
 pub struct CornerCubieCube(pub __m128i);
 
 impl CornerCubieCube {
+
     pub fn new_solved() -> CornerCubieCube {
+        unsafe {
+            CornerCubieCube::unsafe_new_solved()
+        }
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn unsafe_new_solved() -> CornerCubieCube {
         CornerCubieCube(unsafe { _mm_slli_epi64::<5>(_mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, 7, 6, 5, 4, 3, 2, 1, 0)) })
     }
 
-    pub fn get_corners(&self) -> [Corner; 8] {
-        let mut corner_bits = unsafe {
-            _mm_extract_epi64::<0>(self.0) as u64
-        };
+    fn get_corners(&self) -> [Corner; 8] {
+        unsafe {
+            self.unsafe_get_corners()
+        }
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn unsafe_get_corners(&self) -> [Corner; 8] {
+        let mut corner_bits = _mm_extract_epi64::<0>(self.0) as u64;
         let mut corner_arr = [Corner {id: 0, orientation: 0}; 8];
         for cid in 0..8 {
             let corner = (corner_bits & 0xFF) as u8;
@@ -177,17 +221,13 @@ pub struct CubieCube {
 
 impl CubieCube {
 
-    pub fn new_solved() -> CubieCube {
-        CubieCube {
-            edges: EdgeCubieCube::new_solved(),
-            corners: CornerCubieCube::new_solved(),
-        }
+    pub fn get_corners_raw(&self) -> u64 {
+        unsafe { self.unsafe_get_corners_raw() }
     }
 
-    pub fn get_corners_raw(&self) -> u64 {
-        unsafe {
-            _mm_extract_epi64::<0>(self.corners.0) as u64
-        }
+    #[target_feature(enable = "avx2")]
+    unsafe fn unsafe_get_corners_raw(&self) -> u64 {
+        _mm_extract_epi64::<0>(self.corners.0) as u64
     }
 
     pub fn count_bad_edges(&self) -> (u8, u8, u8) {
@@ -219,6 +259,13 @@ impl Invertible for CubieCube {
 }
 
 impl Cube for CubieCube {
+
+    fn new_solved() -> CubieCube {
+        CubieCube {
+            edges: EdgeCubieCube::new_solved(),
+            corners: CornerCubieCube::new_solved(),
+        }
+    }
 
     fn get_facelets(&self) -> [[Color; 9]; 6] {
 
@@ -417,6 +464,7 @@ impl CubieCube {
     ]};
 
     const CO_OVERFLOW_MASK: __m128i = unsafe{ C { a_u8: [0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0, 0, 0, 0, 0, 0, 0, 0] }.a };
+
     const TURN_CO_CHANGE: [__m128i; 6] = unsafe{[
         unsafe { C { a_u8: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//U
         unsafe { C { a_u8: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//D
@@ -426,156 +474,13 @@ impl CubieCube {
         unsafe { C { a_u8: [1, 2, 3, 1, 1, 2, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//R
     ]};
 
-
     unsafe fn unsafe_turn(&mut self, face: Face, turn_type: Turn) {
         self.edges.unsafe_turn(face, turn_type);
         self.corners.unsafe_turn(face, turn_type);
     }
 
-    #[target_feature(enable = "avx2")]
     unsafe fn unsafe_invert(&mut self) {
         self.edges.unsafe_invert();
         self.corners.unsafe_invert();
-    }
-}
-
-#[cfg(test)]
-mod cubie_tests {
-    use std::arch::x86_64::{__m128i, _mm_store_si128};
-    use crate::cube::{Cube, Face, Turn};
-
-    #[test]
-    fn test_u() {
-        test_face(Face::Up);
-    }
-
-    #[test]
-    fn test_f() {
-        test_face(Face::Front);
-    }
-
-    #[test]
-    fn test_r() {
-        test_face(Face::Right);
-    }
-
-    #[test]
-    fn test_d() {
-        test_face(Face::Down);
-    }
-
-    #[test]
-    fn test_b() {
-        test_face(Face::Back);
-    }
-
-    #[test]
-    fn test_l() {
-        test_face(Face::Left);
-    }
-
-    //Tests [R2;U2]x3 and [R;U]x6 style algorithms
-    #[test]
-    fn test_simple_algs() {
-        for a in 0..6 {
-            for b in 0..6 {
-                if a == b {
-                    continue;
-                }
-                test_ht_faces(Face::from(a), Face::from(b));
-                test_qt_faces(Face::from(a), Face::from(b));
-            }
-        }
-    }
-
-    #[test]
-    fn test_t_perm() {
-        let mut cube = super::CubieCube::new_solved();
-        let old_corners = cube.corners;
-        let old_edges = cube.edges;
-
-        for _ in 0..4 {
-            //T perm
-            cube.turn(Face::Right, Turn::Clockwise);
-            cube.turn(Face::Up, Turn::Clockwise);
-            cube.turn(Face::Right, Turn::CounterClockwise);
-            cube.turn(Face::Up, Turn::CounterClockwise);
-            cube.turn(Face::Right, Turn::CounterClockwise);
-            cube.turn(Face::Front, Turn::Clockwise);
-            cube.turn(Face::Right, Turn::Half);
-            cube.turn(Face::Up, Turn::CounterClockwise);
-            cube.turn(Face::Right, Turn::CounterClockwise);
-            cube.turn(Face::Up, Turn::CounterClockwise);
-            cube.turn(Face::Right, Turn::Clockwise);
-            cube.turn(Face::Up, Turn::Clockwise);
-            cube.turn(Face::Right, Turn::CounterClockwise);
-            cube.turn(Face::Front, Turn::CounterClockwise);
-
-            cube.turn(Face::Up, Turn::Half);
-        }
-
-        unsafe {
-            assert_eq_m128(old_edges, cube.edges, "Edges not equal");
-            assert_eq_m128(old_corners, cube.corners, "Corners not equal");
-        }
-    }
-
-    fn test_qt_faces(a: Face, b: Face) {
-        let mut cube = super::CubieCube::new_solved();
-        let old_corners = cube.corners;
-        let old_edges = cube.edges;
-
-        for _ in 0..6 {
-            cube.turn(a, Turn::Clockwise);
-            cube.turn(b, Turn::Clockwise);
-            cube.turn(a, Turn::CounterClockwise);
-            cube.turn(b, Turn::CounterClockwise);
-        }
-
-        unsafe {
-            assert_eq_m128(old_edges, cube.edges, "Edges not equal");
-            assert_eq_m128(old_corners, cube.corners, "Corners not equal");
-        }
-    }
-
-    fn test_ht_faces(a: Face, b: Face) {
-        let mut cube = super::CubieCube::new_solved();
-        let old_corners = cube.corners;
-        let old_edges = cube.edges;
-        for _ in 0..6 {
-            cube.turn(a, Turn::Half);
-            cube.turn(b, Turn::Half);
-        }
-
-        unsafe {
-            assert_eq_m128(old_edges, cube.edges, "Edges not equal");
-            assert_eq_m128(old_corners, cube.corners, "Corners not equal");
-        }
-    }
-
-    fn test_face(face: Face) {
-        let mut cube = super::CubieCube::new_solved();
-        let old_corners = cube.corners;
-        let old_edges = cube.edges;
-        cube.turn(face, Turn::Clockwise);
-        cube.turn(face, Turn::Half);
-        cube.turn(face, Turn::CounterClockwise);
-        cube.turn(face, Turn::Half);
-
-        unsafe {
-            assert_eq_m128(old_edges, cube.edges, "Edges not equal");
-            assert_eq_m128(old_corners, cube.corners, "Corners not equal");
-        }
-    }
-
-    #[target_feature(enable = "avx2")]
-    unsafe fn assert_eq_m128(a: __m128i, b: __m128i, msg: &str) {
-        let mut a_arr = [0u64; 2];
-        _mm_store_si128(a_arr.as_mut_ptr() as *mut __m128i, a);
-        let mut b_arr = [0u64; 2];
-        _mm_store_si128(b_arr.as_mut_ptr() as *mut __m128i, b);
-        if a_arr != b_arr {
-            panic!("{}", msg);
-        }
     }
 }

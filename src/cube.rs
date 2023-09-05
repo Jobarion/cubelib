@@ -8,7 +8,7 @@ use crate::cube::Turn::*;
 pub const FACES: [Face; 6] = [Up, Down, Front, Back, Left, Right];
 pub const TURNS: [Turn; 3] = [Clockwise, CounterClockwise, Half];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Face {
     Up = 0,
     Down = 1,
@@ -62,7 +62,7 @@ impl<T, const N: usize> IndexMut<Face> for [T; N] {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Move(pub Face, pub Turn);
 
 impl Move {
@@ -182,7 +182,7 @@ impl From<u32> for Face {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Turn {
     Clockwise = 0,
     Half = 1,
@@ -199,6 +199,7 @@ pub trait Invertible {
 }
 
 pub trait Cube: Display + Turnable + Invertible {
+    fn new_solved() -> Self;
     fn get_facelets(&self) -> [[Color; 9]; 6];
     fn apply(&mut self, alg: &Algorithm) {
         for m in &alg.normal_moves {

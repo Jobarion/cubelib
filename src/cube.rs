@@ -18,6 +18,19 @@ pub enum Face {
     Right = 5,
 }
 
+impl Face {
+    pub fn opposite(&self) -> Self {
+        match self {
+            Up => Down,
+            Down => Up,
+            Front => Back,
+            Back => Front,
+            Left => Right,
+            Right => Left,
+        }
+    }
+}
+
 impl TryFrom<char> for Face {
     type Error = ();
 
@@ -65,13 +78,44 @@ impl<T, const N: usize> IndexMut<Face> for [T; N] {
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Move(pub Face, pub Turn);
 
+impl Into<usize> for &Move {
+    fn into(self) -> usize {
+        self.to_id()
+    }
+}
+
 impl Move {
+
+    pub const U: Move =  Move(Up, Clockwise);
+    pub const U2: Move = Move(Up, Half);
+    pub const Ui: Move = Move(Up, CounterClockwise);
+    pub const D: Move =  Move(Down, Clockwise);
+    pub const D2: Move = Move(Down, Half);
+    pub const Di: Move = Move(Down, CounterClockwise);
+    pub const F: Move =  Move(Front, Clockwise);
+    pub const F2: Move = Move(Front, Half);
+    pub const Fi: Move = Move(Front, CounterClockwise);
+    pub const B: Move =  Move(Back, Clockwise);
+    pub const B2: Move = Move(Back, Half);
+    pub const Bi: Move = Move(Back, CounterClockwise);
+    pub const R: Move =  Move(Right, Clockwise);
+    pub const R2: Move = Move(Right, Half);
+    pub const Ri: Move = Move(Right, CounterClockwise);
+    pub const L: Move =  Move(Left, Clockwise);
+    pub const L2: Move = Move(Left, Half);
+    pub const Li: Move = Move(Left, CounterClockwise);
+
+
     pub fn invert(&self) -> Move {
         match *self {
             Move(face, Clockwise) => Move(face, CounterClockwise),
             Move(face, CounterClockwise) => Move(face, Clockwise),
             Move(face, Half) => Move(face, Half),
         }
+    }
+
+    pub const fn to_id(&self) -> usize {
+        self.0 as usize * TURNS.len() + self.1 as usize
     }
 }
 

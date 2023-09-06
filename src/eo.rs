@@ -7,13 +7,14 @@ use std::str::FromStr;
 use crate::algs::Algorithm;
 use crate::alignment::AlignedU64;
 use crate::coord::{Coord, EOCoord, EOCoordSingle};
-use crate::cube::{Cube, FACES, Invertible, Move, Turn, Turnable, TURNS};
+use crate::cube::{Cube, Face, FACES, Invertible, Move, Turn, Turnable, TURNS};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cubie::{CubieCube, EdgeCubieCube};
 use crate::df_search;
 use crate::df_search::{dfs_iter};
 use crate::lookup_table::Table;
+use crate::moveset::{MoveSet, Transition, TransitionTable};
 
 
 pub const UD_EO_STATE_CHANGE_MOVES: [Move; 4] = [
@@ -58,43 +59,64 @@ pub const RL_EO_MOVES: [Move; 14] = [
     Move(Right, Half),
 ];
 
-pub fn eo_state_iter<C: Turnable + Invertible + EOCount + Clone + Copy>(cube: &C) -> impl Iterator<Item = Algorithm> + '_ {
-    dfs_iter(UD_EO_STATE_CHANGE_MOVES, UD_EO_MOVES, Rc::new(|c: &C|{
-        let (ud, fr, lr) = c.count_bad_edges();
-        // let h = min(eo_heuristic(ud) + UD, eo_heuristic(fr) + FR);
-        // let h: u8 = min(h, eo_heuristic(lr) + LR);
-        // h as u32
-        if ud == 0 { 0 } else { 1 }
+pub const EO_UD_MOVESET: MoveSet<4, 14> = MoveSet {
+    st_moves: UD_EO_STATE_CHANGE_MOVES,
+    aux_moves: UD_EO_MOVES,
+    transitions: eo_transitions(Up)
+};
+
+pub const EO_FB_MOVESET: MoveSet<4, 14> = MoveSet {
+    st_moves: FB_EO_STATE_CHANGE_MOVES,
+    aux_moves: FB_EO_MOVES,
+    transitions: eo_transitions(Front)
+};
+
+pub const EO_RL_MOVESET: MoveSet<4, 14> = MoveSet {
+    st_moves: RL_EO_STATE_CHANGE_MOVES,
+    aux_moves: RL_EO_MOVES,
+    transitions: eo_transitions(Left)
+};
+
+const BAD_EDGES_MIN_MOVES: [u8; 13] = [0, 99, 3, 99, 1, 99, 3, 99, 2, 99, 6, 99, 8];
+
+pub fn eo_ud_state_iter<C: Turnable + Invertible + EOCount + Clone + Copy + Display>(cube: &C) -> impl Iterator<Item = Algorithm> + '_ {
+    dfs_iter(&EO_UD_MOVESET, Rc::new(|c: &C|{
+        let (ud, _, _) = c.count_bad_edges();
+        BAD_EDGES_MIN_MOVES[ud as usize] as u32
     }), cube.clone(), true)
 }
 
-pub fn eo_state_iter_table<'a, C: Turnable + Invertible + Clone + Copy + 'a>(cube: &'a C, table: &'a Table<2048, EOCoordSingle>) -> impl Iterator<Item = Algorithm> + 'a
+pub fn eo_ud_iter_table_heuristic<'a, C: Turnable + Invertible + Clone + Copy + 'a>(cube: &'a C, table: &'a Table<2048, EOCoordSingle>) -> impl Iterator<Item = Algorithm> + 'a
     where EOCoord: for<'x> From<&'x C> {
     let h = Rc::new(move |c: &C|{
-        let EOCoord(udc, fbc, rlc) = EOCoord::from(c);
-        // println!("{:?}", udc);
+        let EOCoord(udc, _, _) = EOCoord::from(c);
         let ud = table.get(udc).unwrap();
-        // let fb = table.get(fbc).unwrap();
-        // let rl = table.get(rlc).unwrap();
-        // min(ud, min(fb, rl)) as u32
         ud as u32
     });
-    dfs_iter(UD_EO_STATE_CHANGE_MOVES, UD_EO_MOVES, h, cube.clone(), true)
+    dfs_iter(&EO_UD_MOVESET, h, cube.clone(), true)
 }
 
-// pub fn eo_state_iter_table<'a, const UD: u8, const FR: u8, const LR: u8, C: Turnable + Invertible + Clone + Copy>(cube: &'a C, table: &'a Table<2047, &EOCoordSingle>) -> impl Iterator<Item = Algorithm> + 'a where EOCoord: for<'c> From<&'c C> {
-//     dfs_iter(df_search::ALL_MOVES, &|c: &C|{
-//         let EOCoord(udc, fbc, rlc) = EOCoord::from(c);
-//         // let ud = table.get(&udc).unwrap();
-//         // let fb = table.get(&fbc).unwrap();
-//         // let rl = table.get(&rlc).unwrap();
-//         //
-//         // min(ud, min(fb, rl)) as u32
-//     }, &cube, false)
-// }
+pub fn filter_eo_last_moves_pure(alg: &Algorithm) -> bool {
+    filter_last_moves_pure(&alg.normal_moves) && filter_last_moves_pure(&alg.inverse_moves)
+}
 
-pub fn eo_heuristic(bad_edges: u8) -> u8 {
-    (bad_edges + 2) / 4 + (bad_edges % 4) / 2
+fn filter_last_moves_pure(vec: &Vec<Move>) -> bool {
+    match vec.len() {
+        0 => true,
+        1 => vec[0].1 != CounterClockwise,
+        n => {
+            if vec[n - 1].1 == CounterClockwise {
+                false
+            } else {
+                if vec[n - 1].0.opposite() == vec[n - 2].0 {
+                    vec[n - 2].1 != CounterClockwise
+                }
+                else {
+                    true
+                }
+            }
+        } ,
+    }
 }
 
 pub trait EOCount {
@@ -116,4 +138,19 @@ impl EOCount for EdgeCubieCube {
         let rl = (edges[0] & CubieCube::BAD_EDGE_MASK_RL).count_ones() + (edges[1] & CubieCube::BAD_EDGE_MASK_RL).count_ones();
         (ud as u8, fb as u8, rl as u8)
     }
+}
+
+const fn eo_transitions(axis_face: Face) -> [TransitionTable; 18] {
+    let mut transitions = [TransitionTable::new(0, 0); 18];
+    let mut i = 0;
+    while i < FACES.len() {
+        transitions[Move(FACES[i], Clockwise).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[FACES[i] as usize], TransitionTable::ANY);
+        transitions[Move(FACES[i], Half).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[FACES[i] as usize], TransitionTable::ANY);
+        transitions[Move(FACES[i], CounterClockwise).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[FACES[i] as usize], TransitionTable::ANY);
+        i += 1;
+    }
+    i = 0;
+    transitions[Move(axis_face, Half).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[axis_face as usize], TransitionTable::except_moves_to_mask([Move(axis_face.opposite(), Clockwise), Move(axis_face.opposite(), CounterClockwise)]));
+    transitions[Move(axis_face.opposite(), Half).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[axis_face.opposite() as usize], TransitionTable::except_moves_to_mask([Move(axis_faces, Clockwise), Move(axis_faces CounterClockwise)]));
+    transitions
 }

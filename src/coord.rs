@@ -300,3 +300,42 @@ impl From<&[Edge; 12]> for EPCoord {
         EPCoord(ep)
     }
 }
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct UDSliceUnsortedCoord(pub u16);
+
+impl Coord<495> for UDSliceUnsortedCoord {
+    fn val(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Into<usize> for UDSliceUnsortedCoord {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl From<&[Edge; 12]> for UDSliceUnsortedCoord {
+    fn from(value: &[Edge; 12]) -> Self {
+        let mut ep = 0_u32;
+        let factorial = [1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800];
+
+        for i in 1..12 {
+            let mut higher = 0;
+            for j in 0..i {
+                if value[i].id < value[j].id {
+                    higher += 1;
+                }
+            }
+            ep += factorial[i - 1] * higher;
+        }
+        EPCoord(ep)
+    }
+}
+
+const FACTORIAL: [u32; 11] = [1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800];
+
+fn binomial(n: u8, k: u8) -> u16 {
+
+}

@@ -2,6 +2,7 @@ extern crate core;
 
 use std::cmp::{max, min};
 use std::collections::HashSet;
+use std::primitive;
 use std::str::FromStr;
 use std::time::Instant;
 use crate::algs::Algorithm;
@@ -11,6 +12,7 @@ use crate::cubie::{CubieCube, EdgeCubieCube};
 use crate::df_search::{ALL_MOVES, MoveSkipTracker};
 use crate::eo::EOCount;
 use crate::lookup_table::Table;
+use crate::moveset::TransitionTable;
 use crate::stream::gen_moves;
 // use crate::cubie::CubieCube;
 
@@ -27,26 +29,35 @@ mod lookup_table;
 mod stream;
 mod co;
 mod rzp;
+mod moveset;
 
 fn main() {
 
-    let table = lookup_table::generate(&|c: &CubieCube| EOCoord::from(&c.edges).0);
+    let eoud_table = lookup_table::generate(&|c: &CubieCube| EOCoord::from(&c.edges).0);
+
+    let eoud_drfb_table = lookup_table::generate(&|c: &CubieCube| {
+        let eo_data = EOCoord::from(&c.edges);
+        let co_data = COCoordUD::from(&c.corners);
+        EOCoord::from(&c.edges).0
+    });
+
 
     let time = Instant::now();
 
-    let scramble = Algorithm { normal_moves: algs::parse_algorithm("U"), inverse_moves: vec![] };
+    let scramble = Algorithm { normal_moves: algs::parse_algorithm("D"), inverse_moves: vec![] };
     let mut cube = cubie::CubieCube::new_solved();
     cube.apply(&scramble);
 
 
-    // let a: Vec<Algorithm> = eo::eo_state_iter::<CubieCube>(&cube)
-    //     .take_while(|eo|eo.len() <= 1)
+    // let a: Vec<Algorithm> = eo::eo_ud_state_iter::<CubieCube>(&cube)
+    //     .take_while(|eo|eo.len() <= 5)
     //     .collect();
     // println!("Count 1: {}", a.len());
 
 
-    let b: Vec<Algorithm> = eo::eo_state_iter_table(&cube.edges, &table)
+    let b: Vec<Algorithm> = eo::eo_ud_iter_table_heuristic(&cube.edges, &eoud_table)
         .take_while(|eo|eo.len() <= 3)
+        .filter(|alg| eo::filter_eo_last_moves_pure(&alg))
         .collect();
     println!("Count 2: {}", b.len());
 
@@ -65,15 +76,10 @@ fn main() {
     // for alg_a in a.into_iter() {
     //     a_set.insert(alg_a);
     // }
-    // //
-    // //
-    // //
-    // //
     // let mut b_set: HashSet<Algorithm> = HashSet::new();
     // for alg_b in b.into_iter() {
     //     b_set.insert(alg_b);
     // }
-    //
     // for a in a_set.iter() {
     //     if !b_set.contains(&a) {
     //         let mut c = cube.clone();
@@ -81,7 +87,6 @@ fn main() {
     //         println!("Mismatch not in b: {a} {:?}", c.count_bad_edges());
     //     }
     // }
-    // //
     // for b in b_set.iter() {
     //     if !a_set.contains(&b) {
     //         println!("Mismatch not in a: {b}");

@@ -89,11 +89,6 @@ pub fn generate<const CoordSize: usize, Mapper, CubeParam: Cube + Clone, CoordPa
         if to_check.is_empty() {
             break;
         }
-        // else if depth == 4 {
-        //     for (coord, cube) in to_check.iter().sorted_by(|(a, _), (b, _)| a.val().cmp(&b.val())) {
-        //         println!("\t{:?}", coord);
-        //     }
-        // }
     }
     table
 }

@@ -37,10 +37,9 @@ impl EdgeCubieCube {
     #[target_feature(enable = "avx2")]
     unsafe fn unsafe_get_edges_raw(&self) -> [u64; 2] {
         let mut a_arr = AlignedU64([0u64; 2]).0;
-        unsafe {
-            _mm_store_si128(a_arr.as_mut_ptr() as *mut __m128i, self.0);
-            a_arr
-        }
+        _mm_store_si128(a_arr.as_mut_ptr() as *mut __m128i, self.0);
+        a_arr[1] &= CubieCube::VALID_EDGE_MASK_HI;
+        a_arr
     }
 
     #[target_feature(enable = "avx2")]
@@ -355,6 +354,7 @@ impl CubieCube {
     pub(crate) const BAD_EDGE_MASK_UD: u64 = 0x0808080808080808;
     pub(crate) const BAD_EDGE_MASK_FB: u64 = 0x0404040404040404;
     pub(crate) const BAD_EDGE_MASK_RL: u64 = 0x0202020202020202;
+    pub(crate) const VALID_EDGE_MASK_HI: u64 = 0x00000000FFFFFFFF;
 
     pub const CORNER_COLORS: [[Color; 3]; 8] = [
         [White, Orange, Blue],

@@ -1,22 +1,21 @@
-extern crate core;
-
 use std::cmp::{max, min};
 use std::collections::HashSet;
-use std::primitive;
+use std::ops::Add;
+use std::{primitive, thread};
 use std::str::FromStr;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+use itertools::Itertools;
 use crate::algs::Algorithm;
-use crate::coord::{COCoordUD, Coord, CPCoord, EOCoord, EOCoordSingle, EPCoord};
-use crate::cube::{Cube, Face, Move, Turn, Turnable};
+use crate::coord::{COCoordUD, Coord, CPCoord, EOCoordAll, EOCoordUD, EOUDDRFBCoord, EPCoord, UDSliceUnsortedCoord};
+use crate::cube::{Cube, Face, Move, NewSolved, Turn, Turnable};
 use crate::cubie::{CubieCube, EdgeCubieCube};
-use crate::df_search::{ALL_MOVES, MoveSkipTracker};
+use crate::df_search::{ALL_MOVES, dfs_iter, MoveSkipTracker};
 use crate::eo::EOCount;
-use crate::lookup_table::Table;
+use crate::lookup_table::{dfs_table_heuristic, Table};
 use crate::moveset::TransitionTable;
-use crate::stream::gen_moves;
+use crate::stream::DFSAlgIter;
 // use crate::cubie::CubieCube;
 
-mod facelet;
 mod cube;
 mod cubie;
 mod eo;
@@ -26,114 +25,82 @@ mod dr;
 mod alignment;
 mod coord;
 mod lookup_table;
-mod stream;
 mod co;
-mod rzp;
 mod moveset;
+mod stream;
+mod htr;
 
 fn main() {
-
-    let eoud_table = lookup_table::generate(&|c: &CubieCube| EOCoord::from(&c.edges).0);
-
-    let eoud_drfb_table = lookup_table::generate(&|c: &CubieCube| {
-        let eo_data = EOCoord::from(&c.edges);
-        let co_data = COCoordUD::from(&c.corners);
-        EOCoord::from(&c.edges).0
-    });
-
-
     let time = Instant::now();
 
-    let scramble = Algorithm { normal_moves: algs::parse_algorithm("D"), inverse_moves: vec![] };
+    let eofb_table = lookup_table::generate(&eo::EO_FB_MOVESET, &|c: &CubieCube| EOCoordAll::from(&c.edges).1);
+    let eofb_drlr_table = lookup_table::generate(&dr::EO_FB_DR_UD_MOVESET, &|c: &CubieCube| EOUDDRFBCoord::from(c));
+
+    println!("Took {}ms", time.elapsed().as_millis());
+
+
     let mut cube = cubie::CubieCube::new_solved();
+
+    let scramble = Algorithm { normal_moves: algs::parse_algorithm("R' U' F U F2 D U2 L2 D R2 U' L2 R U' F2 L' U2 L' F' L2 U2 L F R' U' F"), inverse_moves: vec![] };
     cube.apply(&scramble);
 
+    let mut eo_stage = dfs_table_heuristic(&eo::EO_FB_MOVESET, &eofb_table, cube.edges, 0, 5, true)
 
-    // let a: Vec<Algorithm> = eo::eo_ud_state_iter::<CubieCube>(&cube)
-    //     .take_while(|eo|eo.len() <= 5)
-    //     .collect();
-    // println!("Count 1: {}", a.len());
+        // .skip(24)
+        ;
 
-
-    let b: Vec<Algorithm> = eo::eo_ud_iter_table_heuristic(&cube.edges, &eoud_table)
-        .take_while(|eo|eo.len() <= 3)
-        .filter(|alg| eo::filter_eo_last_moves_pure(&alg))
-        .collect();
-    println!("Count 2: {}", b.len());
-
-    for x in b.iter() {
-        // let mut cube = cube.clone();
-        // cube.apply(&x);
-        println!("{x}");
-    }
-    //
-    // // println!("{}", "\n".repeat(5));
-    //
-    // // println!("???");
-    // // println!("{cube}");
-    //
-    // let mut a_set: HashSet<Algorithm> = HashSet::new();
-    // for alg_a in a.into_iter() {
-    //     a_set.insert(alg_a);
-    // }
-    // let mut b_set: HashSet<Algorithm> = HashSet::new();
-    // for alg_b in b.into_iter() {
-    //     b_set.insert(alg_b);
-    // }
-    // for a in a_set.iter() {
-    //     if !b_set.contains(&a) {
-    //         let mut c = cube.clone();
-    //         c.apply(&a);
-    //         println!("Mismatch not in b: {a} {:?}", c.count_bad_edges());
-    //     }
-    // }
-    // for b in b_set.iter() {
-    //     if !a_set.contains(&b) {
-    //         println!("Mismatch not in a: {b}");
-    //     }
+    // for x in eo_stage {
+    //     println!("{x}");
     // }
 
-    // let edge_cube = cube.edges;
-    // let count = eo::eo_state_iter_table::<0, 0, 0, EdgeCubieCube>(&edge_cube, &eo_table)
-    //     .take_while(|eo|eo.len() <= 5)
-    //     .count();
-    // println!("Count table {}", count);
 
-
-    // let rzp = eo::any_eo_iter(&cube)
-    //     .take_while(|eo|eo.len() <= 5)
-    //     .flat_map(|eo_alg| {
-    //         let mut cube = cube.clone();
-    //         cube.apply(&eo_alg);
-    //         let rzp_length = min(6 - eo_alg.len(), 2);
+    let dr_stage = stream::next_stage(eo_stage, |alg, depth|{
+        let mut eo_cube = cube.clone();
+        eo_cube.apply(&alg);
+        dfs_table_heuristic(&dr::EO_FB_DR_UD_MOVESET, &eofb_drlr_table, eo_cube, depth, depth, false)
+            .map(move |dr|alg.clone().add(dr))
+    }).filter(|alg| eo::filter_eo_last_moves_pure(&alg));
+    dr_stage.take(10).for_each(|alg|println!("{alg} {}", alg.len()));
     //
-    //         let eo = cube.edges.count_bad_edges();
-    //         let eo = (eo.0 == 0, eo.1 == 0, eo.2 == 0);
+    // println!("\n\n\n");
     //
-    //         let ud = eo.0.then_some(gen_moves::<CubieCube, 14>(UD_EO_MOVES, rzp_length)(eo_alg.clone())).into_iter().flatten();
-    //         let fb = eo.1.then_some(gen_moves::<CubieCube, 14>(FB_EO_MOVES, rzp_length)(eo_alg.clone())).into_iter().flatten();
-    //         let rl = eo.2.then_some(gen_moves::<CubieCube, 14>(RL_EO_MOVES, rzp_length)(eo_alg.clone())).into_iter().flatten();
-    //
-    //         ud.chain(fb).chain(rl)
+    // let solutions: Vec<Algorithm> = dfs_table_heuristic(&eo::EO_FB_MOVESET, &eofb_table, cube.edges, 0, 20, true)
+    //     .filter(|alg| eo::filter_eo_last_moves_pure(&alg))
+    //     .take_while(|alg| alg.len() <= 5)
+    //     .flat_map(|eo| {
+    //         let mut eo_cube = cube.clone();
+    //         let eo_clone = eo.clone();
+    //         eo_cube.apply(&eo);
+    //         dfs_table_heuristic(&dr::EO_FB_DR_LR_MOVESET, &eofb_drlr_table, eo_cube, 0, 20, false)
+    //             .filter(|alg| eo::filter_eo_last_moves_pure(&alg))
+    //             .take_while(move |dr|dr.len() + eo_clone.len() <= 14)
+    //             .take(1)
+    //             .map(move |dr|eo.clone().add(dr))
     //     })
-    //     .count();
-    // println!("RZP count {}", rzp);
+    //     .sorted_by(|dr1, dr2|dr1.len().cmp(&dr2.len()))
+    //     .collect();
+    // for dr in solutions {
+    //     println!("{dr} {}", dr.len());
+    // }
 
-    // let a = lookup_table::generate(&|c: &CubieCube| EOCoord::from(c.edges));
-    // println!("{:?}", a.get(EOCoord::from(cube.edges)));
-
-    // println!("{}", CubieCube::CORNER_COLORS[5][1]);
-
-
-    // println!("{:?}", EPCoord::from(cube.edges));
-    // cube.turn(Move::from_str("D").unwrap());
+    // println!("Using UD-EO {}", eo);
+    //
+    // println!("{:?}", EOUDDRFBCoord::from(&cube));
+    //
+    // cube.apply(&eo);
+    //
+    // let dr = dr::eo_fb_dr_ud_iter_table_heuristic(&cube, &eofb_drlr_table)
+    //     .next()
+    //     .unwrap();
+    //
+    // println!("Using DR {}", dr);
+    //
+    // cube.apply(&dr);
+    //
     // println!("{}", cube);
-    // println!("{:?}", EPCoord::from(cube.edges));
-    let moves = algs::parse_algorithm("U R F B D B L F' U' B' R' D' L' ".repeat(10).as_str());
-    let mut sum = 0_u32;
-
-
-    println!("{}", sum);
+    //
+    // println!("{:?}", EOUDDRFBCoord::from(&cube));
+    // println!("{:?}", COCoordUD::from(&cube.corners));
 
     println!("Took {}ms", time.elapsed().as_millis());
 }

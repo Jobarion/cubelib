@@ -17,10 +17,11 @@ pub fn dfs_iter<'a, const SC_SIZE: usize, const AUX_SIZE: usize, C: Turnable + I
     move_set: &'a MoveSet<SC_SIZE, AUX_SIZE>,
     heuristic: Rc<H>,
     cube: C,
-    allow_niss: bool) -> impl Iterator<Item = Algorithm> + 'a where H: Fn(&C) -> u32 + 'a {
-    (0..20).into_iter()
+    min_moves: u8,
+    max_moves: u8,
+    allow_niss: bool) -> impl Iterator<Item = Algorithm> + 'a where H: Fn(&C) -> u8 + 'a {
+    (min_moves..=max_moves).into_iter()
         .flat_map(move |depth| {
-            println!("Analyzing depth {}", depth);
             next_dfs_level(move_set, heuristic.clone(), cube.clone(), depth, true, allow_niss, None)
                 .map(|alg| alg.reverse())
         })
@@ -30,10 +31,10 @@ fn next_dfs_level<'a, const SC_SIZE: usize, const AUX_SIZE: usize, C: Turnable +
     move_set: &'a MoveSet<SC_SIZE, AUX_SIZE>,
     heuristic: Rc<H>,
     mut cube: C,
-    depth: u32,
+    depth: u8,
     can_invert: bool,
     invert_allowed: bool,
-    previous: Option<Move>) -> Box<dyn Iterator<Item = Algorithm> + 'a> where H: Fn(&C) -> u32 + 'a {
+    previous: Option<Move>) -> Box<dyn Iterator<Item = Algorithm> + 'a> where H: Fn(&C) -> u8 + 'a {
 
     let lower_bound = if invert_allowed {
         min(1, heuristic(&cube))

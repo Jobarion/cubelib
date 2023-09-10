@@ -1,8 +1,8 @@
 use std::arch::x86_64::{__m128i, __m256i, _mm_add_epi8, _mm_and_si128, _mm_andnot_si128, _mm_extract_epi64, _mm_load_si128, _mm_loadl_epi64, _mm_or_si128, _mm_set1_epi8, _mm_set_epi64x, _mm_set_epi8, _mm_shuffle_epi8, _mm_slli_epi32, _mm_slli_epi64, _mm_srli_epi16, _mm_srli_epi32, _mm_store_si128, _mm_sub_epi8, _mm_xor_si128};
 use std::fmt::{Display, Formatter};
 use crate::alignment::{AlignedU64, AlignedU8, C};
-use crate::coord::EOCoord;
-use crate::cube::{Color, Corner, CornerPosition, Cube, Edge, EdgePosition, Face, Invertible, Move, Turn, Turnable};
+use crate::coord::EOCoordAll;
+use crate::cube::{Color, Corner, CornerPosition, Cube, Edge, EdgePosition, Face, Invertible, Move, NewSolved, Turn, Turnable};
 use crate::cube::Color::*;
 use crate::cube::EdgePosition::*;
 use crate::cube::CornerPosition::*;
@@ -15,12 +15,6 @@ use crate::eo::EOCount;
 pub struct EdgeCubieCube(pub __m128i);
 
 impl EdgeCubieCube {
-
-    pub fn new_solved() -> EdgeCubieCube {
-        unsafe {
-            EdgeCubieCube::unsafe_new_solved()
-        }
-    }
 
     pub fn get_edges(&self) -> [Edge; 12] {
         unsafe {
@@ -104,6 +98,8 @@ impl EdgeCubieCube {
 }
 
 impl Turnable for EdgeCubieCube {
+
+    #[inline]
     fn turn(&mut self, m: Move) {
         let Move(face, turn) = m;
         unsafe {
@@ -113,6 +109,8 @@ impl Turnable for EdgeCubieCube {
 }
 
 impl Invertible for EdgeCubieCube {
+
+    #[inline]
     fn invert(&mut self) {
         unsafe {
             self.unsafe_invert();
@@ -120,7 +118,19 @@ impl Invertible for EdgeCubieCube {
     }
 }
 
+impl NewSolved for EdgeCubieCube {
+
+    #[inline]
+    fn new_solved() -> Self {
+        unsafe {
+            Self::unsafe_new_solved()
+        }
+    }
+}
+
 impl Turnable for CornerCubieCube {
+
+    #[inline]
     fn turn(&mut self, m: Move) {
         let Move(face, turn) = m;
         unsafe {
@@ -130,9 +140,21 @@ impl Turnable for CornerCubieCube {
 }
 
 impl Invertible for CornerCubieCube {
+
+    #[inline]
     fn invert(&mut self) {
         unsafe {
             self.unsafe_invert();
+        }
+    }
+}
+
+impl NewSolved for CornerCubieCube {
+
+    #[inline]
+    fn new_solved() -> Self {
+        unsafe {
+            Self::unsafe_new_solved()
         }
     }
 }
@@ -144,13 +166,8 @@ pub struct CornerCubieCube(pub __m128i);
 
 impl CornerCubieCube {
 
-    pub fn new_solved() -> CornerCubieCube {
-        unsafe {
-            CornerCubieCube::unsafe_new_solved()
-        }
-    }
-
     #[target_feature(enable = "avx2")]
+    #[inline]
     unsafe fn unsafe_new_solved() -> CornerCubieCube {
         CornerCubieCube(unsafe { _mm_slli_epi64::<5>(_mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, 7, 6, 5, 4, 3, 2, 1, 0)) })
     }
@@ -162,6 +179,7 @@ impl CornerCubieCube {
     }
 
     #[target_feature(enable = "avx2")]
+    #[inline]
     unsafe fn unsafe_get_corners(&self) -> [Corner; 8] {
         let mut corner_bits = _mm_extract_epi64::<0>(self.0) as u64;
         let mut corner_arr = [Corner {id: 0, orientation: 0}; 8];
@@ -174,6 +192,7 @@ impl CornerCubieCube {
     }
 
     #[target_feature(enable = "avx2")]
+    #[inline]
     unsafe fn unsafe_turn(&mut self, face: Face, turn_type: Turn) {
         self.0 = _mm_shuffle_epi8(self.0, CubieCube::TURN_CORNER_SHUFFLE[face as usize][turn_type as usize]);
         if turn_type != Turn::Half {
@@ -188,6 +207,7 @@ impl CornerCubieCube {
     }
 
     #[target_feature(enable = "avx2")]
+    #[inline]
     unsafe fn unsafe_invert(&mut self) {
         let mut corner_ids = unsafe {
             (_mm_extract_epi64::<0>(_mm_srli_epi32::<5>(_mm_and_si128(self.0, _mm_set1_epi8(0xE0_u8 as i8)))) as u64).to_le_bytes()
@@ -241,6 +261,8 @@ impl Display for CubieCube {
 }
 
 impl Turnable for CubieCube {
+
+    #[inline]
     fn turn(&mut self, m: Move) {
         let Move(face, turn) = m;
         unsafe {
@@ -250,6 +272,8 @@ impl Turnable for CubieCube {
 }
 
 impl Invertible for CubieCube {
+
+    #[inline]
     fn invert(&mut self) {
         unsafe {
             self.unsafe_invert();
@@ -257,14 +281,18 @@ impl Invertible for CubieCube {
     }
 }
 
-impl Cube for CubieCube {
+impl NewSolved for CubieCube {
 
+    #[inline]
     fn new_solved() -> CubieCube {
         CubieCube {
             edges: EdgeCubieCube::new_solved(),
             corners: CornerCubieCube::new_solved(),
         }
     }
+}
+
+impl Cube for CubieCube {
 
     fn get_facelets(&self) -> [[Color; 9]; 6] {
 
@@ -474,11 +502,13 @@ impl CubieCube {
         unsafe { C { a_u8: [1, 2, 3, 1, 1, 2, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//R
     ]};
 
+    #[inline]
     unsafe fn unsafe_turn(&mut self, face: Face, turn_type: Turn) {
         self.edges.unsafe_turn(face, turn_type);
         self.corners.unsafe_turn(face, turn_type);
     }
 
+    #[inline]
     unsafe fn unsafe_invert(&mut self) {
         self.edges.unsafe_invert();
         self.corners.unsafe_invert();

@@ -6,7 +6,7 @@ use std::rc::Rc;
 use std::str::FromStr;
 use crate::algs::Algorithm;
 use crate::alignment::AlignedU64;
-use crate::coord::{Coord, EOCoord, EOCoordSingle};
+use crate::coord::{Coord, EOCoordAll, EOCoordFB, EOCoordUD};
 use crate::cube::{Cube, Face, FACES, Invertible, Move, Turn, Turnable, TURNS};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
@@ -77,24 +77,14 @@ pub const EO_RL_MOVESET: MoveSet<4, 14> = MoveSet {
     transitions: eo_transitions(Left)
 };
 
-const BAD_EDGES_MIN_MOVES: [u8; 13] = [0, 99, 3, 99, 1, 99, 3, 99, 2, 99, 6, 99, 8];
-
-pub fn eo_ud_state_iter<C: Turnable + Invertible + EOCount + Clone + Copy + Display>(cube: &C) -> impl Iterator<Item = Algorithm> + '_ {
-    dfs_iter(&EO_UD_MOVESET, Rc::new(|c: &C|{
-        let (ud, _, _) = c.count_bad_edges();
-        BAD_EDGES_MIN_MOVES[ud as usize] as u32
-    }), cube.clone(), true)
-}
-
-pub fn eo_ud_iter_table_heuristic<'a, C: Turnable + Invertible + Clone + Copy + 'a>(cube: &'a C, table: &'a Table<2048, EOCoordSingle>) -> impl Iterator<Item = Algorithm> + 'a
-    where EOCoord: for<'x> From<&'x C> {
-    let h = Rc::new(move |c: &C|{
-        let EOCoord(udc, _, _) = EOCoord::from(c);
-        let ud = table.get(udc).unwrap();
-        ud as u32
-    });
-    dfs_iter(&EO_UD_MOVESET, h, cube.clone(), true)
-}
+// const BAD_EDGES_MIN_MOVES: [u8; 13] = [0, 99, 3, 99, 1, 99, 3, 99, 2, 99, 6, 99, 8];
+//
+// pub fn eo_ud_state_iter<'a, C: Turnable + Invertible + EOCount + Clone + Copy + 'a>(cube: C) -> impl Iterator<Item = Algorithm> + 'a {
+//     dfs_iter(&EO_UD_MOVESET, Rc::new(|c: &C|{
+//         let (ud, _, _) = c.count_bad_edges();
+//         BAD_EDGES_MIN_MOVES[ud as usize]
+//     }), cube, 0, 20, true)
+// }
 
 pub fn filter_eo_last_moves_pure(alg: &Algorithm) -> bool {
     filter_last_moves_pure(&alg.normal_moves) && filter_last_moves_pure(&alg.inverse_moves)
@@ -151,6 +141,6 @@ const fn eo_transitions(axis_face: Face) -> [TransitionTable; 18] {
     }
     i = 0;
     transitions[Move(axis_face, Half).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[axis_face as usize], TransitionTable::except_moves_to_mask([Move(axis_face.opposite(), Clockwise), Move(axis_face.opposite(), CounterClockwise)]));
-    transitions[Move(axis_face.opposite(), Half).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[axis_face.opposite() as usize], TransitionTable::except_moves_to_mask([Move(axis_faces, Clockwise), Move(axis_faces CounterClockwise)]));
+    transitions[Move(axis_face.opposite(), Half).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[axis_face.opposite() as usize], TransitionTable::except_moves_to_mask([Move(axis_face, Clockwise), Move(axis_face,CounterClockwise)]));
     transitions
 }

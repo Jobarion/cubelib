@@ -19,7 +19,7 @@ pub enum Face {
 }
 
 impl Face {
-    pub fn opposite(&self) -> Self {
+    pub const fn opposite(&self) -> Self {
         match self {
             Up => Down,
             Down => Up,
@@ -237,13 +237,15 @@ pub trait Turnable {
     fn turn(&mut self, m: Move);
 }
 
+pub trait NewSolved {
+    fn new_solved() -> Self;
+}
 
 pub trait Invertible {
     fn invert(&mut self);
 }
 
-pub trait Cube: Display + Turnable + Invertible {
-    fn new_solved() -> Self;
+pub trait Cube: Display + Turnable + Invertible + NewSolved {
     fn get_facelets(&self) -> [[Color; 9]; 6];
     fn apply(&mut self, alg: &Algorithm) {
         for m in &alg.normal_moves {

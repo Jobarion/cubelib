@@ -50,36 +50,39 @@ pub struct DREOLRStageTable<'a> {
 }
 
 
-pub fn all<'a, C: EOCount + 'a>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> Step<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
-    let eoud_table: Box<dyn StepVariant<'a, 4, 10, C> + 'a> = Box::new(drud_eofb(table));
-    let eofb_table: Box<dyn StepVariant<'a, 4, 10, C> + 'a> = Box::new(drud_eolr(table));
-
-    let v = vec![eoud_table, eofb_table];
-    Step::new(v)
+pub fn dr<'a, C: EOCount + 'a>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> Step<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    Step::new(vec![
+        Box::new(DREOUDStageTable::new_drfb_eoud(&table)),
+        Box::new(DREOUDStageTable::new_drlr_eoud(&table)),
+        Box::new(DREOFBStageTable::new_drud_eofb(&table)),
+        Box::new(DREOFBStageTable::new_drlr_eofb(&table)),
+        Box::new(DREOLRStageTable::new_drfb_eolr(&table)),
+        Box::new(DREOLRStageTable::new_drud_eolr(&table)),
+    ])
 }
 
 
-pub fn drud_eofb<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+pub fn drud_eofb<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<4, 10, C> + 'a where DRUDEOFBCoord: for<'x> From<&'x C> {
     DREOFBStageTable::new_drud_eofb(table)
 }
 
-pub fn drud_eolr<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+pub fn drud_eolr<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<4, 10, C> + 'a where DRUDEOFBCoord: for<'x> From<&'x C> {
     DREOLRStageTable::new_drud_eolr(table)
 }
 
-pub fn drfb_eoud<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+pub fn drfb_eoud<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<4, 10, C> + 'a where DRUDEOFBCoord: for<'x> From<&'x C> {
     DREOUDStageTable::new_drfb_eoud(table)
 }
 
-pub fn drfb_eolr<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+pub fn drfb_eolr<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<4, 10, C> + 'a where DRUDEOFBCoord: for<'x> From<&'x C> {
     DREOLRStageTable::new_drfb_eolr(table)
 }
 
-pub fn drlr_eoud<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+pub fn drlr_eoud<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<4, 10, C> + 'a where DRUDEOFBCoord: for<'x> From<&'x C> {
     DREOUDStageTable::new_drlr_eoud(table)
 }
 
-pub fn drlr_eofb<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+pub fn drlr_eofb<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<4, 10, C> + 'a where DRUDEOFBCoord: for<'x> From<&'x C> {
     DREOFBStageTable::new_drlr_eofb(table)
 }
 
@@ -135,7 +138,7 @@ impl <'a> DREOLRStageTable<'a> {
     }
 }
 
-impl <'a, C: EOCount> StepVariant<'a, 4, 10, C> for DREOUDStageTable<'a> where DRUDEOFBCoord: for<'x> From<&'x C> {
+impl <'a, C: EOCount> StepVariant<4, 10, C> for DREOUDStageTable<'a> where DRUDEOFBCoord: for<'x> From<&'x C> {
     fn move_set(&self) -> &'a MoveSet<4, 10> {
         self.move_set
     }
@@ -150,7 +153,7 @@ impl <'a, C: EOCount> StepVariant<'a, 4, 10, C> for DREOUDStageTable<'a> where D
     }
 }
 
-impl <'a, C: EOCount> StepVariant<'a, 4, 10, C> for DREOFBStageTable<'a> where DRUDEOFBCoord: for<'x> From<&'x C> {
+impl <'a, C: EOCount> StepVariant<4, 10, C> for DREOFBStageTable<'a> where DRUDEOFBCoord: for<'x> From<&'x C> {
     fn move_set(&self) -> &'a MoveSet<4, 10> {
         self.move_set
     }
@@ -165,7 +168,7 @@ impl <'a, C: EOCount> StepVariant<'a, 4, 10, C> for DREOFBStageTable<'a> where D
     }
 }
 
-impl <'a, C: EOCount> StepVariant<'a, 4, 10, C> for DREOLRStageTable<'a> where DRUDEOFBCoord: for<'x> From<&'x C> {
+impl <'a, C: EOCount> StepVariant<4, 10, C> for DREOLRStageTable<'a> where DRUDEOFBCoord: for<'x> From<&'x C> {
     fn move_set(&self) -> &'a MoveSet<4, 10> {
         self.move_set
     }

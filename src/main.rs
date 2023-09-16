@@ -53,11 +53,16 @@ fn main() {
 
     {
         let eo_step = eo::eo(&eofb_table);
+        let dr_step = dr::dr(&drud_eofb_table);
         let eo_solutions = step::first_step(&eo_step, SearchOptions::new(0, 5, NissType::During), cube.edges.clone());
+
+        let dr_solutions = step::next_step(eo_solutions, &dr_step, SearchOptions::new(4, 14, NissType::None), cube.clone());
+
+
         // mem::drop(eo_step);
-        // for a in eo_solutions {
-        //     println!("{a}");
-        // }
+        for a in dr_solutions.take(20) {
+            println!("{a}");
+        }
 
     }
 

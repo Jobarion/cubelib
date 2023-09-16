@@ -156,7 +156,7 @@ impl <'a, C> IsReadyForStep<C> for EOStepTable<'a> where EOCoordFB: for<'x> From
     }
 }
 
-impl <'a, C> StepVariant<'a, 4, 14, C> for EOStepTable<'a> where EOCoordFB: for<'x> From<&'x C> {
+impl <'a, C> StepVariant<4, 14, C> for EOStepTable<'a> where EOCoordFB: for<'x> From<&'x C> {
     fn move_set(&self) -> &'a MoveSet<4, 14> {
         self.move_set
     }

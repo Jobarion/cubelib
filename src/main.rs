@@ -1,17 +1,20 @@
+extern crate core;
+
 use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::ops::Add;
-use std::{primitive, thread};
+use std::{mem, primitive, thread};
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 use itertools::Itertools;
 use crate::algs::Algorithm;
-use crate::coord::{COCoordUD, Coord, CPCoord, EOCoordAll, EOCoordUD, EOUDDRFBCoord, EPCoord, UDSliceUnsortedCoord};
-use crate::cube::{Cube, Face, Move, NewSolved, Turn, Turnable};
+use crate::coord::{COUDCoord, Coord, CPCoord, EOCoordAll, EOCoordUD, DRUDEOFBCoord, EPCoord, UDSliceUnsortedCoord, EOCoordFB};
+use crate::cube::{Axis, Cube, Face, Move, NewSolved, Transformation, Turn, Turnable};
 use crate::cubie::{CubieCube, EdgeCubieCube};
-use crate::df_search::{ALL_MOVES, dfs_iter, MoveSkipTracker};
-use crate::eo::EOCount;
-use crate::lookup_table::{dfs_table_heuristic, Table};
+use crate::df_search::{ALL_MOVES, dfs_iter, MoveSkipTracker, NissType, SearchOptions};
+use crate::step::{first_step, StepVariant};
+use crate::eo::{EOCount, EOStepTable};
+use crate::lookup_table::{PruningTable};
 use crate::moveset::TransitionTable;
 use crate::stream::DFSAlgIter;
 // use crate::cubie::CubieCube;
@@ -29,12 +32,13 @@ mod co;
 mod moveset;
 mod stream;
 mod htr;
+mod step;
 
 fn main() {
     let time = Instant::now();
 
-    let eofb_table = lookup_table::generate(&eo::EO_FB_MOVESET, &|c: &CubieCube| EOCoordAll::from(&c.edges).1);
-    let eofb_drlr_table = lookup_table::generate(&dr::EO_FB_DR_UD_MOVESET, &|c: &CubieCube| EOUDDRFBCoord::from(c));
+    let eofb_table = lookup_table::generate(&eo::EO_FB_MOVESET, &|c: &CubieCube| EOCoordFB::from(&c.edges));
+    let drud_eofb_table = lookup_table::generate(&dr::DR_UD_EO_FB_MOVESET, &|c: &CubieCube| DRUDEOFBCoord::from(c));
 
     println!("Took {}ms", time.elapsed().as_millis());
 
@@ -42,9 +46,31 @@ fn main() {
     let mut cube = cubie::CubieCube::new_solved();
 
     let scramble = Algorithm { normal_moves: algs::parse_algorithm("R' U' F U F2 D U2 L2 D R2 U' L2 R U' F2 L' U2 L' F' L2 U2 L F R' U' F"), inverse_moves: vec![] };
-    cube.apply(&scramble);
+    cube.apply_alg(&scramble);
 
-    let mut eo_stage = dfs_table_heuristic(&eo::EO_FB_MOVESET, &eofb_table, cube.edges, 0, 5, true)
+    // let eo_stage = eofb_stage();
+    // let dr_stage = drud_eofb_stage();
+
+    {
+        let eo_step = eo::eo(&eofb_table);
+        let eo_solutions = step::first_step(&eo_step, SearchOptions::new(0, 5, NissType::During), cube.edges.clone());
+        // mem::drop(eo_step);
+        // for a in eo_solutions {
+        //     println!("{a}");
+        // }
+
+    }
+
+
+
+    // eo::eoud()
+
+
+    // let eo_stage = EOStepTable::new_fb(&eofb_table);
+    // dfs_iter(&eo_stage, cube.edges, SearchOptions::new(0, 5, NissType::During))
+    //     .expect("Cube not ready for stage")
+    //     .for_each(|alg| println!("{alg}"))
+    // let mut eo_stage = dfs_table_heuristic(SearchOptions::new(&eo_stage, 0, 5, NissType::During), &eofb_table, cube.edges)
 
         // .skip(24)
         ;
@@ -54,13 +80,13 @@ fn main() {
     // }
 
 
-    let dr_stage = stream::next_stage(eo_stage, |alg, depth|{
-        let mut eo_cube = cube.clone();
-        eo_cube.apply(&alg);
-        dfs_table_heuristic(&dr::EO_FB_DR_UD_MOVESET, &eofb_drlr_table, eo_cube, depth, depth, false)
-            .map(move |dr|alg.clone().add(dr))
-    }).filter(|alg| eo::filter_eo_last_moves_pure(&alg));
-    dr_stage.take(10).for_each(|alg|println!("{alg} {}", alg.len()));
+    // let dr_stage = stream::next_stage(eo_stage, |alg, depth|{
+    //     let mut eo_cube = cube.clone();
+    //     eo_cube.apply_alg(&alg);
+    //     dfs_table_heuristic(SearchOptions::new(&dr_stage, depth, depth, NissType::None), &drud_eofb_table, eo_cube)
+    //         .map(move |dr|alg.clone().add(dr))
+    // }).filter(|alg| eo::filter_eo_last_moves_pure(&alg));
+    // dr_stage.take(10).for_each(|alg|println!("{alg} {}", alg.len()));
     //
     // println!("\n\n\n");
     //

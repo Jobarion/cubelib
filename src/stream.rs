@@ -1,16 +1,11 @@
+use std::iter::Peekable;
+use std::mem;
+use std::ops::Mul;
+use std::thread::current;
+use itertools::Itertools;
 use crate::Algorithm;
 
-pub struct StageOptions {
-    niss_type: NissType,
-}
-
-pub enum NissType {
-    None,
-    AtStart,
-    During
-}
-
-pub fn next_stage<'a, IN: Iterator<Item=Algorithm> + 'a, OUT: Iterator<Item=Algorithm> + 'a, F: 'a>(current_stage: IN, mapper: F) -> impl Iterator<Item = Algorithm> + 'a
+pub fn iterated_dfs<'a, IN: Iterator<Item=Algorithm> + 'a, OUT: Iterator<Item=Algorithm> + 'a, F: 'a>(current_stage: IN, mapper: F) -> impl Iterator<Item = Algorithm> + 'a
     where F: Fn(Algorithm, u8) -> OUT {
     DFSAlgIter::new(current_stage)
         .flat_map(move |(alg, depth)| {
@@ -18,6 +13,83 @@ pub fn next_stage<'a, IN: Iterator<Item=Algorithm> + 'a, OUT: Iterator<Item=Algo
             mapper(alg, next_stage_depth as u8)
         })
 }
+
+// pub fn merge_iters<'a, A: Iterator<Item=Algorithm> + 'a, B: Iterator<Item=Algorithm> + 'a>(a: A, b: B) -> impl Iterator<Item = Algorithm> + 'a {
+//     PickingIter::new(a, b)
+// }
+
+// pub struct MultiMergeIter {
+//     current_iter: usize,
+//     current_min: usize,
+//     iters: Vec<Peekable<Box<dyn Iterator<Item = Algorithm>>>>,
+// }
+//
+// impl MultiMergeIter {
+//     pub fn new(iters: impl Iterator<Item = impl Iterator<Item = Algorithm>>) -> Self {
+//         let peeked = iters.into_iter()
+//             .map(|i| Box::new(i))
+//             .map(|i| i.peekable())
+//             .collect_vec();
+//         MultiMergeIter {
+//             iters: peeked,
+//             current_iter: 0,
+//             current_min: 0
+//         }
+//     }
+// }
+
+// impl Iterator for MultiMergeIter {
+//     type Item = Algorithm;
+//
+//     fn next(&mut self) -> Option<Self::Item> {
+//         while self.current_iter < self.iters.len() {
+//             if let Some(alg) = self.iters[self.current_iter].peek() {
+//                 if alg.len() <= self.current_min {
+//                     return self.iters[self.current_iter].next()
+//                 }
+//             }
+//             self.current_iter += 1;
+//         }
+//         self.current_min += 1;
+//         self.current_iter = 0;
+//         self.next()
+//     }
+// }
+//
+// pub struct PickingIter<A, B> {
+//     a: A,
+//     b: B,
+//     a_val: Option<Algorithm>,
+//     b_val: Option<Algorithm>,
+// }
+//
+//
+// impl<'a, A, B> PickingIter<A, B>
+//     where
+//         A: Iterator<Item = Algorithm>,
+//         B: Iterator<Item = Algorithm>, {
+//
+//     pub fn new(mut a: A, mut b: B) -> Self {
+//         PickingIter { a_val: a.next(), b_val: b.next(), a, b}
+//     }
+// }
+//
+// impl<'a, A, B> Iterator for PickingIter<A, B>
+//     where
+//         A: Iterator<Item = Algorithm>,
+//         B: Iterator<Item = Algorithm>, {
+//     type Item = Algorithm;
+//
+//     fn next(&mut self) -> Option<Self::Item> {
+//         match (&self.a_val, &self.b_val) {
+//             (None, None) => None,
+//             (None, Some(_)) => mem::replace(&mut self.b_val, self.b.next()),
+//             (Some(a), Some(b)) if a.len() > b.len() => mem::replace(&mut self.b_val, self.b.next()),
+//             (Some(_), _) => mem::replace(&mut self.a_val, self.a.next()),
+//         }
+//     }
+// }
+
 
 pub struct DFSAlgIter<I> {
     orig: I,

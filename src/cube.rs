@@ -19,6 +19,40 @@ pub enum Face {
 }
 
 impl Face {
+
+    const TRANSFORMATIONS: [[[Face; 3]; 3]; 6] = [
+        [
+            [Front, Down, Back],
+            [Up, Up, Up],
+            [Left, Down, Right]
+        ],
+        [
+            [Back, Up, Front],
+            [Down, Down, Down],
+            [Right, Up, Left]
+        ],
+        [
+            [Down, Back, Up],
+            [Right, Back, Left],
+            [Front, Front, Front]
+        ],
+        [
+            [Up, Front, Down],
+            [Left, Front, Right],
+            [Back, Back, Back]
+        ],
+        [
+            [Left, Left, Left],
+            [Front, Right, Back],
+            [Down, Right, Up]
+        ],
+        [
+            [Right, Right, Right],
+            [Back, Left, Front],
+            [Up, Left, Down]
+        ],
+    ];
+
     pub const fn opposite(&self) -> Self {
         match self {
             Up => Down,
@@ -28,6 +62,11 @@ impl Face {
             Left => Right,
             Right => Left,
         }
+    }
+
+
+    pub fn transform(self, t: Transformation) -> Face {
+        Self::TRANSFORMATIONS[self][t.0][t.1 as usize]
     }
 }
 
@@ -75,6 +114,37 @@ impl<T, const N: usize> IndexMut<Face> for [T; N] {
     }
 }
 
+impl From<u32> for Face {
+    fn from(face: u32) -> Self {
+        match face {
+            0 => Face::Up,
+            1 => Face::Down,
+            2 => Face::Front,
+            3 => Face::Back,
+            4 => Face::Left,
+            5 => Face::Right,
+            _ => panic!("Invalid face")
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Turn {
+    Clockwise = 0,
+    Half = 1,
+    CounterClockwise = 2
+}
+
+impl Turn {
+    pub fn invert(&self) -> Self {
+        match *self {
+            Clockwise => CounterClockwise,
+            CounterClockwise => Clockwise,
+            Half => Half,
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Move(pub Face, pub Turn);
 
@@ -105,13 +175,12 @@ impl Move {
     pub const L2: Move = Move(Left, Half);
     pub const Li: Move = Move(Left, CounterClockwise);
 
-
     pub fn invert(&self) -> Move {
-        match *self {
-            Move(face, Clockwise) => Move(face, CounterClockwise),
-            Move(face, CounterClockwise) => Move(face, Clockwise),
-            Move(face, Half) => Move(face, Half),
-        }
+        Move(self.0, self.1.invert())
+    }
+
+    pub fn transform(&self, t: Transformation) -> Move {
+        Move(self.0.transform(t), self.1)
     }
 
     pub const fn to_id(&self) -> usize {
@@ -157,6 +226,24 @@ impl FromStr for Move {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Axis {
+    X = 0,
+    Y = 1,
+    Z = 2
+}
+
+impl<T, const N: usize> Index<Axis> for [T; N] {
+    type Output = T;
+
+    fn index(&self, index: Axis) -> &Self::Output {
+        &self[index as usize]
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct Transformation(pub Axis, pub Turn);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Color {
@@ -212,29 +299,9 @@ pub struct Edge {
     pub oriented_rl: bool,
 }
 
-impl From<u32> for Face {
-    fn from(face: u32) -> Self {
-        match face {
-            0 => Face::Up,
-            1 => Face::Down,
-            2 => Face::Front,
-            3 => Face::Back,
-            4 => Face::Left,
-            5 => Face::Right,
-            _ => panic!("Invalid face")
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Turn {
-    Clockwise = 0,
-    Half = 1,
-    CounterClockwise = 2
-}
-
 pub trait Turnable {
     fn turn(&mut self, m: Move);
+    fn transform(&mut self, t: Transformation);
 }
 
 pub trait NewSolved {
@@ -247,7 +314,7 @@ pub trait Invertible {
 
 pub trait Cube: Display + Turnable + Invertible + NewSolved {
     fn get_facelets(&self) -> [[Color; 9]; 6];
-    fn apply(&mut self, alg: &Algorithm) {
+    fn apply_alg(&mut self, alg: &Algorithm) {
         for m in &alg.normal_moves {
             self.turn(*m);
         }

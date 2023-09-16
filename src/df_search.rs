@@ -1,5 +1,6 @@
 use std::cell::{Ref, RefCell};
 use std::cmp::min;
+use std::marker::PhantomData;
 use std::rc::Rc;
 use std::str::FromStr;
 use rand::Rng;
@@ -9,37 +10,121 @@ use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cubie::CubieCube;
 use crate::moveset::{MoveSet, Transition};
+use crate::step::StepVariant;
+use crate::Transformation;
 
 pub const LEGAL_MOVE_COUNT: usize = TURNS.len() * FACES.len();
 pub const ALL_MOVES: [Move; LEGAL_MOVE_COUNT] = get_all_moves();
 
-pub fn dfs_iter<'a, const SC_SIZE: usize, const AUX_SIZE: usize, C: Turnable + Invertible + Clone + Copy + 'a, H>(
-    move_set: &'a MoveSet<SC_SIZE, AUX_SIZE>,
-    heuristic: Rc<H>,
-    cube: C,
-    min_moves: u8,
-    max_moves: u8,
-    allow_niss: bool) -> impl Iterator<Item = Algorithm> + 'a where H: Fn(&C) -> u8 + 'a {
-    (min_moves..=max_moves).into_iter()
-        .flat_map(move |depth| {
-            next_dfs_level(move_set, heuristic.clone(), cube.clone(), depth, true, allow_niss, None)
-                .map(|alg| alg.reverse())
-        })
+#[derive(Clone, Copy)]
+pub struct SearchOptions {
+    pub niss_type: NissType,
+    pub min_moves: u8,
+    pub max_moves: u8,
 }
 
-fn next_dfs_level<'a, const SC_SIZE: usize, const AUX_SIZE: usize, C: Turnable + Invertible + Copy + Clone + 'a, H>(
-    move_set: &'a MoveSet<SC_SIZE, AUX_SIZE>,
-    heuristic: Rc<H>,
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum NissType {
+    None,
+    AtStart,
+    During
+}
+
+impl SearchOptions {
+    pub fn new(min_moves: u8, max_moves: u8, niss_type: NissType) -> Self {
+        SearchOptions {
+            min_moves,
+            max_moves,
+            niss_type
+        }
+    }
+}
+
+// pub fn solve<'a, const SC_SIZE: usize, const AUX_SIZE: usize, const TRANS: usize, C: Turnable + Invertible + Clone + Copy + 'a, H, PC>(
+//     step: &'a Step<SC_SIZE, AUX_SIZE, TRANS, C, H, PC>,
+//     cube: C,
+//     min_moves: u8,
+//     max_moves: u8,
+//     allow_niss: bool) -> Option<impl Iterator<Item = Algorithm> + 'a>
+//     where
+//         H: Fn(&C) -> u8,
+//         PC: Fn(&C) -> bool {
+//
+//     if (step.pre_check)(&cube) {
+//         //Transform cube
+//         Some(dfs_iter(&step.move_set, step.heuristic.clone(), cube, min_moves, max_moves, allow_niss))
+//         //Transform solutions
+//     } else {
+//         None
+//     }
+// }
+
+pub fn dfs_iter<
+    'a,
+    const SC_SIZE: usize,
+    const AUX_SIZE: usize,
+    C: Turnable + Invertible + Clone + Copy + 'a,
+    S: StepVariant<'a, SC_SIZE, AUX_SIZE, C> + ?Sized
+>(
+    step: &'a S,
+    mut cube: C,
+    search_opts: SearchOptions) -> Option<impl Iterator<Item = Algorithm> + 'a> {
+
+    if !step.is_cube_ready(&cube) {
+        return None;
+    }
+
+    for t in step.pre_step_trans().iter().cloned() {
+        cube.transform(t);
+    }
+
+    Some((search_opts.min_moves..=search_opts.max_moves).into_iter()
+        .flat_map(move |depth| {
+            let b: Box::<dyn Iterator<Item = Algorithm>> = match search_opts.niss_type {
+
+                NissType::During | NissType::None => {
+                    Box::new(next_dfs_level(step, cube.clone(), depth, true, search_opts.niss_type == NissType::During, None)
+                        .map(|alg| alg.reverse()))
+                },
+
+                NissType::AtStart => {
+                    let no_niss = next_dfs_level(step, cube.clone(), depth, true, false, None)
+                        .map(|alg| alg.reverse());
+                    let mut inverted = cube.clone();
+                    inverted.invert();
+                    let only_niss = next_dfs_level(step, inverted, depth, true, false, None)
+                        .map(|alg| alg.reverse())
+                        .map(|alg| Algorithm { normal_moves: alg.inverse_moves, inverse_moves: alg.normal_moves });
+                    Box::new(no_niss.chain(only_niss))
+                }
+            };
+            b
+        })
+        .map(|mut alg| {
+            for t in step.pre_step_trans().iter().cloned().rev() {
+                alg.transform(t);
+            }
+            alg
+        }))
+}
+
+fn next_dfs_level<
+    'a,
+    const SC_SIZE: usize,
+    const AUX_SIZE: usize,
+    C: Turnable + Invertible + Copy + Clone + 'a,
+    S: StepVariant<'a, SC_SIZE, AUX_SIZE, C> + ?Sized>(
+    stage: &'a S,
     mut cube: C,
     depth: u8,
     can_invert: bool,
     invert_allowed: bool,
-    previous: Option<Move>) -> Box<dyn Iterator<Item = Algorithm> + 'a> where H: Fn(&C) -> u8 + 'a {
+    previous: Option<Move>) -> Box<dyn Iterator<Item = Algorithm> + 'a>  {
 
     let lower_bound = if invert_allowed {
-        min(1, heuristic(&cube))
+        min(1, stage.heuristic(&cube))
     } else {
-        heuristic(&cube)
+        stage.heuristic(&cube)
     };
 
     // println!("{depth} {invert_allowed} {can_invert} {lower_bound}");
@@ -52,9 +137,8 @@ fn next_dfs_level<'a, const SC_SIZE: usize, const AUX_SIZE: usize, C: Turnable +
         // println!("\tSkipped");
         Box::new(vec![].into_iter())
     } else {
-        let h_sc = heuristic.clone();
-        let state_change_moves = move_set.st_moves.into_iter()
-            .map(move |m| (m, previous.map(|p| move_set.transitions[Into::<usize>::into(&p)].check_move(&m)).unwrap_or(Transition::any())))
+        let state_change_moves = stage.move_set().st_moves.into_iter()
+            .map(move |m| (m, previous.map(|p| stage.move_set().transitions[Into::<usize>::into(&p)].check_move(&m)).unwrap_or(Transition::any())))
             .filter(move |(_, transition_type)| transition_type.allowed && (depth != 1 || transition_type.can_end))
             // .filter(move |(m, _)| {
             //         (depth == 3 && invert_allowed && m.to_id() == Move::U.to_id()) ||
@@ -64,23 +148,22 @@ fn next_dfs_level<'a, const SC_SIZE: usize, const AUX_SIZE: usize, C: Turnable +
             .flat_map(move |(m, t)|{
                 cube.turn(m);
                 // println!("{depth} applying sc {m} {}", t.can_end);
-                let result = next_dfs_level(move_set, h_sc.clone(), cube, depth - 1, t.can_end, invert_allowed, Some(m));
+                let result = next_dfs_level(stage, cube, depth - 1, t.can_end, invert_allowed, Some(m));
                 cube.turn(m.invert());
                 result.map(move |mut alg|{
                     alg.normal_moves.push(m);
                     alg
                 })
             });
-        let h_aux = heuristic.clone();
-        let aux_moves = move_set.aux_moves.into_iter()
-            .map(move |m| (m, previous.map(|p| move_set.transitions[Into::<usize>::into(&p)].check_move(&m)).unwrap_or(Transition::any())))
+        let aux_moves = stage.move_set().aux_moves.into_iter()
+            .map(move |m| (m, previous.map(|p| stage.move_set().transitions[Into::<usize>::into(&p)].check_move(&m)).unwrap_or(Transition::any())))
             .filter(move |(_, transition_type)| transition_type.allowed && (depth != 1 || transition_type.can_end))
             // .filter(move |(m, _)| depth == 4 && invert_allowed && m.to_id() == Move::F2.to_id())
             .flat_map(move |(m, _)|{
                 cube.turn(m);
                 // println!("{depth} applying aux {m}");
                 // let next_skip = skip_move_set_normal.apply_move(m.0);
-                let result = next_dfs_level(move_set, h_aux.clone(), cube, depth - 1, false, invert_allowed, Some(m));
+                let result = next_dfs_level(stage, cube, depth - 1, false, invert_allowed, Some(m));
                 cube.turn(m.invert());
                 result.map(move |mut alg|{
                     alg.normal_moves.push(m);
@@ -92,7 +175,7 @@ fn next_dfs_level<'a, const SC_SIZE: usize, const AUX_SIZE: usize, C: Turnable +
     if depth > 0 && can_invert && invert_allowed {
         // println!("{depth} inverting");
         inverse.invert();
-        let inverse_solutions = next_dfs_level(move_set, heuristic.clone(), inverse, depth, false, false, None)
+        let inverse_solutions = next_dfs_level(stage, inverse, depth, false, false, None)
             .map(|alg| Algorithm {
                 normal_moves: alg.inverse_moves,
                 inverse_moves: alg.normal_moves

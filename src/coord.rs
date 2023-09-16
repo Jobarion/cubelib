@@ -12,8 +12,40 @@ pub trait Coord<const SIZE: usize>: Into<usize> + Copy + Clone + Eq + PartialEq{
     fn val(&self) -> usize;
 }
 
+//Edge orientation on the respective axis
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct EOCoordAll(pub EOCoordUD, pub EOCoordFB, pub EOCoordLR);
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct EOCoordUD(pub u16);
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct EOCoordFB(pub u16);
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct EOCoordLR(pub u16);
+
+//EO without considering edges in the UD slice (because they are already oriented)
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct EOCoordNoUDSlice(pub u8);
+
+//UD corner orientation
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct COUDCoord(pub u16);
+
+//Corner permutation
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct CPCoord(pub u16);
+
+//Edge permutation
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct EPCoord(pub u32);
+
+//Coordinate representing the position of edges that belong into the UD slice.
+//0 if they are in the slice, they don't have to be in the correct position
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct UDSliceUnsortedCoord(pub u16);
+
+//Assuming we already have FB-EO, represents the combination of UDSliceUnsortedCoord and COUDCoord
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct DRUDEOFBCoord(u32);
 
 impl From<&EdgeCubieCube> for EOCoordAll {
 
@@ -24,15 +56,6 @@ impl From<&EdgeCubieCube> for EOCoordAll {
         }
     }
 }
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EOCoordUD(pub u16);
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EOCoordFB(pub u16);
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EOCoordLR(pub u16);
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EOCoordNoUDSlice(pub u8);
 
 impl Into<usize> for EOCoordUD {
     fn into(self) -> usize {
@@ -185,27 +208,24 @@ impl From<&[Edge; 12]> for EOCoordAll {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct COCoordUD(pub u16);
-
-impl Coord<2187> for COCoordUD {
+impl Coord<2187> for COUDCoord {
     fn val(&self) -> usize {
         self.0 as usize
     }
 }
 
-impl Into<usize> for COCoordUD {
+impl Into<usize> for COUDCoord {
     fn into(self) -> usize {
         self.0 as usize
     }
 }
 
-impl COCoordUD {
+impl COUDCoord {
     const CO_MUL: __m128i = unsafe { C { a_u16: [1, 3, 9, 27, 81, 243, 729, 0] }.a };
     const CO_SHUFFLE_8_TO_16: __m128i = unsafe { C { a_u8: [0, 0xFF, 1, 0xFF, 2, 0xFF, 3, 0xFF, 4, 0xFF, 5, 0xFF, 6, 0xFF, 7, 0xFF] }.a };
 }
 
-impl From<&CornerCubieCube> for COCoordUD {
+impl From<&CornerCubieCube> for COUDCoord {
     fn from(value: &CornerCubieCube) -> Self {
         unsafe {
             unsafe_from_cocoord(value)
@@ -216,17 +236,17 @@ impl From<&CornerCubieCube> for COCoordUD {
 
 #[target_feature(enable = "avx2")]
 #[inline]
-unsafe fn unsafe_from_cocoord(value: &CornerCubieCube) -> COCoordUD {
+unsafe fn unsafe_from_cocoord(value: &CornerCubieCube) -> COUDCoord {
     //Spread co data out into 16bit values to avoid overflow later
-    let co_epi16 = _mm_and_si128(_mm_shuffle_epi8(value.0, COCoordUD::CO_SHUFFLE_8_TO_16), _mm_set1_epi8(0b11));
+    let co_epi16 = _mm_and_si128(_mm_shuffle_epi8(value.0, COUDCoord::CO_SHUFFLE_8_TO_16), _mm_set1_epi8(0b11));
     //Multiply with 3^0, 3^1, etc.
-    let coord_values = _mm_mullo_epi16(co_epi16, COCoordUD::CO_MUL);
+    let coord_values = _mm_mullo_epi16(co_epi16, COUDCoord::CO_MUL);
     //Horizontal sum
     let coord = hsum_epi16_sse3(coord_values);
-    COCoordUD(coord)
+    COUDCoord(coord)
 }
 
-impl From<&[Corner; 8]> for COCoordUD {
+impl From<&[Corner; 8]> for COUDCoord {
     fn from(value: &[Corner; 8]) -> Self {
         let mut co = 0_u16;
 
@@ -234,7 +254,7 @@ impl From<&[Corner; 8]> for COCoordUD {
             co = co * 3 + value[i].orientation as u16;
         }
 
-        COCoordUD(co)
+        COUDCoord(co)
     }
 }
 
@@ -246,9 +266,6 @@ unsafe fn hsum_epi16_sse3(v: __m128i) -> u16 {
     let sum = _mm_hadd_epi16(sum, _mm_set1_epi8(0));
     _mm_extract_epi16::<0>(sum) as u16
 }
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct CPCoord(pub u16);
 
 impl From<&CornerCubieCube> for CPCoord {
     fn from(value: &CornerCubieCube) -> Self {
@@ -316,9 +333,6 @@ impl From<&[Corner; 8]> for CPCoord {
         CPCoord(cp)
     }
 }
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct EPCoord(pub u32);
 
 impl From<&EdgeCubieCube> for EPCoord {
 
@@ -425,9 +439,6 @@ impl From<&[Edge; 12]> for EPCoord {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct UDSliceUnsortedCoord(pub u16);
-
 impl UDSliceUnsortedCoord {
 
     const BINOM_0_ARR: [u8; 16] = [b(0, 0), b(0, 1), b(0, 2), b(0, 3), b(1, 0), b(1, 1), b(1, 2), b(1, 3), b(2, 0), b(2, 1), b(2, 2), b(2, 3), b(3, 0), b(3, 1), b(3, 2), b(3, 3)];
@@ -506,32 +517,29 @@ impl From<&EdgeCubieCube> for UDSliceUnsortedCoord {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EOUDDRFBCoord(u32);
-
-impl Into<usize> for EOUDDRFBCoord {
+impl Into<usize> for DRUDEOFBCoord {
     fn into(self) -> usize {
         self.val()
     }
 }
 
 //TODO this should use 'impl const' once it's stable
-const EOUDDRFB_SIZE: usize = 495 * 2187;
-impl Coord<EOUDDRFB_SIZE> for EOUDDRFBCoord {
+const DRUDEOFB_SIZE: usize = 495 * 2187;
+impl Coord<DRUDEOFB_SIZE> for DRUDEOFBCoord {
     fn val(&self) -> usize {
         self.0 as usize
     }
 }
 
-impl From<&CubieCube> for EOUDDRFBCoord {
+impl From<&CubieCube> for DRUDEOFBCoord {
     #[inline]
     fn from(value: &CubieCube) -> Self {
         let ud_slice = UDSliceUnsortedCoord::from(&value.edges).val();
-        let co = COCoordUD::from(&value.corners).val();
+        let co = COUDCoord::from(&value.corners).val();
         let index =
             co * UDSliceUnsortedCoord::size() +
             ud_slice;
-        EOUDDRFBCoord(index as u32)
+        DRUDEOFBCoord(index as u32)
     }
 }
 

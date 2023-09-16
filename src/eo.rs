@@ -11,10 +11,11 @@ use crate::cube::{Cube, Face, FACES, Invertible, Move, Turn, Turnable, TURNS};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cubie::{CubieCube, EdgeCubieCube};
-use crate::df_search;
-use crate::df_search::{dfs_iter};
-use crate::lookup_table::Table;
+use crate::{Axis, df_search, StepVariant, Transformation};
+use crate::df_search::{dfs_iter, NissType, SearchOptions};
+use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, Transition, TransitionTable};
+use crate::step::{IsReadyForStep, Step};
 
 
 pub const UD_EO_STATE_CHANGE_MOVES: [Move; 4] = [
@@ -71,11 +72,14 @@ pub const EO_FB_MOVESET: MoveSet<4, 14> = MoveSet {
     transitions: eo_transitions(Front)
 };
 
-pub const EO_RL_MOVESET: MoveSet<4, 14> = MoveSet {
+pub const EO_LR_MOVESET: MoveSet<4, 14> = MoveSet {
     st_moves: RL_EO_STATE_CHANGE_MOVES,
     aux_moves: RL_EO_MOVES,
     transitions: eo_transitions(Left)
 };
+
+pub const EO_UD_PRE_TRANS: [Transformation; 1] = [Transformation(Axis::X, Clockwise)];
+pub const EO_LR_PRE_TRANS: [Transformation; 1] = [Transformation(Axis::Y, Clockwise)];
 
 // const BAD_EDGES_MIN_MOVES: [u8; 13] = [0, 99, 3, 99, 1, 99, 3, 99, 2, 99, 6, 99, 8];
 //
@@ -85,6 +89,87 @@ pub const EO_RL_MOVESET: MoveSet<4, 14> = MoveSet {
 //         BAD_EDGES_MIN_MOVES[ud as usize]
 //     }), cube, 0, 20, true)
 // }
+
+pub struct EOStepTable<'a> {
+    move_set: &'a MoveSet<4, 14>,
+    pre_trans: Vec<Transformation>,
+    table: &'a PruningTable<2048, EOCoordFB>,
+}
+
+pub fn eoud<'a, C>(table: &'a PruningTable<2048, EOCoordFB>) -> Step<'a, 4, 14, C> where EOCoordFB: for<'x> From<&'x C> {
+    Step::new(vec![Box::new(EOStepTable::new_ud(table))])
+}
+
+pub fn eofb<'a, C>(table: &'a PruningTable<2048, EOCoordFB>) -> Step<'a, 4, 14, C> where EOCoordFB: for<'x> From<&'x C> {
+    Step::new(vec![Box::new(EOStepTable::new_fb(table))])
+}
+
+pub fn eolr<'a, C>(table: &'a PruningTable<2048, EOCoordFB>) -> Step<'a, 4, 14, C> where EOCoordFB: for<'x> From<&'x C> {
+    Step::new(vec![Box::new(EOStepTable::new_lr(table))])
+}
+
+pub fn eo<'a, C>(table: &'a PruningTable<2048, EOCoordFB>) -> Step<'a, 4, 14, C> where EOCoordFB: for<'x> From<&'x C> {
+    Step::new(vec![
+        Box::new(EOStepTable::new_ud(table)),
+        Box::new(EOStepTable::new_fb(table)),
+        Box::new(EOStepTable::new_lr(table))
+    ])
+}
+
+// pub fn eofb(table: &PruningTable<2048, EOCoordFB>) -> Self {
+//     EOStepTable::new_fb(table)
+// }
+//
+// pub fn eolr(table: &PruningTable<2048, EOCoordFB>) -> Self {
+//     EOStepTable::new_lr(table)
+// }
+
+impl <'a> EOStepTable<'a> {
+    fn new_ud(table: &'a PruningTable<2048, EOCoordFB>) -> Self {
+        EOStepTable {
+            move_set: &EO_UD_MOVESET,
+            pre_trans: vec![Transformation(Axis::X, Clockwise)],
+            table
+        }
+    }
+
+    fn new_lr(table: &'a PruningTable<2048, EOCoordFB>) -> Self {
+        EOStepTable {
+            move_set: &EO_LR_MOVESET,
+            pre_trans: vec![Transformation(Axis::Y, Clockwise)],
+            table
+        }
+    }
+
+    fn new_fb(table: &'a PruningTable<2048, EOCoordFB>) -> Self {
+        EOStepTable {
+            move_set: &EO_UD_MOVESET,
+            pre_trans: vec![],
+            table
+        }
+    }
+}
+
+impl <'a, C> IsReadyForStep<C> for EOStepTable<'a> where EOCoordFB: for<'x> From<&'x C> {
+    fn is_cube_ready(&self, cube: &C) -> bool {
+        true
+    }
+}
+
+impl <'a, C> StepVariant<'a, 4, 14, C> for EOStepTable<'a> where EOCoordFB: for<'x> From<&'x C> {
+    fn move_set(&self) -> &'a MoveSet<4, 14> {
+        self.move_set
+    }
+
+    fn pre_step_trans(&self) -> &'_ Vec<Transformation> {
+        &self.pre_trans
+    }
+
+    fn heuristic(&self, cube: &C) -> u8 {
+        let coord = EOCoordFB::from(cube);
+        self.table.get(coord).expect("Expected table to be filled")
+    }
+}
 
 pub fn filter_eo_last_moves_pure(alg: &Algorithm) -> bool {
     filter_last_moves_pure(&alg.normal_moves) && filter_last_moves_pure(&alg.inverse_moves)
@@ -123,9 +208,9 @@ impl EOCount for EdgeCubieCube {
 
     fn count_bad_edges(&self) -> (u8, u8, u8) {
         let edges = self.get_edges_raw();
-        let ud = (edges[0] & CubieCube::BAD_EDGE_MASK_UD).count_ones() + (edges[1] & CubieCube::BAD_EDGE_MASK_UD).count_ones();
-        let fb = (edges[0] & CubieCube::BAD_EDGE_MASK_FB).count_ones() + (edges[1] & CubieCube::BAD_EDGE_MASK_FB).count_ones();
-        let rl = (edges[0] & CubieCube::BAD_EDGE_MASK_RL).count_ones() + (edges[1] & CubieCube::BAD_EDGE_MASK_RL).count_ones();
+        let ud = (edges[0] & Self::BAD_EDGE_MASK_UD).count_ones() + (edges[1] & Self::BAD_EDGE_MASK_UD).count_ones();
+        let fb = (edges[0] & Self::BAD_EDGE_MASK_FB).count_ones() + (edges[1] & Self::BAD_EDGE_MASK_FB).count_ones();
+        let rl = (edges[0] & Self::BAD_EDGE_MASK_RL).count_ones() + (edges[1] & Self::BAD_EDGE_MASK_RL).count_ones();
         (ud as u8, fb as u8, rl as u8)
     }
 }

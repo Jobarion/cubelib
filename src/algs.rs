@@ -2,7 +2,9 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::Add;
 use std::ptr::write;
 use std::str::FromStr;
+use itertools::Itertools;
 use crate::cube::Move;
+use crate::{Transformation, Turnable};
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct Algorithm {
@@ -75,6 +77,21 @@ impl Algorithm {
         }
         alg_string.push_str(moves[moves.len() - 1].to_string().as_str());
         alg_string
+    }
+}
+
+impl Turnable for Algorithm {
+    fn turn(&mut self, m: Move) {
+        self.normal_moves.push(m);
+    }
+
+    fn transform(&mut self, t: Transformation) {
+        self.normal_moves = self.normal_moves.iter()
+            .map(|m|m.transform(t))
+            .collect_vec();
+        self.inverse_moves = self.inverse_moves.iter()
+            .map(|m|m.transform(t))
+            .collect_vec();
     }
 }
 

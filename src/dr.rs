@@ -6,16 +6,17 @@ use crate::cube::{Cube, Face, FACES, Invertible, Move, Turn, TURNS};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cubie::CubieCube;
-use crate::{df_search, EOUDDRFBCoord, Table, Turnable};
-use crate::df_search::{ALL_MOVES, dfs_iter};
+use crate::{Axis, df_search, DRUDEOFBCoord, EOCount, PruningTable, StepVariant, Transformation, Turnable};
+use crate::df_search::{ALL_MOVES, dfs_iter, NissType, SearchOptions};
 use crate::moveset::{MoveSet, TransitionTable};
+use crate::step::{IsReadyForStep, Step};
 
-pub const EO_FB_DR_UD_STATE_CHANGE_MOVES: [Move; 4] = [
+pub const DR_UD_EO_FB_STATE_CHANGE_MOVES: [Move; 4] = [
     Move(Right, Clockwise), Move(Right, CounterClockwise),
     Move(Left, Clockwise), Move(Left, CounterClockwise),
 ];
 
-pub const EO_FB_DR_UD_MOVES: [Move; 10] = [
+pub const DR_UD_EO_FB_MOVES: [Move; 10] = [
     Move(Up, Clockwise), Move(Up, CounterClockwise), Move(Up, Half),
     Move(Down, Clockwise), Move(Down, CounterClockwise), Move(Down, Half),
     Move(Right, Half),
@@ -24,21 +25,193 @@ pub const EO_FB_DR_UD_MOVES: [Move; 10] = [
     Move(Back, Half),
 ];
 
-pub const EO_FB_DR_UD_MOVESET: MoveSet<4 , 10> = MoveSet {
-    st_moves: EO_FB_DR_UD_STATE_CHANGE_MOVES,
-    aux_moves: EO_FB_DR_UD_MOVES,
+pub const DR_UD_EO_FB_MOVESET: MoveSet<4 , 10> = MoveSet {
+    st_moves: DR_UD_EO_FB_STATE_CHANGE_MOVES,
+    aux_moves: DR_UD_EO_FB_MOVES,
     transitions: dr_transitions(Left)
 };
 
-pub fn eo_fb_dr_ud_iter_table_heuristic<'a, C: Turnable + Invertible + Clone + Copy + 'a>(cube: C, table: &'a Table<1082565, EOUDDRFBCoord>) -> impl Iterator<Item = Algorithm> + 'a
-    where EOUDDRFBCoord: for<'x> From<&'x C> {
-    let h = Rc::new(move |c: &C|{
-        let dr_coord = EOUDDRFBCoord::from(c);
-        let heuristic = table.get(dr_coord).unwrap();
-        heuristic
-    });
-    dfs_iter(&EO_FB_DR_UD_MOVESET, h, cube, 0, 20, true)
+pub struct DREOUDStageTable<'a> {
+    move_set: &'a MoveSet<4, 10>,
+    pre_trans: Vec<Transformation>,
+    table: &'a PruningTable<1082565, DRUDEOFBCoord>,
 }
+
+pub struct DREOFBStageTable<'a> {
+    move_set: &'a MoveSet<4, 10>,
+    pre_trans: Vec<Transformation>,
+    table: &'a PruningTable<1082565, DRUDEOFBCoord>,
+}
+
+pub struct DREOLRStageTable<'a> {
+    move_set: &'a MoveSet<4, 10>,
+    pre_trans: Vec<Transformation>,
+    table: &'a PruningTable<1082565, DRUDEOFBCoord>,
+}
+
+
+pub fn all<'a, C: EOCount + 'a>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> Step<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    let eoud_table: Box<dyn StepVariant<'a, 4, 10, C> + 'a> = Box::new(drud_eofb(table));
+    let eofb_table: Box<dyn StepVariant<'a, 4, 10, C> + 'a> = Box::new(drud_eolr(table));
+
+    let v = vec![eoud_table, eofb_table];
+    Step::new(v)
+}
+
+
+pub fn drud_eofb<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    DREOFBStageTable::new_drud_eofb(table)
+}
+
+pub fn drud_eolr<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    DREOLRStageTable::new_drud_eolr(table)
+}
+
+pub fn drfb_eoud<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    DREOUDStageTable::new_drfb_eoud(table)
+}
+
+pub fn drfb_eolr<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    DREOLRStageTable::new_drfb_eolr(table)
+}
+
+pub fn drlr_eoud<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    DREOUDStageTable::new_drlr_eoud(table)
+}
+
+pub fn drlr_eofb<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    DREOFBStageTable::new_drlr_eofb(table)
+}
+
+impl <'a> DREOFBStageTable<'a> {
+    pub fn new_drud_eofb(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> Self {
+        Self {
+            move_set: &DR_UD_EO_FB_MOVESET,
+            pre_trans: vec![],
+            table
+        }
+    }
+
+    pub fn new_drlr_eofb(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> Self {
+        Self {
+            move_set: &DR_UD_EO_FB_MOVESET,
+            pre_trans: vec![Transformation(Axis::Z, Clockwise)],
+            table
+        }
+    }
+}
+
+impl <'a> DREOUDStageTable<'a> {
+    pub fn new_drfb_eoud(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> Self {
+        Self {
+            move_set: &DR_UD_EO_FB_MOVESET,
+            pre_trans: vec![Transformation(Axis::X, Clockwise)],
+            table
+        }
+    }
+    pub fn new_drlr_eoud(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> Self {
+        Self {
+            move_set: &DR_UD_EO_FB_MOVESET,
+            pre_trans: vec![Transformation(Axis::X, Clockwise), Transformation(Axis::Z, Clockwise)],
+            table
+        }
+    }
+}
+
+impl <'a> DREOLRStageTable<'a> {
+    pub fn new_drud_eolr(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> Self {
+        Self {
+            move_set: &DR_UD_EO_FB_MOVESET,
+            pre_trans: vec![Transformation(Axis::Y, Clockwise)],
+            table
+        }
+    }
+    pub fn new_drfb_eolr(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> Self {
+        Self {
+            move_set: &DR_UD_EO_FB_MOVESET,
+            pre_trans: vec![Transformation(Axis::Y, Clockwise), Transformation(Axis::Z, Clockwise)],
+            table
+        }
+    }
+}
+
+impl <'a, C: EOCount> StepVariant<'a, 4, 10, C> for DREOUDStageTable<'a> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    fn move_set(&self) -> &'a MoveSet<4, 10> {
+        self.move_set
+    }
+
+    fn pre_step_trans(&self) -> &'_ Vec<Transformation> {
+        &self.pre_trans
+    }
+
+    fn heuristic(&self, cube: &C) -> u8 {
+        let coord = DRUDEOFBCoord::from(cube);
+        self.table.get(coord).expect("Expected table to be filled")
+    }
+}
+
+impl <'a, C: EOCount> StepVariant<'a, 4, 10, C> for DREOFBStageTable<'a> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    fn move_set(&self) -> &'a MoveSet<4, 10> {
+        self.move_set
+    }
+
+    fn pre_step_trans(&self) -> &Vec<Transformation> {
+        &self.pre_trans
+    }
+
+    fn heuristic(&self, cube: &C) -> u8 {
+        let coord = DRUDEOFBCoord::from(cube);
+        self.table.get(coord).expect("Expected table to be filled")
+    }
+}
+
+impl <'a, C: EOCount> StepVariant<'a, 4, 10, C> for DREOLRStageTable<'a> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    fn move_set(&self) -> &'a MoveSet<4, 10> {
+        self.move_set
+    }
+
+    fn pre_step_trans(&self) -> &'_ Vec<Transformation> {
+        &self.pre_trans
+    }
+
+    fn heuristic(&self, cube: &C) -> u8 {
+        let coord = DRUDEOFBCoord::from(cube);
+        self.table.get(coord).expect("Expected table to be filled")
+    }
+}
+
+impl <'a, C: EOCount> IsReadyForStep<C> for DREOUDStageTable<'a> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    fn is_cube_ready(&self, cube: &C) -> bool {
+        cube.count_bad_edges().0 == 0
+    }
+}
+
+impl <'a, C: EOCount> IsReadyForStep<C> for DREOFBStageTable<'a> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    fn is_cube_ready(&self, cube: &C) -> bool {
+        cube.count_bad_edges().0 == 1
+    }
+}
+
+impl <'a, C: EOCount> IsReadyForStep<C> for DREOLRStageTable<'a> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    fn is_cube_ready(&self, cube: &C) -> bool {
+        cube.count_bad_edges().0 == 2
+    }
+}
+
+// impl <'a> DRStageTable<'a, 1> {
+//     pub fn new_drud_eorl(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> Self {
+//         DRStageTable {
+//             move_set: &DR_UD_EO_FB_MOVESET,
+//             pre_trans: &[Transformation(Axis::Y, Clockwise)],
+//             table
+//         }
+//     }
+// }
+
+
+// pub fn drud_eofb_stage() -> StageOptions<4, 10, 0> {
+//     StageOptions { move_set: DR_UD_EO_FB_MOVESET, transformations: [] }
+// }
 
 const fn dr_transitions(axis_face: Face) -> [TransitionTable; 18] {
     let mut transitions = [TransitionTable::new(0, 0); 18];

@@ -6,7 +6,6 @@ use std::ops::Add;
 use std::{mem, primitive, thread};
 use std::str::FromStr;
 use std::time::{Duration, Instant};
-use itertools::Itertools;
 use crate::algs::Algorithm;
 use crate::coord::{COUDCoord, Coord, CPCoord, EOCoordAll, EOCoordUD, DRUDEOFBCoord, EPCoord, UDSliceUnsortedCoord, EOCoordFB};
 use crate::cube::{ApplyAlgorithm, Axis, Cube, Face, Move, NewSolved, Transformation, Turn, Turnable};
@@ -33,6 +32,7 @@ mod moveset;
 mod stream;
 mod htr;
 mod step;
+mod avx2_cubie;
 
 fn main() {
     let time = Instant::now();

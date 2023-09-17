@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use crate::moveset::MoveSet;
 use crate::{Algorithm, ApplyAlgorithm, dfs_iter, SearchOptions, stream, Transformation, Turnable};
 use crate::cube::Invertible;

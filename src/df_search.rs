@@ -3,7 +3,7 @@ use std::cmp::min;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::str::FromStr;
-use rand::Rng;
+
 use crate::algs::Algorithm;
 use crate::cube::{Cube, Face, FACES, Invertible, Move, Turn, Turnable, TURNS};
 use crate::cube::Face::*;

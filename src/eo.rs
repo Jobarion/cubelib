@@ -1,4 +1,3 @@
-use std::arch::x86_64::{__m128i, _mm_store_si128};
 use std::cell::Ref;
 use std::cmp::min;
 use std::fmt::Display;

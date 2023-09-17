@@ -2,7 +2,6 @@ use std::iter::Peekable;
 use std::mem;
 use std::ops::Mul;
 use std::thread::current;
-use itertools::Itertools;
 use crate::Algorithm;
 
 pub fn iterated_dfs<'a, IN: Iterator<Item=Algorithm> + 'a, OUT: Iterator<Item=Algorithm> + 'a, F: 'a>(current_stage: IN, mapper: F) -> impl Iterator<Item = Algorithm> + 'a

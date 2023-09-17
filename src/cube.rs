@@ -234,6 +234,12 @@ pub enum Axis {
     Z = 2
 }
 
+impl Axis {
+    pub const UD: Axis = Axis::Y;
+    pub const FB: Axis = Axis::Z;
+    pub const LR: Axis = Axis::X;
+}
+
 impl<T, const N: usize> Index<Axis> for [T; N] {
     type Output = T;
 
@@ -312,8 +318,11 @@ pub trait Invertible {
     fn invert(&mut self);
 }
 
-pub trait Cube: Display + Turnable + Invertible + NewSolved {
-    fn get_facelets(&self) -> [[Color; 9]; 6];
+pub trait ApplyAlgorithm {
+    fn apply_alg(&mut self, alg: &Algorithm);
+}
+
+impl <C: Turnable + Invertible> ApplyAlgorithm for C {
     fn apply_alg(&mut self, alg: &Algorithm) {
         for m in &alg.normal_moves {
             self.turn(*m);
@@ -324,6 +333,10 @@ pub trait Cube: Display + Turnable + Invertible + NewSolved {
         }
         self.invert();
     }
+}
+
+pub trait Cube: Display + Turnable + Invertible + NewSolved {
+    fn get_facelets(&self) -> [[Color; 9]; 6];
     fn fmt_display(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let facelets = self.get_facelets();
         let block_width = "   ";

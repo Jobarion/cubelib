@@ -4,6 +4,7 @@ use std::cmp::min;
 use std::fmt::Display;
 use std::rc::Rc;
 use std::str::FromStr;
+use itertools::Itertools;
 use crate::algs::Algorithm;
 use crate::alignment::AlignedU64;
 use crate::coord::{Coord, EOCoordAll, EOCoordFB, EOCoordUD};
@@ -96,24 +97,26 @@ pub struct EOStepTable<'a> {
     table: &'a PruningTable<2048, EOCoordFB>,
 }
 
-pub fn eoud<'a, C>(table: &'a PruningTable<2048, EOCoordFB>) -> Step<'a, 4, 14, C> where EOCoordFB: for<'x> From<&'x C> {
-    Step::new(vec![Box::new(EOStepTable::new_ud(table))])
-}
-
-pub fn eofb<'a, C>(table: &'a PruningTable<2048, EOCoordFB>) -> Step<'a, 4, 14, C> where EOCoordFB: for<'x> From<&'x C> {
-    Step::new(vec![Box::new(EOStepTable::new_fb(table))])
-}
-
-pub fn eolr<'a, C>(table: &'a PruningTable<2048, EOCoordFB>) -> Step<'a, 4, 14, C> where EOCoordFB: for<'x> From<&'x C> {
-    Step::new(vec![Box::new(EOStepTable::new_lr(table))])
-}
-
-pub fn eo<'a, C>(table: &'a PruningTable<2048, EOCoordFB>) -> Step<'a, 4, 14, C> where EOCoordFB: for<'x> From<&'x C> {
+pub fn eo_any<'a, C>(table: &'a PruningTable<2048, EOCoordFB>) -> Step<'a, 4, 14, C> where EOCoordFB: for<'x> From<&'x C> {
     Step::new(vec![
         Box::new(EOStepTable::new_ud(table)),
         Box::new(EOStepTable::new_fb(table)),
         Box::new(EOStepTable::new_lr(table))
     ])
+}
+
+pub fn eo<'a, C, const EOA: usize>(table: &'a PruningTable<2048, EOCoordFB>, eo_axis: [Axis; EOA]) -> Step<'a, 4, 14, C> where EOCoordFB: for<'x> From<&'x C> {
+    let step_variants = eo_axis.into_iter()
+        .map(move |x| {
+            let x: Box<dyn StepVariant<4, 14, C> + 'a> = match x {
+                Axis::UD => Box::new(EOStepTable::new_ud(&table)),
+                Axis::FB => Box::new(EOStepTable::new_fb(&table)),
+                Axis::LR => Box::new(EOStepTable::new_lr(&table)),
+            };
+            x
+        })
+        .collect_vec();
+    Step::new(step_variants)
 }
 
 // pub fn eofb(table: &PruningTable<2048, EOCoordFB>) -> Self {

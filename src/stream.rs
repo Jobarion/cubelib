@@ -8,6 +8,7 @@ use crate::Algorithm;
 pub fn iterated_dfs<'a, IN: Iterator<Item=Algorithm> + 'a, OUT: Iterator<Item=Algorithm> + 'a, F: 'a>(current_stage: IN, mapper: F) -> impl Iterator<Item = Algorithm> + 'a
     where F: Fn(Algorithm, u8) -> OUT {
     DFSAlgIter::new(current_stage)
+        .take_while(|(_, depth)| *depth < 100)
         .flat_map(move |(alg, depth)| {
             let next_stage_depth = depth - alg.len();
             mapper(alg, next_stage_depth as u8)

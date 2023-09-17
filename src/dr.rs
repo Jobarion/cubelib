@@ -1,6 +1,7 @@
 use std::cmp::{max, min};
 use std::rc::Rc;
 use std::str::FromStr;
+use itertools::Itertools;
 use crate::algs::Algorithm;
 use crate::cube::{Cube, Face, FACES, Invertible, Move, Turn, TURNS};
 use crate::cube::Face::*;
@@ -49,8 +50,26 @@ pub struct DREOLRStageTable<'a> {
     table: &'a PruningTable<1082565, DRUDEOFBCoord>,
 }
 
+pub fn dr<'a, C: EOCount + 'a, const EOA: usize, const DRA: usize>(table: &'a PruningTable<1082565, DRUDEOFBCoord>, eo_axis: [Axis; EOA], dr_axis: [Axis; DRA]) -> Step<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+    let step_variants = eo_axis.into_iter()
+        .flat_map(|eo| dr_axis.into_iter().map(move |dr| (eo, dr)))
+        .flat_map(move |x| {
+            let x: Option<Box<dyn StepVariant<4, 10, C> + 'a>> = match x {
+                (Axis::UD, Axis::FB) => Some(Box::new(DREOUDStageTable::new_drfb_eoud(&table))),
+                (Axis::UD, Axis::LR) => Some(Box::new(DREOUDStageTable::new_drlr_eoud(&table))),
+                (Axis::FB, Axis::UD) => Some(Box::new(DREOFBStageTable::new_drud_eofb(&table))),
+                (Axis::FB, Axis::LR) => Some(Box::new(DREOFBStageTable::new_drud_eofb(&table))),
+                (Axis::LR, Axis::UD) => Some(Box::new(DREOLRStageTable::new_drud_eolr(&table))),
+                (Axis::LR, Axis::FB) => Some(Box::new(DREOLRStageTable::new_drfb_eolr(&table))),
+                (eo, dr) => None
+            };
+            x
+        })
+        .collect_vec();
+    Step::new(step_variants)
+}
 
-pub fn dr<'a, C: EOCount + 'a>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> Step<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
+pub fn dr_any<'a, C: EOCount + 'a>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> Step<'a, 4, 10, C> where DRUDEOFBCoord: for<'x> From<&'x C> {
     Step::new(vec![
         Box::new(DREOUDStageTable::new_drfb_eoud(&table)),
         Box::new(DREOUDStageTable::new_drlr_eoud(&table)),
@@ -59,31 +78,6 @@ pub fn dr<'a, C: EOCount + 'a>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) 
         Box::new(DREOLRStageTable::new_drfb_eolr(&table)),
         Box::new(DREOLRStageTable::new_drud_eolr(&table)),
     ])
-}
-
-
-pub fn drud_eofb<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<4, 10, C> + 'a where DRUDEOFBCoord: for<'x> From<&'x C> {
-    DREOFBStageTable::new_drud_eofb(table)
-}
-
-pub fn drud_eolr<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<4, 10, C> + 'a where DRUDEOFBCoord: for<'x> From<&'x C> {
-    DREOLRStageTable::new_drud_eolr(table)
-}
-
-pub fn drfb_eoud<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<4, 10, C> + 'a where DRUDEOFBCoord: for<'x> From<&'x C> {
-    DREOUDStageTable::new_drfb_eoud(table)
-}
-
-pub fn drfb_eolr<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<4, 10, C> + 'a where DRUDEOFBCoord: for<'x> From<&'x C> {
-    DREOLRStageTable::new_drfb_eolr(table)
-}
-
-pub fn drlr_eoud<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<4, 10, C> + 'a where DRUDEOFBCoord: for<'x> From<&'x C> {
-    DREOUDStageTable::new_drlr_eoud(table)
-}
-
-pub fn drlr_eofb<'a, C: EOCount>(table: &'a PruningTable<1082565, DRUDEOFBCoord>) -> impl StepVariant<4, 10, C> + 'a where DRUDEOFBCoord: for<'x> From<&'x C> {
-    DREOFBStageTable::new_drlr_eofb(table)
 }
 
 impl <'a> DREOFBStageTable<'a> {

@@ -11,7 +11,6 @@ use crate::cube::Turn::*;
 use crate::cubie::CubieCube;
 use crate::moveset::{MoveSet, Transition};
 use crate::step::StepVariant;
-use crate::Transformation;
 
 pub const LEGAL_MOVE_COUNT: usize = TURNS.len() * FACES.len();
 pub const ALL_MOVES: [Move; LEGAL_MOVE_COUNT] = get_all_moves();

@@ -9,10 +9,8 @@ use std::iter::Map;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-use crate::{Algorithm, dfs_iter, Move, Turnable};
-use crate::alignment::C;
 use crate::coord::Coord;
-use crate::cube::{Cube, Invertible, NewSolved};
+use crate::cube::{Cube, Invertible, NewSolved, Turnable};
 use crate::df_search::{ALL_MOVES, SearchOptions};
 use crate::moveset::MoveSet;
 

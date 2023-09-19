@@ -3,14 +3,16 @@ use std::rc::Rc;
 use std::str::FromStr;
 use itertools::Itertools;
 use crate::algs::Algorithm;
-use crate::cube::{Cube, Face, FACES, Invertible, Move, Turn, TURNS};
+use crate::coord::DRUDEOFBCoord;
+use crate::cube::{Axis, Cube, Face, FACES, Invertible, Move, Transformation, Turn, TURNS};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cubie::CubieCube;
-use crate::{Axis, df_search, DRUDEOFBCoord, EOCount, PruningTable, StepVariant, Transformation, Turnable};
 use crate::df_search::{ALL_MOVES, dfs_iter, NissType, SearchOptions};
+use crate::eo::EOCount;
+use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
-use crate::step::{IsReadyForStep, Step};
+use crate::step::{IsReadyForStep, Step, StepVariant};
 
 pub const DR_UD_EO_FB_STATE_CHANGE_MOVES: [Move; 4] = [
     Move(Right, Clockwise), Move(Right, CounterClockwise),

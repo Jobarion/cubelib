@@ -3,8 +3,7 @@ use std::ops::Add;
 use std::ptr::write;
 use std::str::FromStr;
 use itertools::Itertools;
-use crate::cube::Move;
-use crate::{Transformation, Turnable};
+use crate::cube::{Move, Transformation, Turnable};
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct Algorithm {

@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter};
-use crate::alignment::{AlignedU64, AlignedU8, C};
+use crate::alignment::{AlignedU64, AlignedU8};
 use crate::avx2_cubie;
 use crate::coord::EOCoordAll;
 use crate::cube::{Axis, Color, Corner, CornerPosition, Cube, Edge, EdgePosition, Face, Invertible, Move, NewSolved, Transformation, Turn, Turnable};
@@ -154,8 +154,8 @@ impl CornerCubieCube {
 //http://kociemba.org/math/cubielevel.htm
 #[derive(Clone, Copy)]
 pub struct CubieCube {
-    pub(crate) edges: EdgeCubieCube,
-    pub(crate) corners: CornerCubieCube,
+    pub edges: EdgeCubieCube,
+    pub corners: CornerCubieCube,
 }
 
 impl CubieCube {

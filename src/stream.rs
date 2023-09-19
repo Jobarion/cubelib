@@ -2,7 +2,7 @@ use std::iter::Peekable;
 use std::mem;
 use std::ops::Mul;
 use std::thread::current;
-use crate::Algorithm;
+use crate::algs::Algorithm;
 
 pub fn iterated_dfs<'a, IN: Iterator<Item=Algorithm> + 'a, OUT: Iterator<Item=Algorithm> + 'a, F: 'a>(current_stage: IN, mapper: F) -> impl Iterator<Item = Algorithm> + 'a
     where F: Fn(Algorithm, u8) -> OUT {

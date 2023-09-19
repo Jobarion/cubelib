@@ -1,38 +1,12 @@
 extern crate core;
 
-use std::cmp::{max, min};
-use std::collections::HashSet;
-use std::ops::Add;
-use std::{mem, primitive, thread};
-use std::str::FromStr;
-use std::time::{Duration, Instant};
-use crate::algs::Algorithm;
-use crate::coord::{COUDCoord, Coord, CPCoord, EOCoordAll, EOCoordUD, DRUDEOFBCoord, EPCoord, UDSliceUnsortedCoord, EOCoordFB};
-use crate::cube::{ApplyAlgorithm, Axis, Cube, Face, Move, NewSolved, Transformation, Turn, Turnable};
-use crate::cubie::{CubieCube, EdgeCubieCube};
-use crate::df_search::{ALL_MOVES, dfs_iter, MoveSkipTracker, NissType, SearchOptions};
-use crate::step::{first_step, StepVariant};
-use crate::eo::{EOCount, EOStepTable};
-use crate::lookup_table::{PruningTable};
-use crate::moveset::TransitionTable;
-use crate::stream::DFSAlgIter;
-// use crate::cubie::CubieCube;
-
-mod cube;
-mod cubie;
-mod eo;
-mod algs;
-mod df_search;
-mod dr;
-mod alignment;
-mod coord;
-mod lookup_table;
-mod co;
-mod moveset;
-mod stream;
-mod htr;
-mod step;
-mod avx2_cubie;
+use std::time::Instant;
+use cubelib::{algs, dr, eo, lookup_table, step};
+use cubelib::algs::Algorithm;
+use cubelib::coord::{DRUDEOFBCoord, EOCoordFB};
+use cubelib::cube::{ApplyAlgorithm, Axis, NewSolved};
+use cubelib::cubie::CubieCube;
+use cubelib::df_search::{NissType, SearchOptions};
 
 fn main() {
     let time = Instant::now();
@@ -47,7 +21,7 @@ fn main() {
     println!("Took {}ms", time.elapsed().as_millis());
     let time = Instant::now();
 
-    let mut cube = cubie::CubieCube::new_solved();
+    let mut cube = CubieCube::new_solved();
 
     let scramble = Algorithm { normal_moves: algs::parse_algorithm("R' U' F U F2 D U2 L2 D R2 U' L2 R U' F2 L' U2 L' F' L2 U2 L F R' U' F"), inverse_moves: vec![] };
     cube.apply_alg(&scramble);

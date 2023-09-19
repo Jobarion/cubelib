@@ -6,7 +6,6 @@ use crate::cube::{Cube, Face, FACES, Invertible, Move, Turn, TURNS};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cubie::CubieCube;
-use crate::{df_search, DRUDEOFBCoord, PruningTable, Turnable};
 use crate::df_search::{ALL_MOVES, dfs_iter};
 use crate::moveset::{MoveSet, TransitionTable};
 

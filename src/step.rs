@@ -1,6 +1,8 @@
+use crate::algs::Algorithm;
 use crate::moveset::MoveSet;
-use crate::{Algorithm, ApplyAlgorithm, dfs_iter, SearchOptions, stream, Transformation, Turnable};
-use crate::cube::Invertible;
+use crate::cube::{ApplyAlgorithm, Invertible, Transformation, Turnable};
+use crate::df_search::{dfs_iter, SearchOptions};
+use crate::stream;
 
 pub trait StepVariant<const SC_SIZE: usize, const AUX_SIZE: usize, C>: IsReadyForStep<C> {
     fn move_set(&self) -> &'_ MoveSet<SC_SIZE, AUX_SIZE>;

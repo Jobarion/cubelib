@@ -5,17 +5,15 @@ use std::rc::Rc;
 use std::str::FromStr;
 use itertools::Itertools;
 use crate::algs::Algorithm;
-use crate::alignment::AlignedU64;
 use crate::coord::{Coord, EOCoordAll, EOCoordFB, EOCoordUD};
-use crate::cube::{Cube, Face, FACES, Invertible, Move, Turn, Turnable, TURNS};
+use crate::cube::{Axis, Cube, Face, FACES, Invertible, Move, Transformation, Turn, Turnable, TURNS};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cubie::{CubieCube, EdgeCubieCube};
-use crate::{Axis, df_search, StepVariant, Transformation};
 use crate::df_search::{dfs_iter, NissType, SearchOptions};
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, Transition, TransitionTable};
-use crate::step::{IsReadyForStep, Step};
+use crate::step::{IsReadyForStep, Step, StepVariant};
 
 
 pub const UD_EO_STATE_CHANGE_MOVES: [Move; 4] = [

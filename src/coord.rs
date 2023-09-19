@@ -1,7 +1,6 @@
-use std::cmp::Ordering;
 use crate::avx2_coord::avx2_coord;
 use crate::cube::{Corner, Edge};
-use crate::cubie::{CubieCube, CornerCubieCube, EdgeCubieCube};
+use crate::cubie::{CornerCubieCube, CubieCube, EdgeCubieCube};
 
 pub trait Coord<const SIZE: usize>: Into<usize> + Copy + Clone + Eq + PartialEq{
     fn size() -> usize {

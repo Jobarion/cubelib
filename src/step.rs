@@ -1,7 +1,7 @@
 use crate::algs::Algorithm;
-use crate::moveset::MoveSet;
 use crate::cube::{ApplyAlgorithm, Invertible, Transformation, Turnable};
 use crate::df_search::{dfs_iter, SearchOptions};
+use crate::moveset::MoveSet;
 use crate::stream;
 
 pub trait StepVariant<const SC_SIZE: usize, const AUX_SIZE: usize, C>: IsReadyForStep<C> {
@@ -38,7 +38,7 @@ pub fn first_step<
 
 //TODO once we have a better way to merge alg iterators, we should invoke df_search with the full bounds immediately.
 //It's not significantly more efficient yet, but in the future it probably will be
-pub fn next_step<'a, 'b, IN: Iterator<Item=Algorithm> + 'a, const SC_SIZE: usize, const AUX_SIZE: usize, C: Turnable + Invertible + Copy>(mut algs: IN, step: &'a Step<'b, SC_SIZE, AUX_SIZE, C>, search_opts: SearchOptions, cube: C) -> impl Iterator<Item = Algorithm> + 'a {
+pub fn next_step<'a, 'b, IN: Iterator<Item=Algorithm> + 'a, const SC_SIZE: usize, const AUX_SIZE: usize, C: Turnable + Invertible + Copy>(algs: IN, step: &'a Step<'b, SC_SIZE, AUX_SIZE, C>, search_opts: SearchOptions, cube: C) -> impl Iterator<Item = Algorithm> + 'a {
     // println!("{:?}", algs.next());
     stream::iterated_dfs(algs, move |alg, depth|{
         let result: Box::<dyn Iterator<Item = Algorithm>> = if depth < search_opts.min_moves || depth > search_opts.max_moves {

@@ -1,6 +1,7 @@
-use std::fmt::{Debug, Display, Formatter, Pointer, write};
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Index, IndexMut};
 use std::str::FromStr;
+
 use crate::algs::Algorithm;
 use crate::cube::Face::*;
 use crate::cube::Turn::*;

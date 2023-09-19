@@ -1,5 +1,5 @@
-use crate::cube::{Face, FACES, Move, Turn, TURNS};
-use crate::df_search::{ALL_MOVES, LEGAL_MOVE_COUNT};
+use crate::cube::{Face, Move, Turn};
+use crate::df_search::LEGAL_MOVE_COUNT;
 
 pub struct MoveSet<const ST_SIZE: usize, const AUX_SIZE: usize> {
     pub st_moves: [Move; ST_SIZE],

@@ -1,17 +1,9 @@
-use std::cmp::{max, Ordering};
-use std::cmp::Ordering::{Greater, Less};
 use std::collections::HashMap;
-use std::fmt::Debug;
 use std::hash::Hash;
-use std::hint::black_box;
-use std::io::repeat;
-use std::iter::Map;
 use std::marker::PhantomData;
-use std::rc::Rc;
 
 use crate::coord::Coord;
-use crate::cube::{Cube, Invertible, NewSolved, Turnable};
-use crate::df_search::{ALL_MOVES, SearchOptions};
+use crate::cube::{NewSolved, Turnable};
 use crate::moveset::MoveSet;
 
 pub struct PruningTable<const CSize: usize, C: Coord<CSize>> {
@@ -75,9 +67,9 @@ pub fn generate<const COORD_SIZE: usize, Mapper, CubeParam: Turnable + NewSolved
     table
 }
 
-fn fill_table<const COORD_SIZE: usize, Mapper, CubeParam: Turnable + NewSolved + Clone, CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq, const ST_MOVES: usize, const AUX_MOVES: usize>(move_set: &MoveSet<ST_MOVES, AUX_MOVES>, mut table: &mut PruningTable<COORD_SIZE, CoordParam>, depth: u8, mapper: &Mapper, mut to_check: HashMap<CoordParam, CubeParam>) -> HashMap<CoordParam, CubeParam> where Mapper: Fn(&CubeParam) -> CoordParam {
+fn fill_table<const COORD_SIZE: usize, Mapper, CubeParam: Turnable + NewSolved + Clone, CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq, const ST_MOVES: usize, const AUX_MOVES: usize>(move_set: &MoveSet<ST_MOVES, AUX_MOVES>, table: &mut PruningTable<COORD_SIZE, CoordParam>, depth: u8, mapper: &Mapper, to_check: HashMap<CoordParam, CubeParam>) -> HashMap<CoordParam, CubeParam> where Mapper: Fn(&CubeParam) -> CoordParam {
     let mut next_cubes: HashMap<CoordParam, CubeParam> = HashMap::new();
-    for (coord, cube) in to_check.into_iter() {
+    for (_, cube) in to_check.into_iter() {
         for m in move_set.aux_moves {
             let mut cube = cube.clone();
             cube.turn(m);

@@ -1,19 +1,12 @@
 #[cfg(target_feature = "avx2")]
 pub mod avx2_cubie {
+    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_andnot_si128, _mm_extract_epi64, _mm_load_si128, _mm_loadl_epi64, _mm_or_si128, _mm_set1_epi8, _mm_set_epi8, _mm_shuffle_epi8, _mm_slli_epi32, _mm_slli_epi64, _mm_srli_epi16, _mm_srli_epi32, _mm_store_si128, _mm_sub_epi8, _mm_xor_si128};
 
-    use std::arch::x86_64::{__m128i, __m256i, _mm_add_epi8, _mm_and_si128, _mm_andnot_si128, _mm_extract_epi64, _mm_load_si128, _mm_loadl_epi64, _mm_or_si128, _mm_set1_epi8, _mm_set_epi64x, _mm_set_epi8, _mm_shuffle_epi8, _mm_sll_epi32, _mm_slli_epi32, _mm_slli_epi64, _mm_srl_epi32, _mm_srli_epi16, _mm_srli_epi32, _mm_store_si128, _mm_sub_epi8, _mm_xor_si128};
-    use std::fmt::{Display, Formatter};
-    use crate::alignment::avx2::C;
     use crate::alignment::{AlignedU64, AlignedU8};
-    use crate::coord::EOCoordAll;
-    use crate::cube::{Axis, Color, Corner, CornerPosition, Cube, Edge, EdgePosition, Face, Invertible, Move, NewSolved, Transformation, Turn, Turnable};
-    use crate::cube::Color::*;
-    use crate::cube::EdgePosition::*;
-    use crate::cube::CornerPosition::*;
-    use crate::cube::Face::*;
+    use crate::alignment::avx2::C;
+    use crate::cube::{Axis, Corner, Edge, Face, Invertible, Turn};
     use crate::cubie::CornerCubieCube;
     use crate::cubie::EdgeCubieCube;
-    use crate::eo::EOCount;
 
     pub(crate) struct AVX2EdgeCubieCube;
 
@@ -130,7 +123,7 @@ pub mod avx2_cubie {
         }
 
         #[target_feature(enable = "avx2")]
-        pub(crate) unsafe fn unsafe_turn(mut cube: &mut EdgeCubieCube, face: Face, turn_type: Turn) {
+        pub(crate) unsafe fn unsafe_turn(cube: &mut EdgeCubieCube, face: Face, turn_type: Turn) {
             cube.0 = _mm_shuffle_epi8(cube.0, Self::TURN_EDGE_SHUFFLE[face as usize][turn_type as usize]);
             if turn_type != Turn::Half {
                 cube.0 = _mm_xor_si128(cube.0, Self::TURN_EO_FLIP[face as usize]);
@@ -138,7 +131,7 @@ pub mod avx2_cubie {
         }
 
         #[target_feature(enable = "avx2")]
-        pub(crate) unsafe fn unsafe_transform(mut cube: &mut EdgeCubieCube, axis: Axis, turn_type: Turn) {
+        pub(crate) unsafe fn unsafe_transform(cube: &mut EdgeCubieCube, axis: Axis, turn_type: Turn) {
             let edges_translated = _mm_shuffle_epi8(cube.0, Self::TRANSFORMATION_EP_SHUFFLE[axis as usize][turn_type as usize]);
             let ep = _mm_srli_epi32::<4>(_mm_and_si128(edges_translated, _mm_set1_epi8(0xF0_u8 as i8)));
             let eo = _mm_and_si128(edges_translated, _mm_set1_epi8(0b00001110));
@@ -152,7 +145,7 @@ pub mod avx2_cubie {
         }
 
         #[target_feature(enable = "avx2")]
-        pub(crate) unsafe fn unsafe_invert(mut cube: &mut EdgeCubieCube) {
+        pub(crate) unsafe fn unsafe_invert(cube: &mut EdgeCubieCube) {
             let edge_ids = unsafe {
                 let mut a_arr = AlignedU8([0u8; 16]);
                 _mm_store_si128(a_arr.0.as_mut_ptr() as *mut __m128i, _mm_srli_epi32::<4>(_mm_and_si128(cube.0, _mm_set1_epi8(0xF0_u8 as i8))));
@@ -278,7 +271,7 @@ pub mod avx2_cubie {
 
         #[target_feature(enable = "avx2")]
         #[inline]
-        pub(crate) unsafe fn unsafe_turn(mut cube: &mut CornerCubieCube, face: Face, turn_type: Turn) {
+        pub(crate) unsafe fn unsafe_turn(cube: &mut CornerCubieCube, face: Face, turn_type: Turn) {
             cube.0 = _mm_shuffle_epi8(cube.0, Self::TURN_CORNER_SHUFFLE[face as usize][turn_type as usize]);
             if turn_type != Turn::Half {
                 //Valid COs are 00, 01, 10. When we move, we don't add 0, 1, 2 (no change, clockwise, counter-clockwise), but we add 1, 2, 3 to force overflowing into the next bit.
@@ -293,7 +286,7 @@ pub mod avx2_cubie {
 
         #[target_feature(enable = "avx2")]
         #[inline]
-        pub(crate) unsafe fn unsafe_transform(mut cube: &mut CornerCubieCube, axis: Axis, turn_type: Turn) {
+        pub(crate) unsafe fn unsafe_transform(cube: &mut CornerCubieCube, axis: Axis, turn_type: Turn) {
             let corners_translated = _mm_shuffle_epi8(cube.0, Self::TRANSFORMATION_CP_SHUFFLE[axis as usize][turn_type as usize]);
             let cp = _mm_srli_epi32::<5>(_mm_and_si128(corners_translated, _mm_set1_epi8(0b11100000_u8 as i8)));
             let co = _mm_and_si128(corners_translated, _mm_set1_epi8(0b00000011));
@@ -313,8 +306,8 @@ pub mod avx2_cubie {
 
         #[target_feature(enable = "avx2")]
         #[inline]
-        pub(crate) unsafe fn unsafe_invert(mut cube: &mut CornerCubieCube) {
-            let mut corner_ids = unsafe {
+        pub(crate) unsafe fn unsafe_invert(cube: &mut CornerCubieCube) {
+            let corner_ids = unsafe {
                 (_mm_extract_epi64::<0>(_mm_srli_epi32::<5>(_mm_and_si128(cube.0, _mm_set1_epi8(0xE0_u8 as i8)))) as u64).to_le_bytes()
             };
 

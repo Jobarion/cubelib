@@ -1,20 +1,14 @@
-use std::cell::Ref;
-use std::cmp::min;
-use std::fmt::Display;
-use std::rc::Rc;
-use std::str::FromStr;
 use itertools::Itertools;
+
 use crate::algs::Algorithm;
-use crate::coord::{Coord, EOCoordAll, EOCoordFB, EOCoordUD};
-use crate::cube::{Axis, Cube, Face, FACES, Invertible, Move, Transformation, Turn, Turnable, TURNS};
+use crate::coord::EOCoordFB;
+use crate::cube::{Axis, Face, FACES, Move, Transformation};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cubie::{CubieCube, EdgeCubieCube};
-use crate::df_search::{dfs_iter, NissType, SearchOptions};
 use crate::lookup_table::PruningTable;
-use crate::moveset::{MoveSet, Transition, TransitionTable};
+use crate::moveset::{MoveSet, TransitionTable};
 use crate::step::{IsReadyForStep, Step, StepVariant};
-
 
 pub const UD_EO_STATE_CHANGE_MOVES: [Move; 4] = [
     Move(Up, Clockwise), Move(Up, CounterClockwise),
@@ -151,7 +145,7 @@ impl <'a> EOStepTable<'a> {
 }
 
 impl <'a, C> IsReadyForStep<C> for EOStepTable<'a> where EOCoordFB: for<'x> From<&'x C> {
-    fn is_cube_ready(&self, cube: &C) -> bool {
+    fn is_cube_ready(&self, _: &C) -> bool {
         true
     }
 }

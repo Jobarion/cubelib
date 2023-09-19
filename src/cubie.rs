@@ -1,14 +1,12 @@
 use std::fmt::{Display, Formatter};
-use crate::alignment::{AlignedU64, AlignedU8};
+
 use crate::avx2_cubie;
-use crate::coord::EOCoordAll;
-use crate::cube::{Axis, Color, Corner, CornerPosition, Cube, Edge, EdgePosition, Face, Invertible, Move, NewSolved, Transformation, Turn, Turnable};
+use crate::cube::{Color, Corner, CornerPosition, Cube, Edge, EdgePosition, Invertible, Move, NewSolved, Transformation, Turnable};
 use crate::cube::Color::*;
-use crate::cube::EdgePosition::*;
 use crate::cube::CornerPosition::*;
+use crate::cube::EdgePosition::*;
 use crate::cube::Face::*;
 use crate::eo::EOCount;
-
 
 //One byte per edge, 4 bits for id, 3 bits for eo (UD/FB/RL), 1 bit free
 //UB UR UF UL FR FL BR BL DF DR DB DL
@@ -180,7 +178,7 @@ impl Turnable for CubieCube {
 
     #[inline]
     fn transform(&mut self, t: Transformation) {
-        let Transformation(axis, turn) = t;
+        let Transformation(_axis, _turn) = t;
         self.edges.transform(t);
         self.corners.transform(t);
     }

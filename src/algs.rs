@@ -1,8 +1,9 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Add;
-use std::ptr::write;
 use std::str::FromStr;
+
 use itertools::Itertools;
+
 use crate::cube::{Move, Transformation, Turnable};
 
 #[derive(PartialEq, Eq, Hash)]
@@ -21,7 +22,7 @@ impl Clone for Algorithm {
 }
 
 impl Display for Algorithm {
-    fn fmt(&self, mut f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match (self.normal_moves.len(), self.inverse_moves.len()) {
             (_, 0) => write!(f, "{}", Algorithm::fmt_alg(&self.normal_moves)),
             (0, _) => write!(f, "({})", Algorithm::fmt_alg(&self.inverse_moves)),
@@ -95,7 +96,7 @@ impl Turnable for Algorithm {
 }
 
 pub fn parse_algorithm(moves: &str) -> Vec<Move> {
-    let mut chars = moves.chars();
+    let chars = moves.chars();
     let mut moves: Vec<Move> = vec![];
     let mut current = "".to_string();
     for c in chars.filter(|c|!c.is_whitespace()) {

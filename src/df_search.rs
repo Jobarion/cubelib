@@ -1,15 +1,10 @@
-use std::cell::{Ref, RefCell};
 use std::cmp::min;
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::str::FromStr;
 
 use crate::algs::Algorithm;
-use crate::cube::{Cube, Face, FACES, Invertible, Move, Turn, Turnable, TURNS};
+use crate::cube::{Face, FACES, Invertible, Move, Turnable, TURNS};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
-use crate::cubie::CubieCube;
-use crate::moveset::{MoveSet, Transition};
+use crate::moveset::Transition;
 use crate::step::StepVariant;
 
 pub const LEGAL_MOVE_COUNT: usize = TURNS.len() * FACES.len();

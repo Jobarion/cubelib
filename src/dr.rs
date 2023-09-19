@@ -1,14 +1,9 @@
-use std::cmp::{max, min};
-use std::rc::Rc;
-use std::str::FromStr;
 use itertools::Itertools;
-use crate::algs::Algorithm;
+
 use crate::coord::DRUDEOFBCoord;
-use crate::cube::{Axis, Cube, Face, FACES, Invertible, Move, Transformation, Turn, TURNS};
+use crate::cube::{Axis, Face, FACES, Move, Transformation};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
-use crate::cubie::CubieCube;
-use crate::df_search::{ALL_MOVES, dfs_iter, NissType, SearchOptions};
 use crate::eo::EOCount;
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
@@ -63,7 +58,7 @@ pub fn dr<'a, C: EOCount + 'a, const EOA: usize, const DRA: usize>(table: &'a Pr
                 (Axis::FB, Axis::LR) => Some(Box::new(DREOFBStageTable::new_drud_eofb(&table))),
                 (Axis::LR, Axis::UD) => Some(Box::new(DREOLRStageTable::new_drud_eolr(&table))),
                 (Axis::LR, Axis::FB) => Some(Box::new(DREOLRStageTable::new_drfb_eolr(&table))),
-                (eo, dr) => None
+                (_eo, _dr) => None
             };
             x
         })

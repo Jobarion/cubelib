@@ -12,6 +12,7 @@ pub mod moveset;
 pub mod stream;
 pub mod htr;
 pub mod step;
+//Target specific implementations
 mod avx2_cubie;
-mod wasm_cubie;
-mod avx2_coord;
+mod wasm32_cubie;
+pub mod avx2_coord;

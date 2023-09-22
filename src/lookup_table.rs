@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -50,30 +51,39 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> PruningTable<C_SIZE, C> {
 //     dfs_iter(h, cube, search_opts)
 // }
 
-pub fn generate<const COORD_SIZE: usize, Mapper, CubeParam: Turnable + NewSolved + Clone, CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq, const ST_MOVES: usize, const AUX_MOVES: usize>(move_set: &MoveSet<ST_MOVES, AUX_MOVES>, mapper: &Mapper) -> PruningTable<COORD_SIZE, CoordParam> where Mapper: Fn(&CubeParam) -> CoordParam {
+pub fn generate<const COORD_SIZE: usize, Mapper, CubeParam: Turnable + NewSolved + Clone + Debug + Display, CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq + Debug, const ST_MOVES: usize, const AUX_MOVES: usize>(move_set: &MoveSet<ST_MOVES, AUX_MOVES>, mapper: &Mapper) -> PruningTable<COORD_SIZE, CoordParam> where Mapper: Fn(&CubeParam) -> CoordParam {
     let mut table = PruningTable::new();
     let mut to_check: HashMap<CoordParam, CubeParam> = HashMap::new();
     let start_cube = CubeParam::new_solved();
     let start_coord = mapper(&start_cube);
     table.set(start_coord, 0);
     to_check.insert(start_coord, start_cube);
+    let mut total_checked = 0;
     for depth in 0..20 {
         println!("Depth {} with {} cubes to check", depth, to_check.len());
+        total_checked += to_check.len();
         to_check = fill_table(move_set, &mut table, depth, &mapper, to_check);
         if to_check.is_empty() {
             break;
         }
     }
+    if total_checked < CoordParam::size() - 1 {
+        eprintln!("Expected {} cubes in table but got {total_checked}. The coordinate may be malformed", CoordParam::size() - 1)
+    }
     table
 }
 
-fn fill_table<const COORD_SIZE: usize, Mapper, CubeParam: Turnable + NewSolved + Clone, CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq, const ST_MOVES: usize, const AUX_MOVES: usize>(move_set: &MoveSet<ST_MOVES, AUX_MOVES>, table: &mut PruningTable<COORD_SIZE, CoordParam>, depth: u8, mapper: &Mapper, to_check: HashMap<CoordParam, CubeParam>) -> HashMap<CoordParam, CubeParam> where Mapper: Fn(&CubeParam) -> CoordParam {
+fn fill_table<const COORD_SIZE: usize, Mapper, CubeParam: Turnable + NewSolved + Clone + Debug + Display, CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq + Debug, const ST_MOVES: usize, const AUX_MOVES: usize>(move_set: &MoveSet<ST_MOVES, AUX_MOVES>, table: &mut PruningTable<COORD_SIZE, CoordParam>, depth: u8, mapper: &Mapper, to_check: HashMap<CoordParam, CubeParam>) -> HashMap<CoordParam, CubeParam> where Mapper: Fn(&CubeParam) -> CoordParam {
     let mut next_cubes: HashMap<CoordParam, CubeParam> = HashMap::new();
-    for (_, cube) in to_check.into_iter() {
+    for (coord, cube) in to_check.into_iter() {
         for m in move_set.aux_moves {
             let mut cube = cube.clone();
             cube.turn(m);
             let coord = mapper(&cube);
+            // if coord.val() == 120 {
+            //     println!("{cube}");
+            //     println!("Found at {depth} {m}");
+            // }
             let stored = table.get(coord);
             if stored == None {
                 table.set(coord, depth + 1);
@@ -84,6 +94,9 @@ fn fill_table<const COORD_SIZE: usize, Mapper, CubeParam: Turnable + NewSolved +
             let mut cube = cube.clone();
             cube.turn(m);
             let coord = mapper(&cube);
+            // if coord.val() == 120 {
+            //     println!("Found at {depth} {m}");
+            // }
             let stored = table.get(coord);
             if stored == None {
                 table.set(coord, depth + 1);

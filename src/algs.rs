@@ -95,7 +95,7 @@ impl Turnable for Algorithm {
     }
 }
 
-pub fn parse_algorithm(moves: &str) -> Vec<Move> {
+pub fn parse_moves(moves: &str) -> Vec<Move> {
     let chars = moves.chars();
     let mut moves: Vec<Move> = vec![];
     let mut current = "".to_string();

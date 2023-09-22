@@ -121,7 +121,7 @@ pub fn eo<'a, C, const EOA: usize>(table: &'a PruningTable<2048, EOCoordFB>, eo_
 impl <'a> EOStepTable<'a> {
     fn new_ud(table: &'a PruningTable<2048, EOCoordFB>) -> Self {
         EOStepTable {
-            move_set: &EO_UD_MOVESET,
+            move_set: &EO_FB_MOVESET,
             pre_trans: vec![Transformation(Axis::X, Clockwise)],
             table
         }
@@ -129,7 +129,7 @@ impl <'a> EOStepTable<'a> {
 
     fn new_lr(table: &'a PruningTable<2048, EOCoordFB>) -> Self {
         EOStepTable {
-            move_set: &EO_LR_MOVESET,
+            move_set: &EO_FB_MOVESET,
             pre_trans: vec![Transformation(Axis::Y, Clockwise)],
             table
         }
@@ -137,7 +137,7 @@ impl <'a> EOStepTable<'a> {
 
     fn new_fb(table: &'a PruningTable<2048, EOCoordFB>) -> Self {
         EOStepTable {
-            move_set: &EO_UD_MOVESET,
+            move_set: &EO_FB_MOVESET,
             pre_trans: vec![],
             table
         }
@@ -209,17 +209,23 @@ impl EOCount for EdgeCubieCube {
     }
 }
 
-const fn eo_transitions(axis_face: Face) -> [TransitionTable; 18] {
+pub(crate) const fn eo_transitions(axis_face: Face) -> [TransitionTable; 18] {
     let mut transitions = [TransitionTable::new(0, 0); 18];
     let mut i = 0;
+    let can_end_mask = TransitionTable::moves_to_mask([
+        Move(axis_face, Clockwise),
+        Move(axis_face, CounterClockwise),
+        Move(axis_face.opposite(), Clockwise),
+        Move(axis_face.opposite(), CounterClockwise)
+    ]);
     while i < FACES.len() {
-        transitions[Move(FACES[i], Clockwise).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[FACES[i] as usize], TransitionTable::ANY);
-        transitions[Move(FACES[i], Half).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[FACES[i] as usize], TransitionTable::ANY);
-        transitions[Move(FACES[i], CounterClockwise).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[FACES[i] as usize], TransitionTable::ANY);
+        transitions[Move(FACES[i], Clockwise).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[FACES[i] as usize], can_end_mask);
+        transitions[Move(FACES[i], Half).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[FACES[i] as usize], can_end_mask);
+        transitions[Move(FACES[i], CounterClockwise).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[FACES[i] as usize], can_end_mask);
         i += 1;
     }
     i = 0;
-    transitions[Move(axis_face, Half).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[axis_face as usize], TransitionTable::except_moves_to_mask([Move(axis_face.opposite(), Clockwise), Move(axis_face.opposite(), CounterClockwise)]));
-    transitions[Move(axis_face.opposite(), Half).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[axis_face.opposite() as usize], TransitionTable::except_moves_to_mask([Move(axis_face, Clockwise), Move(axis_face,CounterClockwise)]));
+    transitions[Move(axis_face, Half).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[axis_face as usize], TransitionTable::NONE);
+    transitions[Move(axis_face.opposite(), Half).to_id()] = TransitionTable::new(TransitionTable::DEFAULT_ALLOWED_AFTER[axis_face.opposite() as usize], TransitionTable::NONE);
     transitions
 }

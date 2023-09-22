@@ -1,4 +1,4 @@
-use crate::avx2_coord::avx2_coord;
+use crate::avx2_coord;
 use crate::cube::{Corner, Edge};
 use crate::cubie::{CornerCubieCube, CubieCube, EdgeCubieCube};
 
@@ -13,36 +13,55 @@ pub trait Coord<const SIZE: usize>: Into<usize> + Copy + Clone + Eq + PartialEq{
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct EOCoordAll(pub EOCoordUD, pub EOCoordFB, pub EOCoordLR);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EOCoordUD(pub u16);
+pub struct EOCoordUD(pub(crate) u16);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EOCoordFB(pub u16);
+pub struct EOCoordFB(pub(crate) u16);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EOCoordLR(pub u16);
+pub struct EOCoordLR(pub(crate) u16);
 
 //EO without considering edges in the UD slice (because they are already oriented)
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EOCoordNoUDSlice(pub u8);
+pub struct EOCoordNoUDSlice(pub(crate) u8);
 
 //UD corner orientation
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct COUDCoord(pub u16);
+pub struct COUDCoord(pub(crate) u16);
 
 //Corner permutation
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct CPCoord(pub u16);
+pub struct CPCoord(pub(crate) u16);
 
 //Edge permutation
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct EPCoord(pub u32);
+pub struct EPCoord(pub(crate) u32);
 
 //Coordinate representing the position of edges that belong into the UD slice.
 //0 if they are in the slice, they don't have to be in the correct position
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct UDSliceUnsortedCoord(pub u16);
+pub struct UDSliceUnsortedCoord(pub(crate) u16);
 
 //Assuming we already have FB-EO, represents the combination of UDSliceUnsortedCoord and COUDCoord
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct DRUDEOFBCoord(u32);
+pub struct DRUDEOFBCoord(pub(crate) u32);
+
+//Coordinate representing the position of edges that belong into the FB slice, assuming the UD slice is already correct.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct FBSliceUnsortedCoord(pub(crate) u8);
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct CPOrbitUnsortedCoord(pub(crate) u8);
+
+//Coordinate representing the twist state of HTR corner orbits
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct CPOrbitTwistParityCoord(pub(crate) u8);
+
+//Coordinate representing the parity state
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct ParityCoord(pub(crate) bool);
+
+//Assuming we already have UD-DR, represents the combination of UDSliceUnsortedCoord and COUDCoord
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct HTRDRUDCoord(pub(crate) u32);
 
 impl Coord<2048> for EOCoordUD {
     fn val(&self) -> usize {
@@ -140,8 +159,56 @@ impl Into<usize> for UDSliceUnsortedCoord {
     }
 }
 
+impl Coord<70> for FBSliceUnsortedCoord {
+    fn val(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Into<usize> for FBSliceUnsortedCoord {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Coord<70> for CPOrbitUnsortedCoord {
+    fn val(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Into<usize> for CPOrbitUnsortedCoord {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Coord<3> for CPOrbitTwistParityCoord {
+    fn val(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Into<usize> for CPOrbitTwistParityCoord {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Coord<2> for ParityCoord {
+    fn val(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Into<usize> for ParityCoord {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
 //TODO this should use 'impl const' once it's stable
-const DRUDEOFB_SIZE: usize = 495 * 2187;
+pub const DRUDEOFB_SIZE: usize = 495 * 2187;
 impl Coord<DRUDEOFB_SIZE> for DRUDEOFBCoord {
     fn val(&self) -> usize {
         self.0 as usize
@@ -154,13 +221,27 @@ impl Into<usize> for DRUDEOFBCoord {
     }
 }
 
+//TODO this should use 'impl const' once it's stable
+pub const HTRDRUD_SIZE: usize = 70 * 70 * 6;
+impl Coord<HTRDRUD_SIZE> for HTRDRUDCoord {
+    fn val(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Into<usize> for HTRDRUDCoord {
+    fn into(self) -> usize {
+        self.val()
+    }
+}
+
 impl From<&EdgeCubieCube> for EOCoordAll {
 
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn from(value: &EdgeCubieCube) -> Self {
         unsafe {
-            avx2_coord::unsafe_from_eocoord_all(value)
+            avx2_coord::avx2_coord::unsafe_from_eocoord_all(value)
         }
     }
 }
@@ -171,8 +252,14 @@ impl From<&EdgeCubieCube> for EOCoordUD {
     #[cfg(target_feature = "avx2")]
     fn from(value: &EdgeCubieCube) -> Self {
         unsafe {
-            avx2_coord::unsafe_from_eocoord_ud(value)
+            avx2_coord::avx2_coord::unsafe_from_eocoord_ud(value)
         }
+    }
+}
+
+impl From<&CubieCube> for EOCoordUD {
+    fn from(value: &CubieCube) -> Self {
+        EOCoordUD::from(&value.edges)
     }
 }
 
@@ -182,8 +269,14 @@ impl From<&EdgeCubieCube> for EOCoordFB {
     #[cfg(target_feature = "avx2")]
     fn from(value: &EdgeCubieCube) -> Self {
         unsafe {
-            avx2_coord::unsafe_from_eocoord_fb(value)
+            avx2_coord::avx2_coord::unsafe_from_eocoord_fb(value)
         }
+    }
+}
+
+impl From<&CubieCube> for EOCoordFB {
+    fn from(value: &CubieCube) -> Self {
+        EOCoordFB::from(&value.edges)
     }
 }
 
@@ -193,8 +286,14 @@ impl From<&EdgeCubieCube> for EOCoordLR {
     #[cfg(target_feature = "avx2")]
     fn from(value: &EdgeCubieCube) -> Self {
         unsafe {
-            avx2_coord::unsafe_from_eocoord_lr(value)
+            avx2_coord::avx2_coord::unsafe_from_eocoord_lr(value)
         }
+    }
+}
+
+impl From<&CubieCube> for EOCoordLR {
+    fn from(value: &CubieCube) -> Self {
+        EOCoordLR::from(&value.edges)
     }
 }
 
@@ -204,7 +303,7 @@ impl From<&EdgeCubieCube> for EOCoordNoUDSlice {
     #[cfg(target_feature = "avx2")]
     fn from(value: &EdgeCubieCube) -> Self {
         unsafe {
-            avx2_coord::unsafe_from_eocoord_no_ud_slice(value)
+            avx2_coord::avx2_coord::unsafe_from_eocoord_no_ud_slice(value)
         }
     }
 }
@@ -232,7 +331,7 @@ impl From<&CornerCubieCube> for COUDCoord {
     #[cfg(target_feature = "avx2")]
     fn from(value: &CornerCubieCube) -> Self {
         unsafe {
-            avx2_coord::unsafe_from_cocoord(value)
+            avx2_coord::avx2_coord::unsafe_from_cocoord(value)
         }
     }
 }
@@ -255,7 +354,7 @@ impl From<&CornerCubieCube> for CPCoord {
     #[cfg(target_feature = "avx2")]
     fn from(value: &CornerCubieCube) -> Self {
         unsafe {
-            avx2_coord::unsafe_from_cpcoord(value)
+            avx2_coord::avx2_coord::unsafe_from_cpcoord(value)
         }
     }
 }
@@ -284,7 +383,7 @@ impl From<&EdgeCubieCube> for EPCoord {
     #[cfg(target_feature = "avx2")]
     fn from(value: &EdgeCubieCube) -> Self {
         unsafe {
-            avx2_coord::unsafe_from_epcoord(value)
+            avx2_coord::avx2_coord::unsafe_from_epcoord(value)
         }
     }
 }
@@ -313,7 +412,7 @@ impl From<&EdgeCubieCube> for UDSliceUnsortedCoord {
     #[cfg(target_feature = "avx2")]
     fn from(value: &EdgeCubieCube) -> Self {
         unsafe {
-            avx2_coord::unsafe_from_udsliceunsortedcoord(value)
+            avx2_coord::avx2_coord::unsafe_from_udslice_unsorted_coord(value)
         }
     }
 }
@@ -330,11 +429,62 @@ impl From<&CubieCube> for DRUDEOFBCoord {
     }
 }
 
-pub(crate) const FACTORIAL: [u32; 12] = [1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800];
+impl From<&EdgeCubieCube> for FBSliceUnsortedCoord {
 
-pub(crate) const fn b(n: u8, k: u8) -> u8 {
-    if n == 0 || n < k {
-        return 0;
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn from(value: &EdgeCubieCube) -> Self {
+        unsafe {
+            avx2_coord::avx2_coord::unsafe_from_fbslice_unsorted_coord(value)
+        }
     }
-    (FACTORIAL[n as usize] / FACTORIAL[k as usize] / FACTORIAL[(n - k) as usize]) as u8
+}
+
+impl From<&CornerCubieCube> for CPOrbitUnsortedCoord {
+
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn from(value: &CornerCubieCube) -> Self {
+        unsafe {
+            avx2_coord::avx2_coord::unsafe_from_cp_orbit_unsorted_coord(value)
+        }
+    }
+}
+
+impl From<&CornerCubieCube> for CPOrbitTwistParityCoord {
+
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn from(value: &CornerCubieCube) -> Self {
+        unsafe {
+            avx2_coord::avx2_coord::unsafe_from_cp_orbit_twist_parity_coord(value)
+        }
+    }
+}
+
+impl From<&CornerCubieCube> for ParityCoord {
+
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn from(value: &CornerCubieCube) -> Self {
+        unsafe {
+            avx2_coord::avx2_coord::unsafe_from_parity_coord(value)
+        }
+    }
+}
+
+impl From<&CubieCube> for HTRDRUDCoord {
+    fn from(value: &CubieCube) -> Self {
+        let ep_fbslice_coord = FBSliceUnsortedCoord::from(&value.edges).val();
+        let cp_orbit_coord = CPOrbitUnsortedCoord::from(&value.corners).val();
+        let cp_orbit_twist = CPOrbitTwistParityCoord::from(&value.corners).val();
+        let parity = ParityCoord::from(&value.corners).val();
+
+        let val =
+            parity +
+            cp_orbit_twist * ParityCoord::size() +
+            cp_orbit_coord * ParityCoord::size() * CPOrbitTwistParityCoord::size() +
+            ep_fbslice_coord * ParityCoord::size() * CPOrbitTwistParityCoord::size() * CPOrbitUnsortedCoord::size();
+        HTRDRUDCoord(val as u32)
+    }
 }

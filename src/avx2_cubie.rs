@@ -1,10 +1,10 @@
 #[cfg(target_feature = "avx2")]
 pub mod avx2_cubie {
-    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_andnot_si128, _mm_extract_epi64, _mm_load_si128, _mm_loadl_epi64, _mm_or_si128, _mm_set1_epi8, _mm_set_epi8, _mm_shuffle_epi8, _mm_slli_epi32, _mm_slli_epi64, _mm_srli_epi16, _mm_srli_epi32, _mm_store_si128, _mm_sub_epi8, _mm_xor_si128};
+    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_andnot_si128, _mm_extract_epi64, _mm_load_si128, _mm_loadl_epi64, _mm_or_si128, _mm_set1_epi8, _mm_set_epi64x, _mm_set_epi8, _mm_shuffle_epi8, _mm_slli_epi32, _mm_slli_epi64, _mm_srli_epi16, _mm_srli_epi32, _mm_store_si128, _mm_sub_epi8, _mm_xor_si128};
 
     use crate::alignment::{AlignedU64, AlignedU8};
     use crate::alignment::avx2::C;
-    use crate::cube::{Axis, Corner, Edge, Face, Invertible, Turn};
+    use crate::cube::{Axis, Corner, Edge, Face, Turn};
     use crate::cubie::CornerCubieCube;
     use crate::cubie::EdgeCubieCube;
 
@@ -12,14 +12,11 @@ pub mod avx2_cubie {
 
     impl AVX2EdgeCubieCube {
 
-        pub(crate) const BAD_EDGE_MASK_UD: u64 = 0x0808080808080808;
-        pub(crate) const BAD_EDGE_MASK_FB: u64 = 0x0404040404040404;
-        pub(crate) const BAD_EDGE_MASK_RL: u64 = 0x0202020202020202;
-        pub(crate) const VALID_EDGE_MASK_HI: u64 = 0x00000000FFFFFFFF;
+        const VALID_EDGE_MASK_HI: u64 = 0x00000000FFFFFFFF;
 
         //UB UR UF UL FR FL BR BL DF DR DB DL
         // 0  1  2  3  4  5  6  7  8  9 10 11
-        const TURN_EDGE_SHUFFLE: [[__m128i; 3]; 6] = unsafe {[
+        const TURN_EDGE_SHUFFLE: [[__m128i; 3]; 6] = [
             [
                 unsafe { C { a_u8: [3, 0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //U
                 unsafe { C { a_u8: [2, 3, 0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //U2
@@ -50,18 +47,18 @@ pub mod avx2_cubie {
                 unsafe { C { a_u8: [0, 9, 2, 3, 6, 5, 4, 7, 8, 1, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //R2
                 unsafe { C { a_u8: [0, 6, 2, 3, 1, 5, 9, 7, 8, 4, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //R'
             ]
-        ]};
+        ];
 
-        const TURN_EO_FLIP: [__m128i; 6] = unsafe{[
+        const TURN_EO_FLIP: [__m128i; 6] = [
             unsafe { C { a_u8: [0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//U
             unsafe { C { a_u8: [0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0] }.a },//D
             unsafe { C { a_u8: [0, 0, 0b00000100, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, 0, 0] }.a },//F
             unsafe { C { a_u8: [0b00000100, 0, 0, 0, 0, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0] }.a },//B
             unsafe { C { a_u8: [0, 0, 0, 0b00000010, 0, 0b00000010, 0, 0b00000010, 0, 0, 0, 0b00000010, 0, 0, 0, 0] }.a },//L
             unsafe { C { a_u8: [0, 0b00000010, 0, 0, 0b00000010, 0, 0b00000010, 0, 0, 0b00000010, 0, 0, 0, 0, 0, 0] }.a },//R
-        ]};
+        ];
 
-        const TRANSFORMATION_EP_SHUFFLE: [[__m128i; 3]; 3] = unsafe {[
+        const TRANSFORMATION_EP_SHUFFLE: [[__m128i; 3]; 3] = [
             [
                 unsafe { C { a_u8: [2, 4, 8, 5, 9, 11, 1, 3, 10, 6, 0, 7, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //x
                 unsafe { C { a_u8: [8, 9, 10, 11, 6, 7, 4, 5, 0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //x2
@@ -77,13 +74,13 @@ pub mod avx2_cubie {
                 unsafe { C { a_u8: [10, 11, 8, 9, 5, 4, 7, 6, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //z2
                 unsafe { C { a_u8: [6, 9, 4, 1, 8, 2, 10, 0, 5, 11, 7, 3, 0xFF, 0xFF, 0xFF, 0xFF] }.a }  //z'
             ],
-        ]};
+        ];
 
-        const TRANSFORMATION_EO_MAP: [__m128i; 3] = unsafe {[
+        const TRANSFORMATION_EO_MAP: [__m128i; 3] = [
             unsafe { C { a_u8: [0b0000, 0xFF, 0b0010, 0xFF, 0b1000, 0xFF, 0b1010, 0xFF, 0b0100, 0xFF, 0b0110, 0xFF, 0b1100, 0xFF, 0b1110, 0xFF] }.a }, //X
             unsafe { C { a_u8: [0b0000, 0xFF, 0b0100, 0xFF, 0b0010, 0xFF, 0b0110, 0xFF, 0b1000, 0xFF, 0b1100, 0xFF, 0b1010, 0xFF, 0b1110, 0xFF] }.a }, //X
             unsafe { C { a_u8: [0b0000, 0xFF, 0b1000, 0xFF, 0b0100, 0xFF, 0b1100, 0xFF, 0b0010, 0xFF, 0b1010, 0xFF, 0b0110, 0xFF, 0b1110, 0xFF] }.a }, //X
-        ]};
+        ];
 
         #[target_feature(enable = "avx2")]
         pub(crate) unsafe fn unsafe_get_edges_raw(cube: &EdgeCubieCube) -> [u64; 2] {
@@ -172,7 +169,7 @@ pub mod avx2_cubie {
 
     impl AVX2CornerCubieCube {
 
-        const TURN_CORNER_SHUFFLE: [[__m128i; 3]; 6] = unsafe {[
+        const TURN_CORNER_SHUFFLE: [[__m128i; 3]; 6] = [
             [
                 unsafe { C { a_u8: [3, 0, 1, 2, 4, 5, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //U
                 unsafe { C { a_u8: [2, 3, 0, 1, 4, 5, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //U2
@@ -203,9 +200,9 @@ pub mod avx2_cubie {
                 unsafe { C { a_u8: [0, 5, 6, 3, 4, 1, 2, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //R2
                 unsafe { C { a_u8: [0, 6, 1, 3, 4, 2, 5, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //R'
             ],
-        ]};
+        ];
 
-        const TRANSFORMATION_CP_SHUFFLE: [[__m128i; 3]; 3] = unsafe {[
+        pub(crate) const TRANSFORMATION_CP_SHUFFLE: [[__m128i; 3]; 3] = [
             [
                 unsafe { C { a_u8: [3, 2, 5, 4, 7, 6, 1, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //x
                 unsafe { C { a_u8: [4, 5, 6, 7, 0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //x2
@@ -221,28 +218,28 @@ pub mod avx2_cubie {
                 unsafe { C { a_u8: [6, 7, 4, 5, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //F2
                 unsafe { C { a_u8: [1, 6, 5, 2, 3, 4, 7, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] }.a }, //F'
             ],
-        ]};
+        ];
 
         //CPOO
         // const CO_MAP: __m128i = unsafe { C { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b01, 0b00, 0b10, 0xFF, 0b10, 0b01, 0b00, 0xFF, 0b00, 0b01, 0b10, 0xFF] }.a }; //z
 
-        const TRANSFORMATION_CO_MAP: [__m128i; 3] = unsafe {[
+        const TRANSFORMATION_CO_MAP: [__m128i; 3] = [
             unsafe { C { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b00, 0b01, 0b10, 0xFF] }.a }, //z
             unsafe { C { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF] }.a }, //y
             unsafe { C { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b00, 0b01, 0b10, 0xFF] }.a }, //x
-        ]};
+        ];
 
 
         const CO_OVERFLOW_MASK: __m128i = unsafe{ C { a_u8: [0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0, 0, 0, 0, 0, 0, 0, 0] }.a };
 
-        const TURN_CO_CHANGE: [__m128i; 6] = unsafe{[
+        const TURN_CO_CHANGE: [__m128i; 6] = [
             unsafe { C { a_u8: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//U
             unsafe { C { a_u8: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//D
             unsafe { C { a_u8: [1, 1, 2, 3, 2, 3, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//F
             unsafe { C { a_u8: [2, 3, 1, 1, 1, 1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//B
             unsafe { C { a_u8: [3, 1, 1, 2, 3, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//L
             unsafe { C { a_u8: [1, 2, 3, 1, 1, 2, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0] }.a },//R
-        ]};
+        ];
 
         #[target_feature(enable = "avx2")]
         #[inline]
@@ -321,7 +318,7 @@ pub mod avx2_cubie {
             //Also switch CO 1 <-> 2,  CO 0 stays the same
             let cp = _mm_and_si128(_mm_shuffle_epi8(_mm_shuffle_epi8(cube.0, corner_shuffle_mask), corner_shuffle_mask), _mm_set1_epi8(0b11100000_u8 as i8));
             let co_shuffle = _mm_shuffle_epi8(cube.0, _mm_srli_epi32::<5>(cp));
-            let tmp = _mm_and_si128(_mm_add_epi8(co_shuffle, _mm_set1_epi8(1)), _mm_set1_epi8(2));
+            let tmp = _mm_and_si128(_mm_add_epi8(co_shuffle, _mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1)), _mm_set1_epi8(2));
             let co_flip_mask = _mm_or_si128(tmp, _mm_srli_epi32::<1>(tmp));
             let co = _mm_and_si128(_mm_xor_si128(co_shuffle, co_flip_mask), _mm_set1_epi8(7));
 

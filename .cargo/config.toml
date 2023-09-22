@@ -1,2 +1,3 @@
 [build]
 rustflags = "-C target-feature=+avx2"
+#target = "wasm32-unknown-unknown"

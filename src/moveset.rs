@@ -29,6 +29,7 @@ impl Transition {
 impl TransitionTable {
 
     pub const ANY: u32 = 0x3FFFF;
+    pub const NONE: u32 = 0;
 
     pub const DEFAULT_ALLOWED_AFTER: [u32; 6] = [
         TransitionTable::except_faces_to_mask([Face::Up]), //U
@@ -39,17 +40,21 @@ impl TransitionTable {
         TransitionTable::except_faces_to_mask([Face::Left, Face::Right]), //R
     ];
 
-    pub const fn except_moves_to_mask<const L: usize>(moves: [Move; L]) -> u32 {
+    pub const fn moves_to_mask<const L: usize>(moves: [Move; L]) -> u32 {
         let mut mask = 0u32;
         let mut i = 0;
         while i < L {
             mask |= 1 << moves[i].to_id();
             i += 1;
         }
-        !mask & 0x3FFFF
+        mask & 0x3FFFF
     }
 
-    pub const fn except_faces_to_mask<const L: usize>(faces: [Face; L]) -> u32 {
+    pub const fn except_moves_to_mask<const L: usize>(moves: [Move; L]) -> u32 {
+        !TransitionTable::moves_to_mask(moves) & 0x3FFFF
+    }
+
+    pub const fn faces_to_mask<const L: usize>(faces: [Face; L]) -> u32 {
         let mut mask = 0u32;
         let mut i = 0;
         while i < L {
@@ -59,7 +64,11 @@ impl TransitionTable {
             mask |= 1 << Move(f, Turn::Half).to_id();
             i += 1;
         }
-        !mask & 0x3FFFF
+        mask & 0x3FFFF
+    }
+
+    pub const fn except_faces_to_mask<const L: usize>(faces: [Face; L]) -> u32 {
+        !TransitionTable::faces_to_mask(faces) & 0x3FFFF
     }
 
     pub const fn new(allowed: u32, can_end: u32) -> Self {
@@ -72,6 +81,4 @@ impl TransitionTable {
         let can_end = self.can_end & (1 << mid) != 0;
         Transition{allowed, can_end}
     }
-
-
 }

@@ -64,12 +64,12 @@ pub fn dfs_iter<
     mut cube: C,
     search_opts: SearchOptions) -> Option<impl Iterator<Item = Algorithm> + 'a> {
 
-    if !step.is_cube_ready(&cube) {
-        return None;
-    }
-
     for t in step.pre_step_trans().iter().cloned() {
         cube.transform(t);
+    }
+
+    if !step.is_cube_ready(&cube) {
+        return None;
     }
 
     Some((search_opts.min_moves..=search_opts.max_moves).into_iter()
@@ -132,8 +132,23 @@ fn next_dfs_level<
         Box::new(vec![].into_iter())
     } else {
         let state_change_moves = step.move_set().st_moves.into_iter()
-            .map(move |m| (m, previous.map(|p| step.move_set().transitions[Into::<usize>::into(&p)].check_move(&m)).unwrap_or(Transition::any())))
-            .filter(move |(_, transition_type)| transition_type.allowed && (depth != 1 || transition_type.can_end))
+            // .filter(move |m| (depth == 5 && m.to_id() == Move::L.to_id()) ||
+            //         (depth == 4 && m.to_id() == Move::B.to_id()) ||
+            //         (depth == 3 && m.to_id() == Move::Li.to_id()) ||
+            //         (depth == 2 && m.to_id() == Move::U.to_id()) ||
+            //         (depth == 1 && m.to_id() == Move::B.to_id()))
+            .map(move |m| (m, previous.map(|pm| {
+                // if depth == 3 {
+                //     println!("{pm} {m}");
+                // }
+                step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m)
+            }).unwrap_or(Transition::any())))
+            .filter(move |(m, transition_type)| {
+                // if depth == 4 {
+                //     println!("Depth {depth} move {m} allowed {} can end {}", transition_type.allowed, transition_type.can_end);
+                // }
+                transition_type.allowed && (depth != 1 || transition_type.can_end)
+            })
             // .filter(move |(m, _)| {
             //         (depth == 3 && invert_allowed && m.to_id() == Move::U.to_id()) ||
             //         (depth == 2 && invert_allowed && m.to_id() == Move::D.to_id()) ||
@@ -150,8 +165,23 @@ fn next_dfs_level<
                 })
             });
         let aux_moves = step.move_set().aux_moves.into_iter()
-            .map(move |m| (m, previous.map(|p| step.move_set().transitions[Into::<usize>::into(&p)].check_move(&m)).unwrap_or(Transition::any())))
-            .filter(move |(_, transition_type)| transition_type.allowed && (depth != 1 || transition_type.can_end))
+            // .filter(move |m| (depth == 5 && m.to_id() == Move::L.to_id()) ||
+            //     (depth == 4 && m.to_id() == Move::B.to_id()) ||
+            //     (depth == 3 && m.to_id() == Move::Li.to_id()) ||
+            //     (depth == 2 && m.to_id() == Move::U.to_id()) ||
+            //     (depth == 1 && m.to_id() == Move::B.to_id()))
+            .map(move |m| (m, previous.map(|pm| {
+                // if depth == 3 {
+                //     println!("{pm} {m}");
+                // }
+                step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m)
+            }).unwrap_or(Transition::any())))
+            .filter(move |(m, transition_type)| {
+                // if depth == 3 {
+                //     println!("Depth {depth} move {m} allowed {} can end {}", transition_type.allowed, transition_type.can_end);
+                // }
+                transition_type.allowed && (depth != 1 || transition_type.can_end)
+            })
             // .filter(move |(m, _)| depth == 4 && invert_allowed && m.to_id() == Move::F2.to_id())
             .flat_map(move |(m, _)|{
                 cube.turn(m);

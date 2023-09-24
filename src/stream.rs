@@ -1,8 +1,18 @@
-use crate::algs::Algorithm;
+use crate::algs::{Algorithm, Solution};
 
-pub fn iterated_dfs<'a, IN: Iterator<Item=Algorithm> + 'a, OUT: Iterator<Item=Algorithm> + 'a, F: 'a>(current_stage: IN, mapper: F) -> impl Iterator<Item = Algorithm> + 'a
-    where F: Fn(Algorithm, u8) -> OUT {
-    DFSAlgIter::new(current_stage)
+pub(crate) fn iterated_dfs<
+    'a,
+    IN: Iterator<Item = Solution> + 'a,
+    OUT: Iterator<Item = Solution> + 'a,
+    F: 'a,
+>(
+    current_stage: IN,
+    mapper: F,
+) -> impl Iterator<Item = Solution> + 'a
+where
+    F: Fn(Solution, u8) -> OUT,
+{
+    DFSSolutionIter::new(current_stage)
         .take_while(|(_, depth)| *depth < 100)
         .flat_map(move |(alg, depth)| {
             let next_stage_depth = depth - alg.len();
@@ -86,57 +96,53 @@ pub fn iterated_dfs<'a, IN: Iterator<Item=Algorithm> + 'a, OUT: Iterator<Item=Al
 //     }
 // }
 
-
-pub struct DFSAlgIter<I> {
+pub struct DFSSolutionIter<I> {
     orig: I,
     pos: usize,
     cycle_count: usize,
-    cached_values: Vec<Algorithm>,
+    cached_values: Vec<Solution>,
 }
 
-impl<I> DFSAlgIter<I>
-    where
-        I: Iterator<Item = Algorithm> {
-
+impl<I> DFSSolutionIter<I>
+where
+    I: Iterator<Item = Solution>,
+{
     pub fn new(iter: I) -> Self {
         Self {
             orig: iter,
             pos: 0,
             cycle_count: 0,
-            cached_values: vec![]
+            cached_values: vec![],
         }
     }
 }
 
-impl<I> Iterator for DFSAlgIter<I>
-    where
-        I: Iterator<Item = Algorithm>,
+impl<I> Iterator for DFSSolutionIter<I>
+where
+    I: Iterator<Item = Solution>,
 {
     type Item = (<I as Iterator>::Item, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.pos {
-            n if self.cached_values.len() == n => {
-                match self.orig.next() {
-                    None if self.cached_values.len() == 0 => None,
-                    None => {
-                        self.pos = 0;
-                        self.cycle_count += 1;
-                        self.next()
-                    }
-                    Some(t) => {
-                        self.cached_values.push(t);
-                        self.next()
-                    }
+            n if self.cached_values.len() == n => match self.orig.next() {
+                None if self.cached_values.len() == 0 => None,
+                None => {
+                    self.pos = 0;
+                    self.cycle_count += 1;
+                    self.next()
                 }
-            }
-            n=> {
+                Some(t) => {
+                    self.cached_values.push(t);
+                    self.next()
+                }
+            },
+            n => {
                 let alg = self.cached_values[n].clone();
                 if alg.len() <= self.cycle_count {
                     self.pos += 1;
                     Some((alg, self.cycle_count))
-                }
-                else {
+                } else {
                     self.pos = 0;
                     self.cycle_count += 1;
                     self.next()

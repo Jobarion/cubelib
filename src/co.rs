@@ -16,12 +16,14 @@ trait CornerOrientationCount {
     fn co_count_all(&self) -> (u8, u8, u8);
 }
 
-impl <CO: CornerOrientationCountUD + CornerOrientationCountRL + CornerOrientationCountFB> CornerOrientationCount for CO {
+impl<CO: CornerOrientationCountUD + CornerOrientationCountRL + CornerOrientationCountFB>
+    CornerOrientationCount for CO
+{
     fn co_count_all(&self) -> (u8, u8, u8) {
         (
             (CornerOrientationCountUD::co_count(self)),
             (CornerOrientationCountFB::co_count(self)),
-            (CornerOrientationCountRL::co_count(self))
+            (CornerOrientationCountRL::co_count(self)),
         )
     }
 }

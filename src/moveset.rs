@@ -20,14 +20,15 @@ pub struct Transition {
 }
 
 impl Transition {
-
     pub fn any() -> Self {
-        Transition { allowed: true, can_end: true }
+        Transition {
+            allowed: true,
+            can_end: true,
+        }
     }
 }
 
 impl TransitionTable {
-
     pub const ANY: u32 = 0x3FFFF;
     pub const NONE: u32 = 0;
 
@@ -79,6 +80,6 @@ impl TransitionTable {
         let mid = m.to_id() as u32;
         let allowed = self.allowed & (1 << mid) != 0;
         let can_end = self.can_end & (1 << mid) != 0;
-        Transition{allowed, can_end}
+        Transition { allowed, can_end }
     }
 }

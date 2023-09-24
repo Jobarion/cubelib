@@ -20,38 +20,13 @@ pub enum Face {
 }
 
 impl Face {
-
     const TRANSFORMATIONS: [[[Face; 3]; 3]; 6] = [
-        [
-            [Front, Down, Back],
-            [Up, Up, Up],
-            [Left, Down, Right]
-        ],
-        [
-            [Back, Up, Front],
-            [Down, Down, Down],
-            [Right, Up, Left]
-        ],
-        [
-            [Down, Back, Up],
-            [Right, Back, Left],
-            [Front, Front, Front]
-        ],
-        [
-            [Up, Front, Down],
-            [Left, Front, Right],
-            [Back, Back, Back]
-        ],
-        [
-            [Left, Left, Left],
-            [Front, Right, Back],
-            [Down, Right, Up]
-        ],
-        [
-            [Right, Right, Right],
-            [Back, Left, Front],
-            [Up, Left, Down]
-        ],
+        [[Front, Down, Back], [Up, Up, Up], [Left, Down, Right]],
+        [[Back, Up, Front], [Down, Down, Down], [Right, Up, Left]],
+        [[Down, Back, Up], [Right, Back, Left], [Front, Front, Front]],
+        [[Up, Front, Down], [Left, Front, Right], [Back, Back, Back]],
+        [[Left, Left, Left], [Front, Right, Back], [Down, Right, Up]],
+        [[Right, Right, Right], [Back, Left, Front], [Up, Left, Down]],
     ];
 
     pub const fn opposite(&self) -> Self {
@@ -64,7 +39,6 @@ impl Face {
             Right => Left,
         }
     }
-
 
     pub fn transform(self, t: Transformation) -> Face {
         Self::TRANSFORMATIONS[self][t.0][t.1 as usize]
@@ -82,7 +56,7 @@ impl TryFrom<char> for Face {
             'B' => Ok(Self::Back),
             'L' => Ok(Self::Left),
             'R' => Ok(Self::Right),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -109,7 +83,6 @@ impl<T, const N: usize> Index<Face> for [T; N] {
 }
 
 impl<T, const N: usize> IndexMut<Face> for [T; N] {
-
     fn index_mut(&mut self, index: Face) -> &mut Self::Output {
         &mut self[index as usize]
     }
@@ -124,7 +97,7 @@ impl From<u32> for Face {
             3 => Face::Back,
             4 => Face::Left,
             5 => Face::Right,
-            _ => panic!("Invalid face")
+            _ => panic!("Invalid face"),
         }
     }
 }
@@ -133,7 +106,7 @@ impl From<u32> for Face {
 pub enum Turn {
     Clockwise = 0,
     Half = 1,
-    CounterClockwise = 2
+    CounterClockwise = 2,
 }
 
 impl Turn {
@@ -156,23 +129,22 @@ impl Into<usize> for &Move {
 }
 
 impl Move {
-
-    pub const U: Move =  Move(Up, Clockwise);
+    pub const U: Move = Move(Up, Clockwise);
     pub const U2: Move = Move(Up, Half);
     pub const Ui: Move = Move(Up, CounterClockwise);
-    pub const D: Move =  Move(Down, Clockwise);
+    pub const D: Move = Move(Down, Clockwise);
     pub const D2: Move = Move(Down, Half);
     pub const Di: Move = Move(Down, CounterClockwise);
-    pub const F: Move =  Move(Front, Clockwise);
+    pub const F: Move = Move(Front, Clockwise);
     pub const F2: Move = Move(Front, Half);
     pub const Fi: Move = Move(Front, CounterClockwise);
-    pub const B: Move =  Move(Back, Clockwise);
+    pub const B: Move = Move(Back, Clockwise);
     pub const B2: Move = Move(Back, Half);
     pub const Bi: Move = Move(Back, CounterClockwise);
-    pub const R: Move =  Move(Right, Clockwise);
+    pub const R: Move = Move(Right, Clockwise);
     pub const R2: Move = Move(Right, Half);
     pub const Ri: Move = Move(Right, CounterClockwise);
-    pub const L: Move =  Move(Left, Clockwise);
+    pub const L: Move = Move(Left, Clockwise);
     pub const L2: Move = Move(Left, Half);
     pub const Li: Move = Move(Left, CounterClockwise);
 
@@ -195,7 +167,7 @@ impl Display for Move {
         let turn = match self.1 {
             Clockwise => "",
             CounterClockwise => "'",
-            Half => "2"
+            Half => "2",
         };
         face.push_str(turn);
         write!(f, "{}", face)
@@ -213,12 +185,12 @@ impl FromStr for Move {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let mut chars = value.chars();
-        let face = chars.next().map_or(Err(()), |c|Face::try_from(c))?;
+        let face = chars.next().map_or(Err(()), |c| Face::try_from(c))?;
         let turn = match chars.next() {
             Some('2') => Ok(Turn::Half),
             Some('\'') => Ok(Turn::CounterClockwise),
             None => Ok(Turn::Clockwise),
-            _ => Err(())
+            _ => Err(()),
         }?;
         if chars.next().is_none() {
             Ok(Move(face, turn))
@@ -232,7 +204,7 @@ impl FromStr for Move {
 pub enum Axis {
     X = 0,
     Y = 1,
-    Z = 2
+    Z = 2,
 }
 
 impl Axis {
@@ -261,7 +233,7 @@ pub enum Color {
     Orange = 4,
     Red = 5,
 
-    None =  6,
+    None = 6,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -273,7 +245,7 @@ pub enum CornerPosition {
     DFL = 4,
     DFR = 5,
     DBR = 6,
-    DBL = 7
+    DBL = 7,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -289,7 +261,7 @@ pub enum EdgePosition {
     DF = 8,
     DR = 9,
     DB = 10,
-    DL = 11
+    DL = 11,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -323,7 +295,7 @@ pub trait ApplyAlgorithm {
     fn apply_alg(&mut self, alg: &Algorithm);
 }
 
-impl <C: Turnable + Invertible> ApplyAlgorithm for C {
+impl<C: Turnable + Invertible> ApplyAlgorithm for C {
     fn apply_alg(&mut self, alg: &Algorithm) {
         for m in &alg.normal_moves {
             self.turn(*m);
@@ -360,11 +332,21 @@ pub trait Cube: Display + Turnable + Invertible + NewSolved {
             }
             write!(f, "{}", block_spacing)?;
             for y in 0..3 {
-                write!(f, "{}{}", facelets[Face::Right][x_rev + y * 3], block_spacing)?;
+                write!(
+                    f,
+                    "{}{}",
+                    facelets[Face::Right][x_rev + y * 3],
+                    block_spacing
+                )?;
             }
             write!(f, "{}", block_spacing)?;
             for y in (0..3).rev() {
-                write!(f, "{}{}", facelets[Face::Down][x_rev * 3 + y], block_spacing)?;
+                write!(
+                    f,
+                    "{}{}",
+                    facelets[Face::Down][x_rev * 3 + y],
+                    block_spacing
+                )?;
             }
             writeln!(f)?;
         }

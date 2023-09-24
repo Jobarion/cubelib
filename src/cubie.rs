@@ -2,11 +2,14 @@ use std::arch::x86_64::__m128i;
 use std::fmt::{Display, Formatter};
 
 use crate::avx2_cubie;
-use crate::cube::{Color, Corner, CornerPosition, Cube, Edge, EdgePosition, Invertible, Move, NewSolved, Transformation, Turnable};
 use crate::cube::Color::*;
 use crate::cube::CornerPosition::*;
 use crate::cube::EdgePosition::*;
 use crate::cube::Face::*;
+use crate::cube::{
+    Color, Corner, CornerPosition, Cube, Edge, EdgePosition, Invertible, Move, NewSolved,
+    Transformation, Turnable,
+};
 use crate::eo::EOCount;
 
 //One byte per edge, 4 bits for id, 3 bits for eo (UD/FB/RL), 1 bit free
@@ -14,11 +17,11 @@ use crate::eo::EOCount;
 #[derive(Debug, Clone, Copy)]
 pub struct EdgeCubieCube(
     #[cfg(target_feature = "avx2")] pub(crate) core::arch::x86_64::__m128i,
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))] pub(crate) core::arch::wasm32::v128,
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    pub(crate)  core::arch::wasm32::v128,
 );
 
 impl EdgeCubieCube {
-
     pub(crate) const BAD_EDGE_MASK_UD: u64 = 0x0808080808080808;
     pub(crate) const BAD_EDGE_MASK_FB: u64 = 0x0404040404040404;
     pub(crate) const BAD_EDGE_MASK_RL: u64 = 0x0202020202020202;
@@ -31,9 +34,7 @@ impl EdgeCubieCube {
 
     #[cfg(target_feature = "avx2")]
     pub fn get_edges(&self) -> [Edge; 12] {
-        unsafe {
-            avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_get_edges(self)
-        }
+        unsafe { avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_get_edges(self) }
     }
 
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
@@ -43,9 +44,7 @@ impl EdgeCubieCube {
 
     #[cfg(target_feature = "avx2")]
     pub fn get_edges_raw(&self) -> [u64; 2] {
-        unsafe {
-            avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_get_edges_raw(self)
-        }
+        unsafe { avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_get_edges_raw(self) }
     }
 
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
@@ -55,7 +54,6 @@ impl EdgeCubieCube {
 }
 
 impl Turnable for EdgeCubieCube {
-
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn turn(&mut self, m: Move) {
@@ -90,7 +88,6 @@ impl Turnable for EdgeCubieCube {
 }
 
 impl Invertible for EdgeCubieCube {
-
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn invert(&mut self) {
@@ -107,18 +104,15 @@ impl Invertible for EdgeCubieCube {
 }
 
 impl NewSolved for EdgeCubieCube {
-
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn new_solved() -> Self {
-        unsafe {
-            avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_new_solved()
-        }
+        unsafe { avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_new_solved() }
     }
 
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn new_solved() -> Self{
+    fn new_solved() -> Self {
         wasm_cubie::WASM32EdgeCubieCube::new_solved()
     }
 }
@@ -128,11 +122,11 @@ impl NewSolved for EdgeCubieCube {
 #[derive(Debug, Clone, Copy)]
 pub struct CornerCubieCube(
     #[cfg(target_feature = "avx2")] pub(crate) core::arch::x86_64::__m128i,
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))] pub(crate) core::arch::wasm32::v128,
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    pub(crate)  core::arch::wasm32::v128,
 );
 
 impl CornerCubieCube {
-
     #[cfg(target_feature = "avx2")]
     pub fn new(state: __m128i) -> CornerCubieCube {
         CornerCubieCube(state)
@@ -140,10 +134,8 @@ impl CornerCubieCube {
 
     #[inline]
     #[cfg(target_feature = "avx2")]
-    fn get_corners(&self) -> [Corner; 8] {
-        unsafe {
-            avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_get_corners(self)
-        }
+    pub fn get_corners(&self) -> [Corner; 8] {
+        unsafe { avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_get_corners(self) }
     }
 
     #[inline]
@@ -155,9 +147,7 @@ impl CornerCubieCube {
     #[inline]
     #[cfg(target_feature = "avx2")]
     pub fn get_corners_raw(&self) -> u64 {
-        unsafe {
-            avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_get_corners_raw(self)
-        }
+        unsafe { avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_get_corners_raw(self) }
     }
 
     #[inline]
@@ -168,7 +158,6 @@ impl CornerCubieCube {
 }
 
 impl Turnable for CornerCubieCube {
-
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn turn(&mut self, m: Move) {
@@ -203,7 +192,6 @@ impl Turnable for CornerCubieCube {
 }
 
 impl Invertible for CornerCubieCube {
-
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn invert(&mut self) {
@@ -220,13 +208,10 @@ impl Invertible for CornerCubieCube {
 }
 
 impl NewSolved for CornerCubieCube {
-
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn new_solved() -> Self {
-        unsafe {
-            avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_new_solved()
-        }
+        unsafe { avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_new_solved() }
     }
 
     #[inline]
@@ -245,7 +230,7 @@ pub struct CubieCube {
 
 impl CubieCube {
     pub fn new(edges: EdgeCubieCube, corners: CornerCubieCube) -> CubieCube {
-        CubieCube{edges, corners}
+        CubieCube { edges, corners }
     }
 
     pub fn count_bad_edges(&self) -> (u8, u8, u8) {
@@ -260,7 +245,6 @@ impl Display for CubieCube {
 }
 
 impl Turnable for CubieCube {
-
     #[inline]
     fn turn(&mut self, m: Move) {
         self.edges.turn(m);
@@ -276,7 +260,6 @@ impl Turnable for CubieCube {
 }
 
 impl Invertible for CubieCube {
-
     #[inline]
     fn invert(&mut self) {
         self.edges.invert();
@@ -285,7 +268,6 @@ impl Invertible for CubieCube {
 }
 
 impl NewSolved for CubieCube {
-
     #[inline]
     fn new_solved() -> CubieCube {
         CubieCube {
@@ -296,9 +278,7 @@ impl NewSolved for CubieCube {
 }
 
 impl Cube for CubieCube {
-
     fn get_facelets(&self) -> [[Color; 9]; 6] {
-
         let corners = self.corners.get_corners();
         let edges = self.edges.get_edges();
         let mut facelets = [[None; 9]; 6];
@@ -381,7 +361,6 @@ impl Cube for CubieCube {
 }
 
 impl CubieCube {
-
     pub const CORNER_COLORS: [[Color; 3]; 8] = [
         [White, Orange, Blue],
         [White, Blue, Red],
@@ -390,7 +369,7 @@ impl CubieCube {
         [Yellow, Orange, Green],
         [Yellow, Green, Red],
         [Yellow, Red, Blue],
-        [Yellow, Blue, Orange]
+        [Yellow, Blue, Orange],
     ];
 
     const EDGE_COLORS: [[Color; 2]; 12] = [
@@ -405,6 +384,6 @@ impl CubieCube {
         [Yellow, Green],
         [Yellow, Red],
         [Yellow, Blue],
-        [Yellow, Orange]
+        [Yellow, Orange],
     ];
 }

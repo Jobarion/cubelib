@@ -1,9 +1,10 @@
+use itertools::Itertools;
 use std::cmp::min;
 
 use crate::algs::Algorithm;
-use crate::cube::{Face, FACES, Invertible, Move, Turnable, TURNS};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
+use crate::cube::{Face, Invertible, Move, Turnable, FACES, TURNS};
 use crate::moveset::Transition;
 use crate::step::StepVariant;
 
@@ -21,7 +22,7 @@ pub struct SearchOptions {
 pub enum NissType {
     None,
     AtStart,
-    During
+    During,
 }
 
 impl SearchOptions {
@@ -29,7 +30,7 @@ impl SearchOptions {
         SearchOptions {
             min_moves,
             max_moves,
-            niss_type
+            niss_type,
         }
     }
 }
@@ -58,12 +59,14 @@ pub fn dfs_iter<
     const SC_SIZE: usize,
     const AUX_SIZE: usize,
     C: Turnable + Invertible + Clone + Copy + 'a,
-    S: StepVariant<SC_SIZE, AUX_SIZE, C> + ?Sized
+    S: StepVariant<SC_SIZE, AUX_SIZE, C> + ?Sized,
 >(
     step: &'a S,
     mut cube: C,
-    search_opts: SearchOptions) -> Option<impl Iterator<Item = Algorithm> + 'a> {
-
+    search_opts: SearchOptions,
+    previous_normal: Option<Move>,
+    previous_inverse: Option<Move>,
+) -> Option<Box<dyn Iterator<Item = Algorithm> + 'a>> {
     for t in step.pre_step_trans().iter().cloned() {
         cube.transform(t);
     }
@@ -72,34 +75,73 @@ pub fn dfs_iter<
         return None;
     }
 
-    Some((search_opts.min_moves..=search_opts.max_moves).into_iter()
-        .flat_map(move |depth| {
-            let b: Box::<dyn Iterator<Item = Algorithm>> = match search_opts.niss_type {
+    //Return immediately if the cube is solved. This avoids the issue where we return two solutions is the niss type is AtStart.
+    if step.heuristic(&cube) == 0 {
+        //Only return a solution if we are allowed to return zero length solutions
+        if search_opts.min_moves == 0 {
+            return Some(Box::new(vec![Algorithm::new()].into_iter()));
+        } else {
+            return Some(Box::new(vec![].into_iter()));
+        }
+    }
 
-                NissType::During | NissType::None => {
-                    Box::new(next_dfs_level(step, cube.clone(), depth, true, search_opts.niss_type == NissType::During, None)
-                        .map(|alg| alg.reverse()))
-                },
+    Some(Box::new(
+        (search_opts.min_moves..=search_opts.max_moves)
+            .into_iter()
+            .flat_map(move |depth| {
+                let b: Box<dyn Iterator<Item = Algorithm>> = match search_opts.niss_type {
+                    NissType::During | NissType::None => Box::new(
+                        next_dfs_level(
+                            step,
+                            cube.clone(),
+                            depth,
+                            true,
+                            search_opts.niss_type == NissType::During,
+                            previous_normal,
+                            previous_inverse,
+                        )
+                        .map(|alg| alg.reverse()),
+                    ),
 
-                NissType::AtStart => {
-                    let no_niss = next_dfs_level(step, cube.clone(), depth, true, false, None)
+                    NissType::AtStart => {
+                        let no_niss = next_dfs_level(
+                            step,
+                            cube.clone(),
+                            depth,
+                            true,
+                            false,
+                            previous_normal,
+                            previous_inverse,
+                        )
                         .map(|alg| alg.reverse());
-                    let mut inverted = cube.clone();
-                    inverted.invert();
-                    let only_niss = next_dfs_level(step, inverted, depth, true, false, None)
+                        let mut inverted = cube.clone();
+                        inverted.invert();
+                        let only_niss = next_dfs_level(
+                            step,
+                            inverted,
+                            depth,
+                            true,
+                            false,
+                            previous_inverse,
+                            previous_normal,
+                        )
                         .map(|alg| alg.reverse())
-                        .map(|alg| Algorithm { normal_moves: alg.inverse_moves, inverse_moves: alg.normal_moves });
-                    Box::new(no_niss.chain(only_niss))
+                        .map(|alg| Algorithm {
+                            normal_moves: alg.inverse_moves,
+                            inverse_moves: alg.normal_moves,
+                        });
+                        Box::new(no_niss.chain(only_niss))
+                    }
+                };
+                b
+            })
+            .map(|mut alg| {
+                for t in step.pre_step_trans().iter().cloned().rev() {
+                    alg.transform(t);
                 }
-            };
-            b
-        })
-        .map(|mut alg| {
-            for t in step.pre_step_trans().iter().cloned().rev() {
-                alg.transform(t);
-            }
-            alg
-        }))
+                alg
+            }),
+    ))
 }
 
 fn next_dfs_level<
@@ -107,14 +149,16 @@ fn next_dfs_level<
     const SC_SIZE: usize,
     const AUX_SIZE: usize,
     C: Turnable + Invertible + Copy + Clone + 'a,
-    S: StepVariant<SC_SIZE, AUX_SIZE, C> + ?Sized>(
+    S: StepVariant<SC_SIZE, AUX_SIZE, C> + ?Sized,
+>(
     step: &'a S,
     mut cube: C,
     depth: u8,
     can_invert: bool,
     invert_allowed: bool,
-    previous: Option<Move>) -> Box<dyn Iterator<Item = Algorithm> + 'a>  {
-
+    previous_normal: Option<Move>,
+    previous_inverse: Option<Move>,
+) -> Box<dyn Iterator<Item = Algorithm> + 'a> {
     let lower_bound = if invert_allowed {
         min(1, step.heuristic(&cube))
     } else {
@@ -124,25 +168,35 @@ fn next_dfs_level<
     // println!("{depth} {invert_allowed} {can_invert} {lower_bound}");
 
     let mut inverse = cube.clone();
-    let normal_solutions: Box::<dyn Iterator<Item = Algorithm>> = if depth == 0 && lower_bound == 0 {
+    let normal_solutions: Box<dyn Iterator<Item = Algorithm>> = if depth == 0 && lower_bound == 0 {
         // println!("\tSolved");
         Box::new(vec![Algorithm::new()].into_iter())
     } else if lower_bound == 0 || lower_bound > depth {
         // println!("\tSkipped");
         Box::new(vec![].into_iter())
     } else {
-        let state_change_moves = step.move_set().st_moves.into_iter()
+        let state_change_moves = step
+            .move_set()
+            .st_moves
+            .into_iter()
             // .filter(move |m| (depth == 5 && m.to_id() == Move::L.to_id()) ||
             //         (depth == 4 && m.to_id() == Move::B.to_id()) ||
             //         (depth == 3 && m.to_id() == Move::Li.to_id()) ||
             //         (depth == 2 && m.to_id() == Move::U.to_id()) ||
             //         (depth == 1 && m.to_id() == Move::B.to_id()))
-            .map(move |m| (m, previous.map(|pm| {
-                // if depth == 3 {
-                //     println!("{pm} {m}");
-                // }
-                step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m)
-            }).unwrap_or(Transition::any())))
+            .map(move |m| {
+                (
+                    m,
+                    previous_normal
+                        .map(|pm| {
+                            // if depth == 3 {
+                            //     println!("{pm} {m}");
+                            // }
+                            step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m)
+                        })
+                        .unwrap_or(Transition::any()),
+                )
+            })
             .filter(move |(m, transition_type)| {
                 // if depth == 4 {
                 //     println!("Depth {depth} move {m} allowed {} can end {}", transition_type.allowed, transition_type.can_end);
@@ -154,28 +208,46 @@ fn next_dfs_level<
             //         (depth == 2 && invert_allowed && m.to_id() == Move::D.to_id()) ||
             //         (depth == 1 && !invert_allowed && m.to_id() == Move::D.to_id())
             // })
-            .flat_map(move |(m, t)|{
+            .flat_map(move |(m, t)| {
                 cube.turn(m);
                 // println!("{depth} applying sc {m} {}", t.can_end);
-                let result = next_dfs_level(step, cube, depth - 1, t.can_end, invert_allowed, Some(m));
+                let result = next_dfs_level(
+                    step,
+                    cube,
+                    depth - 1,
+                    t.can_end,
+                    invert_allowed,
+                    Some(m),
+                    previous_inverse,
+                );
                 cube.turn(m.invert());
-                result.map(move |mut alg|{
+                result.map(move |mut alg| {
                     alg.normal_moves.push(m);
                     alg
                 })
             });
-        let aux_moves = step.move_set().aux_moves.into_iter()
+        let aux_moves = step
+            .move_set()
+            .aux_moves
+            .into_iter()
             // .filter(move |m| (depth == 5 && m.to_id() == Move::L.to_id()) ||
             //     (depth == 4 && m.to_id() == Move::B.to_id()) ||
             //     (depth == 3 && m.to_id() == Move::Li.to_id()) ||
             //     (depth == 2 && m.to_id() == Move::U.to_id()) ||
             //     (depth == 1 && m.to_id() == Move::B.to_id()))
-            .map(move |m| (m, previous.map(|pm| {
-                // if depth == 3 {
-                //     println!("{pm} {m}");
-                // }
-                step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m)
-            }).unwrap_or(Transition::any())))
+            .map(move |m| {
+                (
+                    m,
+                    previous_normal
+                        .map(|pm| {
+                            // if depth == 3 {
+                            //     println!("{pm} {m}");
+                            // }
+                            step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m)
+                        })
+                        .unwrap_or(Transition::any()),
+                )
+            })
             .filter(move |(m, transition_type)| {
                 // if depth == 3 {
                 //     println!("Depth {depth} move {m} allowed {} can end {}", transition_type.allowed, transition_type.can_end);
@@ -183,13 +255,21 @@ fn next_dfs_level<
                 transition_type.allowed && (depth != 1 || transition_type.can_end)
             })
             // .filter(move |(m, _)| depth == 4 && invert_allowed && m.to_id() == Move::F2.to_id())
-            .flat_map(move |(m, _)|{
+            .flat_map(move |(m, _)| {
                 cube.turn(m);
                 // println!("{depth} applying aux {m}");
                 // let next_skip = skip_move_set_normal.apply_move(m.0);
-                let result = next_dfs_level(step, cube, depth - 1, false, invert_allowed, Some(m));
+                let result = next_dfs_level(
+                    step,
+                    cube,
+                    depth - 1,
+                    false,
+                    invert_allowed,
+                    Some(m),
+                    previous_inverse,
+                );
                 cube.turn(m.invert());
-                result.map(move |mut alg|{
+                result.map(move |mut alg| {
                     alg.normal_moves.push(m);
                     alg
                 })
@@ -199,11 +279,19 @@ fn next_dfs_level<
     if depth > 0 && can_invert && invert_allowed {
         // println!("{depth} inverting");
         inverse.invert();
-        let inverse_solutions = next_dfs_level(step, inverse, depth, false, false, None)
-            .map(|alg| Algorithm {
-                normal_moves: alg.inverse_moves,
-                inverse_moves: alg.normal_moves
-            });
+        let inverse_solutions = next_dfs_level(
+            step,
+            inverse,
+            depth,
+            false,
+            false,
+            previous_inverse,
+            previous_normal,
+        )
+        .map(|alg| Algorithm {
+            normal_moves: alg.inverse_moves,
+            inverse_moves: alg.normal_moves,
+        });
         return Box::new(normal_solutions.chain(inverse_solutions));
     } else {
         return normal_solutions;
@@ -214,7 +302,6 @@ fn next_dfs_level<
 pub struct MoveSkipTracker(u8);
 
 impl MoveSkipTracker {
-
     const SLICE_MASKS: [u8; 6] = [0b11, 0b11, 0b1100, 0b1100, 0b110000, 0b110000];
     const FACE_MASKS: [u8; 6] = [0b1, 0b11, 0b100, 0b1100, 0b10000, 0b110000];
 
@@ -228,7 +315,10 @@ impl MoveSkipTracker {
 
     //Never allow U after D, only D after U (and similar for other axis). This prevents solutions with different U D orders and enforces one canonical representation
     pub fn apply_move(&self, face: Face) -> MoveSkipTracker {
-        MoveSkipTracker(self.0 & MoveSkipTracker::SLICE_MASKS[face as usize] | MoveSkipTracker::FACE_MASKS[face as usize])
+        MoveSkipTracker(
+            self.0 & MoveSkipTracker::SLICE_MASKS[face as usize]
+                | MoveSkipTracker::FACE_MASKS[face as usize],
+        )
     }
 }
 

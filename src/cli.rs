@@ -24,6 +24,10 @@ pub struct Cli {
     pub niss: bool,
     #[arg(short = 'n', help = "The number of solutions returned. By default 1 unless this option or --max is set")]
     pub solution_count: Option<usize>,
+    #[arg(short = 'l', long = "step-limit", group = "limits", help = "Maximum number of solutions calculated per step variations (Variations like eoud and eofb count separately)")]
+    pub step_limit: Option<usize>,
+    #[arg(long = "optimal", group = "limits", help = "")]
+    pub optimal: bool,
 
     pub scramble: String,
 }

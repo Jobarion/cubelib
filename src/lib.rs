@@ -8,6 +8,7 @@ pub mod df_search;
 pub mod dr;
 pub mod eo;
 pub mod htr;
+pub mod fr;
 pub mod lookup_table;
 pub mod moveset;
 pub mod step;

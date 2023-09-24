@@ -153,7 +153,7 @@ pub fn next_step<
                 let mut cube = cube.clone();
                 let alg: Algorithm = solution.clone().into();
                 cube.apply_alg(&alg);
-                let stage_opts = SearchOptions::new(depth, depth, search_opts.niss_type);
+                let stage_opts = SearchOptions::new(depth, depth, search_opts.niss_type, search_opts.step_limit);
                 let previous_normal = alg.normal_moves.last().cloned();
                 let previous_inverse = alg.inverse_moves.last().cloned();
 
@@ -163,10 +163,7 @@ pub fn next_step<
                     .iter()
                     .zip(0..)
                     .take_while(move |(_step, step_id)| depth > 0 || *step_id == 0)
-                    .map(move |(step, _step_id)| {
-                        // println!("Trying step {} at depth {}", step.name(), depth);
-                        step
-                    })
+                    .map(move |(step, _step_id)| step)
                     .flat_map(move |step_variant| {
                         dfs_iter(
                             step_variant.as_ref(),
@@ -177,13 +174,17 @@ pub fn next_step<
                         )
                         .map(|alg| (step_variant.name(), alg))
                     })
-                    .flat_map(|(name, iter)| iter.map(move |alg| (name, alg)))
-                    .map(move |(step_name, step_alg)| {
+                    .flat_map(|(name, iter)| iter.map(move |alg| (name, alg)));
+                let values: Box<dyn Iterator<Item = (&str, Algorithm)>> = if let Some(step_limit) = search_opts.step_limit {
+                    Box::new(values.take(step_limit))
+                } else {
+                    Box::new(values)
+                };
+                Box::new(values.map(move |(step_name, step_alg)| {
                         let mut sol = solution.clone();
                         sol.add_step(step_name.to_string(), step_alg);
                         sol
-                    });
-                Box::new(values)
+                    }))
             };
         result
     })

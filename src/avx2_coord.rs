@@ -1,29 +1,13 @@
 #[cfg(target_feature = "avx2")]
 pub mod avx2_coord {
-    use std::arch::x86_64::{
-        __m128i, _mm256_and_si256, _mm256_castsi256_si128, _mm256_cmpgt_epi8,
-        _mm256_extracti128_si256, _mm256_hadd_epi32, _mm256_mullo_epi32, _mm256_set1_epi64x,
-        _mm256_set1_epi8, _mm256_set_epi32, _mm256_set_epi8, _mm256_setr_m128i,
-        _mm256_shuffle_epi8, _mm_add_epi32, _mm_add_epi8, _mm_and_si128, _mm_castps_si128,
-        _mm_castsi128_ps, _mm_cmpeq_epi8, _mm_cmpgt_epi8, _mm_cmplt_epi8, _mm_extract_epi16,
-        _mm_extract_epi32, _mm_extract_epi64, _mm_hadd_epi16, _mm_hadd_epi32,
-        _mm_movemask_epi8, _mm_mullo_epi16, _mm_mullo_epi32, _mm_or_si128,
-        _mm_permute_ps, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_set_epi16, _mm_set_epi32,
-        _mm_set_epi64x, _mm_set_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8,
-        _mm_slli_epi32, _mm_slli_epi64, _mm_slli_si128, _mm_srli_epi32, _mm_sub_epi8,
-        _mm_xor_si128,
-    };
+    use std::arch::x86_64::{__m128i, _mm256_and_si256, _mm256_castsi256_si128, _mm256_cmpgt_epi8, _mm256_extracti128_si256, _mm256_hadd_epi32, _mm256_mullo_epi32, _mm256_set1_epi64x, _mm256_set1_epi8, _mm256_set_epi32, _mm256_set_epi8, _mm256_setr_m128i, _mm256_shuffle_epi8, _mm_add_epi32, _mm_add_epi8, _mm_and_si128, _mm_castpd_si128, _mm_castps_si128, _mm_castsi128_pd, _mm_castsi128_ps, _mm_cmpeq_epi8, _mm_cmpgt_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi32, _mm_extract_epi64, _mm_hadd_epi16, _mm_hadd_epi32, _mm_movemask_epi8, _mm_mullo_epi16, _mm_mullo_epi32, _mm_or_si128, _mm_permute_pd, _mm_permute_ps, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_set_epi16, _mm_set_epi32, _mm_set_epi64x, _mm_set_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_slli_epi32, _mm_slli_epi64, _mm_slli_si128, _mm_srli_epi32, _mm_sub_epi8, _mm_xor_si128};
 
     use crate::alignment::avx2::C;
     
-    use crate::coord::{
-        COUDCoord, CPCoord, CPOrbitTwistCoord, CPOrbitUnsortedCoord, EOCoordAll, EOCoordFB,
-        EOCoordLR, EOCoordNoUDSlice, EOCoordUD, EPCoord, FBSliceUnsortedCoord, ParityCoord,
-        UDSliceUnsortedCoord,
-    };
+    use crate::coord::{COUDCoord, CPCoord, CPOrbitTwistCoord, CPOrbitUnsortedCoord, EOCoordAll, EOCoordFB, EOCoordLR, EOCoordNoUDSlice, EOCoordUD, EPCoord, FBSliceUnsortedCoord, FRCPOrbitCoord, FREdgesCoord, FROrbitParityCoord, ParityCoord, UDSliceUnsortedCoord};
     
     
-    use crate::cubie::{CornerCubieCube, EdgeCubieCube};
+    use crate::cubie::{CornerCubieCube, CubieCube, EdgeCubieCube};
     
 
     #[target_feature(enable = "avx2")]
@@ -503,18 +487,6 @@ pub mod avx2_coord {
            // 3, 3, 3, 3, 3, 3, 3, 3,  //x
     ];
 
-    // const ORBIT_STATE_LUT: [u8; 56] = [
-    // //  x, F, R, D, U, L, B, x
-    //     3, 3, 3, 3, 3, 3, 3, 3,  //x
-    //     3, 0, 2, 1, 2, 1, 0, 3,  //F
-    //     3, 1, 0, 2, 1, 0, 2, 3,  //R
-    //     3, 2, 1, 0, 0, 2, 1, 3,  //D
-    //     3, 1, 2, 0, 0, 1, 2, 3,  //U
-    //     3, 2, 0, 1, 2, 0, 1, 3,  //L
-    //     3, 0, 1, 2, 1, 2, 0, 3,  //B
-    //   //3, 3, 3, 3, 3, 3, 3, 3,  //x
-    // ];
-
     #[target_feature(enable = "avx2")]
     #[inline]
     pub unsafe fn unsafe_from_cp_orbit_twist_parity_coord(
@@ -590,42 +562,61 @@ pub mod avx2_coord {
         )));
         let parity = (parity ^ (parity >> 32)) & 1;
 
-        // let alt_parity = {
-        //     let corners = cube.get_corners();
-        //     let mut visited = [false; 8];
-        //     let mut pcount = 0;
-        //     for start in 0..8_u8 {
-        //         if visited[start as usize] {
-        //             continue;
-        //         }
-        //         let mut pos = start;
-        //         visited[start as usize] = true;
-        //         pos = corners[pos as usize].id;
-        //         while pos != start {
-        //             pcount += 1;
-        //             visited[pos as usize] = true;
-        //
-        //             pos = corners[pos as usize].id;
-        //         }
-        //     }
-        //     pcount & 1
-        // };
-        //
-        // if parity != alt_parity {
-        //     panic!("{} != {}", parity, alt_parity);
-        // }
-
         ParityCoord(parity == 1)
     }
 
-    // #[target_feature(enable = "avx2")]
-    // #[inline]
-    // pub unsafe fn unsafe_from_parity_coord(cube: &CornerCubieCube) -> ParityCoord {
-    //     let pairwise_swaps = _mm_and_si128(_mm_cmplt_epi8(cube.0, _mm_srli_epi32::<32>(cube.0)), _mm_set1_epi8(1));
-    //     let coord = _mm_extract_epi8::<0>(_mm_sad_epu8(pairwise_swaps, _mm_set1_epi8(0))) & 1;
-    //
-    //     ParityCoord(coord == 1)
-    // }
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    pub unsafe fn unsafe_from_fr_edges_coord(cube: &EdgeCubieCube) -> FREdgesCoord {
+        let relevant_edges = _mm_shuffle_epi8(cube.0, _mm_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 9, 8, 3, 2, 1, 0));
+        let ids = _mm_and_si128(_mm_srli_epi32::<4>(relevant_edges), _mm_set1_epi8(0x0F));
+        let fr_colors = _mm_shuffle_epi8(_mm_set_epi8(-1, -1, -1, -1, 0, 0, 1, 1, -1, -1, -1, -1, 0, 1, 1, 0), ids);
+        let incorrect = _mm_cmpeq_epi8(fr_colors, _mm_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 1, 0, 0, 1));
+        let coord = _mm_movemask_epi8(incorrect) as u8;
+        FREdgesCoord(coord)
+    }
+
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    pub unsafe fn unsafe_from_fr_cp_coord(cube: &CornerCubieCube) -> FRCPOrbitCoord {
+        let opposites = _mm_and_si128(_mm_xor_si128(cube.0, _mm_set1_epi32(-1)), _mm_set1_epi8(0b11100000_u8 as i8));
+        let all_ubl_opposite = _mm_shuffle_epi8(opposites, _mm_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0));
+        let opposite_position = _mm_cmpeq_epi8(cube.0, all_ubl_opposite);
+        let position_values = _mm_and_si128(opposite_position, _mm_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1, 0, -1, 3, -1, 2, -1, 1, -1));
+        let coord = _mm_extract_epi16::<0>(_mm_sad_epu8(position_values, _mm_set1_epi8(0))) as u8;
+        FRCPOrbitCoord(coord)
+    }
+
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    pub unsafe fn unsafe_from_fr_parity_coord(cube: &CubieCube) -> FROrbitParityCoord {
+        let orbit_corners = _mm_shuffle_epi8(cube.corners.0, _mm_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 6, 6, 6, 4, 4, 2));
+        let slice_edges = _mm_shuffle_epi8(cube.edges.0, _mm_set_epi8(-1, -1, 7, 7, 7, 6, 6, 5, -1, -1, -1, -1, -1, -1, -1, -1));
+
+        // println!("{:?}", slice_edges);
+        let cmp_corners = _mm_shuffle_epi8(
+            cube.corners.0,
+            _mm_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 4, 2, 0, 2, 0, 0),
+        );
+        let cmp_edges = _mm_shuffle_epi8(
+            cube.edges.0,
+            _mm_set_epi8(-1, -1, 6, 5, 4, 5, 4, 4, -1, -1, -1, -1, -1, -1, -1, -1),
+        );
+        // println!("{:?}", cmp_edges);
+        let cmp0 = _mm_or_si128(orbit_corners, slice_edges);
+        let cmp1 = _mm_or_si128(cmp_edges, cmp_corners);
+        let higher_left = _mm_and_si128(
+            _mm_cmpgt_epi8(cmp0, cmp1),
+            _mm_set1_epi8(1),
+        );
+        // println!("{:?}", higher_left);
+        let added = _mm_sad_epu8(higher_left, _mm_set1_epi8(0));
+        // println!("{:?}", added);
+        let added = _mm_xor_si128(added, _mm_castpd_si128(_mm_permute_pd::<0b11>(_mm_castsi128_pd(added))));
+        // println!("{:?}", added);
+        let parity = _mm_extract_epi16::<0>(added) & 1;
+        FROrbitParityCoord(parity == 1)
+    }
 
     const CP_ORBIT_SHUFFLE_BLOCK_0: [__m128i; 16] = [
         unsafe {

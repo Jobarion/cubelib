@@ -16,6 +16,7 @@ pub struct SearchOptions {
     pub niss_type: NissType,
     pub min_moves: u8,
     pub max_moves: u8,
+    pub step_limit: Option<usize>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -26,33 +27,15 @@ pub enum NissType {
 }
 
 impl SearchOptions {
-    pub fn new(min_moves: u8, max_moves: u8, niss_type: NissType) -> Self {
+    pub fn new(min_moves: u8, max_moves: u8, niss_type: NissType, step_limit: Option<usize>) -> Self {
         SearchOptions {
             min_moves,
             max_moves,
             niss_type,
+            step_limit,
         }
     }
 }
-
-// pub fn solve<'a, const SC_SIZE: usize, const AUX_SIZE: usize, const TRANS: usize, C: Turnable + Invertible + Clone + Copy + 'a, H, PC>(
-//     step: &'a Step<SC_SIZE, AUX_SIZE, TRANS, C, H, PC>,
-//     cube: C,
-//     min_moves: u8,
-//     max_moves: u8,
-//     allow_niss: bool) -> Option<impl Iterator<Item = Algorithm> + 'a>
-//     where
-//         H: Fn(&C) -> u8,
-//         PC: Fn(&C) -> bool {
-//
-//     if (step.pre_check)(&cube) {
-//         //Transform cube
-//         Some(dfs_iter(&step.move_set, step.heuristic.clone(), cube, min_moves, max_moves, allow_niss))
-//         //Transform solutions
-//     } else {
-//         None
-//     }
-// }
 
 pub fn dfs_iter<
     'a,
@@ -165,52 +148,27 @@ fn next_dfs_level<
         step.heuristic(&cube)
     };
 
-    // println!("{depth} {invert_allowed} {can_invert} {lower_bound}");
-
     let mut inverse = cube.clone();
     let normal_solutions: Box<dyn Iterator<Item = Algorithm>> = if depth == 0 && lower_bound == 0 {
-        // println!("\tSolved");
         Box::new(vec![Algorithm::new()].into_iter())
     } else if lower_bound == 0 || lower_bound > depth {
-        // println!("\tSkipped");
         Box::new(vec![].into_iter())
     } else {
         let state_change_moves = step
             .move_set()
             .st_moves
             .into_iter()
-            // .filter(move |m| (depth == 5 && m.to_id() == Move::L.to_id()) ||
-            //         (depth == 4 && m.to_id() == Move::B.to_id()) ||
-            //         (depth == 3 && m.to_id() == Move::Li.to_id()) ||
-            //         (depth == 2 && m.to_id() == Move::U.to_id()) ||
-            //         (depth == 1 && m.to_id() == Move::B.to_id()))
             .map(move |m| {
                 (
                     m,
                     previous_normal
-                        .map(|pm| {
-                            // if depth == 3 {
-                            //     println!("{pm} {m}");
-                            // }
-                            step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m)
-                        })
+                        .map(|pm| step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m))
                         .unwrap_or(Transition::any()),
                 )
             })
-            .filter(move |(_m, transition_type)| {
-                // if depth == 4 {
-                //     println!("Depth {depth} move {m} allowed {} can end {}", transition_type.allowed, transition_type.can_end);
-                // }
-                transition_type.allowed && (depth != 1 || transition_type.can_end)
-            })
-            // .filter(move |(m, _)| {
-            //         (depth == 3 && invert_allowed && m.to_id() == Move::U.to_id()) ||
-            //         (depth == 2 && invert_allowed && m.to_id() == Move::D.to_id()) ||
-            //         (depth == 1 && !invert_allowed && m.to_id() == Move::D.to_id())
-            // })
+            .filter(move |(_m, transition_type)| transition_type.allowed && (depth != 1 || transition_type.can_end))
             .flat_map(move |(m, t)| {
                 cube.turn(m);
-                // println!("{depth} applying sc {m} {}", t.can_end);
                 let result = next_dfs_level(
                     step,
                     cube,
@@ -230,35 +188,17 @@ fn next_dfs_level<
             .move_set()
             .aux_moves
             .into_iter()
-            // .filter(move |m| (depth == 5 && m.to_id() == Move::L.to_id()) ||
-            //     (depth == 4 && m.to_id() == Move::B.to_id()) ||
-            //     (depth == 3 && m.to_id() == Move::Li.to_id()) ||
-            //     (depth == 2 && m.to_id() == Move::U.to_id()) ||
-            //     (depth == 1 && m.to_id() == Move::B.to_id()))
             .map(move |m| {
                 (
                     m,
                     previous_normal
-                        .map(|pm| {
-                            // if depth == 3 {
-                            //     println!("{pm} {m}");
-                            // }
-                            step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m)
-                        })
+                        .map(|pm| step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m))
                         .unwrap_or(Transition::any()),
                 )
             })
-            .filter(move |(_m, transition_type)| {
-                // if depth == 3 {
-                //     println!("Depth {depth} move {m} allowed {} can end {}", transition_type.allowed, transition_type.can_end);
-                // }
-                transition_type.allowed && (depth != 1 || transition_type.can_end)
-            })
-            // .filter(move |(m, _)| depth == 4 && invert_allowed && m.to_id() == Move::F2.to_id())
+            .filter(move |(_m, transition_type)| transition_type.allowed && (depth != 1 || transition_type.can_end))
             .flat_map(move |(m, _)| {
                 cube.turn(m);
-                // println!("{depth} applying aux {m}");
-                // let next_skip = skip_move_set_normal.apply_move(m.0);
                 let result = next_dfs_level(
                     step,
                     cube,
@@ -277,7 +217,6 @@ fn next_dfs_level<
         Box::new(state_change_moves.chain(aux_moves))
     };
     if depth > 0 && can_invert && invert_allowed {
-        // println!("{depth} inverting");
         inverse.invert();
         let inverse_solutions = next_dfs_level(
             step,
@@ -296,30 +235,6 @@ fn next_dfs_level<
     } else {
         return normal_solutions;
     };
-}
-
-#[derive(Copy, Clone)]
-pub struct MoveSkipTracker(u8);
-
-impl MoveSkipTracker {
-    const SLICE_MASKS: [u8; 6] = [0b11, 0b11, 0b1100, 0b1100, 0b110000, 0b110000];
-    const FACE_MASKS: [u8; 6] = [0b1, 0b11, 0b100, 0b1100, 0b10000, 0b110000];
-
-    pub fn empty() -> MoveSkipTracker {
-        MoveSkipTracker(0)
-    }
-
-    pub fn is_legal(&self, face: Face) -> bool {
-        1 << face as usize & self.0 == 0
-    }
-
-    //Never allow U after D, only D after U (and similar for other axis). This prevents solutions with different U D orders and enforces one canonical representation
-    pub fn apply_move(&self, face: Face) -> MoveSkipTracker {
-        MoveSkipTracker(
-            self.0 & MoveSkipTracker::SLICE_MASKS[face as usize]
-                | MoveSkipTracker::FACE_MASKS[face as usize],
-        )
-    }
 }
 
 const fn get_all_moves() -> [Move; LEGAL_MOVE_COUNT] {

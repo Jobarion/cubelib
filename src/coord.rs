@@ -64,9 +64,22 @@ pub struct ParityCoord(pub(crate) bool);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct PureHTRDRUDCoord(pub(crate) u16);
 
-//Assuming we already have UD-DR, represents the combination of ParityCoord, CPOrbitUnsortedCoord, CPOrbitTwistCoord and FBSliceUnsortedCoord
+//Assuming we already have UD-DR, represents the combination of CPCoord and FBSliceUnsortedCoord
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct ImpureHTRDRUDCoord(pub(crate) u32);
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct FREdgesCoord(pub(crate) u8);
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct FRCPOrbitCoord(pub(crate) u8);
+
+//Coordinate representing the orbit parity state in floppy reduction
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct FROrbitParityCoord(pub(crate) bool);
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct FRUDNoSliceCoord(pub(crate) u16);
 
 impl Coord<2048> for EOCoordUD {
     fn val(&self) -> usize {
@@ -250,6 +263,55 @@ impl Coord<{ IMPURE_HTRDRUD_SIZE }> for ImpureHTRDRUDCoord {
 impl Into<usize> for ImpureHTRDRUDCoord {
     fn into(self) -> usize {
         self.val()
+    }
+}
+
+impl Coord<64> for FREdgesCoord {
+    fn val(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Into<usize> for FREdgesCoord {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Coord<4> for FRCPOrbitCoord {
+    fn val(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Into<usize> for FRCPOrbitCoord {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Coord<2> for FROrbitParityCoord {
+    fn val(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Into<usize> for FROrbitParityCoord {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
+pub const FRUD_SIZE: usize = 2 * 4 * 64;
+impl Coord<FRUD_SIZE> for FRUDNoSliceCoord {
+    fn val(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Into<usize> for FRUDNoSliceCoord {
+    fn into(self) -> usize {
+        self.0 as usize
     }
 }
 
@@ -455,6 +517,30 @@ impl From<&CornerCubieCube> for ParityCoord {
     }
 }
 
+impl From<&EdgeCubieCube> for FREdgesCoord {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn from(value: &EdgeCubieCube) -> Self {
+        unsafe { avx2_coord::avx2_coord::unsafe_from_fr_edges_coord(value) }
+    }
+}
+
+impl From<&CornerCubieCube> for FRCPOrbitCoord {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn from(value: &CornerCubieCube) -> Self {
+        unsafe { avx2_coord::avx2_coord::unsafe_from_fr_cp_coord(value) }
+    }
+}
+
+impl From<&CubieCube> for FROrbitParityCoord {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn from(value: &CubieCube) -> Self {
+        unsafe { avx2_coord::avx2_coord::unsafe_from_fr_parity_coord(value) }
+    }
+}
+
 impl From<&CubieCube> for PureHTRDRUDCoord {
     fn from(value: &CubieCube) -> Self {
         let ep_fbslice_coord = FBSliceUnsortedCoord::from(&value.edges).val();
@@ -480,5 +566,22 @@ impl From<&CubieCube> for ImpureHTRDRUDCoord {
 
         let val = cp + ep_fbslice_coord * CPCoord::size();
         Self(val as u32)
+    }
+}
+
+impl From<&CubieCube> for FRUDNoSliceCoord {
+    fn from(value: &CubieCube) -> Self {
+        let edges = FREdgesCoord::from(&value.edges).val();
+        let orbit_cp = FRCPOrbitCoord::from(&value.corners).val();
+        let orbit_parity = FROrbitParityCoord::from(value).val();
+
+        // println!("{:?}", edges);
+        // println!("{:?}", orbit_cp);
+        // println!("{:?}", orbit_parity);
+
+        let coord = orbit_parity +
+            orbit_cp * FROrbitParityCoord::size() +
+            edges * FROrbitParityCoord::size() * FRCPOrbitCoord::size();
+        FRUDNoSliceCoord(coord as u16)
     }
 }

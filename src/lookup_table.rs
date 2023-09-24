@@ -1,7 +1,7 @@
-use crate::avx2_cubie::avx2_cubie::AVX2EdgeCubieCube;
-use itertools::Itertools;
-use log::{debug, error, info, warn};
-use std::collections::{HashMap, HashSet};
+
+
+use log::{debug, error, warn};
+use std::collections::{HashMap};
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -10,8 +10,8 @@ use crate::coord::Coord;
 use crate::cube::{NewSolved, Turnable};
 use crate::moveset::{MoveSet, TransitionTable};
 
-pub struct PruningTable<const CSize: usize, C: Coord<CSize>> {
-    entries: Box<[u8; CSize]>,
+pub struct PruningTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
+    entries: Box<[u8; C_SIZE]>,
     coord_type: PhantomData<C>,
 }
 
@@ -104,7 +104,7 @@ fn pre_gen_coset_0<
 >(
     move_set: &MoveSet<0, AUX_MOVES>,
     mapper: &Mapper,
-    mut visited: &mut HashMap<CoordParam, CubeParam>,
+    visited: &mut HashMap<CoordParam, CubeParam>,
     to_check: &Vec<CubeParam>,
 ) -> Vec<CubeParam>
 where
@@ -186,7 +186,7 @@ where
     Mapper: Fn(&CubeParam) -> CoordParam,
 {
     let mut next_cubes: HashMap<CoordParam, CubeParam> = HashMap::new();
-    for (coord, cube) in to_check.into_iter() {
+    for (_coord, cube) in to_check.into_iter() {
         for m in move_set
             .aux_moves
             .into_iter()
@@ -275,7 +275,7 @@ where
             let pre = cube.clone();
             cube.turn(m);
             let coord = mapper(&cube);
-            for mut other in cubes.iter_mut() {
+            for other in cubes.iter_mut() {
                 let pre_other = other.clone();
                 other.turn(m);
                 let other_coord = mapper(&other);

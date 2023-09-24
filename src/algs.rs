@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
-use std::fs::soft_link;
+
 use std::ops::Add;
-use std::ptr::write;
+
 use std::str::FromStr;
 
 use itertools::Itertools;
@@ -261,8 +261,8 @@ impl Display for Solution {
 // }
 
 mod test {
-    use crate::algs::Algorithm;
     use std::str::FromStr;
+    use crate::algs::Algorithm;
 
     #[test]
     fn empty() {

@@ -1,4 +1,4 @@
-use itertools::Itertools;
+
 use std::cmp::min;
 
 use crate::algs::Algorithm;
@@ -197,7 +197,7 @@ fn next_dfs_level<
                         .unwrap_or(Transition::any()),
                 )
             })
-            .filter(move |(m, transition_type)| {
+            .filter(move |(_m, transition_type)| {
                 // if depth == 4 {
                 //     println!("Depth {depth} move {m} allowed {} can end {}", transition_type.allowed, transition_type.can_end);
                 // }
@@ -248,7 +248,7 @@ fn next_dfs_level<
                         .unwrap_or(Transition::any()),
                 )
             })
-            .filter(move |(m, transition_type)| {
+            .filter(move |(_m, transition_type)| {
                 // if depth == 3 {
                 //     println!("Depth {depth} move {m} allowed {} can end {}", transition_type.allowed, transition_type.can_end);
                 // }

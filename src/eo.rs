@@ -288,7 +288,6 @@ pub(crate) const fn eo_transitions(axis_face: Face) -> [TransitionTable; 18] {
         );
         i += 1;
     }
-    i = 0;
     transitions[Move(axis_face, Half).to_id()] = TransitionTable::new(
         TransitionTable::DEFAULT_ALLOWED_AFTER[axis_face as usize],
         TransitionTable::NONE,

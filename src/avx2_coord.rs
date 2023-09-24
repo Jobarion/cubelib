@@ -6,25 +6,25 @@ pub mod avx2_coord {
         _mm256_set1_epi8, _mm256_set_epi32, _mm256_set_epi8, _mm256_setr_m128i,
         _mm256_shuffle_epi8, _mm_add_epi32, _mm_add_epi8, _mm_and_si128, _mm_castps_si128,
         _mm_castsi128_ps, _mm_cmpeq_epi8, _mm_cmpgt_epi8, _mm_cmplt_epi8, _mm_extract_epi16,
-        _mm_extract_epi32, _mm_extract_epi64, _mm_extract_epi8, _mm_hadd_epi16, _mm_hadd_epi32,
-        _mm_movemask_epi8, _mm_mullo_epi16, _mm_mullo_epi32, _mm_or_si128, _mm_permute_pd,
+        _mm_extract_epi32, _mm_extract_epi64, _mm_hadd_epi16, _mm_hadd_epi32,
+        _mm_movemask_epi8, _mm_mullo_epi16, _mm_mullo_epi32, _mm_or_si128,
         _mm_permute_ps, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_set_epi16, _mm_set_epi32,
-        _mm_set_epi64x, _mm_set_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_sll_epi64,
+        _mm_set_epi64x, _mm_set_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8,
         _mm_slli_epi32, _mm_slli_epi64, _mm_slli_si128, _mm_srli_epi32, _mm_sub_epi8,
         _mm_xor_si128,
     };
 
     use crate::alignment::avx2::C;
-    use crate::avx2_cubie::avx2_cubie;
+    
     use crate::coord::{
         COUDCoord, CPCoord, CPOrbitTwistCoord, CPOrbitUnsortedCoord, EOCoordAll, EOCoordFB,
         EOCoordLR, EOCoordNoUDSlice, EOCoordUD, EPCoord, FBSliceUnsortedCoord, ParityCoord,
         UDSliceUnsortedCoord,
     };
-    use crate::cube::Turn::{Clockwise, CounterClockwise, Half};
-    use crate::cube::{ApplyAlgorithm, Axis, NewSolved, Turnable};
+    
+    
     use crate::cubie::{CornerCubieCube, EdgeCubieCube};
-    use crate::htr::HTR_MOVES;
+    
 
     #[target_feature(enable = "avx2")]
     #[inline]

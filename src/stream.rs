@@ -1,4 +1,4 @@
-use crate::algs::{Algorithm, Solution};
+use crate::algs::{Solution};
 
 pub(crate) fn iterated_dfs<
     'a,

@@ -2,13 +2,13 @@ use crate::coord;
 use crate::coord::{Coord, DRUDEOFBCoord, HTRDRUDCoord};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
-use crate::cube::{Axis, Face, Move, Transformation, FACES};
+use crate::cube::{Axis, Face, Move, Transformation};
 use crate::eo::eo_transitions;
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
 use crate::step::{IsReadyForStep, Step, StepVariant};
 use itertools::Itertools;
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug};
 
 pub const HTR_DR_UD_STATE_CHANGE_MOVES: [Move; 4] = [
     Move(Up, Clockwise),

@@ -1,35 +1,27 @@
 extern crate core;
 
-use std::arch::x86_64::{__m128i, _mm_set_epi64x};
-use std::collections::{HashMap, HashSet};
-use std::primitive;
 use std::str::FromStr;
 use std::time::Instant;
-
-use clap::command;
 use clap::Parser;
-use log::{debug, info, log, LevelFilter, Log};
+use log::{debug, info, LevelFilter};
 use simple_logger::SimpleLogger;
-
 use cubelib::algs::{Algorithm, Solution};
-use cubelib::avx2_coord::avx2_coord;
 use cubelib::coord::{
-    CPCoord, CPOrbitTwistCoord, CPOrbitUnsortedCoord, Coord, DRUDEOFBCoord, EOCoordFB,
-    FBSliceUnsortedCoord, HTRDRUDCoord, ImpureHTRDRUDCoord, ParityCoord,
+    DRUDEOFBCoord, EOCoordFB, ImpureHTRDRUDCoord,
 };
-use cubelib::cube::{ApplyAlgorithm, Axis, Move, NewSolved, Turnable};
-use cubelib::cubie::{CornerCubieCube, CubieCube, EdgeCubieCube};
-use cubelib::df_search::{dfs_iter, NissType, SearchOptions};
-use cubelib::htr::{HTR_DR_UD_MOVESET, HTR_DR_UD_STATE_CHANGE_MOVES, HTR_MOVES};
-use cubelib::step::Step;
-use cubelib::{algs, dr, eo, htr, lookup_table, step};
+use cubelib::cube::{ApplyAlgorithm, NewSolved};
+use cubelib::cubie::{CubieCube, EdgeCubieCube};
+use cubelib::df_search::{NissType, SearchOptions};
+
+
+use cubelib::{dr, eo, htr, lookup_table, step};
 
 use crate::cli::Cli;
 
 mod cli;
 
 fn main() {
-    let cli = Cli::parse();
+    let cli: Cli = Cli::parse();
     SimpleLogger::new()
         .with_level(if cli.verbose {
             LevelFilter::Debug
@@ -68,9 +60,6 @@ fn main() {
     let scramble = Algorithm::from_str(cli.scramble.as_str()).expect("Invalid scramble {}");
     cube.apply_alg(&scramble);
 
-    // let pre_moves = Algorithm::from_str("D R' U R2 B' U2 L U' R' B2 L D2 L' D").unwrap();
-    // cube.apply_alg(&pre_moves);
-
     //We want EO, DR and HTR on any axis
     let eo_step = eo::eo_any::<EdgeCubieCube>(&eofb_table);
     let dr_step = dr::dr_any(&drud_eofb_table);
@@ -78,32 +67,68 @@ fn main() {
 
     let solutions = step::first_step(
         &eo_step,
-        SearchOptions::new(0, 5, NissType::During),
+        SearchOptions::new(0, 5, if cli.niss {
+            NissType::During
+        } else {
+            NissType::None
+        }),
         cube.edges.clone(),
     );
     let solutions = step::next_step(
         solutions,
         &dr_step,
-        SearchOptions::new(0, 14, NissType::AtStart),
+        SearchOptions::new(0, 14, if cli.niss {
+            NissType::AtStart
+        } else {
+            NissType::None
+        }),
         cube.clone(),
     );
     let solutions = step::next_step(
         solutions,
         &htr_step,
-        SearchOptions::new(0, 20, NissType::During),
+        SearchOptions::new(0, 20, if cli.niss {
+            NissType::During
+        } else {
+            NissType::None
+        }),
         cube.clone(),
     );
 
-    let solutions = solutions
-        .filter(|alg| eo::filter_eo_last_moves_pure(&alg.clone().into()))
-        // .take(20)
-        ;
+    let mut solutions: Box<dyn Iterator<Item = Solution>> = Box::new(solutions);
+
+    solutions = Box::new(solutions
+        .skip_while(|alg| alg.len() < cli.min));
+
+    if cli.max.is_some() {
+        solutions = Box::new(solutions
+            .take_while(|alg| alg.len() <= cli.max.unwrap()));
+    }
+
+    if !cli.all_solutions {
+        solutions = Box::new(solutions
+            .filter(|alg| eo::filter_eo_last_moves_pure(&alg.clone().into())));
+    }
+
+    if cli.max.is_none() || cli.solution_count.is_some() {
+        solutions = Box::new(solutions
+            .take(cli.solution_count.unwrap_or(1)))
+    }
 
     info!("Generating solutions\n");
 
-    //The iterator is always sorted, so this just prints the 20 shortest solution
+    //The iterator is always sorted, so this just prints the shortest solutions
     for solution in solutions {
-        println!("{}", solution);
+        if cli.compact_solutions {
+            if cli.plain_solution {
+                println!("{}", Into::<Algorithm>::into(solution));
+            } else {
+                let alg = Into::<Algorithm>::into(solution);
+                println!("{alg} ({})", alg.len());
+            }
+        } else {
+            println!("{}", solution);
+        }
     }
 
     debug!("Took {}ms", time.elapsed().as_millis());

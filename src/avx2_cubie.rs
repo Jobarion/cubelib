@@ -2,7 +2,7 @@
 pub mod avx2_cubie {
     use std::arch::x86_64::{
         __m128i, _mm_add_epi8, _mm_and_si128, _mm_andnot_si128, _mm_extract_epi64, _mm_load_si128,
-        _mm_loadl_epi64, _mm_or_si128, _mm_set1_epi8, _mm_set_epi64x, _mm_set_epi8,
+        _mm_loadl_epi64, _mm_or_si128, _mm_set1_epi8, _mm_set_epi8,
         _mm_shuffle_epi8, _mm_slli_epi32, _mm_slli_epi64, _mm_srli_epi16, _mm_srli_epi32,
         _mm_store_si128, _mm_sub_epi8, _mm_xor_si128,
     };

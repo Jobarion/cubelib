@@ -1,12 +1,12 @@
 use crate::algs::{Algorithm, Solution};
-use crate::alignment::avx2::C;
+
 use crate::coord::Coord;
 use crate::cube::{ApplyAlgorithm, Invertible, Transformation, Turnable};
 use crate::df_search::{dfs_iter, SearchOptions};
 use crate::moveset::MoveSet;
 use crate::stream;
-use std::cmp::{max, min};
-use std::env::var;
+use std::cmp::{min};
+
 use std::marker::PhantomData;
 
 pub trait StepVariant<const SC_SIZE: usize, const AUX_SIZE: usize, CubeParam>:
@@ -35,14 +35,14 @@ impl<'a, const SC_SIZE: usize, const AUX_SIZE: usize, CubeParam: 'a>
         Step { step_variants }
     }
 
-    pub fn new_basic<const C_Size: usize, CoordParam: Coord<C_Size> + 'a>(
+    pub fn new_basic<const C_SIZE: usize, CoordParam: Coord<C_SIZE> + 'a>(
         name: &'static str,
         moves: MoveSet<SC_SIZE, AUX_SIZE>,
     ) -> Self
     where
         CoordParam: for<'x> From<&'x CubeParam>,
     {
-        let variant: NoHeuristicStep<SC_SIZE, AUX_SIZE, C_Size, CoordParam, CubeParam> =
+        let variant: NoHeuristicStep<SC_SIZE, AUX_SIZE, C_SIZE, CoordParam, CubeParam> =
             NoHeuristicStep {
                 moves,
                 trans: vec![],
@@ -59,8 +59,8 @@ impl<'a, const SC_SIZE: usize, const AUX_SIZE: usize, CubeParam: 'a>
 struct NoHeuristicStep<
     const SC_SIZE: usize,
     const AUX_SIZE: usize,
-    const C_Size: usize,
-    CoordParam: Coord<C_Size>,
+    const C_SIZE: usize,
+    CoordParam: Coord<C_SIZE>,
     CubeParam,
 > where
     CoordParam: for<'x> From<&'x CubeParam>,
@@ -75,15 +75,15 @@ struct NoHeuristicStep<
 impl<
         const SC_SIZE: usize,
         const AUX_SIZE: usize,
-        const C_Size: usize,
-        CoordParam: Coord<C_Size>,
+        const C_SIZE: usize,
+        CoordParam: Coord<C_SIZE>,
         CubeParam,
     > IsReadyForStep<CubeParam>
-    for NoHeuristicStep<SC_SIZE, AUX_SIZE, C_Size, CoordParam, CubeParam>
+    for NoHeuristicStep<SC_SIZE, AUX_SIZE, C_SIZE, CoordParam, CubeParam>
 where
     CoordParam: for<'x> From<&'x CubeParam>,
 {
-    fn is_cube_ready(&self, cube: &CubeParam) -> bool {
+    fn is_cube_ready(&self, _cube: &CubeParam) -> bool {
         true
     }
 }
@@ -91,11 +91,11 @@ where
 impl<
         const SC_SIZE: usize,
         const AUX_SIZE: usize,
-        const C_Size: usize,
-        CoordParam: Coord<C_Size>,
+        const C_SIZE: usize,
+        CoordParam: Coord<C_SIZE>,
         CubeParam,
     > StepVariant<SC_SIZE, AUX_SIZE, CubeParam>
-    for NoHeuristicStep<SC_SIZE, AUX_SIZE, C_Size, CoordParam, CubeParam>
+    for NoHeuristicStep<SC_SIZE, AUX_SIZE, C_SIZE, CoordParam, CubeParam>
 where
     CoordParam: for<'x> From<&'x CubeParam>,
 {
@@ -162,8 +162,8 @@ pub fn next_step<
                     .step_variants
                     .iter()
                     .zip(0..)
-                    .take_while(move |(step, step_id)| depth > 0 || *step_id == 0)
-                    .map(move |(step, step_id)| {
+                    .take_while(move |(_step, step_id)| depth > 0 || *step_id == 0)
+                    .map(move |(step, _step_id)| {
                         // println!("Trying step {} at depth {}", step.name(), depth);
                         step
                     })

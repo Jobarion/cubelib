@@ -1,4 +1,3 @@
-use std::arch::x86_64::__m128i;
 use std::fmt::{Display, Formatter};
 
 use crate::avx2_cubie;
@@ -25,10 +24,9 @@ impl EdgeCubieCube {
     pub(crate) const BAD_EDGE_MASK_UD: u64 = 0x0808080808080808;
     pub(crate) const BAD_EDGE_MASK_FB: u64 = 0x0404040404040404;
     pub(crate) const BAD_EDGE_MASK_RL: u64 = 0x0202020202020202;
-    pub(crate) const VALID_EDGE_MASK_HI: u64 = 0x00000000FFFFFFFF;
 
     #[cfg(target_feature = "avx2")]
-    pub fn new(state: __m128i) -> EdgeCubieCube {
+    pub fn new(state: std::arch::x86_64::__m128i) -> EdgeCubieCube {
         EdgeCubieCube(state)
     }
 
@@ -128,7 +126,7 @@ pub struct CornerCubieCube(
 
 impl CornerCubieCube {
     #[cfg(target_feature = "avx2")]
-    pub fn new(state: __m128i) -> CornerCubieCube {
+    pub fn new(state: std::arch::x86_64::__m128i) -> CornerCubieCube {
         CornerCubieCube(state)
     }
 

@@ -1,11 +1,11 @@
 use crate::coord;
 use itertools::Itertools;
 
-use crate::coord::{DRUDEOFBCoord, EOCoordFB, EOCoordUD};
+use crate::coord::{DRUDEOFBCoord, EOCoordFB};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
-use crate::cube::{Axis, Face, Move, Transformation, FACES};
-use crate::eo::{eo_transitions, EOCount};
+use crate::cube::{Axis, Face, Move, Transformation};
+use crate::eo::{eo_transitions};
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
 use crate::step::{IsReadyForStep, Step, StepVariant};

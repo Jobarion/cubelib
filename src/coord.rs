@@ -54,7 +54,6 @@ pub struct CPOrbitUnsortedCoord(pub(crate) u8);
 
 //Coordinate representing the twist state of HTR corner orbits
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-#[deprecated] //Currently broken
 pub struct CPOrbitTwistCoord(pub(crate) u8);
 
 //Coordinate representing the parity state

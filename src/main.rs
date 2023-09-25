@@ -1,17 +1,24 @@
 extern crate core;
 
+use std::primitive;
 use std::str::FromStr;
 use std::time::Instant;
 use clap::Parser;
+use itertools::Itertools;
 use log::{debug, info, LevelFilter};
 use simple_logger::SimpleLogger;
 use cubelib::algs::{Algorithm, Solution};
-use cubelib::coord::{DRUDEOFBCoord, EOCoordFB, FBSliceUnsortedCoord, FRUDNoSliceCoord, ImpureHTRDRUDCoord};
-use cubelib::cube::{ApplyAlgorithm, Axis, NewSolved, Transformation, Turnable};
+use cubelib::cube::{ApplyAlgorithm, Move, NewSolved, Transformation, Turnable};
 use cubelib::cubie::{CubieCube, EdgeCubieCube};
 use cubelib::df_search::{NissType, SearchOptions};
-use cubelib::{dr, eo, htr, fr, lookup_table, step};
-use cubelib::cube::Turn::Clockwise;
+use cubelib::coords::dr::DRUDEOFBCoord;
+use cubelib::coords::eo::EOCoordFB;
+use cubelib::coords::fr::{FRUDNoSliceCoord, FRUDWithSliceCoord};
+use cubelib::coords::htr::{ImpureHTRDRUDCoord, PureHTRDRUDCoord};
+use cubelib::{lookup_table, stream};
+use cubelib::coords::finish::FRFinishCoord;
+use cubelib::steps::{dr, eo, finish, fr, htr, step};
+use cubelib::steps::finish::fr_finish_leave_slice_any;
 
 use crate::cli::Cli;
 
@@ -19,6 +26,7 @@ mod cli;
 
 fn main() {
     let cli: Cli = Cli::parse();
+
     SimpleLogger::new()
         .with_level(if cli.verbose {
             LevelFilter::Debug
@@ -48,27 +56,35 @@ fn main() {
     let htr_drud_table = lookup_table::generate(&htr::HTR_DR_UD_MOVESET, &|c: &CubieCube| {
         ImpureHTRDRUDCoord::from(c)
     });
-
-    info!("Generating FR pruning table...");
-    let frud_htr_table = lookup_table::generate(&fr::FR_UD_MOVESET, &|c: &CubieCube| {
-        FRUDNoSliceCoord::from(c)
-    });
-
     debug!("Took {}ms", time.elapsed().as_millis());
     let time = Instant::now();
 
-    let mut cube = CubieCube::new_solved();
+    info!("Generating FR pruning table...");
+    let frud_table = lookup_table::generate(&fr::FR_UD_MOVESET, &|c: &CubieCube| {
+        FRUDWithSliceCoord::from(c)
+    });
+    debug!("Took {}ms", time.elapsed().as_millis());
+    let time = Instant::now();
+
+    info!("Generating FR finish pruning table...");
+    let fr_finish_table = lookup_table::generate(&finish::FR_FINISH_MOVESET, &|c: &CubieCube| {
+        FRFinishCoord::from(c)
+    });
+    debug!("Took {}ms", time.elapsed().as_millis());
+    let time = Instant::now();
+
 
     let scramble = Algorithm::from_str(cli.scramble.as_str()).expect("Invalid scramble {}");
 
+    let mut cube = CubieCube::new_solved();
     cube.apply_alg(&scramble);
-
 
     //We want EO, DR and HTR on any axis
     let eo_step = eo::eo_any::<EdgeCubieCube>(&eofb_table);
     let dr_step = dr::dr_any(&drud_eofb_table);
     let htr_step = htr::htr_any(&htr_drud_table);
-    let fr_step = fr::fr_no_slice_any(&frud_htr_table);
+    let fr_step = fr::fr_any(&frud_table);
+    let finish_step = finish::fr_finish_any(&fr_finish_table);
 
     //Default limit of 100 if nothing is set.
     let step_limit = cli.step_limit.or(Some(100).filter(|_|!cli.optimal));
@@ -80,7 +96,7 @@ fn main() {
             NissType::None
         }, step_limit),
         cube.edges.clone(),
-    ).take(100);
+    );
     let solutions = step::next_step(
         solutions,
         &dr_step,
@@ -105,27 +121,34 @@ fn main() {
         solutions,
         &fr_step,
         SearchOptions::new(0, 14, if cli.niss {
-            NissType::During
+            NissType::AtStart
         } else {
             NissType::None
         }, step_limit),
         cube.clone(),
     );
+    let solutions = step::next_step(
+        solutions,
+        &finish_step,
+        SearchOptions::new(0, 10, NissType::None, step_limit),
+        cube.clone(),
+    );
+
+    let solutions = solutions
+        .skip_while(|alg| alg.len() < cli.min)
+        .take_while(|alg| cli.max.map(|max| alg.len() <= max).unwrap_or(true));
+
+
+    // For FR the direction of the last move always matters so we can't filter if we're doing FR
+    // if !cli.all_solutions {
+    //     solutions = Box::new(solutions
+    //         .filter(|alg| eo::filter_eo_last_moves_pure(&alg.clone().into())));
+    // }
+
+    //We already generate a mostly duplicate iterator, but sometimes the same solution is valid for different stages and that can cause duplicates.
+    let solutions = stream::distinct_solutions(solutions);
 
     let mut solutions: Box<dyn Iterator<Item = Solution>> = Box::new(solutions);
-
-    solutions = Box::new(solutions
-        .skip_while(|alg| alg.len() < cli.min));
-
-    if cli.max.is_some() {
-        solutions = Box::new(solutions
-            .take_while(|alg| alg.len() <= cli.max.unwrap()));
-    }
-
-    if !cli.all_solutions {
-        solutions = Box::new(solutions
-            .filter(|alg| eo::filter_eo_last_moves_pure(&alg.clone().into())));
-    }
 
     if cli.max.is_none() || cli.solution_count.is_some() {
         solutions = Box::new(solutions

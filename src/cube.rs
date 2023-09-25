@@ -224,6 +224,20 @@ impl<T, const N: usize> Index<Axis> for [T; N] {
 #[derive(Copy, Clone)]
 pub struct Transformation(pub Axis, pub Turn);
 
+impl Transformation {
+    pub const X: Transformation = Transformation(Axis::X, Clockwise);
+    pub const X2: Transformation = Transformation(Axis::X, Half);
+    pub const Xi: Transformation = Transformation(Axis::X, CounterClockwise);
+
+    pub const Y: Transformation = Transformation(Axis::Y,Clockwise);
+    pub const Y2: Transformation = Transformation(Axis::Y, Half);
+    pub const Yi: Transformation = Transformation(Axis::Y, CounterClockwise);
+
+    pub const Z: Transformation = Transformation(Axis::Z, Clockwise);
+    pub const Z2: Transformation = Transformation(Axis::Z, Half);
+    pub const Zi: Transformation = Transformation(Axis::Z, CounterClockwise);
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum Color {
     White = 0,

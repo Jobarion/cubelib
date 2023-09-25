@@ -1,14 +1,14 @@
 use itertools::Itertools;
 
 use crate::algs::Algorithm;
-use crate::coord::EOCoordFB;
+use crate::coords::eo::EOCoordFB;
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cube::{Axis, Face, Move, Transformation, FACES};
 use crate::cubie::{CubieCube, EdgeCubieCube};
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
-use crate::step::{IsReadyForStep, Step, StepVariant};
+use crate::steps::step::{IsReadyForStep, Step, StepVariant};
 
 pub const UD_EO_STATE_CHANGE_MOVES: [Move; 4] = [
     Move(Up, Clockwise),
@@ -123,11 +123,7 @@ pub fn eo_any<'a, C: 'a>(table: &'a PruningTable<2048, EOCoordFB>) -> Step<'a, 4
 where
     EOCoordFB: for<'x> From<&'x C>,
 {
-    Step::new(vec![
-        Box::new(EOStepTable::new_ud(table)),
-        Box::new(EOStepTable::new_fb(table)),
-        Box::new(EOStepTable::new_lr(table)),
-    ])
+    eo(table, [Axis::UD, Axis::FB, Axis::LR])
 }
 
 pub fn eo<'a, C: 'a, const EOA: usize>(
@@ -148,16 +144,8 @@ where
             x
         })
         .collect_vec();
-    Step::new(step_variants)
+    Step::new(step_variants, "eo")
 }
-
-// pub fn eofb(table: &PruningTable<2048, EOCoordFB>) -> Self {
-//     EOStepTable::new_fb(table)
-// }
-//
-// pub fn eolr(table: &PruningTable<2048, EOCoordFB>) -> Self {
-//     EOStepTable::new_lr(table)
-// }
 
 impl<'a> EOStepTable<'a> {
     fn new_ud(table: &'a PruningTable<2048, EOCoordFB>) -> Self {

@@ -32,6 +32,7 @@ impl TransitionTable {
     pub const ANY: u32 = 0x3FFFF;
     pub const NONE: u32 = 0;
 
+    //This enforces an order between [UFL] and [DBR] moves to avoid duplicates. U D is allowed, D U is not.
     pub const DEFAULT_ALLOWED_AFTER: [u32; 6] = [
         TransitionTable::except_faces_to_mask([Face::Up]), //U
         TransitionTable::except_faces_to_mask([Face::Up, Face::Down]), //D

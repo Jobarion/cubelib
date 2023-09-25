@@ -1,4 +1,5 @@
-use crate::algs::{Solution};
+use std::collections::HashSet;
+use crate::algs::{Algorithm, Solution};
 
 pub(crate) fn iterated_dfs<
     'a,
@@ -19,82 +20,6 @@ where
             mapper(alg, next_stage_depth as u8)
         })
 }
-
-// pub fn merge_iters<'a, A: Iterator<Item=Algorithm> + 'a, B: Iterator<Item=Algorithm> + 'a>(a: A, b: B) -> impl Iterator<Item = Algorithm> + 'a {
-//     PickingIter::new(a, b)
-// }
-
-// pub struct MultiMergeIter {
-//     current_iter: usize,
-//     current_min: usize,
-//     iters: Vec<Peekable<Box<dyn Iterator<Item = Algorithm>>>>,
-// }
-//
-// impl MultiMergeIter {
-//     pub fn new(iters: impl Iterator<Item = impl Iterator<Item = Algorithm>>) -> Self {
-//         let peeked = iters.into_iter()
-//             .map(|i| Box::new(i))
-//             .map(|i| i.peekable())
-//             .collect_vec();
-//         MultiMergeIter {
-//             iters: peeked,
-//             current_iter: 0,
-//             current_min: 0
-//         }
-//     }
-// }
-
-// impl Iterator for MultiMergeIter {
-//     type Item = Algorithm;
-//
-//     fn next(&mut self) -> Option<Self::Item> {
-//         while self.current_iter < self.iters.len() {
-//             if let Some(alg) = self.iters[self.current_iter].peek() {
-//                 if alg.len() <= self.current_min {
-//                     return self.iters[self.current_iter].next()
-//                 }
-//             }
-//             self.current_iter += 1;
-//         }
-//         self.current_min += 1;
-//         self.current_iter = 0;
-//         self.next()
-//     }
-// }
-//
-// pub struct PickingIter<A, B> {
-//     a: A,
-//     b: B,
-//     a_val: Option<Algorithm>,
-//     b_val: Option<Algorithm>,
-// }
-//
-//
-// impl<'a, A, B> PickingIter<A, B>
-//     where
-//         A: Iterator<Item = Algorithm>,
-//         B: Iterator<Item = Algorithm>, {
-//
-//     pub fn new(mut a: A, mut b: B) -> Self {
-//         PickingIter { a_val: a.next(), b_val: b.next(), a, b}
-//     }
-// }
-//
-// impl<'a, A, B> Iterator for PickingIter<A, B>
-//     where
-//         A: Iterator<Item = Algorithm>,
-//         B: Iterator<Item = Algorithm>, {
-//     type Item = Algorithm;
-//
-//     fn next(&mut self) -> Option<Self::Item> {
-//         match (&self.a_val, &self.b_val) {
-//             (None, None) => None,
-//             (None, Some(_)) => mem::replace(&mut self.b_val, self.b.next()),
-//             (Some(a), Some(b)) if a.len() > b.len() => mem::replace(&mut self.b_val, self.b.next()),
-//             (Some(_), _) => mem::replace(&mut self.a_val, self.a.next()),
-//         }
-//     }
-// }
 
 pub struct DFSSolutionIter<I> {
     orig: I,
@@ -150,4 +75,54 @@ where
             }
         }
     }
+}
+
+struct DistinctSolutions<I> {
+    orig: I,
+    observed: HashSet<Algorithm>,
+    current_length: usize,
+}
+
+
+impl<I> DistinctSolutions<I>
+    where
+        I: Iterator<Item = Solution>,
+{
+    fn new(iter: I) -> Self {
+        Self {
+            orig: iter,
+            current_length: 0,
+            observed: HashSet::new()
+        }
+    }
+}
+
+impl<I> Iterator for DistinctSolutions<I>
+    where
+        I: Iterator<Item = Solution>,
+{
+    type Item = <I as Iterator>::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.orig.next() {
+            None => None,
+            Some(v) => {
+                let alg: Algorithm = v.clone().into();
+                if alg.len() > self.current_length {
+                    self.observed.clear();
+                    self.current_length = alg.len();
+                    self.observed.insert(alg);
+                    Some(v)
+                } else if self.observed.insert(alg) {
+                    Some(v)
+                } else {
+                    self.next()
+                }
+            }
+        }
+    }
+}
+
+pub fn distinct_solutions(iter: impl Iterator<Item = Solution>) -> impl Iterator<Item = Solution> {
+    DistinctSolutions::new(iter)
 }

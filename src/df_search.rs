@@ -6,7 +6,7 @@ use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cube::{Face, Invertible, Move, Turnable, FACES, TURNS};
 use crate::moveset::Transition;
-use crate::step::StepVariant;
+use crate::steps::step::StepVariant;
 
 pub const LEGAL_MOVE_COUNT: usize = TURNS.len() * FACES.len();
 pub const ALL_MOVES: [Move; LEGAL_MOVE_COUNT] = get_all_moves();
@@ -58,7 +58,7 @@ pub fn dfs_iter<
         return None;
     }
 
-    //Return immediately if the cube is solved. This avoids the issue where we return two solutions is the niss type is AtStart.
+    //Return immediately if the cube is solved. This avoids the issue where we return two solutions if the NISS type is AtStart.
     if step.heuristic(&cube) == 0 {
         //Only return a solution if we are allowed to return zero length solutions
         if search_opts.min_moves == 0 {

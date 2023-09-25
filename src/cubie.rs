@@ -9,7 +9,7 @@ use crate::cube::{
     Color, Corner, CornerPosition, Cube, Edge, EdgePosition, Invertible, Move, NewSolved,
     Transformation, Turnable,
 };
-use crate::eo::EOCount;
+use crate::steps::eo::EOCount;
 
 //One byte per edge, 4 bits for id, 3 bits for eo (UD/FB/RL), 1 bit free
 //UB UR UF UL FR FL BR BL DF DR DB DL

@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use itertools::Itertools;
 
-use crate::cube::{Move, Transformation, Turnable};
+use crate::cube::{ApplyAlgorithm, Invertible, Move, Transformation, Turnable};
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct Algorithm {
@@ -248,17 +248,26 @@ impl Display for Solution {
     }
 }
 
-// pub trait ApplySolution<C: Turnable> {
-//     fn apply_solution(cube: &mut C, solution: &Solution);
-// }
-//
-// impl <C: Turnable> ApplySolution<C> for C {
-//     fn apply_solution(cube: &mut C, solution: &Solution) {
-//         for step in solution.steps.iter() {
-//             step
-//         }
-//     }
-// }
+pub trait ApplySolution<C: Turnable> {
+    fn apply_solution(&mut self, solution: &Solution);
+}
+
+impl <C: Turnable + Invertible> ApplySolution<C> for C {
+    fn apply_solution(&mut self, solution: &Solution) {
+        for (_, alg) in solution.steps.iter() {
+            for m in alg.normal_moves.iter() {
+                self.turn(m.clone());
+            }
+        }
+        self.invert();
+        for (_, alg) in solution.steps.iter() {
+            for m in alg.inverse_moves.iter() {
+                self.turn(m.clone());
+            }
+        }
+        self.invert();
+    }
+}
 
 mod test {
     use std::str::FromStr;

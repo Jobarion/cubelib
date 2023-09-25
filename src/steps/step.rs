@@ -1,13 +1,14 @@
-use crate::algs::{Algorithm, Solution};
+use std::cmp::min;
+use std::env::var;
+use std::marker::PhantomData;
 
-use crate::coord::Coord;
+use crate::algs::{Algorithm, Solution};
+use crate::coords::coord::Coord;
 use crate::cube::{ApplyAlgorithm, Invertible, Transformation, Turnable};
 use crate::df_search::{dfs_iter, SearchOptions};
+use crate::lookup_table::PruningTable;
 use crate::moveset::MoveSet;
 use crate::stream;
-use std::cmp::{min};
-
-use std::marker::PhantomData;
 
 pub trait StepVariant<const SC_SIZE: usize, const AUX_SIZE: usize, CubeParam>:
     IsReadyForStep<CubeParam>
@@ -22,8 +23,76 @@ pub trait IsReadyForStep<CubeParam> {
     fn is_cube_ready(&self, cube: &CubeParam) -> bool;
 }
 
+pub(crate) struct DefaultPruningTableStep<'a, const SC_SIZE: usize, const AUX_SIZE: usize, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam>
+    where
+        HC: for<'x> From<&'x CubeParam>,
+        PC: for<'x> From<&'x CubeParam>,
+{
+    move_set: &'a MoveSet<SC_SIZE, AUX_SIZE>,
+    pre_trans: Vec<Transformation>,
+    table: &'a PruningTable<HC_SIZE, HC>,
+    name: &'a str,
+    _pc: PhantomData<PC>,
+    _cube: PhantomData<CubeParam>,
+}
+
+impl <'a, const SC_SIZE: usize, const AUX_SIZE: usize, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam> IsReadyForStep<CubeParam> for DefaultPruningTableStep<'a, SC_SIZE, AUX_SIZE, HC_SIZE, HC, PC_SIZE, PC, CubeParam>
+    where
+        HC: for<'x> From<&'x CubeParam>,
+        PC: for<'x> From<&'x CubeParam>, {
+
+    fn is_cube_ready(&self, cube: &CubeParam) -> bool {
+        PC::from(cube).val() == 0
+    }
+}
+
+impl <'a, const SC_SIZE: usize, const AUX_SIZE: usize, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam> StepVariant<SC_SIZE, AUX_SIZE, CubeParam> for DefaultPruningTableStep<'a, SC_SIZE, AUX_SIZE, HC_SIZE, HC, PC_SIZE, PC, CubeParam>
+    where
+        HC: for<'x> From<&'x CubeParam>,
+        PC: for<'x> From<&'x CubeParam>, {
+
+    fn move_set(&self) -> &'_ MoveSet<SC_SIZE, AUX_SIZE> {
+        self.move_set
+    }
+
+    fn pre_step_trans(&self) -> &'_ Vec<Transformation> {
+        &self.pre_trans
+    }
+
+    fn heuristic(&self, cube: &CubeParam) -> u8 {
+        let coord = HC::from(cube);
+        self.table.get(coord).expect("Expected table to be filled")
+    }
+
+    fn name(&self) -> &str {
+        self.name
+    }
+}
+
+impl <'a, const SC_SIZE: usize, const AUX_SIZE: usize, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam>  DefaultPruningTableStep<'a, SC_SIZE, AUX_SIZE, HC_SIZE, HC, PC_SIZE, PC, CubeParam>
+    where
+        HC: for<'x> From<&'x CubeParam>,
+        PC: for<'x> From<&'x CubeParam>, {
+
+    pub fn new(move_set: &'a MoveSet<SC_SIZE, AUX_SIZE>,
+               pre_trans: Vec<Transformation>,
+               table: &'a PruningTable<HC_SIZE, HC>,
+               name: &'a str) -> Self {
+        DefaultPruningTableStep {
+            move_set,
+            pre_trans,
+            table,
+            name,
+            _cube: PhantomData::default(),
+            _pc: PhantomData::default()
+        }
+    }
+}
+
+
 pub struct Step<'a, const SC_SIZE: usize, const AUX_SIZE: usize, CubeParam> {
     step_variants: Vec<Box<dyn StepVariant<SC_SIZE, AUX_SIZE, CubeParam> + 'a>>,
+    name: &'static str,
 }
 
 impl<'a, const SC_SIZE: usize, const AUX_SIZE: usize, CubeParam: 'a>
@@ -31,8 +100,9 @@ impl<'a, const SC_SIZE: usize, const AUX_SIZE: usize, CubeParam: 'a>
 {
     pub fn new(
         step_variants: Vec<Box<dyn StepVariant<SC_SIZE, AUX_SIZE, CubeParam> + 'a>>,
+        name: &'static str,
     ) -> Self {
-        Step { step_variants }
+        Step { step_variants, name }
     }
 
     pub fn new_basic<const C_SIZE: usize, CoordParam: Coord<C_SIZE> + 'a>(
@@ -52,6 +122,7 @@ impl<'a, const SC_SIZE: usize, const AUX_SIZE: usize, CubeParam: 'a>
             };
         Step {
             step_variants: vec![Box::new(variant)],
+            name: "unknown"
         }
     }
 }
@@ -161,9 +232,6 @@ pub fn next_step<
                 let values = step
                     .step_variants
                     .iter()
-                    .zip(0..)
-                    .take_while(move |(_step, step_id)| depth > 0 || *step_id == 0)
-                    .map(move |(step, _step_id)| step)
                     .flat_map(move |step_variant| {
                         dfs_iter(
                             step_variant.as_ref(),
@@ -175,7 +243,9 @@ pub fn next_step<
                         .map(|alg| (step_variant.name(), alg))
                     })
                     .flat_map(|(name, iter)| iter.map(move |alg| (name, alg)));
-                let values: Box<dyn Iterator<Item = (&str, Algorithm)>> = if let Some(step_limit) = search_opts.step_limit {
+                let values: Box<dyn Iterator<Item = (&str, Algorithm)>> = if depth == 0 {
+                    Box::new(values.take(100))
+                } else if let Some(step_limit) = search_opts.step_limit {
                     Box::new(values.take(step_limit))
                 } else {
                     Box::new(values)

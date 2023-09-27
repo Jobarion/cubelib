@@ -53,7 +53,7 @@ pub fn from_step_config<'a, C: 'a>(table: &'a FRPruningTable, config: StepConfig
     let search_opts = SearchOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(10),
-        config.niss.unwrap_or(NissType::During),
+        config.niss.unwrap_or(NissType::Before),
         config.quality,
         config.solution_count
     );
@@ -80,7 +80,7 @@ pub fn from_step_config_no_slice<'a, C: 'a>(table: &'a FRLeaveSlicePruningTable,
     let search_opts = SearchOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(10),
-        config.niss.unwrap_or(NissType::During),
+        config.niss.unwrap_or(NissType::Before),
         config.quality,
         config.solution_count
     );

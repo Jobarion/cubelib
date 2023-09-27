@@ -8,7 +8,7 @@ use crate::df_search::{NissType, SearchOptions};
 #[derive(Parser)]
 #[command(name = "Cubelib")]
 #[command(author = "Jonas Balsfulland <cubelib@joba.me>")]
-#[command(version = "1.0")]
+#[command(version = "1.1")]
 pub struct Cli {
     #[arg(short, long, default_value_t = false, group = "log_level", help = "Enables more detailed logging")]
     pub verbose: bool,
@@ -109,6 +109,7 @@ impl Cli {
         let step_name_regex = Regex::new("[A-Za-z0-9_-]").unwrap();
         let default_quality = self.get_default_step_quality();
         let default_solution_count = self.get_default_step_limit();
+        let default_niss_type = self.get_default_niss_type();
         self.steps.split(">")
             .map(|step| step.trim())
             .map(|step| {
@@ -122,7 +123,7 @@ impl Cli {
                         substeps: None,
                         min: None,
                         max: None,
-                        niss: None,
+                        niss: default_niss_type,
                         solution_count: default_solution_count,
                         quality: default_quality,
                         params: HashMap::new()
@@ -138,7 +139,7 @@ impl Cli {
                         substeps: None,
                         min: None,
                         max: None,
-                        niss: None,
+                        niss: default_niss_type,
                         solution_count: default_solution_count,
                         quality: default_quality,
                         params: HashMap::new()

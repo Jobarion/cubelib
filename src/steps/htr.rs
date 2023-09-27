@@ -56,7 +56,7 @@ pub fn from_step_config<'a, C: 'a>(table: &'a HTRPruningTable, config: StepConfi
     let search_opts = SearchOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(14),
-        config.niss.unwrap_or(NissType::During),
+        config.niss.unwrap_or(NissType::Before),
         config.quality,
         config.solution_count
     );

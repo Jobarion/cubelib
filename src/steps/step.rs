@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 use crate::algs::{Algorithm, Solution};
 use crate::coords::coord::Coord;
 use crate::cube::{ApplyAlgorithm, Invertible, Transformation, Turnable};
+use crate::cube::Turn::Half;
 use crate::df_search::{dfs_iter, SearchOptions};
 use crate::lookup_table::PruningTable;
 use crate::moveset::MoveSet;
@@ -17,6 +18,11 @@ pub trait StepVariant<CubeParam>:
     fn pre_step_trans(&self) -> &'_ Vec<Transformation>;
     fn heuristic(&self, cube: &CubeParam) -> u8;
     fn name(&self) -> &str;
+    fn is_half_turn_invariant(&self) -> bool {
+        !self.move_set().st_moves
+            .iter()
+            .any(|m| m.1 == Half)
+    }
 }
 
 pub trait IsReadyForStep<CubeParam> {
@@ -122,12 +128,17 @@ impl<'a, CubeParam: 'a>
             };
         Step {
             step_variants: vec![Box::new(variant)],
-            name: "unknown"
+            name: "unknown",
         }
     }
 
     pub fn name(&self) -> &'static str {
         self.name
+    }
+
+    pub fn is_half_turn_invariant(&self) -> bool {
+        self.step_variants.iter()
+            .any(|sv|sv.is_half_turn_invariant())
     }
 }
 

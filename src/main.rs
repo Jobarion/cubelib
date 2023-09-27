@@ -83,10 +83,10 @@ fn main() {
         unreachable!()
     };
 
-    let start: Box<dyn Iterator<Item = Solution>> = Box::new(vec![Solution::new()].into_iter());
+    let first_step: Box<dyn Iterator<Item = Solution>> = Box::new(vec![Solution::new()].into_iter());
 
-    let solutions = steps.iter()
-        .fold(start, |acc, (step, search_opts)|{
+    let mut solutions = steps.iter()
+        .fold(first_step, |acc, (step, search_opts)|{
             debug!("Step {} with options {:?}", step.name(), search_opts);
             Box::new(step::next_step(acc, step, search_opts.clone(), cube.clone())
                 .zip(0..)
@@ -96,105 +96,17 @@ fn main() {
 
     let time = Instant::now();
 
-    // info!("Generating EO pruning table...");
-    // let eofb_table = lookup_table::generate(&eo::EO_FB_MOVESET, &|c: &EdgeCubieCube| EOCoordFB::from(c));
-    // debug!("Took {}ms", time.elapsed().as_millis());
-    // let time = Instant::now();
-    //
-    // info!("Generating DR pruning table...");
-    // let drud_eofb_table = lookup_table::generate(&dr::DR_UD_EO_FB_MOVESET, &|c: &CubieCube| {
-    //     DRUDEOFBCoord::from(c)
-    // });
-    // debug!("Took {}ms", time.elapsed().as_millis());
-    // let time = Instant::now();
-    //
-    // info!("Generating HTR pruning table...");
-    // let htr_drud_table = lookup_table::generate(&htr::HTR_DR_UD_MOVESET, &|c: &CubieCube| {
-    //     ImpureHTRDRUDCoord::from(c)
-    // });
-    // debug!("Took {}ms", time.elapsed().as_millis());
-    // let time = Instant::now();
-    //
-    // info!("Generating FR pruning table...");
-    // let frud_table = lookup_table::generate(&fr::FR_UD_MOVESET, &|c: &CubieCube| {
-    //     FRUDWithSliceCoord::from(c)
-    // });
-    // debug!("Took {}ms", time.elapsed().as_millis());
-    // let time = Instant::now();
-    //
-    // info!("Generating FR finish pruning table...");
-    // let fr_finish_table = lookup_table::generate(&finish::FRUD_FINISH_MOVESET, &|c: &CubieCube| {
-    //     FRUDFinishCoord::from(c)
-    // });
-    // debug!("Took {}ms", time.elapsed().as_millis());
-    // let time = Instant::now();
-    //
-    //
-    // //We want EO, DR and HTR on any axis
-    // let eo_step = eo::eo_any::<EdgeCubieCube>(&eofb_table);
-    // let dr_step = dr::dr_any(&drud_eofb_table);
-    // let htr_step = htr::htr_any(&htr_drud_table);
-    // let fr_step = fr::fr_any(&frud_table);
-    // let finish_step = finish::fr_finish_any(&fr_finish_table);
-    //
-    // //Default limit of 100 if nothing is set.
-    // let step_limit = cli.step_limit.or(Some(100).filter(|_|!cli.optimal));
-    // let solutions = step::first_step(
-    //     &eo_step,
-    //     SearchOptions::new(0, 5, if cli.niss {
-    //         NissType::During
-    //     } else {
-    //         NissType::None
-    //     }, step_limit),
-    //     cube.edges.clone(),
-    // );
-    // let solutions = step::next_step(
-    //     solutions,
-    //     &dr_step,
-    //     SearchOptions::new(0, 13, if cli.niss {
-    //         NissType::Before
-    //     } else {
-    //         NissType::None
-    //     }, step_limit),
-    //     cube.clone(),
-    // );
-    // let solutions = step::next_step(
-    //     solutions,
-    //     &htr_step,
-    //     SearchOptions::new(0, 14, if cli.niss {
-    //         NissType::During
-    //     } else {
-    //         NissType::None
-    //     }, step_limit),
-    //     cube.clone(),
-    // );
-    // let solutions = step::next_step(
-    //     solutions,
-    //     &fr_step,
-    //     SearchOptions::new(0, 14, if cli.niss {
-    //         NissType::Before
-    //     } else {
-    //         NissType::None
-    //     }, step_limit),
-    //     cube.clone(),
-    // );
-    // let solutions = step::next_step(
-    //     solutions,
-    //     &finish_step,
-    //     SearchOptions::new(0, 10, NissType::None, step_limit),
-    //     cube.clone(),
-    // );
-
-    let solutions = solutions
+    let mut solutions: Box<dyn Iterator<Item = Solution>> = Box::new(solutions
         .skip_while(|alg| alg.len() < cli.min)
-        .take_while(|alg| cli.max.map(|max| alg.len() <= max).unwrap_or(true));
+        .take_while(|alg| cli.max.map(|max| alg.len() <= max).unwrap_or(true)));
 
 
     // For FR the direction of the last move always matters so we can't filter if we're doing FR
-    // if !cli.all_solutions {
-    //     solutions = Box::new(solutions
-    //         .filter(|alg| eo::filter_eo_last_moves_pure(&alg.clone().into())));
-    // }
+    let can_filter_last_move = steps.last().map(|(s, _)| s.is_half_turn_invariant()).unwrap_or(true);
+    if !cli.all_solutions && can_filter_last_move {
+        solutions = Box::new(solutions
+            .filter(|alg| eo::filter_eo_last_moves_pure(&alg.clone().into())));
+    }
 
     //We already generate a mostly duplicate iterator, but sometimes the same solution is valid for different stages and that can cause duplicates.
     let solutions = stream::distinct_solutions(solutions);

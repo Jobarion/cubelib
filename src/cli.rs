@@ -34,7 +34,7 @@ pub struct Cli {
     pub step_limit: Option<usize>,
     #[arg(long = "optimal", groups = ["limits", "step-limits"], help = "Look for optimal solutions")]
     pub optimal: bool,
-    #[arg(long = "steps", short = 's', default_value = "EO[niss=none] > DR[niss=none] > HTR[niss=none] > FR[niss=none] > FIN[niss=none]", help = "")]
+    #[arg(long = "steps", short = 's', default_value = "EO > DR > HTR > FR > FIN", help = "")]
     pub steps: String,
     pub scramble: String,
 }
@@ -151,7 +151,7 @@ impl Cli {
                                 return Err(format!("Invalid param format {}", param));
                             }
                             match parts[0] {
-                                "count" => step_prototype.solution_count = Some(usize::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for count. '{x}'", parts[1]))?),
+                                "limit" => step_prototype.solution_count = Some(usize::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for count. '{x}'", parts[1]))?),
                                 "quality" => step_prototype.quality = Some(usize::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for quality. '{x}'", parts[1]))?),
                                 "min" => step_prototype.min = Some(u8::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for min. '{x}'", parts[1]))?),
                                 "max" => step_prototype.max = Some(u8::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for max. '{x}'", parts[1]))?),

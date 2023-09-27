@@ -48,9 +48,9 @@ There are a couple of options that can be set globally for all steps.
 
 ## Step configurations
 By default Cubelib always solves EO, then DR, HTR and FR before finishing the solve. This order, and the behaviour of these stages can be changed by providing a custom step configuration.
-A step configuration is a list of steps separated by `>`. The default step configuration is `EO > DR > HTR > FR > FIN`. Each step can be configured by providing additional options behind. For example, to only look for EOs on UD or FB with a length of 3 to 5 moves, we could write `EO[ud;fb;min=3;max=5]`.
+A step configuration is a list of steps separated by `>`. The default step configuration is `EO > DR > HTR > FR > FIN`. Each step can be configured by providing additional options. For example, to only look for EOs on UD or FB with a length of 3 to 5 moves, we could write `EO[ud;fb;min=3;max=5]`.
 
-### Step properties
+### Properties supported by all steps
 | Option       | Description |
 | ----       | ---- | 
 | `min` | Minimum number of turns for this step, inclusive |  
@@ -69,6 +69,7 @@ Orients the edges on at least one axis.
 
 - Variations: `ud`, `fb`, `lr`.
 - Prerequisite: -
+- Default NISS option: `always`
 
 #### DR
 Orients the edges on a second axis, and orients the corners. 
@@ -76,27 +77,31 @@ Orients the edges on a second axis, and orients the corners.
    - `ud`, `fb`, `lr`, for DR on that axis with any EO axis. 
    - `drud-eofb`, `drud-eolr`, `drfb-eoud`, `drfb-eolr`, `drlr-eoud`, `drlr-eofb` to be specific about both the DR and EO axis.
  - Prerequisite: EO
-
+ - Default NISS option: `before`
 #### HTR
 Reduces the cube into a state that is solvable using only half turns. 
 - Variations: `ud`, `fb`, `lr`.
 - Prerequisite: DR
+- Default NISS option: `before`
 
 #### FR
 Performs floppy reduction. This reduces the cube into a state where half moves on only two axis are sufficient.
  - Variations: `ud`, `fb`, `lr`.
  - Prerequisite: HTR
+- Default NISS option: `before`
 
 #### FRLS
 Performs floppy reduction while ignoring the slice edges. Using this step will later require using insertions. 
 Cubelib does not yet support insertions, so these will have to be done manually.
 - Variations: `ud`, `fb`, `lr`.
 - Prerequisite: HTR
+- Default NISS option: `before`
 
-#### FR
+#### FIN
 Solves the cube.
 - Variations: -
 - Prerequisite: FR or FRLS
+- Default NISS option: `none`
 
 ### Examples
 Find all EOs on the `ud` and `fb` axis between 2 and 5 moves, optionally using niss, and then to turn at most 10 of those EOs into DRs on the `fb` or `lr` axis without using NISS:
@@ -107,7 +112,7 @@ cubelib --steps "EO[ud;fb;min=2;max=5;niss=during;limit=10] > DR[fb;lr;niss=none
 To solve a cube into HTR using NISS anywhere except during DR:
 
 ```
-cubelib -N --steps "EO > DR[niss=before] > HTR" <scramble>
+cubelib --steps "EO[niss=always] > DR[niss=before] > HTR[niss=always]" <scramble>
 ```
 
 Solve the cube, but always pick only the shortest solution for each step.

@@ -43,10 +43,8 @@ pub fn generate<
     Mapper,
     CubeParam: Turnable + NewSolved + Clone,
     CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq + Debug,
-    const ST_MOVES: usize,
-    const AUX_MOVES: usize,
 >(
-    move_set: &MoveSet<ST_MOVES, AUX_MOVES>,
+    move_set: &MoveSet,
     mapper: &Mapper,
 ) -> PruningTable<COORD_SIZE, CoordParam>
 where
@@ -54,7 +52,7 @@ where
 {
     let aux_moveset = MoveSet {
         aux_moves: move_set.aux_moves,
-        st_moves: [],
+        st_moves: &[],
         transitions: [TransitionTable::new(0, 0); 18],
     };
     let start = CubeParam::new_solved();
@@ -101,9 +99,8 @@ fn pre_gen_coset_0<
     Mapper,
     CubeParam: Turnable + NewSolved + Clone,
     CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq + Debug,
-    const AUX_MOVES: usize,
 >(
-    move_set: &MoveSet<0, AUX_MOVES>,
+    move_set: &MoveSet,
     mapper: &Mapper,
     visited: &mut HashMap<CoordParam, CubeParam>,
     to_check: &Vec<CubeParam>,
@@ -113,7 +110,7 @@ where
 {
     let mut check_next = vec![];
     for cube in to_check {
-        for m in move_set.aux_moves {
+        for m in move_set.aux_moves.iter().cloned() {
             let mut cube = cube.clone();
             cube.turn(m);
             let coord = mapper(&cube);
@@ -135,7 +132,7 @@ pub fn generate_pure<
     const ST_MOVES: usize,
     const AUX_MOVES: usize,
 >(
-    move_set: &MoveSet<ST_MOVES, AUX_MOVES>,
+    move_set: &MoveSet,
     mapper: &Mapper,
 ) -> PruningTable<COORD_SIZE, CoordParam>
 where
@@ -175,10 +172,8 @@ fn fill_table<
     Mapper,
     CubeParam: Turnable + NewSolved + Clone,
     CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq + Debug,
-    const ST_MOVES: usize,
-    const AUX_MOVES: usize,
 >(
-    move_set: &MoveSet<ST_MOVES, AUX_MOVES>,
+    move_set: &MoveSet,
     table: &mut PruningTable<COORD_SIZE, CoordParam>,
     depth: u8,
     mapper: &Mapper,
@@ -193,6 +188,7 @@ where
             .aux_moves
             .into_iter()
             .chain(move_set.st_moves.into_iter())
+            .cloned()
         {
             let mut cube = cube.clone();
             cube.turn(m);
@@ -212,10 +208,8 @@ pub fn generate_debug<
     Mapper,
     CubeParam: Turnable + NewSolved + Clone + Debug + Display,
     CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq + Debug,
-    const ST_MOVES: usize,
-    const AUX_MOVES: usize,
 >(
-    move_set: &MoveSet<ST_MOVES, AUX_MOVES>,
+    move_set: &MoveSet,
     mapper: &Mapper,
 ) -> PruningTable<COORD_SIZE, CoordParam>
 where
@@ -254,10 +248,8 @@ fn fill_table_debug<
     Mapper,
     CubeParam: Turnable + NewSolved + Clone + Debug + Display,
     CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq + Debug,
-    const ST_MOVES: usize,
-    const AUX_MOVES: usize,
 >(
-    move_set: &MoveSet<ST_MOVES, AUX_MOVES>,
+    move_set: &MoveSet,
     table: &mut PruningTable<COORD_SIZE, CoordParam>,
     depth: u8,
     mapper: &Mapper,
@@ -272,6 +264,7 @@ where
             .aux_moves
             .into_iter()
             .chain(move_set.st_moves.into_iter())
+            .cloned()
         {
             let mut cube = cubes[0].clone();
             let pre = cube.clone();

@@ -10,10 +10,10 @@ use crate::lookup_table::PruningTable;
 use crate::moveset::MoveSet;
 use crate::stream;
 
-pub trait StepVariant<const SC_SIZE: usize, const AUX_SIZE: usize, CubeParam>:
+pub trait StepVariant<CubeParam>:
     IsReadyForStep<CubeParam>
 {
-    fn move_set(&self) -> &'_ MoveSet<SC_SIZE, AUX_SIZE>;
+    fn move_set(&self) -> &'_ MoveSet;
     fn pre_step_trans(&self) -> &'_ Vec<Transformation>;
     fn heuristic(&self, cube: &CubeParam) -> u8;
     fn name(&self) -> &str;
@@ -23,12 +23,12 @@ pub trait IsReadyForStep<CubeParam> {
     fn is_cube_ready(&self, cube: &CubeParam) -> bool;
 }
 
-pub(crate) struct DefaultPruningTableStep<'a, const SC_SIZE: usize, const AUX_SIZE: usize, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam>
+pub(crate) struct DefaultPruningTableStep<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam>
     where
         HC: for<'x> From<&'x CubeParam>,
         PC: for<'x> From<&'x CubeParam>,
 {
-    move_set: &'a MoveSet<SC_SIZE, AUX_SIZE>,
+    move_set: &'a MoveSet,
     pre_trans: Vec<Transformation>,
     table: &'a PruningTable<HC_SIZE, HC>,
     name: &'a str,
@@ -36,7 +36,7 @@ pub(crate) struct DefaultPruningTableStep<'a, const SC_SIZE: usize, const AUX_SI
     _cube: PhantomData<CubeParam>,
 }
 
-impl <'a, const SC_SIZE: usize, const AUX_SIZE: usize, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam> IsReadyForStep<CubeParam> for DefaultPruningTableStep<'a, SC_SIZE, AUX_SIZE, HC_SIZE, HC, PC_SIZE, PC, CubeParam>
+impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam> IsReadyForStep<CubeParam> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, CubeParam>
     where
         HC: for<'x> From<&'x CubeParam>,
         PC: for<'x> From<&'x CubeParam>, {
@@ -46,12 +46,12 @@ impl <'a, const SC_SIZE: usize, const AUX_SIZE: usize, const HC_SIZE: usize, HC:
     }
 }
 
-impl <'a, const SC_SIZE: usize, const AUX_SIZE: usize, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam> StepVariant<SC_SIZE, AUX_SIZE, CubeParam> for DefaultPruningTableStep<'a, SC_SIZE, AUX_SIZE, HC_SIZE, HC, PC_SIZE, PC, CubeParam>
+impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam> StepVariant<CubeParam> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, CubeParam>
     where
         HC: for<'x> From<&'x CubeParam>,
         PC: for<'x> From<&'x CubeParam>, {
 
-    fn move_set(&self) -> &'_ MoveSet<SC_SIZE, AUX_SIZE> {
+    fn move_set(&self) -> &'_ MoveSet {
         self.move_set
     }
 
@@ -69,12 +69,12 @@ impl <'a, const SC_SIZE: usize, const AUX_SIZE: usize, const HC_SIZE: usize, HC:
     }
 }
 
-impl <'a, const SC_SIZE: usize, const AUX_SIZE: usize, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam>  DefaultPruningTableStep<'a, SC_SIZE, AUX_SIZE, HC_SIZE, HC, PC_SIZE, PC, CubeParam>
+impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam>  DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, CubeParam>
     where
         HC: for<'x> From<&'x CubeParam>,
         PC: for<'x> From<&'x CubeParam>, {
 
-    pub fn new(move_set: &'a MoveSet<SC_SIZE, AUX_SIZE>,
+    pub fn new(move_set: &'a MoveSet,
                pre_trans: Vec<Transformation>,
                table: &'a PruningTable<HC_SIZE, HC>,
                name: &'a str) -> Self {
@@ -90,16 +90,16 @@ impl <'a, const SC_SIZE: usize, const AUX_SIZE: usize, const HC_SIZE: usize, HC:
 }
 
 
-pub struct Step<'a, const SC_SIZE: usize, const AUX_SIZE: usize, CubeParam> {
-    step_variants: Vec<Box<dyn StepVariant<SC_SIZE, AUX_SIZE, CubeParam> + 'a>>,
+pub struct Step<'a, CubeParam> {
+    step_variants: Vec<Box<dyn StepVariant<CubeParam> + 'a>>,
     name: &'static str,
 }
 
-impl<'a, const SC_SIZE: usize, const AUX_SIZE: usize, CubeParam: 'a>
-    Step<'a, SC_SIZE, AUX_SIZE, CubeParam>
+impl<'a, CubeParam: 'a>
+    Step<'a, CubeParam>
 {
     pub fn new(
-        step_variants: Vec<Box<dyn StepVariant<SC_SIZE, AUX_SIZE, CubeParam> + 'a>>,
+        step_variants: Vec<Box<dyn StepVariant<CubeParam> + 'a>>,
         name: &'static str,
     ) -> Self {
         Step { step_variants, name }
@@ -107,12 +107,12 @@ impl<'a, const SC_SIZE: usize, const AUX_SIZE: usize, CubeParam: 'a>
 
     pub fn new_basic<const C_SIZE: usize, CoordParam: Coord<C_SIZE> + 'a>(
         name: &'static str,
-        moves: MoveSet<SC_SIZE, AUX_SIZE>,
+        moves: MoveSet,
     ) -> Self
     where
         CoordParam: for<'x> From<&'x CubeParam>,
     {
-        let variant: NoHeuristicStep<SC_SIZE, AUX_SIZE, C_SIZE, CoordParam, CubeParam> =
+        let variant: NoHeuristicStep<C_SIZE, CoordParam, CubeParam> =
             NoHeuristicStep {
                 moves,
                 trans: vec![],
@@ -125,18 +125,20 @@ impl<'a, const SC_SIZE: usize, const AUX_SIZE: usize, CubeParam: 'a>
             name: "unknown"
         }
     }
+
+    pub fn name(&self) -> &'static str {
+        self.name
+    }
 }
 
 struct NoHeuristicStep<
-    const SC_SIZE: usize,
-    const AUX_SIZE: usize,
     const C_SIZE: usize,
     CoordParam: Coord<C_SIZE>,
     CubeParam,
 > where
     CoordParam: for<'x> From<&'x CubeParam>,
 {
-    moves: MoveSet<SC_SIZE, AUX_SIZE>,
+    moves: MoveSet,
     trans: Vec<Transformation>,
     name: &'static str,
     _c: PhantomData<CoordParam>,
@@ -144,13 +146,11 @@ struct NoHeuristicStep<
 }
 
 impl<
-        const SC_SIZE: usize,
-        const AUX_SIZE: usize,
         const C_SIZE: usize,
         CoordParam: Coord<C_SIZE>,
         CubeParam,
     > IsReadyForStep<CubeParam>
-    for NoHeuristicStep<SC_SIZE, AUX_SIZE, C_SIZE, CoordParam, CubeParam>
+    for NoHeuristicStep<C_SIZE, CoordParam, CubeParam>
 where
     CoordParam: for<'x> From<&'x CubeParam>,
 {
@@ -160,17 +160,15 @@ where
 }
 
 impl<
-        const SC_SIZE: usize,
-        const AUX_SIZE: usize,
         const C_SIZE: usize,
         CoordParam: Coord<C_SIZE>,
         CubeParam,
-    > StepVariant<SC_SIZE, AUX_SIZE, CubeParam>
-    for NoHeuristicStep<SC_SIZE, AUX_SIZE, C_SIZE, CoordParam, CubeParam>
+    > StepVariant<CubeParam>
+    for NoHeuristicStep<C_SIZE, CoordParam, CubeParam>
 where
     CoordParam: for<'x> From<&'x CubeParam>,
 {
-    fn move_set(&self) -> &'_ MoveSet<SC_SIZE, AUX_SIZE> {
+    fn move_set(&self) -> &'_ MoveSet {
         &self.moves
     }
 
@@ -190,11 +188,9 @@ where
 pub fn first_step<
     'a,
     'b,
-    const SC_SIZE: usize,
-    const AUX_SIZE: usize,
     CubeParam: Turnable + Invertible + Copy,
 >(
-    step: &'a Step<'b, SC_SIZE, AUX_SIZE, CubeParam>,
+    step: &'a Step<'b, CubeParam>,
     search_opts: SearchOptions,
     cube: CubeParam,
 ) -> impl Iterator<Item = Solution> + 'a {
@@ -207,12 +203,10 @@ pub fn next_step<
     'a,
     'b,
     IN: Iterator<Item = Solution> + 'a,
-    const SC_SIZE: usize,
-    const AUX_SIZE: usize,
     CubeParam: Turnable + Invertible + Copy,
 >(
     algs: IN,
-    step: &'a Step<'b, SC_SIZE, AUX_SIZE, CubeParam>,
+    step: &'a Step<'b, CubeParam>,
     search_opts: SearchOptions,
     cube: CubeParam,
 ) -> impl Iterator<Item = Solution> + 'a {
@@ -224,7 +218,7 @@ pub fn next_step<
                 let mut cube = cube.clone();
                 let alg: Algorithm = solution.clone().into();
                 cube.apply_alg(&alg);
-                let stage_opts = SearchOptions::new(depth, depth, search_opts.niss_type, search_opts.step_limit);
+                let stage_opts = SearchOptions::new(depth, depth, search_opts.niss_type, search_opts.step_limit, search_opts.step_quality);
                 let previous_normal = alg.normal_moves.last().cloned();
                 let previous_inverse = alg.inverse_moves.last().cloned();
 
@@ -245,8 +239,8 @@ pub fn next_step<
                     .flat_map(|(name, iter)| iter.map(move |alg| (name, alg)));
                 let values: Box<dyn Iterator<Item = (&str, Algorithm)>> = if depth == 0 {
                     Box::new(values.take(100))
-                } else if let Some(step_limit) = search_opts.step_limit {
-                    Box::new(values.take(step_limit))
+                } else if let Some(step_quality) = search_opts.step_quality {
+                    Box::new(values.take(step_quality))
                 } else {
                     Box::new(values)
                 };

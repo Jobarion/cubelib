@@ -9,6 +9,8 @@ pub mod moveset;
 pub mod stream;
 pub mod coords;
 pub mod steps;
+pub mod tables;
+pub mod cli;
 //Target specific implementations
 mod avx2_cubie;
 mod wasm32_cubie;

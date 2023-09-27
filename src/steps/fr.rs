@@ -6,53 +6,111 @@ use crate::moveset::{MoveSet, TransitionTable};
 use crate::steps::step::{DefaultPruningTableStep, IsReadyForStep, Step, StepVariant};
 use itertools::Itertools;
 use std::fmt::{Debug};
+use crate::cli::StepConfig;
 use crate::coords;
 use crate::coords::coord::Coord;
 use crate::coords::fr::{FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::coords::htr::PureHTRDRUDCoord;
+use crate::df_search::{NissType, SearchOptions};
 
-pub const FR_UD_STATE_CHANGE_MOVES: [Move; 2] = [
+pub const FR_UD_STATE_CHANGE_MOVES: &[Move] = &[
     Move(Up, Half),
     Move(Down, Half),
 ];
 
-pub const FR_UD_AUX_MOVES: [Move; 4] = [
+pub const FR_UD_AUX_MOVES: &[Move] = &[
     Move(Right, Half),
     Move(Left, Half),
     Move(Front, Half),
     Move(Back, Half),
 ];
 
-pub const FR_UD_MOVESET: MoveSet<2, 4> = MoveSet {
+pub const FR_UD_MOVESET: MoveSet = MoveSet {
     st_moves: FR_UD_STATE_CHANGE_MOVES,
     aux_moves: FR_UD_AUX_MOVES,
     transitions: fr_transitions(Up),
 };
 
-pub fn fr_no_slice_any<'a, C: 'a + Debug>(
-    table: &'a PruningTable<{ coords::fr::FRUD_NO_SLICE_SIZE }, FRUDNoSliceCoord>,
-) -> Step<'a, 2, 4, C>
-    where
-        FRUDNoSliceCoord: for<'x> From<&'x C>,
-        PureHTRDRUDCoord: for<'x> From<&'x C>,
-{
-    fr_no_slice(table, [Axis::UD, Axis::FB, Axis::LR])
-}
+pub type FRLeaveSlicePruningTable = PruningTable<{ coords::fr::FRUD_NO_SLICE_SIZE }, FRUDNoSliceCoord>;
+pub type FRPruningTable = PruningTable<{ coords::fr::FRUD_WITH_SLICE_SIZE }, FRUDWithSliceCoord>;
 
-pub fn fr_any<'a, C: 'a + Debug>(
-    table: &'a PruningTable<{ coords::fr::FRUD_WITH_SLICE_SIZE }, FRUDWithSliceCoord>,
-) -> Step<'a, 2, 4, C>
+pub fn from_step_config<'a, C: 'a>(table: &'a FRPruningTable, config: StepConfig) -> Result<(Step<'a, C>, SearchOptions), String>
     where
         FRUDWithSliceCoord: for<'x> From<&'x C>,
         PureHTRDRUDCoord: for<'x> From<&'x C>,
 {
-    fr(table, [Axis::UD, Axis::FB, Axis::LR])
+    let step = if let Some(substeps) = config.substeps {
+        let axis: Result<Vec<Axis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
+            "frud" | "ud" => Ok(Axis::UD),
+            "frfb" | "fb" => Ok(Axis::FB),
+            "frlr" | "lr" => Ok(Axis::LR),
+            x => Err(format!("Invalid FR substep {x}"))
+        }).collect();
+        fr(table, axis?)
+    } else {
+        fr_any(table)
+    };
+    let search_opts = SearchOptions::new(
+        config.min.unwrap_or(0),
+        config.max.unwrap_or(10),
+        config.niss.unwrap_or(NissType::During),
+        config.quality,
+        config.solution_count
+    );
+    Ok((step, search_opts))
 }
 
-pub fn fr_no_slice<'a, C: 'a + Debug, const FRA: usize>(
-    table: &'a PruningTable<{ coords::fr::FRUD_NO_SLICE_SIZE }, FRUDNoSliceCoord>,
-    fr_axis: [Axis; FRA],
-) -> Step<'a, 2, 4, C>
+pub fn from_step_config_no_slice<'a, C: 'a>(table: &'a FRLeaveSlicePruningTable, config: StepConfig) -> Result<(Step<'a, C>, SearchOptions), String>
+    where
+        FRUDNoSliceCoord: for<'x> From<&'x C>,
+        PureHTRDRUDCoord: for<'x> From<&'x C>,
+{
+    let step = if let Some(substeps) = config.substeps {
+        let axis: Result<Vec<Axis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
+            "frud" | "ud" => Ok(Axis::UD),
+            "frfb" | "fb" => Ok(Axis::FB),
+            "frlr" | "lr" => Ok(Axis::LR),
+            x => Err(format!("Invalid FRLS substep {x}"))
+        }).collect();
+        fr_no_slice(table, axis?)
+    } else {
+        fr_no_slice_any(table)
+    };
+
+    let search_opts = SearchOptions::new(
+        config.min.unwrap_or(0),
+        config.max.unwrap_or(10),
+        config.niss.unwrap_or(NissType::During),
+        config.quality,
+        config.solution_count
+    );
+    Ok((step, search_opts))
+}
+
+pub fn fr_no_slice_any<'a, C: 'a>(
+    table: &'a FRLeaveSlicePruningTable,
+) -> Step<'a, C>
+    where
+        FRUDNoSliceCoord: for<'x> From<&'x C>,
+        PureHTRDRUDCoord: for<'x> From<&'x C>,
+{
+    fr_no_slice(table, vec![Axis::UD, Axis::FB, Axis::LR])
+}
+
+pub fn fr_any<'a, C: 'a>(
+    table: &'a FRPruningTable,
+) -> Step<'a, C>
+    where
+        FRUDWithSliceCoord: for<'x> From<&'x C>,
+        PureHTRDRUDCoord: for<'x> From<&'x C>,
+{
+    fr(table, vec![Axis::UD, Axis::FB, Axis::LR])
+}
+
+pub fn fr_no_slice<'a, C: 'a>(
+    table: &'a FRLeaveSlicePruningTable,
+    fr_axis: Vec<Axis>,
+) -> Step<'a, C>
     where
         FRUDNoSliceCoord: for<'x> From<&'x C>,
         PureHTRDRUDCoord: for<'x> From<&'x C>,
@@ -60,10 +118,10 @@ pub fn fr_no_slice<'a, C: 'a + Debug, const FRA: usize>(
     let step_variants = fr_axis
         .into_iter()
         .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant<2, 4, C> + 'a>> = match x {
-                Axis::UD => Some(Box::new(DefaultPruningTableStep::<2, 4, {coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C>::new(&FR_UD_MOVESET, vec![], table, "fr-ud-ls"))),
-                Axis::FB => Some(Box::new(DefaultPruningTableStep::<2, 4, {coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C>::new(&FR_UD_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, "fr-fb-ls"))),
-                Axis::LR => Some(Box::new(DefaultPruningTableStep::<2, 4, {coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C>::new(&FR_UD_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, "fr-lr-ls"))),
+            let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
+                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C>::new(&FR_UD_MOVESET, vec![], table, "fr-ud-ls"))),
+                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C>::new(&FR_UD_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, "fr-fb-ls"))),
+                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C>::new(&FR_UD_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, "fr-lr-ls"))),
             };
             x
         })
@@ -71,10 +129,10 @@ pub fn fr_no_slice<'a, C: 'a + Debug, const FRA: usize>(
     Step::new(step_variants, "fr")
 }
 
-pub fn fr<'a, C: 'a + Debug, const FRA: usize>(
-    table: &'a PruningTable<{ coords::fr::FRUD_WITH_SLICE_SIZE }, FRUDWithSliceCoord>,
-    fr_axis: [Axis; FRA],
-) -> Step<'a, 2, 4, C>
+pub fn fr<'a, C: 'a>(
+    table: &'a FRPruningTable,
+    fr_axis: Vec<Axis>,
+) -> Step<'a, C>
     where
         FRUDWithSliceCoord: for<'x> From<&'x C>,
         PureHTRDRUDCoord: for<'x> From<&'x C>,
@@ -82,10 +140,10 @@ pub fn fr<'a, C: 'a + Debug, const FRA: usize>(
     let step_variants = fr_axis
         .into_iter()
         .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant<2, 4, C> + 'a>> = match x {
-                Axis::UD => Some(Box::new(DefaultPruningTableStep::<2, 4, {coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C>::new(&FR_UD_MOVESET, vec![], table, "fr-ud"))),
-                Axis::FB => Some(Box::new(DefaultPruningTableStep::<2, 4, {coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C>::new(&FR_UD_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, "fr-fb"))),
-                Axis::LR => Some(Box::new(DefaultPruningTableStep::<2, 4, {coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C>::new(&FR_UD_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, "fr-lr"))),
+            let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
+                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C>::new(&FR_UD_MOVESET, vec![], table, "fr-ud"))),
+                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C>::new(&FR_UD_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, "fr-fb"))),
+                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C>::new(&FR_UD_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, "fr-lr"))),
             };
             x
         })

@@ -2,49 +2,104 @@ use std::fmt::Debug;
 
 use itertools::Itertools;
 
+use crate::cli::StepConfig;
 use crate::coords;
-use crate::coords::finish::{FR_FINISH_SIZE, FRFinishCoord};
+use crate::coords::finish::{FR_FINISH_SIZE, FRUDFinishCoord};
 use crate::coords::fr::{FRUDNoSliceCoord, FRUDWithSliceCoord};
-use crate::coords::htr::PureHTRDRUDCoord;
 use crate::cube::{Axis, FACES, Move, Transformation};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
+use crate::df_search::{NissType, SearchOptions};
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
 use crate::steps::fr;
 use crate::steps::step::{DefaultPruningTableStep, Step, StepVariant};
 
-pub const FR_FINISH_MOVESET: MoveSet<4, 0> = MoveSet {
+pub const FRUD_FINISH_MOVESET: MoveSet = MoveSet {
     st_moves: fr::FR_UD_AUX_MOVES,
-    aux_moves: [],
+    aux_moves: &[],
     transitions: finish_transitions(),
 };
 
-pub fn fr_finish_any<'a, C: 'a + Debug>(
-    table: &'a PruningTable<{ FR_FINISH_SIZE }, FRFinishCoord>,
-) -> Step<'a, 4, 0, C>
+pub type FRFinishPruningTable = PruningTable<{ FR_FINISH_SIZE }, FRUDFinishCoord>;
+
+pub fn from_step_config_fr<'a, C: 'a>(table: &'a FRFinishPruningTable, config: StepConfig) -> Result<(Step<'a, C>, SearchOptions), String>
     where
-        FRFinishCoord: for<'x> From<&'x C>,
+        FRUDFinishCoord: for<'x> From<&'x C>,
         FRUDWithSliceCoord: for<'x> From<&'x C>,
 {
-    fr_finish(table, [Axis::UD, Axis::FB, Axis::LR])
+    let step = if let Some(substeps) = config.substeps {
+        let axis: Result<Vec<Axis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
+            "finishud" | "finud" | "ud" => Ok(Axis::UD),
+            "finishfb" | "finfb" | "fb" => Ok(Axis::FB),
+            "finishlr" | "finlr" | "lr" => Ok(Axis::LR),
+            x => Err(format!("Invalid HTR substep {x}"))
+        }).collect();
+        fr_finish(table, axis?)
+    } else {
+        fr_finish_any(table)
+    };
+    let search_opts = SearchOptions::new(
+        config.min.unwrap_or(0),
+        config.max.unwrap_or(10),
+        config.niss.unwrap_or(NissType::None),
+        config.quality,
+        config.solution_count
+    );
+    Ok((step, search_opts))
 }
 
-pub fn fr_finish<'a, C: 'a + Debug, const FRA: usize>(
-    table: &'a PruningTable<{ FR_FINISH_SIZE }, FRFinishCoord>,
-    fr_axis: [Axis; FRA],
-) -> Step<'a, 4, 0, C>
+pub fn from_step_config_fr_leave_slice<'a, C: 'a>(table: &'a FRFinishPruningTable, config: StepConfig) -> Result<(Step<'a, C>, SearchOptions), String>
     where
-        FRFinishCoord: for<'x> From<&'x C>,
+        FRUDFinishCoord: for<'x> From<&'x C>,
+        FRUDNoSliceCoord: for<'x> From<&'x C>,
+{
+    let step = if let Some(substeps) = config.substeps {
+        let axis: Result<Vec<Axis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
+            "finishud" | "finud" | "ud" => Ok(Axis::UD),
+            "finishfb" | "finfb" | "fb" => Ok(Axis::FB),
+            "finishlr" | "finlr" | "lr" => Ok(Axis::LR),
+            x => Err(format!("Invalid HTR substep {x}"))
+        }).collect();
+        fr_finish_leave_slice(table, axis?)
+    } else {
+        fr_finish_leave_slice_any(table)
+    };
+    let search_opts = SearchOptions::new(
+        config.min.unwrap_or(0),
+        config.max.unwrap_or(10),
+        config.niss.unwrap_or(NissType::None),
+        config.quality,
+        config.solution_count
+    );
+    Ok((step, search_opts))
+}
+
+pub fn fr_finish_any<'a, C: 'a>(
+    table: &'a FRFinishPruningTable,
+) -> Step<'a, C>
+    where
+        FRUDFinishCoord: for<'x> From<&'x C>,
+        FRUDWithSliceCoord: for<'x> From<&'x C>,
+{
+    fr_finish(table, vec![Axis::UD, Axis::FB, Axis::LR])
+}
+
+pub fn fr_finish<'a, C: 'a>(
+    table: &'a FRFinishPruningTable,
+    fr_axis: Vec<Axis>,
+) -> Step<'a, C>
+    where
+        FRUDFinishCoord: for<'x> From<&'x C>,
         FRUDWithSliceCoord: for<'x> From<&'x C>,
 {
     let step_variants = fr_axis
         .into_iter()
         .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant<4, 0, C> + 'a>> = match x {
-                Axis::UD => Some(Box::new(DefaultPruningTableStep::<4, 0, { FR_FINISH_SIZE }, FRFinishCoord, {coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, C>::new(&FR_FINISH_MOVESET, vec![], table, "finish"))),
-                Axis::FB => Some(Box::new(DefaultPruningTableStep::<4, 0, { FR_FINISH_SIZE }, FRFinishCoord, {coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, C>::new(&FR_FINISH_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, "finish"))),
-                Axis::LR => Some(Box::new(DefaultPruningTableStep::<4, 0, { FR_FINISH_SIZE }, FRFinishCoord, {coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, C>::new(&FR_FINISH_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, "finish"))),
+            let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
+                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, C>::new(&FRUD_FINISH_MOVESET, vec![], table, "finish"))),
+                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, C>::new(&FRUD_FINISH_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, "finish"))),
+                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, C>::new(&FRUD_FINISH_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, "finish"))),
             };
             x
         })
@@ -53,31 +108,31 @@ pub fn fr_finish<'a, C: 'a + Debug, const FRA: usize>(
 }
 
 
-pub fn fr_finish_leave_slice_any<'a, C: 'a + Debug>(
-    table: &'a PruningTable<{ FR_FINISH_SIZE }, FRFinishCoord>,
-) -> Step<'a, 4, 0, C>
+pub fn fr_finish_leave_slice_any<'a, C: 'a>(
+    table: &'a FRFinishPruningTable,
+) -> Step<'a, C>
     where
-        FRFinishCoord: for<'x> From<&'x C>,
+        FRUDFinishCoord: for<'x> From<&'x C>,
         FRUDNoSliceCoord: for<'x> From<&'x C>,
 {
-    fr_leave_slice_finish(table, [Axis::UD, Axis::FB, Axis::LR])
+    fr_finish_leave_slice(table, vec![Axis::UD, Axis::FB, Axis::LR])
 }
 
-pub fn fr_leave_slice_finish<'a, C: 'a + Debug, const FRA: usize>(
-    table: &'a PruningTable<{ FR_FINISH_SIZE }, FRFinishCoord>,
-    fr_axis: [Axis; FRA],
-) -> Step<'a, 4, 0, C>
+pub fn fr_finish_leave_slice<'a, C: 'a>(
+    table: &'a FRFinishPruningTable,
+    fr_axis: Vec<Axis>,
+) -> Step<'a, C>
     where
-        FRFinishCoord: for<'x> From<&'x C>,
+        FRUDFinishCoord: for<'x> From<&'x C>,
         FRUDNoSliceCoord: for<'x> From<&'x C>,
 {
     let step_variants = fr_axis
         .into_iter()
         .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant<4, 0, C> + 'a>> = match x {
-                Axis::UD => Some(Box::new(DefaultPruningTableStep::<4, 0, { FR_FINISH_SIZE }, FRFinishCoord, {coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, C>::new(&FR_FINISH_MOVESET, vec![], table, "finish"))),
-                Axis::FB => Some(Box::new(DefaultPruningTableStep::<4, 0, { FR_FINISH_SIZE }, FRFinishCoord, {coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, C>::new(&FR_FINISH_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, "finish"))),
-                Axis::LR => Some(Box::new(DefaultPruningTableStep::<4, 0, { FR_FINISH_SIZE }, FRFinishCoord, {coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, C>::new(&FR_FINISH_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, "finish"))),
+            let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
+                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, C>::new(&FRUD_FINISH_MOVESET, vec![], table, "finish"))),
+                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, C>::new(&FRUD_FINISH_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, "finish"))),
+                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, C>::new(&FRUD_FINISH_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, "finish"))),
             };
             x
         })

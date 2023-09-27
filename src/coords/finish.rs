@@ -2,22 +2,22 @@ use crate::coords::coord::Coord;
 use crate::cubie::{CornerCubieCube, CubieCube, EdgeCubieCube};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct FRFinishCoord(pub(crate) u8);
+pub struct FRUDFinishCoord(pub(crate) u8);
 
 pub const FR_FINISH_SIZE: usize = 256;
-impl Coord<{FR_FINISH_SIZE}> for FRFinishCoord {
+impl Coord<{FR_FINISH_SIZE}> for FRUDFinishCoord {
     fn val(&self) -> usize {
         self.0 as usize
     }
 }
 
-impl Into<usize> for FRFinishCoord {
+impl Into<usize> for FRUDFinishCoord {
     fn into(self) -> usize {
         self.0 as usize
     }
 }
 
-impl From<&CubieCube> for FRFinishCoord {
+impl From<&CubieCube> for FRUDFinishCoord {
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn from(value: &CubieCube) -> Self {
@@ -28,13 +28,13 @@ impl From<&CubieCube> for FRFinishCoord {
 #[cfg(target_feature = "avx2")]
 mod avx2 {
     use std::arch::x86_64::{_mm_and_si128, _mm_castpd_si128, _mm_castsi128_pd, _mm_cmpeq_epi8, _mm_cmpgt_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_hadd_epi32, _mm_movemask_epi8, _mm_mullo_epi16, _mm_or_si128, _mm_permute_pd, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_set_epi16, _mm_set_epi8, _mm_shuffle_epi8, _mm_srli_epi32, _mm_xor_si128};
-    use crate::coords::finish::FRFinishCoord;
+    use crate::coords::finish::FRUDFinishCoord;
     use crate::coords::fr::{FRCPOrbitCoord, FREdgesCoord, FROrbitParityCoord, FRSliceEdgesCoord};
     use crate::cubie::{CornerCubieCube, CubieCube, EdgeCubieCube};
 
     #[target_feature(enable = "avx2")]
     #[inline]
-    pub unsafe fn unsafe_from_fr_finish_coord(cube: &CubieCube) -> FRFinishCoord {
+    pub unsafe fn unsafe_from_fr_finish_coord(cube: &CubieCube) -> FRUDFinishCoord {
 
         // let cp_values = _mm_srli_epi32::<5>(cube.corners.0);
         //
@@ -77,6 +77,6 @@ mod avx2 {
         let edges = (_mm_movemask_epi8(cube.edges.0) & 0xF) as u8;
 
         let coord = corners << 4 | edges;
-        FRFinishCoord(coord)
+        FRUDFinishCoord(coord)
     }
 }

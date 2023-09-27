@@ -1,9 +1,9 @@
 use crate::cube::{Face, Move, Turn};
 use crate::df_search::LEGAL_MOVE_COUNT;
 
-pub struct MoveSet<const ST_SIZE: usize, const AUX_SIZE: usize> {
-    pub st_moves: [Move; ST_SIZE],
-    pub aux_moves: [Move; AUX_SIZE],
+pub struct MoveSet {
+    pub st_moves: &'static [Move],
+    pub aux_moves: &'static [Move],
     pub transitions: [TransitionTable; LEGAL_MOVE_COUNT],
 }
 

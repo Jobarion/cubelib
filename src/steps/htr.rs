@@ -6,19 +6,21 @@ use crate::moveset::{MoveSet, TransitionTable};
 use crate::steps::step::{DefaultPruningTableStep, IsReadyForStep, Step, StepVariant};
 use itertools::Itertools;
 use std::fmt::{Debug};
+use crate::cli::StepConfig;
 use crate::coords;
 use crate::coords::coord::Coord;
 use crate::coords::dr::DRUDEOFBCoord;
 use crate::coords::htr::HTRDRUDCoord;
+use crate::df_search::{NissType, SearchOptions};
 
-pub const HTR_DR_UD_STATE_CHANGE_MOVES: [Move; 4] = [
+pub const HTR_DR_UD_STATE_CHANGE_MOVES: &[Move] = &[
     Move(Up, Clockwise),
     Move(Up, CounterClockwise),
     Move(Down, Clockwise),
     Move(Down, CounterClockwise),
 ];
 
-pub const HTR_MOVES: [Move; 6] = [
+pub const HTR_MOVES: &[Move] = &[
     Move(Up, Half),
     Move(Down, Half),
     Move(Right, Half),
@@ -27,26 +29,54 @@ pub const HTR_MOVES: [Move; 6] = [
     Move(Back, Half),
 ];
 
-pub const HTR_DR_UD_MOVESET: MoveSet<4, 6> = MoveSet {
+pub const HTR_DR_UD_MOVESET: MoveSet = MoveSet {
     st_moves: HTR_DR_UD_STATE_CHANGE_MOVES,
     aux_moves: HTR_MOVES,
     transitions: htr_transitions(Up),
 };
 
-pub fn htr_any<'a, C: 'a + Debug>(
-    table: &'a PruningTable<{ coords::htr::HTRDRUD_SIZE }, HTRDRUDCoord>,
-) -> Step<'a, 4, 6, C>
+pub type HTRPruningTable = PruningTable<{ coords::htr::HTRDRUD_SIZE }, HTRDRUDCoord>;
+
+pub fn from_step_config<'a, C: 'a>(table: &'a HTRPruningTable, config: StepConfig) -> Result<(Step<'a, C>, SearchOptions), String>
+    where
+        HTRDRUDCoord: for<'x> From<&'x C>,
+        DRUDEOFBCoord: for<'x> From<&'x C>,
+{
+    let step = if let Some(substeps) = config.substeps {
+        let axis: Result<Vec<Axis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
+            "htrud" | "ud" => Ok(Axis::UD),
+            "htrfb" | "fb" => Ok(Axis::FB),
+            "htrlr" | "lr" => Ok(Axis::LR),
+            x => Err(format!("Invalid HTR substep {x}"))
+        }).collect();
+        htr(table, axis?)
+    } else {
+        htr_any(table)
+    };
+    let search_opts = SearchOptions::new(
+        config.min.unwrap_or(0),
+        config.max.unwrap_or(14),
+        config.niss.unwrap_or(NissType::During),
+        config.quality,
+        config.solution_count
+    );
+    Ok((step, search_opts))
+}
+
+pub fn htr_any<'a, C: 'a>(
+    table: &'a HTRPruningTable,
+) -> Step<'a, C>
 where
     HTRDRUDCoord: for<'x> From<&'x C>,
     DRUDEOFBCoord: for<'x> From<&'x C>,
 {
-    htr(table, [Axis::UD, Axis::FB, Axis::LR])
+    htr(table, vec![Axis::UD, Axis::FB, Axis::LR])
 }
 
-pub fn htr<'a, C: 'a + Debug, const DRA: usize>(
-    table: &'a PruningTable<{ coords::htr::HTRDRUD_SIZE }, HTRDRUDCoord>,
-    dr_axis: [Axis; DRA],
-) -> Step<'a, 4, 6, C>
+pub fn htr<'a, C: 'a>(
+    table: &'a HTRPruningTable,
+    dr_axis: Vec<Axis>,
+) -> Step<'a, C>
 where
     HTRDRUDCoord: for<'x> From<&'x C>,
     DRUDEOFBCoord: for<'x> From<&'x C>,
@@ -54,10 +84,10 @@ where
     let step_variants = dr_axis
         .into_iter()
         .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant<4, 6, C> + 'a>> = match x {
-                Axis::UD => Some(Box::new(DefaultPruningTableStep::<4, 6, {coords::htr::HTRDRUD_SIZE}, HTRDRUDCoord, {coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, C>::new(&HTR_DR_UD_MOVESET, vec![], table, "htr-drud"))),
-                Axis::FB => Some(Box::new(DefaultPruningTableStep::<4, 6, {coords::htr::HTRDRUD_SIZE}, HTRDRUDCoord, {coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, C>::new(&HTR_DR_UD_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, "htr-drfb"))),
-                Axis::LR => Some(Box::new(DefaultPruningTableStep::<4, 6, {coords::htr::HTRDRUD_SIZE}, HTRDRUDCoord, {coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, C>::new(&HTR_DR_UD_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, "htr-drlr"))),
+            let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
+                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{coords::htr::HTRDRUD_SIZE}, HTRDRUDCoord, {coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, C>::new(&HTR_DR_UD_MOVESET, vec![], table, "htr-drud"))),
+                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{coords::htr::HTRDRUD_SIZE}, HTRDRUDCoord, {coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, C>::new(&HTR_DR_UD_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, "htr-drfb"))),
+                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{coords::htr::HTRDRUD_SIZE}, HTRDRUDCoord, {coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, C>::new(&HTR_DR_UD_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, "htr-drlr"))),
             };
             x
         })

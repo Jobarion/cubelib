@@ -11,27 +11,29 @@ use crate::steps::step::StepVariant;
 pub const LEGAL_MOVE_COUNT: usize = TURNS.len() * FACES.len();
 pub const ALL_MOVES: [Move; LEGAL_MOVE_COUNT] = get_all_moves();
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct SearchOptions {
     pub niss_type: NissType,
     pub min_moves: u8,
     pub max_moves: u8,
+    pub step_quality: Option<usize>,
     pub step_limit: Option<usize>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum NissType {
     None,
-    AtStart,
+    Before,
     During,
 }
 
 impl SearchOptions {
-    pub fn new(min_moves: u8, max_moves: u8, niss_type: NissType, step_limit: Option<usize>) -> Self {
+    pub fn new(min_moves: u8, max_moves: u8, niss_type: NissType, step_quality: Option<usize>, step_limit: Option<usize>) -> Self {
         SearchOptions {
             min_moves,
             max_moves,
             niss_type,
+            step_quality,
             step_limit,
         }
     }
@@ -39,10 +41,8 @@ impl SearchOptions {
 
 pub fn dfs_iter<
     'a,
-    const SC_SIZE: usize,
-    const AUX_SIZE: usize,
     C: Turnable + Invertible + Clone + Copy + 'a,
-    S: StepVariant<SC_SIZE, AUX_SIZE, C> + ?Sized,
+    S: StepVariant<C> + ?Sized,
 >(
     step: &'a S,
     mut cube: C,
@@ -86,7 +86,7 @@ pub fn dfs_iter<
                         .map(|alg| alg.reverse()),
                     ),
 
-                    NissType::AtStart => {
+                    NissType::Before => {
                         let no_niss = next_dfs_level(
                             step,
                             cube.clone(),
@@ -129,10 +129,8 @@ pub fn dfs_iter<
 
 fn next_dfs_level<
     'a,
-    const SC_SIZE: usize,
-    const AUX_SIZE: usize,
     C: Turnable + Invertible + Copy + Clone + 'a,
-    S: StepVariant<SC_SIZE, AUX_SIZE, C> + ?Sized,
+    S: StepVariant<C> + ?Sized,
 >(
     step: &'a S,
     mut cube: C,
@@ -158,6 +156,7 @@ fn next_dfs_level<
             .move_set()
             .st_moves
             .into_iter()
+            .cloned()
             .map(move |m| {
                 (
                     m,
@@ -188,6 +187,7 @@ fn next_dfs_level<
             .move_set()
             .aux_moves
             .into_iter()
+            .cloned()
             .map(move |m| {
                 (
                     m,

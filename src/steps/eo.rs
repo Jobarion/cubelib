@@ -1,23 +1,25 @@
 use itertools::Itertools;
 
 use crate::algs::Algorithm;
+use crate::cli::StepConfig;
 use crate::coords::eo::EOCoordFB;
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cube::{Axis, Face, Move, Transformation, FACES};
 use crate::cubie::{CubieCube, EdgeCubieCube};
+use crate::df_search::{NissType, SearchOptions};
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
 use crate::steps::step::{IsReadyForStep, Step, StepVariant};
 
-pub const UD_EO_STATE_CHANGE_MOVES: [Move; 4] = [
+pub const UD_EO_STATE_CHANGE_MOVES: &[Move] = &[
     Move(Up, Clockwise),
     Move(Up, CounterClockwise),
     Move(Down, Clockwise),
     Move(Down, CounterClockwise),
 ];
 
-pub const UD_EO_MOVES: [Move; 14] = [
+pub const UD_EO_MOVES: &[Move] = &[
     Move(Up, Half),
     Move(Down, Half),
     Move(Front, Clockwise),
@@ -34,14 +36,14 @@ pub const UD_EO_MOVES: [Move; 14] = [
     Move(Right, Half),
 ];
 
-pub const FB_EO_STATE_CHANGE_MOVES: [Move; 4] = [
+pub const FB_EO_STATE_CHANGE_MOVES: &[Move] = &[
     Move(Front, Clockwise),
     Move(Front, CounterClockwise),
     Move(Back, Clockwise),
     Move(Back, CounterClockwise),
 ];
 
-pub const FB_EO_MOVES: [Move; 14] = [
+pub const FB_EO_MOVES: &[Move] = &[
     Move(Up, Clockwise),
     Move(Up, CounterClockwise),
     Move(Up, Half),
@@ -58,14 +60,14 @@ pub const FB_EO_MOVES: [Move; 14] = [
     Move(Right, Half),
 ];
 
-pub const RL_EO_STATE_CHANGE_MOVES: [Move; 4] = [
+pub const RL_EO_STATE_CHANGE_MOVES: &[Move] = &[
     Move(Right, Clockwise),
     Move(Left, CounterClockwise),
     Move(Right, Clockwise),
     Move(Left, CounterClockwise),
 ];
 
-pub const RL_EO_MOVES: [Move; 14] = [
+pub const RL_EO_MOVES: &[Move] = &[
     Move(Up, Clockwise),
     Move(Up, CounterClockwise),
     Move(Up, Half),
@@ -82,19 +84,19 @@ pub const RL_EO_MOVES: [Move; 14] = [
     Move(Right, Half),
 ];
 
-pub const EO_UD_MOVESET: MoveSet<4, 14> = MoveSet {
+pub const EO_UD_MOVESET: MoveSet = MoveSet {
     st_moves: UD_EO_STATE_CHANGE_MOVES,
     aux_moves: UD_EO_MOVES,
     transitions: eo_transitions(Up),
 };
 
-pub const EO_FB_MOVESET: MoveSet<4, 14> = MoveSet {
+pub const EO_FB_MOVESET: MoveSet = MoveSet {
     st_moves: FB_EO_STATE_CHANGE_MOVES,
     aux_moves: FB_EO_MOVES,
     transitions: eo_transitions(Front),
 };
 
-pub const EO_LR_MOVESET: MoveSet<4, 14> = MoveSet {
+pub const EO_LR_MOVESET: MoveSet = MoveSet {
     st_moves: RL_EO_STATE_CHANGE_MOVES,
     aux_moves: RL_EO_MOVES,
     transitions: eo_transitions(Left),
@@ -103,40 +105,59 @@ pub const EO_LR_MOVESET: MoveSet<4, 14> = MoveSet {
 pub const EO_UD_PRE_TRANS: [Transformation; 1] = [Transformation(Axis::X, Clockwise)];
 pub const EO_LR_PRE_TRANS: [Transformation; 1] = [Transformation(Axis::Y, Clockwise)];
 
-// const BAD_EDGES_MIN_MOVES: [u8; 13] = [0, 99, 3, 99, 1, 99, 3, 99, 2, 99, 6, 99, 8];
-//
-// pub fn eo_ud_state_iter<'a, C: Turnable + Invertible + EOCount + Clone + Copy + 'a>(cube: C) -> impl Iterator<Item = Algorithm> + 'a {
-//     dfs_iter(&EO_UD_MOVESET, Rc::new(|c: &C|{
-//         let (ud, _, _) = c.count_bad_edges();
-//         BAD_EDGES_MIN_MOVES[ud as usize]
-//     }), cube, 0, 20, true)
-// }
+
+pub type EOPruningTable = PruningTable<2048, EOCoordFB>;
 
 pub struct EOStepTable<'a> {
-    move_set: &'a MoveSet<4, 14>,
+    move_set: &'a MoveSet,
     pre_trans: Vec<Transformation>,
-    table: &'a PruningTable<2048, EOCoordFB>,
+    table: &'a EOPruningTable,
     name: &'a str,
 }
 
-pub fn eo_any<'a, C: 'a>(table: &'a PruningTable<2048, EOCoordFB>) -> Step<'a, 4, 14, C>
+pub fn from_step_config<'a, C: 'a>(table: &'a EOPruningTable, config: StepConfig) -> Result<(Step<'a, C>, SearchOptions), String>
+    where
+        EOCoordFB: for<'x> From<&'x C>,{
+    let step = if let Some(substeps) = config.substeps {
+        let axis: Result<Vec<Axis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
+            "eoud" | "ud" => Ok(Axis::UD),
+            "eofb" | "fb" => Ok(Axis::FB),
+            "eolr" | "lr" => Ok(Axis::LR),
+            x => Err(format!("Invalid EO substep {x}"))
+        }).collect();
+        eo(table, axis?)
+    } else {
+        eo_any(table)
+    };
+    let search_opts = SearchOptions::new(
+        config.min.unwrap_or(0),
+        config.max.unwrap_or(5),
+        config.niss.unwrap_or(NissType::During),
+        config.quality,
+        config.solution_count
+
+    );
+    Ok((step, search_opts))
+}
+
+pub fn eo_any<'a, C: 'a>(table: &'a EOPruningTable) -> Step<'a, C>
 where
     EOCoordFB: for<'x> From<&'x C>,
 {
-    eo(table, [Axis::UD, Axis::FB, Axis::LR])
+    eo(table, vec![Axis::UD, Axis::FB, Axis::LR])
 }
 
-pub fn eo<'a, C: 'a, const EOA: usize>(
-    table: &'a PruningTable<2048, EOCoordFB>,
-    eo_axis: [Axis; EOA],
-) -> Step<'a, 4, 14, C>
+pub fn eo<'a, C: 'a>(
+    table: &'a EOPruningTable,
+    eo_axis: Vec<Axis>,
+) -> Step<'a, C>
 where
     EOCoordFB: for<'x> From<&'x C>,
 {
     let step_variants = eo_axis
         .into_iter()
         .map(move |x| {
-            let x: Box<dyn StepVariant<4, 14, C> + 'a> = match x {
+            let x: Box<dyn StepVariant<C> + 'a> = match x {
                 Axis::UD => Box::new(EOStepTable::new_ud(&table)),
                 Axis::FB => Box::new(EOStepTable::new_fb(&table)),
                 Axis::LR => Box::new(EOStepTable::new_lr(&table)),
@@ -148,7 +169,7 @@ where
 }
 
 impl<'a> EOStepTable<'a> {
-    fn new_ud(table: &'a PruningTable<2048, EOCoordFB>) -> Self {
+    fn new_ud(table: &'a EOPruningTable) -> Self {
         EOStepTable {
             move_set: &EO_FB_MOVESET,
             pre_trans: vec![Transformation(Axis::X, Clockwise)],
@@ -157,7 +178,7 @@ impl<'a> EOStepTable<'a> {
         }
     }
 
-    fn new_lr(table: &'a PruningTable<2048, EOCoordFB>) -> Self {
+    fn new_lr(table: &'a EOPruningTable) -> Self {
         EOStepTable {
             move_set: &EO_FB_MOVESET,
             pre_trans: vec![Transformation(Axis::Y, Clockwise)],
@@ -166,7 +187,7 @@ impl<'a> EOStepTable<'a> {
         }
     }
 
-    fn new_fb(table: &'a PruningTable<2048, EOCoordFB>) -> Self {
+    fn new_fb(table: &'a EOPruningTable) -> Self {
         EOStepTable {
             move_set: &EO_FB_MOVESET,
             pre_trans: vec![],
@@ -185,11 +206,11 @@ where
     }
 }
 
-impl<'a, C> StepVariant<4, 14, C> for EOStepTable<'a>
+impl<'a, C> StepVariant<C> for EOStepTable<'a>
 where
     EOCoordFB: for<'x> From<&'x C>,
 {
-    fn move_set(&self) -> &'a MoveSet<4, 14> {
+    fn move_set(&self) -> &'a MoveSet {
         self.move_set
     }
 

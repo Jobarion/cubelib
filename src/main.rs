@@ -1,5 +1,3 @@
-extern crate core;
-
 use std::str::FromStr;
 use std::time::Instant;
 
@@ -10,16 +8,31 @@ use simple_logger::SimpleLogger;
 
 use cubelib::algs::{Algorithm, Solution};
 use cubelib::cli::{Cli, StepKind};
-use cubelib::cube::{ApplyAlgorithm, NewSolved};
+use cubelib::cube::{ApplyAlgorithm, Axis, Invertible, Move, NewSolved, Transformation, Turnable};
 use cubelib::cubie::CubieCube;
-use cubelib::df_search::SearchOptions;
 use cubelib::steps::{dr, eo, finish, fr, htr, step};
-use cubelib::steps::step::Step;
+use cubelib::steps::step::{DefaultStepOptions, Step};
 use cubelib::stream;
 use cubelib::tables::PruningTables;
 
 fn main() {
-    let cli: Cli = Cli::parse();
+    let cli: Cli = Cli {
+        verbose: true,
+        quiet: false,
+        compact_solutions: true,
+        plain_solution: false,
+        all_solutions: false,
+        min: 0,
+        max: None,
+        niss: true,
+        solution_count: Some(100),
+        quality: None,
+        step_limit: None,
+        optimal: true,// > DR[triggers=RUR,RU'R,RU2R,RU2F2R,R;rzp-niss=true] > HTR > FR > FIN
+        steps: "EO[max=10]".to_string(),
+        scramble: "R' U' F R2 D2 B2 D2 F2 U2 B U2 R2 B' F' R D2 U F' R2 U' F L D R' U' F".to_string()
+    };
+    // let cli: Cli = Cli::parse();
     SimpleLogger::new()
         .with_level(if cli.verbose {
             LevelFilter::Debug
@@ -60,7 +73,7 @@ fn main() {
         }
     }
 
-    let steps: Result<Vec<(Step<CubieCube>, SearchOptions)>, String> = steps.into_iter()
+    let steps: Result<Vec<(Step<CubieCube>, DefaultStepOptions)>, String> = steps.into_iter()
         .map(|(config, previous)| match (previous, config.kind) {
             (None, StepKind::EO) => eo::from_step_config::<CubieCube>(tables.eo().expect("EO table required"), config),
             (Some(StepKind::EO), StepKind::DR)   => dr::from_step_config::<CubieCube>(tables.dr().expect("DR table required"), config),
@@ -88,17 +101,18 @@ fn main() {
     let mut solutions = steps.iter()
         .fold(first_step, |acc, (step, search_opts)|{
             debug!("Step {} with options {:?}", step.name(), search_opts);
-            Box::new(step::next_step(acc, step, search_opts.clone(), cube.clone())
+            let next = step::next_step(acc, step, search_opts.clone(), cube.clone())
                 .zip(0..)
                 .take_while(|(sol, count)| search_opts.step_limit.map(|limit| limit > *count).unwrap_or(true))
-                .map(|(sol, _)|sol))
+                .map(|(sol, _)|sol);
+            Box::new(next)
         });
 
     let time = Instant::now();
 
     let mut solutions: Box<dyn Iterator<Item = Solution>> = Box::new(solutions
         .skip_while(|alg| alg.len() < cli.min)
-        .take_while(|alg| cli.max.map(|max| alg.len() <= max).unwrap_or(true)));
+        .take_while(|alg| cli.max.map_or(true, |max| alg.len() <= max)));
 
 
     // For FR the direction of the last move always matters so we can't filter if we're doing FR
@@ -109,7 +123,7 @@ fn main() {
     }
 
     //We already generate a mostly duplicate iterator, but sometimes the same solution is valid for different stages and that can cause duplicates.
-    let solutions = stream::distinct_solutions(solutions);
+    let solutions = stream::distinct_algorithms(solutions);
 
     let mut solutions: Box<dyn Iterator<Item = Solution>> = Box::new(solutions);
 

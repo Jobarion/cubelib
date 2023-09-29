@@ -382,6 +382,12 @@ pub mod avx2_cubie {
             cube.0 = _mm_or_si128(ep_translated, eo);
         }
 
+        // TODO[perf]
+        // We could speed this up by a factor of 10 if changed the cube representation to
+        //__m256(normal, inverse) and just swapped the hi and lo parts.
+        //Applying turns should be just as quick as before and would just require other masks
+        //Right now unsafe_invert runs at about 70m ops/s so that's probably never going to be
+        // a bottleneck anyways.
         #[target_feature(enable = "avx2")]
         pub(crate) unsafe fn unsafe_invert(cube: &mut EdgeCubieCube) {
             let edge_ids = unsafe {

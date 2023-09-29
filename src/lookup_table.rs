@@ -1,5 +1,3 @@
-
-
 use log::{debug, error, warn};
 use std::collections::{HashMap};
 use std::fmt::{Debug, Display};
@@ -206,7 +204,7 @@ where
 pub fn generate_debug<
     const COORD_SIZE: usize,
     Mapper,
-    CubeParam: Turnable + NewSolved + Clone + Debug + Display,
+    CubeParam: Turnable + NewSolved + crate::cube::Invertible + Clone + Debug + Display,
     CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq + Debug,
 >(
     move_set: &MoveSet,
@@ -246,7 +244,7 @@ where
 fn fill_table_debug<
     const COORD_SIZE: usize,
     Mapper,
-    CubeParam: Turnable + NewSolved + Clone + Debug + Display,
+    CubeParam: Turnable + NewSolved + crate::cube::Invertible + Clone + Debug + Display,
     CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq + Debug,
 >(
     move_set: &MoveSet,
@@ -270,10 +268,16 @@ where
             let pre = cube.clone();
             cube.turn(m);
             let coord = mapper(&cube);
+            cube.invert();
+            let inverse_coord = mapper(&cube);
+            cube.invert();
             for other in cubes.iter_mut() {
                 let pre_other = other.clone();
                 other.turn(m);
                 let other_coord = mapper(&other);
+                other.invert();
+                let other_inverse_coord = mapper(&other);
+                other.invert();
                 if other_coord != coord {
                     error!(
                         "Coord diff. Pre {:?} A: {:?} B: {:?} move {m}",
@@ -284,6 +288,10 @@ where
                         pre, cube, pre_other, other
                     );
                     panic!()
+                }
+                if other_inverse_coord != inverse_coord {
+                    println!("Inverse diff");
+                    panic!();
                 }
             }
             let stored = table.get(coord);

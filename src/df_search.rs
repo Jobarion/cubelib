@@ -6,19 +6,10 @@ use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cube::{Face, Invertible, Move, Turnable, FACES, TURNS};
 use crate::moveset::Transition;
-use crate::steps::step::StepVariant;
+use crate::steps::step::{DefaultStepOptions, StepVariant};
 
 pub const LEGAL_MOVE_COUNT: usize = TURNS.len() * FACES.len();
 pub const ALL_MOVES: [Move; LEGAL_MOVE_COUNT] = get_all_moves();
-
-#[derive(Clone, Copy, Debug)]
-pub struct SearchOptions {
-    pub niss_type: NissType,
-    pub min_moves: u8,
-    pub max_moves: u8,
-    pub step_quality: Option<usize>,
-    pub step_limit: Option<usize>,
-}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum NissType {
@@ -27,9 +18,9 @@ pub enum NissType {
     During,
 }
 
-impl SearchOptions {
+impl DefaultStepOptions {
     pub fn new(min_moves: u8, max_moves: u8, niss_type: NissType, step_quality: Option<usize>, step_limit: Option<usize>) -> Self {
-        SearchOptions {
+        DefaultStepOptions {
             min_moves,
             max_moves,
             niss_type,
@@ -46,7 +37,7 @@ pub fn dfs_iter<
 >(
     step: &'a S,
     mut cube: C,
-    search_opts: SearchOptions,
+    search_opts: DefaultStepOptions,
     previous_normal: Option<Move>,
     previous_inverse: Option<Move>,
 ) -> Option<Box<dyn Iterator<Item = Algorithm> + 'a>> {
@@ -118,6 +109,7 @@ pub fn dfs_iter<
                 };
                 b
             })
+            .filter(move |alg| step.is_solution_admissible(&cube, alg))
             .map(|mut alg| {
                 for t in step.pre_step_trans().iter().cloned().rev() {
                     alg.transform(t);
@@ -161,8 +153,7 @@ fn next_dfs_level<
                 (
                     m,
                     previous_normal
-                        .map(|pm| step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m))
-                        .unwrap_or(Transition::any()),
+                        .map_or(Transition::any(), |pm| step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m))
                 )
             })
             .filter(move |(_m, transition_type)| transition_type.allowed && (depth != 1 || transition_type.can_end))
@@ -192,8 +183,7 @@ fn next_dfs_level<
                 (
                     m,
                     previous_normal
-                        .map(|pm| step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m))
-                        .unwrap_or(Transition::any()),
+                        .map_or(Transition::any(), |pm| step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m))
                 )
             })
             .filter(move |(_m, transition_type)| transition_type.allowed && (depth != 1 || transition_type.can_end))

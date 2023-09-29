@@ -1,5 +1,5 @@
-use crate::coords::coord::Coord;
-use crate::cube::{Corner, Edge};
+use crate::coords::coord::{Coord};
+use crate::cube::{Corner, Edge, Invertible};
 use crate::cubie::{CornerCubieCube, CubieCube, EdgeCubieCube};
 
 //UD corner orientation
@@ -38,6 +38,7 @@ impl Into<usize> for UDSliceUnsortedCoord {
         self.0 as usize
     }
 }
+
 //TODO this should use 'impl const' once it's stable
 pub const DRUDEOFB_SIZE: usize = 495 * 2187;
 impl Coord<DRUDEOFB_SIZE> for DRUDEOFBCoord {

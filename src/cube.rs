@@ -29,7 +29,7 @@ impl Face {
         [[Right, Right, Right], [Back, Left, Front], [Up, Left, Down]],
     ];
 
-    pub const fn opposite(&self) -> Self {
+    pub const fn opposite(self) -> Self {
         match self {
             Up => Down,
             Down => Up,
@@ -42,6 +42,15 @@ impl Face {
 
     pub fn transform(self, t: Transformation) -> Face {
         Self::TRANSFORMATIONS[self][t.0][t.1 as usize]
+    }
+
+    pub fn is_on_axis(self, a: Axis) -> bool {
+        match (self, a) {
+            (Up, Axis::UD) | (Down, Axis::UD) => true,
+            (Front, Axis::FB) | (Back, Axis::FB) => true,
+            (Left, Axis::LR) | (Right, Axis::LR) => true,
+            _ => false,
+        }
     }
 }
 
@@ -154,6 +163,14 @@ impl Move {
 
     pub fn transform(&self, t: Transformation) -> Move {
         Move(self.0.transform(t), self.1)
+    }
+
+    pub fn mirror(&self, a: Axis) -> Move {
+        if self.0.is_on_axis(a) {
+            Move(self.0.opposite(), self.1.invert())
+        } else {
+            Move(self.0, self.1.invert())
+        }
     }
 
     pub const fn to_id(&self) -> usize {

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use clap::Parser;
 use itertools::Itertools;
 use regex::Regex;
-use crate::df_search::{NissType, SearchOptions};
+use crate::df_search::{NissType};
 
 #[derive(Parser)]
 #[command(name = "Cubelib")]

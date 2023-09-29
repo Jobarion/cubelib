@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use itertools::Itertools;
 
-use crate::cube::{ApplyAlgorithm, Invertible, Move, Transformation, Turnable};
+use crate::cube::{ApplyAlgorithm, Axis, Invertible, Move, Transformation, Turnable};
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct Algorithm {
@@ -66,6 +66,19 @@ impl Algorithm {
         self.normal_moves.reverse();
         self.inverse_moves.reverse();
         self
+    }
+
+    pub fn mirror(&mut self, axis: Axis) {
+        self.normal_moves = self
+            .normal_moves
+            .iter()
+            .map(|m| m.mirror(axis))
+            .collect_vec();
+        self.inverse_moves = self
+            .inverse_moves
+            .iter()
+            .map(|m| m.mirror(axis))
+            .collect_vec();
     }
 
     pub fn len(&self) -> usize {

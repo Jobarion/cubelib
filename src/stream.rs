@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::marker::PhantomData;
 use crate::algs::{Algorithm, Solution};
 
 pub(crate) fn iterated_dfs<
@@ -77,29 +78,32 @@ where
     }
 }
 
-struct DistinctSolutions<I> {
+struct DistinctSolutions<I, V> {
     orig: I,
     observed: HashSet<Algorithm>,
     current_length: usize,
+    _v: PhantomData<V>,
 }
 
-
-impl<I> DistinctSolutions<I>
+impl<I, V> DistinctSolutions<I, V>
     where
-        I: Iterator<Item = Solution>,
+        I: Iterator<Item = V>,
+        V: Into<Algorithm> + Clone
 {
     fn new(iter: I) -> Self {
         Self {
             orig: iter,
             current_length: 0,
-            observed: HashSet::new()
+            observed: HashSet::new(),
+            _v: PhantomData::default(),
         }
     }
 }
 
-impl<I> Iterator for DistinctSolutions<I>
+impl<I, V> Iterator for DistinctSolutions<I, V>
     where
-        I: Iterator<Item = Solution>,
+        I: Iterator<Item = V>,
+        V: Into<Algorithm> + Clone
 {
     type Item = <I as Iterator>::Item;
 
@@ -123,6 +127,6 @@ impl<I> Iterator for DistinctSolutions<I>
     }
 }
 
-pub fn distinct_solutions(iter: impl Iterator<Item = Solution>) -> impl Iterator<Item = Solution> {
-    DistinctSolutions::new(iter)
+pub fn distinct_algorithms<V: Into<Algorithm> + Clone>(iter: impl Iterator<Item = V>) -> impl Iterator<Item = V> {
+    DistinctSolutions::<_, V>::new(iter)
 }

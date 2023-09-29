@@ -7,10 +7,10 @@ use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cube::{Axis, Face, Move, Transformation, FACES};
 use crate::cubie::{CubieCube, EdgeCubieCube};
-use crate::df_search::{NissType, SearchOptions};
+use crate::df_search::{NissType};
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
-use crate::steps::step::{IsReadyForStep, Step, StepVariant};
+use crate::steps::step::{PreStepCheck, DefaultStepOptions, Step, StepVariant, PostStepCheck};
 
 pub const UD_EO_STATE_CHANGE_MOVES: &[Move] = &[
     Move(Up, Clockwise),
@@ -115,7 +115,7 @@ pub struct EOStepTable<'a> {
     name: &'a str,
 }
 
-pub fn from_step_config<'a, C: 'a>(table: &'a EOPruningTable, config: StepConfig) -> Result<(Step<'a, C>, SearchOptions), String>
+pub fn from_step_config<'a, C: 'a>(table: &'a EOPruningTable, config: StepConfig) -> Result<(Step<'a, C>, DefaultStepOptions), String>
     where
         EOCoordFB: for<'x> From<&'x C>,{
     let step = if let Some(substeps) = config.substeps {
@@ -129,7 +129,7 @@ pub fn from_step_config<'a, C: 'a>(table: &'a EOPruningTable, config: StepConfig
     } else {
         eo_any(table)
     };
-    let search_opts = SearchOptions::new(
+    let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(5),
         config.niss.unwrap_or(NissType::During),
@@ -197,11 +197,17 @@ impl<'a> EOStepTable<'a> {
     }
 }
 
-impl<'a, C> IsReadyForStep<C> for EOStepTable<'a>
+impl<'a, C> PreStepCheck<C> for EOStepTable<'a>
 where
     EOCoordFB: for<'x> From<&'x C>,
 {
     fn is_cube_ready(&self, _: &C) -> bool {
+        true
+    }
+}
+
+impl<'a, C> PostStepCheck<C> for EOStepTable<'a> {
+    fn is_solution_admissible(&self, cube: &C, alg: &Algorithm) -> bool {
         true
     }
 }

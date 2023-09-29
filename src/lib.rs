@@ -1,3 +1,5 @@
+extern crate core;
+
 pub mod algs;
 pub mod alignment;
 pub mod co;
@@ -14,3 +16,4 @@ pub mod cli;
 //Target specific implementations
 mod avx2_cubie;
 mod wasm32_cubie;
+mod kinney;

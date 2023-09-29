@@ -6,13 +6,24 @@ use crate::algs::{Algorithm, Solution};
 use crate::coords::coord::Coord;
 use crate::cube::{ApplyAlgorithm, Invertible, Transformation, Turnable};
 use crate::cube::Turn::Half;
-use crate::df_search::{dfs_iter, SearchOptions};
+use crate::df_search::{dfs_iter, NissType};
 use crate::lookup_table::PruningTable;
 use crate::moveset::MoveSet;
 use crate::stream;
 
+
+#[derive(Clone, Copy, Debug)]
+pub struct DefaultStepOptions {
+    pub niss_type: NissType,
+    pub min_moves: u8,
+    pub max_moves: u8,
+    pub step_quality: Option<usize>,
+    pub step_limit: Option<usize>,
+}
+
 pub trait StepVariant<CubeParam>:
-    IsReadyForStep<CubeParam>
+    PreStepCheck<CubeParam> +
+    PostStepCheck<CubeParam>
 {
     fn move_set(&self) -> &'_ MoveSet;
     fn pre_step_trans(&self) -> &'_ Vec<Transformation>;
@@ -25,11 +36,24 @@ pub trait StepVariant<CubeParam>:
     }
 }
 
-pub trait IsReadyForStep<CubeParam> {
+pub trait PreStepCheck<CubeParam> {
     fn is_cube_ready(&self, cube: &CubeParam) -> bool;
 }
 
-pub(crate) struct DefaultPruningTableStep<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam>
+pub trait PostStepCheck<CubeParam> {
+    fn is_solution_admissible(&self, cube: &CubeParam, alg: &Algorithm) -> bool;
+}
+
+#[derive(Copy, Clone)]
+pub struct AnyPostStepCheck;
+
+impl <CubeParam> PostStepCheck<CubeParam> for AnyPostStepCheck {
+    fn is_solution_admissible(&self, cube: &CubeParam, alg: &Algorithm) -> bool {
+        true
+    }
+}
+
+pub(crate) struct DefaultPruningTableStep<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam, PSC: PostStepCheck<CubeParam>>
     where
         HC: for<'x> From<&'x CubeParam>,
         PC: for<'x> From<&'x CubeParam>,
@@ -38,11 +62,12 @@ pub(crate) struct DefaultPruningTableStep<'a, const HC_SIZE: usize, HC: Coord<HC
     pre_trans: Vec<Transformation>,
     table: &'a PruningTable<HC_SIZE, HC>,
     name: &'a str,
+    post_step_checker: PSC,
     _pc: PhantomData<PC>,
     _cube: PhantomData<CubeParam>,
 }
 
-impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam> IsReadyForStep<CubeParam> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, CubeParam>
+impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam, PSC: PostStepCheck<CubeParam>> PreStepCheck<CubeParam> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, CubeParam, PSC>
     where
         HC: for<'x> From<&'x CubeParam>,
         PC: for<'x> From<&'x CubeParam>, {
@@ -52,7 +77,17 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Co
     }
 }
 
-impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam> StepVariant<CubeParam> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, CubeParam>
+impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam, PSC: PostStepCheck<CubeParam>> PostStepCheck<CubeParam> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, CubeParam, PSC>
+    where
+        HC: for<'x> From<&'x CubeParam>,
+        PC: for<'x> From<&'x CubeParam>, {
+
+    fn is_solution_admissible(&self, cube: &CubeParam, alg: &Algorithm) -> bool {
+        self.post_step_checker.is_solution_admissible(cube, alg)
+    }
+}
+
+impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam, PSC: PostStepCheck<CubeParam>> StepVariant<CubeParam> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, CubeParam, PSC>
     where
         HC: for<'x> From<&'x CubeParam>,
         PC: for<'x> From<&'x CubeParam>, {
@@ -75,7 +110,7 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Co
     }
 }
 
-impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam>  DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, CubeParam>
+impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, PSC: PostStepCheck<CubeParam>, CubeParam> DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, CubeParam, PSC>
     where
         HC: for<'x> From<&'x CubeParam>,
         PC: for<'x> From<&'x CubeParam>, {
@@ -83,12 +118,14 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Co
     pub fn new(move_set: &'a MoveSet,
                pre_trans: Vec<Transformation>,
                table: &'a PruningTable<HC_SIZE, HC>,
+               post_step_checker: PSC,
                name: &'a str) -> Self {
         DefaultPruningTableStep {
             move_set,
             pre_trans,
             table,
             name,
+            post_step_checker,
             _cube: PhantomData::default(),
             _pc: PhantomData::default()
         }
@@ -160,12 +197,26 @@ impl<
         const C_SIZE: usize,
         CoordParam: Coord<C_SIZE>,
         CubeParam,
-    > IsReadyForStep<CubeParam>
+    > PreStepCheck<CubeParam>
     for NoHeuristicStep<C_SIZE, CoordParam, CubeParam>
 where
     CoordParam: for<'x> From<&'x CubeParam>,
 {
     fn is_cube_ready(&self, _cube: &CubeParam) -> bool {
+        true
+    }
+}
+
+impl<
+    const C_SIZE: usize,
+    CoordParam: Coord<C_SIZE>,
+    CubeParam,
+> PostStepCheck<CubeParam>
+for NoHeuristicStep<C_SIZE, CoordParam, CubeParam>
+    where
+        CoordParam: for<'x> From<&'x CubeParam>,
+{
+    fn is_solution_admissible(&self, cube: &CubeParam, alg: &Algorithm) -> bool {
         true
     }
 }
@@ -202,7 +253,7 @@ pub fn first_step<
     CubeParam: Turnable + Invertible + Copy,
 >(
     step: &'a Step<'b, CubeParam>,
-    search_opts: SearchOptions,
+    search_opts: DefaultStepOptions,
     cube: CubeParam,
 ) -> impl Iterator<Item = Solution> + 'a {
     next_step(vec![Solution::new()].into_iter(), step, search_opts, cube)
@@ -218,7 +269,7 @@ pub fn next_step<
 >(
     algs: IN,
     step: &'a Step<'b, CubeParam>,
-    search_opts: SearchOptions,
+    search_opts: DefaultStepOptions,
     cube: CubeParam,
 ) -> impl Iterator<Item = Solution> + 'a {
     stream::iterated_dfs(algs, move |solution, depth| {
@@ -229,7 +280,7 @@ pub fn next_step<
                 let mut cube = cube.clone();
                 let alg: Algorithm = solution.clone().into();
                 cube.apply_alg(&alg);
-                let stage_opts = SearchOptions::new(depth, depth, search_opts.niss_type, search_opts.step_limit, search_opts.step_quality);
+                let stage_opts = DefaultStepOptions::new(depth, depth, search_opts.niss_type, search_opts.step_limit, search_opts.step_quality);
                 let previous_normal = alg.normal_moves.last().cloned();
                 let previous_inverse = alg.inverse_moves.last().cloned();
 

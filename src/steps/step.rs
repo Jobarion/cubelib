@@ -27,7 +27,7 @@ pub trait StepVariant<CubeParam>:
 {
     fn move_set(&self) -> &'_ MoveSet;
     fn pre_step_trans(&self) -> &'_ Vec<Transformation>;
-    fn heuristic(&self, cube: &CubeParam) -> u8;
+    fn heuristic(&self, cube: &CubeParam, depth_left: u8, can_niss: bool) -> u8;
     fn name(&self) -> &str;
     fn is_half_turn_invariant(&self) -> bool {
         !self.move_set().st_moves
@@ -100,9 +100,14 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Co
         &self.pre_trans
     }
 
-    fn heuristic(&self, cube: &CubeParam) -> u8 {
+    fn heuristic(&self, cube: &CubeParam, depth_left: u8, can_niss: bool) -> u8 {
         let coord = HC::from(cube);
-        self.table.get(coord).expect("Expected table to be filled")
+        let val = self.table.get(coord).expect("Expected table to be filled");
+        if can_niss && val != 0 {
+            1
+        } else {
+            val
+        }
     }
 
     fn name(&self) -> &str {
@@ -238,7 +243,7 @@ where
         &self.trans
     }
 
-    fn heuristic(&self, cube: &CubeParam) -> u8 {
+    fn heuristic(&self, cube: &CubeParam, depth_left: u8, can_niss: bool) -> u8 {
         min(CoordParam::from(cube).val(), 1) as u8
     }
 

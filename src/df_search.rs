@@ -50,7 +50,7 @@ pub fn dfs_iter<
     }
 
     //Return immediately if the cube is solved. This avoids the issue where we return two solutions if the NISS type is AtStart.
-    if step.heuristic(&cube) == 0 {
+    if step.heuristic(&cube, search_opts.min_moves, search_opts.niss_type != NissType::None) == 0 {
         //Only return a solution if we are allowed to return zero length solutions
         if search_opts.min_moves == 0 {
             return Some(Box::new(vec![Algorithm::new()].into_iter()));
@@ -133,9 +133,9 @@ fn next_dfs_level<
     previous_inverse: Option<Move>,
 ) -> Box<dyn Iterator<Item = Algorithm> + 'a> {
     let lower_bound = if invert_allowed {
-        min(1, step.heuristic(&cube))
+        min(1, step.heuristic(&cube, depth, invert_allowed))
     } else {
-        step.heuristic(&cube)
+        step.heuristic(&cube, depth, invert_allowed)
     };
 
     let mut inverse = cube.clone();

@@ -16,4 +16,3 @@ pub mod cli;
 //Target specific implementations
 mod avx2_cubie;
 mod wasm32_cubie;
-mod kinney;

@@ -104,7 +104,7 @@ pub const EO_LR_MOVESET: MoveSet = MoveSet {
 
 pub const EO_UD_PRE_TRANS: [Transformation; 1] = [Transformation(Axis::X, Clockwise)];
 pub const EO_LR_PRE_TRANS: [Transformation; 1] = [Transformation(Axis::Y, Clockwise)];
-
+const BAD_EDGE_HEURISTIC: [u8; 7] = [0, 2, 1, 2, 2, 3, 3];
 
 pub type EOPruningTable = PruningTable<2048, EOCoordFB>;
 
@@ -115,7 +115,7 @@ pub struct EOStepTable<'a> {
     name: &'a str,
 }
 
-pub fn from_step_config<'a, C: 'a>(table: &'a EOPruningTable, config: StepConfig) -> Result<(Step<'a, C>, DefaultStepOptions), String>
+pub fn from_step_config<'a, C: 'a + EOCount>(table: &'a EOPruningTable, config: StepConfig) -> Result<(Step<'a, C>, DefaultStepOptions), String>
     where
         EOCoordFB: for<'x> From<&'x C>,{
     let step = if let Some(substeps) = config.substeps {
@@ -140,14 +140,14 @@ pub fn from_step_config<'a, C: 'a>(table: &'a EOPruningTable, config: StepConfig
     Ok((step, search_opts))
 }
 
-pub fn eo_any<'a, C: 'a>(table: &'a EOPruningTable) -> Step<'a, C>
+pub fn eo_any<'a, C: 'a + EOCount>(table: &'a EOPruningTable) -> Step<'a, C>
 where
     EOCoordFB: for<'x> From<&'x C>,
 {
     eo(table, vec![Axis::UD, Axis::FB, Axis::LR])
 }
 
-pub fn eo<'a, C: 'a>(
+pub fn eo<'a, C: 'a + EOCount>(
     table: &'a EOPruningTable,
     eo_axis: Vec<Axis>,
 ) -> Step<'a, C>
@@ -212,7 +212,7 @@ impl<'a, C> PostStepCheck<C> for EOStepTable<'a> {
     }
 }
 
-impl<'a, C> StepVariant<C> for EOStepTable<'a>
+impl<'a, C: EOCount> StepVariant<C> for EOStepTable<'a>
 where
     EOCoordFB: for<'x> From<&'x C>,
 {
@@ -224,9 +224,14 @@ where
         &self.pre_trans
     }
 
-    fn heuristic(&self, cube: &C) -> u8 {
-        let coord = EOCoordFB::from(cube);
-        self.table.get(coord).expect("Expected table to be filled")
+    fn heuristic(&self, cube: &C, depth_left: u8, can_niss: bool) -> u8 {
+        if can_niss {
+            let fb_edges = cube.count_bad_edges().1;
+            BAD_EDGE_HEURISTIC[(fb_edges >> 1) as usize]
+        } else {
+            let coord = EOCoordFB::from(cube);
+            self.table.get(coord).expect("Expected table to be filled")
+        }
     }
 
     fn name(&self) -> &str {

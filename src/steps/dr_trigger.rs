@@ -15,7 +15,7 @@ use crate::cube::{Axis, Face, Move, Transformation, Turnable};
 use crate::df_search::{NissType};
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
-use crate::steps::{dr, step};
+use crate::steps::dr;
 use crate::steps::step::{DefaultPruningTableStep, PreStepCheck, DefaultStepOptions, Step, StepVariant, AnyPostStepCheck, PostStepCheck};
 use crate::stream::distinct_algorithms;
 
@@ -47,50 +47,119 @@ pub const DR_UD_EO_FB_MOVESET: MoveSet = MoveSet {
 
 pub type DRPruningTable = PruningTable<{ coords::dr::DRUDEOFB_SIZE }, DRUDEOFBCoord>;
 
+#[derive(Clone)]
+pub struct DRPostStepCheck {
+    triggers: Option<Vec<Vec<Move>>>,
+    rzp_length: usize,
+    rzp_niss_only: bool,
+}
+
+impl <CubeParam> PostStepCheck<CubeParam> for DRPostStepCheck {
+    fn is_solution_admissible(&self, cube: &CubeParam, alg: &Algorithm) -> bool {
+        self.triggers.as_ref().map_or(true, |triggers| dr::filter_dr_rzp_trigger(Axis::UD, alg, self.rzp_length, self.rzp_niss_only, triggers))
+    }
+}
+
 pub fn from_step_config<'a, C: 'a>(table: &'a DRPruningTable, config: StepConfig) -> Result<(Step<'a, C>, DefaultStepOptions), String>
     where
         DRUDEOFBCoord: for<'x> From<&'x C>,
         EOCoordFB: for<'x> From<&'x C>, {
 
+    let triggers = config.params
+        .get("triggers")
+        .iter()
+        .flat_map(move |trig|trig.split(","))
+        .filter_map(move |trig|{
+            let alg = Algorithm::from_str(trig.to_uppercase().as_str());
+            match alg {
+                Err(_) => {
+                    error!("Unable to parse trigger {trig}.");
+                    None
+                },
+                Ok(alg) => Some(alg)
+            }
+        })
+        .flat_map(|alg| dr::generate_trigger_variations(alg))
+        .collect_vec();
+
+    let mut dr_niss_type = config.niss;
+    let dr_post_step_check = if triggers.is_empty() {
+        DRPostStepCheck {
+            rzp_length: 0,
+            rzp_niss_only: false,
+            triggers: None
+        }
+    } else {
+        let rzp_niss_only = config.params.get("rzp-niss")
+            .and_then(|val| bool::from_str(val)
+                //TODO .inspect_err once that is stable
+                .map_err(|err| {
+                    error!("Unable to parse RZP-NISS value {val}. Falling back to default. '{err}'");
+                    err
+                })
+                .ok()
+            );
+        if rzp_niss_only.is_some() {
+            dr_niss_type = Some(NissType::During);
+        }
+        let rzp_niss_only = rzp_niss_only.unwrap_or(true);
+        let rzp_length = config.params.get("rzp")
+            .and_then(|rzp| usize::from_str(rzp)
+                //TODO .inspect_err once that is stable
+                .map_err(|err| {
+                    error!("Unable to parse RZP value {rzp}. Falling back to default. '{err}'");
+                    err
+                })
+                .ok())
+            .unwrap_or(2); //Default RZP length
+        debug!("Restricting DR to max {rzp_length} move RZP with triggers {:?}", triggers.clone().into_iter().map(|t|Algorithm{normal_moves: t, inverse_moves: vec![]}).collect_vec());
+        DRPostStepCheck {
+            rzp_length,
+            rzp_niss_only,
+            triggers: Some(triggers)
+        }
+    };
+
     let step = if let Some(substeps) = config.substeps {
         let variants: Result<Vec<Vec<Box<dyn StepVariant<C> + 'a>>>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
-            "ud" | "drud" => Ok(dr_step_variants(table, [Axis::FB, Axis::LR], [Axis::UD])),
-            "fb" | "drfb" => Ok(dr_step_variants(table, [Axis::UD, Axis::LR], [Axis::FB])),
-            "lr" | "drlr" => Ok(dr_step_variants(table, [Axis::UD, Axis::FB], [Axis::LR])),
+            "ud" | "drud" => Ok(dr_step_variants(table, [Axis::FB, Axis::LR], [Axis::UD], dr_post_step_check.clone())),
+            "fb" | "drfb" => Ok(dr_step_variants(table, [Axis::UD, Axis::LR], [Axis::FB], dr_post_step_check.clone())),
+            "lr" | "drlr" => Ok(dr_step_variants(table, [Axis::UD, Axis::FB], [Axis::LR], dr_post_step_check.clone())),
 
-            "eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::FB, Axis::LR])),
-            "eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::UD, Axis::LR])),
-            "eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::UD, Axis::FB])),
+            "eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::FB, Axis::LR], dr_post_step_check.clone())),
+            "eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::UD, Axis::LR], dr_post_step_check.clone())),
+            "eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::UD, Axis::FB], dr_post_step_check.clone())),
 
-            "drud-eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::UD])),
-            "drud-eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::UD])),
-            "drfb-eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::FB])),
-            "drfb-eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::FB])),
-            "drlr-eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::LR])),
-            "drlr-eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::LR])),
+            "drud-eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::UD], dr_post_step_check.clone())),
+            "drud-eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::UD], dr_post_step_check.clone())),
+            "drfb-eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::FB], dr_post_step_check.clone())),
+            "drfb-eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::FB], dr_post_step_check.clone())),
+            "drlr-eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::LR], dr_post_step_check.clone())),
+            "drlr-eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::LR], dr_post_step_check.clone())),
 
             x => Err(format!("Invalid DR substep {x}"))
         }).collect();
         let variants = variants?.into_iter().flat_map(|v|v).collect_vec();
         Step::new(variants, "dr")
     } else {
-        dr_any(table)
+        dr_any(table, dr_post_step_check)
     };
 
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(12),
-        config.niss.unwrap_or(NissType::Before),
+        dr_niss_type.unwrap_or(NissType::Before),
         config.quality,
         config.solution_count
     );
     Ok((step, search_opts))
 }
 
-fn dr_step_variants<'a, C: 'a, const EOA: usize, const DRA: usize>(
+fn dr_step_variants<'a, C: 'a, const EOA: usize, const DRA: usize, PSC: PostStepCheck<C> + Clone + 'a>(
     table: &'a DRPruningTable,
     eo_axis: [Axis; EOA],
-    dr_axis: [Axis; DRA]
+    dr_axis: [Axis; DRA],
+    psc: PSC
 ) -> Vec<Box<dyn StepVariant<C> + 'a>>
     where
         DRUDEOFBCoord: for<'x> From<&'x C>,
@@ -101,12 +170,12 @@ fn dr_step_variants<'a, C: 'a, const EOA: usize, const DRA: usize>(
         .flat_map(|eo| dr_axis.into_iter().map(move |dr| (eo, dr)))
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
-                (Axis::UD, Axis::FB) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::X], table, AnyPostStepCheck, "drfb-eoud"))),
-                (Axis::UD, Axis::LR) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::X, Transformation::Z], table, AnyPostStepCheck, "drlr-eoud"))),
-                (Axis::FB, Axis::UD) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![], table, AnyPostStepCheck, "drud-eofb"))),
-                (Axis::FB, Axis::LR) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Z], table, AnyPostStepCheck, "drlr-eofb"))),
-                (Axis::LR, Axis::UD) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Y], table, AnyPostStepCheck, "drud-eolr"))),
-                (Axis::LR, Axis::FB) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Y, Transformation::Z], table, AnyPostStepCheck, "drfb-eolr"))),
+                (Axis::UD, Axis::FB) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, PSC>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::X], table, psc.clone(), "drfb-eoud"))),
+                (Axis::UD, Axis::LR) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, PSC>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::X, Transformation::Z], table, psc.clone(), "drlr-eoud"))),
+                (Axis::FB, Axis::UD) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, PSC>::new(&DR_UD_EO_FB_MOVESET, vec![], table, psc.clone(), "drud-eofb"))),
+                (Axis::FB, Axis::LR) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, PSC>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Z], table, psc.clone(), "drlr-eofb"))),
+                (Axis::LR, Axis::UD) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, PSC>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Y], table, psc.clone(), "drud-eolr"))),
+                (Axis::LR, Axis::FB) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, PSC>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Y, Transformation::Z], table, psc.clone(), "drfb-eolr"))),
                 (_eo, _dr) => None,
             };
             x
@@ -114,27 +183,28 @@ fn dr_step_variants<'a, C: 'a, const EOA: usize, const DRA: usize>(
         .collect_vec()
 }
 
-pub fn dr<'a, C: 'a, const EOA: usize, const DRA: usize>(
+pub fn dr<'a, C: 'a, const EOA: usize, const DRA: usize, PSC: PostStepCheck<C> + Clone + 'a>(
     table: &'a DRPruningTable,
     eo_axis: [Axis; EOA],
     dr_axis: [Axis; DRA],
+    psc: PSC,
 ) -> Step<'a, C>
 where
     DRUDEOFBCoord: for<'x> From<&'x C>,
     EOCoordFB: for<'x> From<&'x C>,
 {
-    let step_variants = dr_step_variants(table, eo_axis, dr_axis);
+    let step_variants = dr_step_variants(table, eo_axis, dr_axis, psc);
     Step::new(step_variants, "dr")
 }
 
-pub fn dr_any<'a, C: 'a>(
-    table: &'a DRPruningTable,
+pub fn dr_any<'a, C: 'a, PSC: PostStepCheck<C> + Clone + 'a>(
+    table: &'a DRPruningTable, psc: PSC,
 ) -> Step<'a, C>
 where
     DRUDEOFBCoord: for<'x> From<&'x C>,
     EOCoordFB: for<'x> From<&'x C>,
 {
-    dr(table, [Axis::UD, Axis::FB, Axis::LR], [Axis::UD, Axis::FB, Axis::LR])
+    dr(table, [Axis::UD, Axis::FB, Axis::LR], [Axis::UD, Axis::FB, Axis::LR], psc)
 }
 
 pub fn generate_trigger_variations(mut trigger: Algorithm) -> Vec<Vec<Move>> {

@@ -51,9 +51,10 @@ pub struct StepConfig {
     pub params: HashMap<String, String>,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum StepKind {
     EO,
+    RZP,
     DR,
     HTR,
     FR,
@@ -68,6 +69,7 @@ impl FromStr for StepKind {
         match s.to_lowercase().as_str() {
             "eo" => Ok(Self::EO),
             "dr" => Ok(Self::DR),
+            "rzp" => Ok(Self::RZP),
             "htr" => Ok(Self::HTR),
             "fr" => Ok(Self::FR),
             "frls" => Ok(Self::FRLS),

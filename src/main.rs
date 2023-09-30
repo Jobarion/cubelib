@@ -19,7 +19,7 @@ fn main() {
     let cli: Cli = Cli {
         verbose: true,
         quiet: false,
-        compact_solutions: true,
+        compact_solutions: false,
         plain_solution: false,
         all_solutions: false,
         min: 0,
@@ -29,7 +29,7 @@ fn main() {
         quality: None,
         step_limit: None,
         optimal: true,// > DR[triggers=RUR,RU'R,RU2R,RU2F2R,R;rzp-niss=true] > HTR > FR > FIN
-        steps: "EO[max=10] > RZP > DR".to_string(),
+        steps: "EO[max=10] > RZP[min=2]".to_string(),
         scramble: "R' U' F R2 D2 B2 D2 F2 U2 B U2 R2 B' F' R D2 U F' R2 U' F L D R' U' F".to_string()
     };
     // let cli: Cli = Cli::parse();

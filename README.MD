@@ -71,13 +71,25 @@ Orients the edges on at least one axis.
 - Prerequisite: -
 - Default NISS option: `always`
 
+#### RZP
+Performs random moves
+- Variations: -
+- Prerequisite: EO
+- Default NISS option: `before`
+
 #### DR
 Orients the edges on a second axis, and orients the corners. 
  - Variations: 
    - `ud`, `fb`, `lr`, for DR on that axis with any EO axis. 
    - `drud-eofb`, `drud-eolr`, `drfb-eoud`, `drfb-eolr`, `drlr-eoud`, `drlr-eofb` to be specific about both the DR and EO axis.
- - Prerequisite: EO
+ - Prerequisite: EO or RZP
  - Default NISS option: `before`
+ - Additional options
+   - DR can be restricted to specific triggers by setting `triggers=<trigger1>,<trigger2>,...`. 
+     E.g. `triggers=RUR,RU2R,R` would allow only those three triggers **in all possible orientations**. (i.e. `L U' L` is allowed, `R U' R` wouldn't. Inverting the last move is also always allowed).
+     This option implicitly adds an RZP step with default options if one wasn't already defined. If you would like to avoid that, define an RZP step manually with `max=0`.
+     
+
 #### HTR
 Reduces the cube into a state that is solvable using only half turns. 
 - Variations: `ud`, `fb`, `lr`.

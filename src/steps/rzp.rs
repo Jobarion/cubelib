@@ -86,7 +86,7 @@ pub fn rzp_any<'a, C: 'a + EOCount>() -> Step<'a, C> {
 }
 
 
-pub fn eo<'a, C: 'a + EOCount>(
+pub fn rzp<'a, C: 'a + EOCount>(
     eo_axis: Vec<Axis>,
 ) -> Step<'a, C> {
     let step_variants = eo_axis

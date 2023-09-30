@@ -126,26 +126,26 @@ fn next_dfs_level<
 >(
     step: &'a S,
     mut cube: C,
-    depth: u8,
+    depth_left: u8,
     can_invert: bool,
     invert_allowed: bool,
     previous_normal: Option<Move>,
     previous_inverse: Option<Move>,
 ) -> Box<dyn Iterator<Item = Algorithm> + 'a> {
     let lower_bound = if invert_allowed {
-        min(1, step.heuristic(&cube, depth, invert_allowed))
+        min(1, step.heuristic(&cube, depth_left, invert_allowed))
     } else {
-        step.heuristic(&cube, depth, invert_allowed)
+        step.heuristic(&cube, depth_left, invert_allowed)
     };
 
     let mut inverse = cube.clone();
-    let normal_solutions: Box<dyn Iterator<Item = Algorithm>> = if depth == 0 && lower_bound == 0 {
+    let normal_solutions: Box<dyn Iterator<Item = Algorithm>> = if depth_left == 0 && lower_bound == 0 {
         Box::new(vec![Algorithm::new()].into_iter())
-    } else if lower_bound == 0 || lower_bound > depth {
+    } else if lower_bound == 0 || lower_bound > depth_left {
         Box::new(vec![].into_iter())
     } else {
         let state_change_moves = step
-            .move_set()
+            .move_set(&cube, depth_left)
             .st_moves
             .into_iter()
             .cloned()
@@ -153,16 +153,16 @@ fn next_dfs_level<
                 (
                     m,
                     previous_normal
-                        .map_or(Transition::any(), |pm| step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m))
+                        .map_or(Transition::any(), |pm| step.move_set(&cube, depth_left).transitions[Into::<usize>::into(&pm)].check_move(&m))
                 )
             })
-            .filter(move |(_m, transition_type)| transition_type.allowed && (depth != 1 || transition_type.can_end))
+            .filter(move |(_m, transition_type)| transition_type.allowed && (depth_left != 1 || transition_type.can_end))
             .flat_map(move |(m, t)| {
                 cube.turn(m);
                 let result = next_dfs_level(
                     step,
                     cube,
-                    depth - 1,
+                    depth_left - 1,
                     t.can_end,
                     invert_allowed,
                     Some(m),
@@ -175,7 +175,7 @@ fn next_dfs_level<
                 })
             });
         let aux_moves = step
-            .move_set()
+            .move_set(&cube, depth_left)
             .aux_moves
             .into_iter()
             .cloned()
@@ -183,16 +183,16 @@ fn next_dfs_level<
                 (
                     m,
                     previous_normal
-                        .map_or(Transition::any(), |pm| step.move_set().transitions[Into::<usize>::into(&pm)].check_move(&m))
+                        .map_or(Transition::any(), |pm| step.move_set(&cube, depth_left).transitions[Into::<usize>::into(&pm)].check_move(&m))
                 )
             })
-            .filter(move |(_m, transition_type)| transition_type.allowed && (depth != 1 || transition_type.can_end))
+            .filter(move |(_m, transition_type)| transition_type.allowed && (depth_left != 1 || transition_type.can_end))
             .flat_map(move |(m, _)| {
                 cube.turn(m);
                 let result = next_dfs_level(
                     step,
                     cube,
-                    depth - 1,
+                    depth_left - 1,
                     false,
                     invert_allowed,
                     Some(m),
@@ -206,12 +206,12 @@ fn next_dfs_level<
             });
         Box::new(state_change_moves.chain(aux_moves))
     };
-    if depth > 0 && can_invert && invert_allowed {
+    if depth_left > 0 && can_invert && invert_allowed {
         inverse.invert();
         let inverse_solutions = next_dfs_level(
             step,
             inverse,
-            depth,
+            depth_left,
             false,
             false,
             previous_inverse,

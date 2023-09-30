@@ -1,5 +1,6 @@
 use std::str::FromStr;
 use std::time::Instant;
+use std::vec;
 
 use clap::Parser;
 use itertools::Itertools;
@@ -7,10 +8,10 @@ use log::{debug, error, info, LevelFilter, warn};
 use simple_logger::SimpleLogger;
 
 use cubelib::algs::{Algorithm, Solution};
-use cubelib::cli::{Cli, StepKind};
+use cubelib::cli::{Cli, StepConfig, StepKind};
 use cubelib::cube::{ApplyAlgorithm, Axis, Invertible, Move, NewSolved, Transformation, Turnable};
 use cubelib::cubie::CubieCube;
-use cubelib::steps::{dr, eo, finish, fr, htr, rzp, step};
+use cubelib::steps::{dr, dr_trigger, eo, finish, fr, htr, rzp, step};
 use cubelib::steps::step::{DefaultStepOptions, Step};
 use cubelib::stream;
 use cubelib::tables::PruningTables;
@@ -25,12 +26,12 @@ fn main() {
         min: 0,
         max: None,
         niss: true,
-        solution_count: Some(100),
+        solution_count: Some(3),
         quality: None,
-        step_limit: None,
-        optimal: true,// > DR[triggers=RUR,RU'R,RU2R,RU2F2R,R;rzp-niss=true] > HTR > FR > FIN
-        steps: "EO[max=10] > RZP[min=2]".to_string(),
-        scramble: "R' U' F R2 D2 B2 D2 F2 U2 B U2 R2 B' F' R D2 U F' R2 U' F L D R' U' F".to_string()
+        step_limit: Some(1000),
+        optimal: false,
+        steps: "EO[max=6] > DR[triggers=R] > HTR > FR > FIN".to_string(),
+        scramble: "R F' U2 F2 D2 B' U L2 F2 B U2 R2 B L2 B D2 F D2 R' U2".to_string()
     };
     // let cli: Cli = Cli::parse();
     SimpleLogger::new()
@@ -74,22 +75,34 @@ fn main() {
     }
 
     let steps: Result<Vec<(Step<CubieCube>, DefaultStepOptions)>, String> = steps.into_iter()
-        .map(|(config, previous)| match (previous, config.kind) {
-            (None, StepKind::EO) => eo::from_step_config::<CubieCube>(tables.eo().expect("EO table required"), config),
-            (Some(StepKind::EO), StepKind::RZP)   => rzp::from_step_config::<CubieCube>(config),
-            (Some(pre @ StepKind::EO), StepKind::DR) | (Some(pre @ StepKind::RZP), StepKind::DR) => {
-                if pre == StepKind::EO && !config.params.contains_key("triggers") {
-                    warn!("RZP without defining triggers is pointless and slower. Consider deleting the RZP step or adding explicit DR triggers.");
+        .flat_map(|(config, previous)| match (previous, config.kind) {
+            (None, StepKind::EO) => vec![eo::from_step_config::<CubieCube>(tables.eo().expect("EO table required"), config)].into_iter(),
+            (Some(StepKind::EO), StepKind::RZP)   => vec![rzp::from_step_config::<CubieCube>(config)].into_iter(),
+            (Some(StepKind::EO), StepKind::DR) => {
+                let dr_table = tables.dr().expect("DR table required");
+                if config.params.contains_key("triggers") {
+                    info!("Found explicitly defined DR triggers, adding RZP step");
+                    vec![rzp::from_step_config(StepConfig::new(StepKind::RZP)), dr_trigger::from_step_config(dr_table, config)].into_iter()
+                } else {
+                    vec![dr::from_step_config(dr_table, config)].into_iter()
                 }
-                dr::from_step_config::<CubieCube>(tables.dr().expect("DR table required"), config)
-            },
-            (Some(StepKind::DR), StepKind::HTR)   => htr::from_step_config::<CubieCube>(tables.htr().expect("HTR table required"), config),
-            (Some(StepKind::HTR), StepKind::FR)   => fr::from_step_config::<CubieCube>(tables.fr().expect("FR table required"), config),
-            (Some(StepKind::HTR), StepKind::FRLS)  => fr::from_step_config_no_slice::<CubieCube>(tables.fr_leave_slice().expect("FRLeaveSlice table required"), config),
-            (Some(StepKind::FR), StepKind::FIN)   => finish::from_step_config_fr::<CubieCube>(tables.fr_finish().expect("FRFinish table required"), config),
-            (Some(StepKind::FRLS), StepKind::FIN)   => finish::from_step_config_fr_leave_slice::<CubieCube>(tables.fr_finish().expect("FRFinish table required"), config),
-            (None, x) => Err(format!("{:?} is not supported as a first step", x)),
-            (Some(x), y) => Err(format!("Unsupported step order {:?} > {:?}", x, y)),
+            }
+            (Some(StepKind::RZP), StepKind::DR) => {
+                let dr_table = tables.dr().expect("DR table required");
+                if !config.params.contains_key("triggers") {
+                    warn!("RZP without defining triggers is pointless and slower. Consider deleting the RZP step or adding explicit DR triggers.");
+                    vec![dr::from_step_config::<CubieCube>(dr_table, config)].into_iter()
+                } else {
+                    vec![dr_trigger::from_step_config(dr_table, config)].into_iter()
+                }
+            }
+            (Some(StepKind::DR), StepKind::HTR)   => vec![htr::from_step_config::<CubieCube>(tables.htr().expect("HTR table required"), config)].into_iter(),
+            (Some(StepKind::HTR), StepKind::FR)   => vec![fr::from_step_config::<CubieCube>(tables.fr().expect("FR table required"), config)].into_iter(),
+            (Some(StepKind::HTR), StepKind::FRLS)  => vec![fr::from_step_config_no_slice::<CubieCube>(tables.fr_leave_slice().expect("FRLeaveSlice table required"), config)].into_iter(),
+            (Some(StepKind::FR), StepKind::FIN)   => vec![finish::from_step_config_fr::<CubieCube>(tables.fr_finish().expect("FRFinish table required"), config)].into_iter(),
+            (Some(StepKind::FRLS), StepKind::FIN)   => vec![finish::from_step_config_fr_leave_slice::<CubieCube>(tables.fr_finish().expect("FRFinish table required"), config)].into_iter(),
+            (None, x) => vec![Err(format!("{:?} is not supported as a first step", x))].into_iter(),
+            (Some(x), y) => vec![Err(format!("Unsupported step order {:?} > {:?}", x, y))].into_iter(),
         })
         .collect();
 

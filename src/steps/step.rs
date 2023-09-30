@@ -25,15 +25,11 @@ pub trait StepVariant<CubeParam>:
     PreStepCheck<CubeParam> +
     PostStepCheck<CubeParam>
 {
-    fn move_set(&self) -> &'_ MoveSet;
+    fn move_set(&self, cube: &CubeParam, depth_left: u8) -> &'_ MoveSet;
     fn pre_step_trans(&self) -> &'_ Vec<Transformation>;
     fn heuristic(&self, cube: &CubeParam, depth_left: u8, can_niss: bool) -> u8;
     fn name(&self) -> &str;
-    fn is_half_turn_invariant(&self) -> bool {
-        !self.move_set().st_moves
-            .iter()
-            .any(|m| m.1 == Half)
-    }
+    fn is_half_turn_invariant(&self) -> bool;
 }
 
 pub trait PreStepCheck<CubeParam> {
@@ -92,7 +88,7 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Co
         HC: for<'x> From<&'x CubeParam>,
         PC: for<'x> From<&'x CubeParam>, {
 
-    fn move_set(&self) -> &'_ MoveSet {
+    fn move_set(&self, cube: &CubeParam, depth_left: u8) -> &'_ MoveSet {
         self.move_set
     }
 
@@ -112,6 +108,12 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Co
 
     fn name(&self) -> &str {
         self.name
+    }
+
+    fn is_half_turn_invariant(&self) -> bool {
+        !self.move_set.st_moves
+            .iter()
+            .any(|m| m.1 == Half)
     }
 }
 
@@ -162,7 +164,7 @@ impl<'a, CubeParam: 'a>
     {
         let variant: NoHeuristicStep<C_SIZE, CoordParam, CubeParam> =
             NoHeuristicStep {
-                moves,
+                move_set: moves,
                 trans: vec![],
                 name,
                 _c: PhantomData::default(),
@@ -191,7 +193,7 @@ struct NoHeuristicStep<
 > where
     CoordParam: for<'x> From<&'x CubeParam>,
 {
-    moves: MoveSet,
+    move_set: MoveSet,
     trans: Vec<Transformation>,
     name: &'static str,
     _c: PhantomData<CoordParam>,
@@ -235,8 +237,8 @@ impl<
 where
     CoordParam: for<'x> From<&'x CubeParam>,
 {
-    fn move_set(&self) -> &'_ MoveSet {
-        &self.moves
+    fn move_set(&self, cube: &CubeParam, depth_left: u8) -> &'_ MoveSet {
+        &self.move_set
     }
 
     fn pre_step_trans(&self) -> &'_ Vec<Transformation> {
@@ -249,6 +251,12 @@ where
 
     fn name(&self) -> &str {
         self.name
+    }
+
+    fn is_half_turn_invariant(&self) -> bool {
+        !self.move_set.st_moves
+            .iter()
+            .any(|m| m.1 == Half)
     }
 }
 

@@ -1,5 +1,7 @@
 use std::cmp::min;
 use std::collections::HashMap;
+use std::fmt::Display;
+use std::marker::PhantomData;
 use std::str::FromStr;
 use std::vec;
 use itertools::Itertools;
@@ -14,7 +16,7 @@ use crate::coords::dr::DRUDEOFBCoord;
 use crate::coords::eo::EOCoordFB;
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
-use crate::cube::{Axis, Face, Move, Transformation, Turnable};
+use crate::cube::{ApplyAlgorithm, Axis, Face, Move, NewSolved, Transformation, Turnable};
 use crate::cubie::{CornerCubieCube, CubieCube};
 use crate::df_search::{NissType};
 use crate::lookup_table::PruningTable;
@@ -27,172 +29,212 @@ use crate::steps::htr::HTR_DR_UD_MOVESET;
 use crate::steps::step::{DefaultPruningTableStep, PreStepCheck, DefaultStepOptions, Step, StepVariant, AnyPostStepCheck, PostStepCheck};
 use crate::stream::distinct_algorithms;
 
-pub struct DRTriggerStepTable<'a> {
+pub struct DRTriggerStepTable<'a, CubeParam> {
     pre_trigger_move_set: &'a MoveSet,
     trigger_move_set: &'a MoveSet,
     pre_trans: Vec<Transformation>,
     table: &'a DRPruningTable,
-    trigger_states: HashMap<(u8, u8), u8>, //(co, eolr) - trigger_length
+    trigger_types: HashMap<(u8, u8), u8>, //(co, eolr) - trigger_length
     trigger_variants: Vec<Vec<Move>>,
     name: &'a str,
+    _c: PhantomData<CubeParam>
 }
-//
-// pub fn from_step_config<'a, C: 'a>(table: &'a DRPruningTable, config: StepConfig) -> Result<(Step<'a, C>, DefaultStepOptions), String>
-//     where
-//         DRUDEOFBCoord: for<'x> From<&'x C>,
-//         EOCoordFB: for<'x> From<&'x C>, {
-//
-//     let triggers = config.params
-//         .get("triggers")
-//         .iter()
-//         .flat_map(move |trig|trig.split(","))
-//         .filter_map(move |trig|{
-//             let alg = Algorithm::from_str(trig.to_uppercase().as_str());
-//             match alg {
-//                 Err(_) => {
-//                     error!("Unable to parse trigger {trig}.");
-//                     None
-//                 },
-//                 Ok(alg) => Some(alg)
-//             }
-//         })
-//         .flat_map(|alg| generate_trigger_variations(alg))
-//         .collect_vec();
-//
-//     let step = if let Some(substeps) = config.substeps {
-//         let variants: Result<Vec<Vec<Box<dyn StepVariant<C> + 'a>>>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
-//             "ud" | "drud" => Ok(dr_step_variants(table, [Axis::FB, Axis::LR], [Axis::UD], dr_post_step_check.clone())),
-//             "fb" | "drfb" => Ok(dr_step_variants(table, [Axis::UD, Axis::LR], [Axis::FB], dr_post_step_check.clone())),
-//             "lr" | "drlr" => Ok(dr_step_variants(table, [Axis::UD, Axis::FB], [Axis::LR], dr_post_step_check.clone())),
-//
-//             "eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::FB, Axis::LR], dr_post_step_check.clone())),
-//             "eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::UD, Axis::LR], dr_post_step_check.clone())),
-//             "eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::UD, Axis::FB], dr_post_step_check.clone())),
-//
-//             "drud-eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::UD], dr_post_step_check.clone())),
-//             "drud-eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::UD], dr_post_step_check.clone())),
-//             "drfb-eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::FB], dr_post_step_check.clone())),
-//             "drfb-eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::FB], dr_post_step_check.clone())),
-//             "drlr-eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::LR], dr_post_step_check.clone())),
-//             "drlr-eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::LR], dr_post_step_check.clone())),
-//
-//             x => Err(format!("Invalid DR substep {x}"))
-//         }).collect();
-//         let variants = variants?.into_iter().flat_map(|v|v).collect_vec();
-//         Step::new(variants, "dr")
-//     } else {
-//         dr_any(table, dr_post_step_check)
-//     };
-//
-//     let search_opts = DefaultStepOptions::new(
-//         config.min.unwrap_or(0),
-//         config.max.unwrap_or(12),
-//         dr_niss_type.unwrap_or(NissType::Before),
-//         config.quality,
-//         config.solution_count
-//     );
-//     Ok((step, search_opts))
-// }
-//
-// fn dr_step_variants<'a, C: 'a, const EOA: usize, const DRA: usize>(
-//     table: &'a DRPruningTable,
-//     eo_axis: [Axis; EOA],
-//     dr_axis: [Axis; DRA],
-// ) -> Vec<Box<dyn StepVariant<C> + 'a>>
-//     where
-//         DRUDEOFBCoord: for<'x> From<&'x C>,
-//         EOCoordFB: for<'x> From<&'x C>,
-// {
-//     eo_axis
-//         .into_iter()
-//         .flat_map(|eo| dr_axis.into_iter().map(move |dr| (eo, dr)))
-//         .flat_map(move |x| {
-//             let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
-//                 (Axis::UD, Axis::FB) => Some(Box::new(DRTriggerStepTable::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::X], table, psc.clone(), "drfb-eoud"))),
-//                 (Axis::UD, Axis::LR) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, PSC>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::X, Transformation::Z], table, psc.clone(), "drlr-eoud"))),
-//                 (Axis::FB, Axis::UD) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, PSC>::new(&DR_UD_EO_FB_MOVESET, vec![], table, psc.clone(), "drud-eofb"))),
-//                 (Axis::FB, Axis::LR) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, PSC>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Z], table, psc.clone(), "drlr-eofb"))),
-//                 (Axis::LR, Axis::UD) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, PSC>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Y], table, psc.clone(), "drud-eolr"))),
-//                 (Axis::LR, Axis::FB) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, PSC>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Y, Transformation::Z], table, psc.clone(), "drfb-eolr"))),
-//                 (_eo, _dr) => None,
-//             };
-//             x
-//         })
-//         .collect_vec()
-// }
-//
-// pub fn dr<'a, C: 'a, const EOA: usize, const DRA: usize, PSC: PostStepCheck<C> + Clone + 'a>(
-//     table: &'a DRPruningTable,
-//     eo_axis: [Axis; EOA],
-//     dr_axis: [Axis; DRA],
-//     psc: PSC,
-// ) -> Step<'a, C>
-// where
-//     DRUDEOFBCoord: for<'x> From<&'x C>,
-//     EOCoordFB: for<'x> From<&'x C>,
-// {
-//     let step_variants = dr_step_variants(table, eo_axis, dr_axis, psc);
-//     Step::new(step_variants, "dr")
-// }
-//
-// pub fn dr_any<'a, C: 'a, PSC: PostStepCheck<C> + Clone + 'a>(
-//     table: &'a DRPruningTable, psc: PSC,
-// ) -> Step<'a, C>
-// where
-//     DRUDEOFBCoord: for<'x> From<&'x C>,
-//     EOCoordFB: for<'x> From<&'x C>,
-// {
-//     dr(table, [Axis::UD, Axis::FB, Axis::LR], [Axis::UD, Axis::FB, Axis::LR], psc)
-// }
 
-impl<'a, C> DRTriggerStepTable<'a>
+pub fn from_step_config<'a, C: 'a + EOCount + COCountUD + Display>(table: &'a DRPruningTable, config: StepConfig) -> Result<(Step<'a, C>, DefaultStepOptions), String>
+    where
+        DRUDEOFBCoord: for<'x> From<&'x C>,
+        EOCoordFB: for<'x> From<&'x C>, {
+
+    let triggers = config.params
+        .get("triggers")
+        .iter()
+        .flat_map(move |trig|trig.split(","))
+        .filter_map(move |trig|{
+            let alg = Algorithm::from_str(trig.to_uppercase().as_str());
+            match alg {
+                Err(_) => {
+                    error!("Unable to parse trigger {trig}.");
+                    None
+                },
+                Ok(alg) => Some(alg)
+            }
+        })
+        .collect_vec();
+
+    let step = if let Some(substeps) = config.substeps {
+        let variants: Result<Vec<Vec<Box<dyn StepVariant<C> + 'a>>>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
+            "ud" | "drud" => Ok(dr_step_variants(table, [Axis::FB, Axis::LR], [Axis::UD], triggers.clone())),
+            "fb" | "drfb" => Ok(dr_step_variants(table, [Axis::UD, Axis::LR], [Axis::FB], triggers.clone())),
+            "lr" | "drlr" => Ok(dr_step_variants(table, [Axis::UD, Axis::FB], [Axis::LR], triggers.clone())),
+
+            "eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::FB, Axis::LR], triggers.clone())),
+            "eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::UD, Axis::LR], triggers.clone())),
+            "eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::UD, Axis::FB], triggers.clone())),
+
+            "drud-eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::UD], triggers.clone())),
+            "drud-eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::UD], triggers.clone())),
+            "drfb-eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::FB], triggers.clone())),
+            "drfb-eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::FB], triggers.clone())),
+            "drlr-eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::LR], triggers.clone())),
+            "drlr-eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::LR], triggers.clone())),
+
+            x => Err(format!("Invalid DR substep {x}"))
+        }).collect();
+        let variants = variants?.into_iter().flat_map(|v|v).collect_vec();
+        Step::new(variants, "dr")
+    } else {
+        dr_any(table, triggers)
+    };
+
+    let search_opts = DefaultStepOptions::new(
+        config.min.unwrap_or(0),
+        config.max.unwrap_or(12),
+        config.niss.unwrap_or(NissType::Before),
+        config.quality,
+        config.solution_count
+    );
+    Ok((step, search_opts))
+}
+
+pub fn dr<'a, C: 'a + COCountUD + EOCount + Display, const EOA: usize, const DRA: usize>(
+    table: &'a DRPruningTable,
+    eo_axis: [Axis; EOA],
+    dr_axis: [Axis; DRA],
+    triggers: Vec<Algorithm>,
+) -> Step<'a, C>
 where
     DRUDEOFBCoord: for<'x> From<&'x C>,
-    EOCoordFB: for<'x> From<&'x C>, {
-
-    pub fn new(triggers: Vec<Vec<Move>>) -> Self {
-        DRTriggerStepTable {
-            pre_trigger_move_set: &HTR_DR_UD_MOVESET,
-            trigger_move_set: &DR_UD_EO_FB_MOVESET,
-            pre_trans: vec![],
-            table,
-            trigger_length: 0,
-            trigger_variants: vec![],
-            name: "eoud",
-        }
-    }
-}
-
-impl<'a, C: COCountUD + EOCount> PreStepCheck<C> for DRTriggerStepTable<'a>
-    where
-        EOCoordFB: for<'x> From<&'x C>,
+    EOCoordFB: for<'x> From<&'x C>,
 {
-    fn is_cube_ready(&self, c: &C) -> bool {
-        if(EOCoordFB::from(c).val() != 0) {
-            return false;
-        }
-        let eo_count_lr = c.count_bad_edges().2;
-        let co_count_ud = COCountUD::co_count(c);
-
-
-        todo!("Check RZP state")
-    }
+    let step_variants = dr_step_variants(table, eo_axis, dr_axis, triggers);
+    Step::new(step_variants, "dr")
 }
 
-impl<'a, C> StepVariant<C> for DRTriggerStepTable<'a>
+pub fn dr_any<'a, C: 'a + COCountUD + EOCount + Display>(
+    table: &'a DRPruningTable,
+    triggers: Vec<Algorithm>,
+) -> Step<'a, C>
+where
+    DRUDEOFBCoord: for<'x> From<&'x C>,
+    EOCoordFB: for<'x> From<&'x C>,
+{
+    dr(table, [Axis::UD, Axis::FB, Axis::LR], [Axis::UD, Axis::FB, Axis::LR], triggers)
+}
+
+fn dr_step_variants<'a, C: 'a + COCountUD + EOCount + Display, const EOA: usize, const DRA: usize>(
+    table: &'a DRPruningTable,
+    eo_axis: [Axis; EOA],
+    dr_axis: [Axis; DRA],
+    triggers: Vec<Algorithm>,
+) -> Vec<Box<dyn StepVariant<C> + 'a>>
     where
         DRUDEOFBCoord: for<'x> From<&'x C>,
         EOCoordFB: for<'x> From<&'x C>,
 {
-    fn move_set(&self) -> &'a MoveSet {
-        self.pre_trigger_move_set
+    eo_axis
+        .into_iter()
+        .flat_map(|eo| dr_axis.into_iter().map(move |dr| (eo, dr)))
+        .flat_map(move |x| {
+            let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
+                (Axis::UD, Axis::FB) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::X], table, triggers.clone(), "drfb-eoud"))),
+                (Axis::UD, Axis::LR) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::X, Transformation::Z], table, triggers.clone(), "drlr-eoud"))),
+                (Axis::FB, Axis::UD) => Some(Box::new(DRTriggerStepTable::new(vec![], table, triggers.clone(), "drud-eofb"))),
+                (Axis::FB, Axis::LR) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::Z], table, triggers.clone(), "drlr-eofb"))),
+                (Axis::LR, Axis::UD) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::Y], table, triggers.clone(), "drud-eolr"))),
+                (Axis::LR, Axis::FB) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::Y, Transformation::Z], table, triggers.clone(), "drfb-eolr"))),
+                _ => None,
+            };
+            x
+        })
+        .collect_vec()
+}
+
+impl<'a, CubeParam> DRTriggerStepTable<'a, CubeParam>
+where
+    DRUDEOFBCoord: for<'x> From<&'x CubeParam>,
+    EOCoordFB: for<'x> From<&'x CubeParam>, {
+
+    fn new(pre_trans: Vec<Transformation>, table: &'a DRPruningTable, triggers: Vec<Algorithm>, name: &'a str) -> Self {
+        let mut trigger_variants = vec![];
+        let mut trigger_types: HashMap<(u8, u8), u8> = HashMap::new();
+        for trigger in triggers.into_iter() {
+            let mut cube = CubieCube::new_solved();
+            for (m, len) in trigger.normal_moves.iter().rev().zip(1..) {
+                cube.turn(m.clone());
+                if DR_UD_EO_FB_MOVESET.st_moves.contains(m) {
+                    let rzp_state = calc_rzp_state(&cube);
+                    trigger_types.insert(rzp_state, len);
+                    debug!("Registering {}c/{}e trigger with length {}", rzp_state.0, rzp_state.1, len);
+                }
+            }
+            trigger_variants.append(&mut generate_trigger_variations(trigger));
+        }
+
+        DRTriggerStepTable {
+            pre_trigger_move_set: &HTR_DR_UD_MOVESET,
+            trigger_move_set: &DR_UD_EO_FB_MOVESET,
+            pre_trans,
+            table,
+            trigger_types,
+            trigger_variants,
+            name,
+            _c: PhantomData::default()
+        }
+    }
+}
+
+fn calc_rzp_state<C: EOCount + COCountUD>(cube: &C) -> (u8, u8) {
+    let eo_count_lr = cube.count_bad_edges().2;
+    let co_count_ud = COCountUD::co_count(cube);
+    (co_count_ud, eo_count_lr)
+}
+
+impl<'a, CubeParam: COCountUD + EOCount> PreStepCheck<CubeParam> for DRTriggerStepTable<'a, CubeParam>
+    where
+        EOCoordFB: for<'x> From<&'x CubeParam>,
+{
+    fn is_cube_ready(&self, c: &CubeParam) -> bool {
+        if EOCoordFB::from(c).val() != 0 {
+            return false;
+        }
+        let trigger_state = calc_rzp_state(c);
+        self.trigger_types.contains_key(&trigger_state)
+    }
+}
+
+impl <'a, CubeParam> PostStepCheck<CubeParam> for DRTriggerStepTable<'a, CubeParam> {
+    fn is_solution_admissible(&self, cube: &CubeParam, alg: &Algorithm) -> bool {
+        filter_dr_trigger(alg, &self.trigger_variants)
+    }
+}
+
+impl<'a, CubeParam: COCountUD + EOCount + Display> StepVariant<CubeParam> for DRTriggerStepTable<'a, CubeParam>
+    where
+        DRUDEOFBCoord: for<'x> From<&'x CubeParam>,
+        EOCoordFB: for<'x> From<&'x CubeParam>,
+{
+    fn move_set(&self, cube: &CubeParam, depth_left: u8) -> &'a MoveSet {
+        let rzp_state = calc_rzp_state(cube);
+        if let Some(trigger_length) = self.trigger_types.get(&rzp_state) {
+            if *trigger_length >= depth_left {
+                // println!("{cube}");
+                // println!("{}", self.heuristic(cube, depth_left, false));
+                // panic!();
+                // println!(                "Trigger moves!");
+                self.trigger_move_set
+            } else {
+                self.pre_trigger_move_set
+            }
+        } else {
+            self.pre_trigger_move_set
+        }
     }
 
     fn pre_step_trans(&self) -> &'_ Vec<Transformation> {
         &self.pre_trans
     }
 
-    fn heuristic(&self, cube: &C, depth_left: u8, can_niss: bool) -> u8 {
+    fn heuristic(&self, cube: &CubeParam, depth_left: u8, can_niss: bool) -> u8 {
         if can_niss {
             1
         } else {
@@ -204,13 +246,9 @@ impl<'a, C> StepVariant<C> for DRTriggerStepTable<'a>
     fn name(&self) -> &str {
         self.name
     }
-}
 
-
-
-impl <'a, CubeParam> PostStepCheck<CubeParam> for DRTriggerStepTable<'a> {
-    fn is_solution_admissible(&self, cube: &CubeParam, alg: &Algorithm) -> bool {
-        filter_dr_trigger(alg, &self.trigger_variants)
+    fn is_half_turn_invariant(&self) -> bool {
+        true
     }
 }
 

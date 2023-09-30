@@ -115,9 +115,9 @@ pub struct EOStepTable<'a> {
     name: &'a str,
 }
 
-pub fn from_step_config<'a, C: 'a + EOCount>(table: &'a EOPruningTable, config: StepConfig) -> Result<(Step<'a, C>, DefaultStepOptions), String>
+pub fn from_step_config<'a, CubeParam: 'a + EOCount>(table: &'a EOPruningTable, config: StepConfig) -> Result<(Step<'a, CubeParam>, DefaultStepOptions), String>
     where
-        EOCoordFB: for<'x> From<&'x C>,{
+        EOCoordFB: for<'x> From<&'x CubeParam>,{
     let step = if let Some(substeps) = config.substeps {
         let axis: Result<Vec<Axis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
             "eoud" | "ud" => Ok(Axis::UD),
@@ -140,24 +140,24 @@ pub fn from_step_config<'a, C: 'a + EOCount>(table: &'a EOPruningTable, config: 
     Ok((step, search_opts))
 }
 
-pub fn eo_any<'a, C: 'a + EOCount>(table: &'a EOPruningTable) -> Step<'a, C>
+pub fn eo_any<'a, CubeParam: 'a + EOCount>(table: &'a EOPruningTable) -> Step<'a, CubeParam>
 where
-    EOCoordFB: for<'x> From<&'x C>,
+    EOCoordFB: for<'x> From<&'x CubeParam>,
 {
     eo(table, vec![Axis::UD, Axis::FB, Axis::LR])
 }
 
-pub fn eo<'a, C: 'a + EOCount>(
+pub fn eo<'a, CubeParam: 'a + EOCount>(
     table: &'a EOPruningTable,
     eo_axis: Vec<Axis>,
-) -> Step<'a, C>
+) -> Step<'a, CubeParam>
 where
-    EOCoordFB: for<'x> From<&'x C>,
+    EOCoordFB: for<'x> From<&'x CubeParam>,
 {
     let step_variants = eo_axis
         .into_iter()
         .map(move |x| {
-            let x: Box<dyn StepVariant<C> + 'a> = match x {
+            let x: Box<dyn StepVariant<CubeParam> + 'a> = match x {
                 Axis::UD => Box::new(EOStepTable::new_ud(&table)),
                 Axis::FB => Box::new(EOStepTable::new_fb(&table)),
                 Axis::LR => Box::new(EOStepTable::new_lr(&table)),
@@ -197,26 +197,26 @@ impl<'a> EOStepTable<'a> {
     }
 }
 
-impl<'a, C> PreStepCheck<C> for EOStepTable<'a>
+impl<'a, CubeParam> PreStepCheck<CubeParam> for EOStepTable<'a>
 where
-    EOCoordFB: for<'x> From<&'x C>,
+    EOCoordFB: for<'x> From<&'x CubeParam>,
 {
-    fn is_cube_ready(&self, _: &C) -> bool {
+    fn is_cube_ready(&self, _: &CubeParam) -> bool {
         true
     }
 }
 
-impl<'a, C> PostStepCheck<C> for EOStepTable<'a> {
-    fn is_solution_admissible(&self, cube: &C, alg: &Algorithm) -> bool {
+impl<'a, CubeParam> PostStepCheck<CubeParam> for EOStepTable<'a> {
+    fn is_solution_admissible(&self, cube: &CubeParam, alg: &Algorithm) -> bool {
         true
     }
 }
 
-impl<'a, C: EOCount> StepVariant<C> for EOStepTable<'a>
+impl<'a, CubeParam: EOCount> StepVariant<CubeParam> for EOStepTable<'a>
 where
-    EOCoordFB: for<'x> From<&'x C>,
+    EOCoordFB: for<'x> From<&'x CubeParam>,
 {
-    fn move_set(&self) -> &'a MoveSet {
+    fn move_set(&self, cube: &CubeParam, depth_left: u8) -> &'a MoveSet {
         self.move_set
     }
 
@@ -224,7 +224,7 @@ where
         &self.pre_trans
     }
 
-    fn heuristic(&self, cube: &C, depth_left: u8, can_niss: bool) -> u8 {
+    fn heuristic(&self, cube: &CubeParam, depth_left: u8, can_niss: bool) -> u8 {
         if can_niss {
             let fb_edges = cube.count_bad_edges().1;
             BAD_EDGE_HEURISTIC[(fb_edges >> 1) as usize]
@@ -236,6 +236,12 @@ where
 
     fn name(&self) -> &str {
         self.name
+    }
+
+    fn is_half_turn_invariant(&self) -> bool {
+        !self.move_set.st_moves
+            .iter()
+            .any(|m| m.1 == Half)
     }
 }
 

@@ -53,7 +53,7 @@ mod avx2 {
     pub unsafe fn co_ud(cube: &CornerCubieCube) -> u8 {
         let co = _mm_and_si128(cube.0, _mm_set1_epi8(0x0F));
         let bad_corners = _mm_cmpgt_epi8(co, _mm_set1_epi8(0));
-        let count = _mm_movemask_epi8(bad_corners);
+        let count = ((_mm_movemask_epi8(bad_corners) & 0xFF) as usize).count_ones();
         count as u8
     }
 }

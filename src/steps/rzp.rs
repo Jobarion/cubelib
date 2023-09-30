@@ -50,9 +50,7 @@ pub struct RZPStep<'a> {
     name: &'a str,
 }
 
-pub fn from_step_config<'a, C: 'a + EOCount>(config: StepConfig) -> Result<(Step<'a, C>, DefaultStepOptions), String>
-    where
-        EOCoordFB: for<'x> From<&'x C>,{
+pub fn from_step_config<'a, C: 'a + EOCount>(config: StepConfig) -> Result<(Step<'a, C>, DefaultStepOptions), String> {
     // let step = if let Some(substeps) = config.substeps {
     //     let axis: Result<Vec<Axis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
     //         "rzpud" | "ud" => Ok(Axis::UD),
@@ -76,9 +74,7 @@ pub fn from_step_config<'a, C: 'a + EOCount>(config: StepConfig) -> Result<(Step
     Ok((step, search_opts))
 }
 
-pub fn rzp_any<'a, C: 'a + EOCount>() -> Step<'a, C>
-    where
-        EOCoordFB: for<'x> From<&'x C>,{
+pub fn rzp_any<'a, C: 'a + EOCount>() -> Step<'a, C> {
     Step::new(vec![
         Box::new(RZPStep::new_any()),
     ], "rzp")
@@ -90,12 +86,9 @@ pub fn rzp_any<'a, C: 'a + EOCount>() -> Step<'a, C>
 }
 
 
-pub fn eo<'a, C: 'a>(
+pub fn eo<'a, C: 'a + EOCount>(
     eo_axis: Vec<Axis>,
-) -> Step<'a, C>
-    where
-        EOCoordFB: for<'x> From<&'x C>,
-{
+) -> Step<'a, C> {
     let step_variants = eo_axis
         .into_iter()
         .map(move |x| {
@@ -144,12 +137,11 @@ impl<'a> RZPStep<'a> {
     }
 }
 
-impl<'a, C> PreStepCheck<C> for RZPStep<'a>
-where
-    EOCoordFB: for<'x> From<&'x C>,
+impl<'a, C: EOCount> PreStepCheck<C> for RZPStep<'a>
 {
     fn is_cube_ready(&self, cube: &C) -> bool {
-        EOCoordFB::from(cube).val() == 0
+        let (ud, fb, lr) = cube.count_bad_edges();
+        ud == 0 || fb == 0 || lr == 0
     }
 }
 
@@ -159,11 +151,9 @@ impl<'a, C> PostStepCheck<C> for RZPStep<'a> {
     }
 }
 
-impl<'a, C> StepVariant<C> for RZPStep<'a>
-where
-    EOCoordFB: for<'x> From<&'x C>,
+impl<'a, CubeParam: EOCount> StepVariant<CubeParam> for RZPStep<'a>
 {
-    fn move_set(&self) -> &'a MoveSet {
+    fn move_set(&self, cube: &CubeParam, depth_left: u8) -> &'a MoveSet {
         self.move_set
     }
 
@@ -171,12 +161,18 @@ where
         &self.pre_trans
     }
 
-    fn heuristic(&self, _: &C, depth_left: u8, _: bool) -> u8 {
+    fn heuristic(&self, _: &CubeParam, depth_left: u8, _: bool) -> u8 {
         depth_left //RZP is a special step without a real goal. Filtering by bad edge/corner count is done in subsequent DR steps
     }
 
     fn name(&self) -> &str {
         self.name
+    }
+
+    fn is_half_turn_invariant(&self) -> bool {
+        !self.move_set.st_moves
+            .iter()
+            .any(|m| m.1 == Half)
     }
 }
 

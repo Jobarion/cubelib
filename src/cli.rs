@@ -51,6 +51,21 @@ pub struct StepConfig {
     pub params: HashMap<String, String>,
 }
 
+impl StepConfig {
+    pub fn new(kind: StepKind) -> StepConfig {
+        StepConfig {
+            kind,
+            substeps: None,
+            min: None,
+            max: None,
+            quality: None,
+            solution_count: None,
+            niss: None,
+            params: Default::default(),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum StepKind {
     EO,

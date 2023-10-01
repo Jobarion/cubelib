@@ -28,9 +28,9 @@ pub struct Cli {
     pub niss: bool,
     #[arg(short = 'n', help = "The number of solutions returned. By default 1 unless this option or --max is set")]
     pub solution_count: Option<usize>,
-    #[arg(short = 'q', long = "quality", default_value_t = 100, help = "Influences the maximum number of solutions calculated per step. Set to 0 for infinite quality. Defaults to 100")]
+    #[arg(short = 'q', long = "quality", default_value_t = 100, help = "Influences the maximum number of solutions calculated per step. Set to 0 for infinite quality")]
     pub quality: usize,
-    #[arg(long = "steps", short = 's', default_value = "EO > RZP > DR[triggers=R,RU2R,RU'R] > HTR > FR > FIN", help = "Step ")]
+    #[arg(long = "steps", short = 's', default_value = "EO > RZP > DR[triggers=R,RU2R,RU'R] > HTR > FR > FIN", help = "List of steps to perform")]
     pub steps: String,
     pub scramble: String,
 }

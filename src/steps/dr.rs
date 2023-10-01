@@ -12,7 +12,7 @@ use crate::coords::eo::EOCoordFB;
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cube::{Axis, Face, Move, Transformation, Turnable};
-use crate::df_search::{NissType};
+use crate::df_search::{NissSwitchType};
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
 use crate::steps::{dr, step};
@@ -72,7 +72,7 @@ pub fn from_step_config<'a, C: 'a>(table: &'a DRPruningTable, config: StepConfig
             x => Err(format!("Invalid DR substep {x}"))
         }).collect();
         let variants = variants?.into_iter().flat_map(|v|v).collect_vec();
-        Step::new(variants, "dr")
+        Step::new(variants, "dr", true)
     } else {
         dr_any(table)
     };
@@ -80,9 +80,12 @@ pub fn from_step_config<'a, C: 'a>(table: &'a DRPruningTable, config: StepConfig
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(12),
-        config.niss.unwrap_or(NissType::Before),
-        config.quality,
-        config.solution_count
+        config.niss.unwrap_or(NissSwitchType::Before),
+        if config.quality == 0 {
+            None
+        } else {
+            config.step_limit.or(Some(config.quality * 1))
+        }
     );
     Ok((step, search_opts))
 }
@@ -124,7 +127,7 @@ where
     EOCoordFB: for<'x> From<&'x C>,
 {
     let step_variants = dr_step_variants(table, eo_axis, dr_axis);
-    Step::new(step_variants, "dr")
+    Step::new(step_variants, "dr", true)
 }
 
 pub fn dr_any<'a, C: 'a>(

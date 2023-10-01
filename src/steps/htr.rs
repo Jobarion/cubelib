@@ -11,7 +11,7 @@ use crate::coords;
 use crate::coords::coord::Coord;
 use crate::coords::dr::DRUDEOFBCoord;
 use crate::coords::htr::HTRDRUDCoord;
-use crate::df_search::{NissType};
+use crate::df_search::{NissSwitchType};
 
 pub const HTR_DR_UD_STATE_CHANGE_MOVES: &[Move] = &[
     Move(Up, Clockwise),
@@ -56,9 +56,12 @@ pub fn from_step_config<'a, C: 'a>(table: &'a HTRPruningTable, config: StepConfi
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(14),
-        config.niss.unwrap_or(NissType::Before),
-        config.quality,
-        config.solution_count
+        config.niss.unwrap_or(NissSwitchType::Before),
+        if config.quality == 0 {
+            None
+        } else {
+            config.step_limit.or(Some(config.quality * 1))
+        }
     );
     Ok((step, search_opts))
 }
@@ -92,7 +95,7 @@ where
             x
         })
         .collect_vec();
-    Step::new(step_variants, "htr")
+    Step::new(step_variants, "htr", true)
 }
 
 const fn htr_transitions(axis_face: Face) -> [TransitionTable; 18] {

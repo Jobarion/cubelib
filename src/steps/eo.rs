@@ -7,7 +7,7 @@ use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cube::{Axis, Face, Move, Transformation, FACES};
 use crate::cubie::{CubieCube, EdgeCubieCube};
-use crate::df_search::{NissType};
+use crate::df_search::{NissSwitchType};
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
 use crate::steps::step::{PreStepCheck, DefaultStepOptions, Step, StepVariant, PostStepCheck};
@@ -132,10 +132,12 @@ pub fn from_step_config<'a, CubeParam: 'a + EOCount>(table: &'a EOPruningTable, 
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(5),
-        config.niss.unwrap_or(NissType::During),
-        config.quality,
-        config.solution_count
-
+        config.niss.unwrap_or(NissSwitchType::Always),
+        if config.quality == 0 {
+            None
+        } else {
+            config.step_limit.or(Some(config.quality * 1))
+        }
     );
     Ok((step, search_opts))
 }
@@ -165,7 +167,7 @@ where
             x
         })
         .collect_vec();
-    Step::new(step_variants, "eo")
+    Step::new(step_variants, "eo", true)
 }
 
 impl<'a> EOStepTable<'a> {
@@ -207,7 +209,7 @@ where
 }
 
 impl<'a, CubeParam> PostStepCheck<CubeParam> for EOStepTable<'a> {
-    fn is_solution_admissible(&self, cube: &CubeParam, alg: &Algorithm) -> bool {
+    fn is_solution_admissible(&self, _: &CubeParam, _: &Algorithm) -> bool {
         true
     }
 }
@@ -216,7 +218,7 @@ impl<'a, CubeParam: EOCount> StepVariant<CubeParam> for EOStepTable<'a>
 where
     EOCoordFB: for<'x> From<&'x CubeParam>,
 {
-    fn move_set(&self, cube: &CubeParam, depth_left: u8) -> &'a MoveSet {
+    fn move_set(&self, _: &CubeParam, _: u8) -> &'a MoveSet {
         self.move_set
     }
 
@@ -224,7 +226,7 @@ where
         &self.pre_trans
     }
 
-    fn heuristic(&self, cube: &CubeParam, depth_left: u8, can_niss: bool) -> u8 {
+    fn heuristic(&self, cube: &CubeParam, _: u8, can_niss: bool) -> u8 {
         if can_niss {
             let fb_edges = cube.count_bad_edges().1;
             BAD_EDGE_HEURISTIC[(fb_edges >> 1) as usize]

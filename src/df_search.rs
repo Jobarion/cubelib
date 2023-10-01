@@ -12,19 +12,18 @@ pub const LEGAL_MOVE_COUNT: usize = TURNS.len() * FACES.len();
 pub const ALL_MOVES: [Move; LEGAL_MOVE_COUNT] = get_all_moves();
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum NissType {
+pub enum NissSwitchType {
     None,
     Before,
-    During,
+    Always,
 }
 
 impl DefaultStepOptions {
-    pub fn new(min_moves: u8, max_moves: u8, niss_type: NissType, step_quality: Option<usize>, step_limit: Option<usize>) -> Self {
+    pub fn new(min_moves: u8, max_moves: u8, niss_type: NissSwitchType, step_limit: Option<usize>) -> Self {
         DefaultStepOptions {
             min_moves,
             max_moves,
             niss_type,
-            step_quality,
             step_limit,
         }
     }
@@ -40,6 +39,7 @@ pub fn dfs_iter<
     search_opts: DefaultStepOptions,
     previous_normal: Option<Move>,
     previous_inverse: Option<Move>,
+    starts_on_normal: bool,
 ) -> Option<Box<dyn Iterator<Item = Algorithm> + 'a>> {
     for t in step.pre_step_trans().iter().cloned() {
         cube.transform(t);
@@ -50,7 +50,7 @@ pub fn dfs_iter<
     }
 
     //Return immediately if the cube is solved. This avoids the issue where we return two solutions if the NISS type is AtStart.
-    if step.heuristic(&cube, search_opts.min_moves, search_opts.niss_type != NissType::None) == 0 {
+    if step.heuristic(&cube, search_opts.min_moves, search_opts.niss_type != NissSwitchType::None) == 0 {
         //Only return a solution if we are allowed to return zero length solutions
         if search_opts.min_moves == 0 {
             return Some(Box::new(vec![Algorithm::new()].into_iter()));
@@ -64,20 +64,56 @@ pub fn dfs_iter<
             .into_iter()
             .flat_map(move |depth| {
                 let b: Box<dyn Iterator<Item = Algorithm>> = match search_opts.niss_type {
-                    NissType::During | NissType::None => Box::new(
+                    NissSwitchType::None if starts_on_normal => {
+                        Box::new(
+                            next_dfs_level(
+                                step,
+                                cube.clone(),
+                                depth,
+                                true,
+                                false,
+                                previous_normal,
+                                previous_inverse,
+                            )
+                                .map(|alg| alg.reverse()),
+                        )
+                    },
+                    NissSwitchType::None => {
+                        let mut inv_cube = cube.clone();
+                        inv_cube.invert();
+                        Box::new(
+                            next_dfs_level(
+                                step,
+                                inv_cube,
+                                depth,
+                                true,
+                                false,
+                                previous_normal,
+                                previous_inverse,
+                            )
+                                .map(|alg| alg.reverse())
+                                .map(|alg| {
+                                    Algorithm {
+                                        normal_moves: alg.inverse_moves,
+                                        inverse_moves: alg.normal_moves
+                                    }
+                                })
+                            ,
+                        )
+                    },
+                    NissSwitchType::Always => Box::new(
                         next_dfs_level(
                             step,
                             cube.clone(),
                             depth,
                             true,
-                            search_opts.niss_type == NissType::During,
+                            true,
                             previous_normal,
                             previous_inverse,
                         )
-                        .map(|alg| alg.reverse()),
+                            .map(|alg| alg.reverse()),
                     ),
-
-                    NissType::Before => {
+                    NissSwitchType::Before => {
                         let no_niss = next_dfs_level(
                             step,
                             cube.clone(),

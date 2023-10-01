@@ -18,7 +18,7 @@ use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cube::{ApplyAlgorithm, Axis, Face, Move, NewSolved, Transformation, Turnable};
 use crate::cubie::{CornerCubieCube, CubieCube};
-use crate::df_search::{NissType};
+use crate::df_search::{NissSwitchType};
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
 use crate::steps::dr;
@@ -81,7 +81,7 @@ pub fn from_step_config<'a, C: 'a + EOCount + COCountUD + Display>(table: &'a DR
             x => Err(format!("Invalid DR substep {x}"))
         }).collect();
         let variants = variants?.into_iter().flat_map(|v|v).collect_vec();
-        Step::new(variants, "dr")
+        Step::new(variants, "dr", true)
     } else {
         dr_any(table, triggers)
     };
@@ -89,9 +89,12 @@ pub fn from_step_config<'a, C: 'a + EOCount + COCountUD + Display>(table: &'a DR
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(12),
-        config.niss.unwrap_or(NissType::Before),
-        config.quality,
-        config.solution_count
+        config.niss.unwrap_or(NissSwitchType::Before),
+        if config.quality == 0 {
+            None
+        } else {
+            config.step_limit.or(Some(config.quality * 1))
+        }
     );
     Ok((step, search_opts))
 }
@@ -107,7 +110,7 @@ where
     EOCoordFB: for<'x> From<&'x C>,
 {
     let step_variants = dr_step_variants(table, eo_axis, dr_axis, triggers);
-    Step::new(step_variants, "dr")
+    Step::new(step_variants, "dr", true)
 }
 
 pub fn dr_any<'a, C: 'a + COCountUD + EOCount + Display>(
@@ -203,7 +206,7 @@ impl<'a, CubeParam: COCountUD + EOCount> PreStepCheck<CubeParam> for DRTriggerSt
 }
 
 impl <'a, CubeParam> PostStepCheck<CubeParam> for DRTriggerStepTable<'a, CubeParam> {
-    fn is_solution_admissible(&self, cube: &CubeParam, alg: &Algorithm) -> bool {
+    fn is_solution_admissible(&self, _: &CubeParam, alg: &Algorithm) -> bool {
         filter_dr_trigger(alg, &self.trigger_variants)
     }
 }
@@ -234,7 +237,7 @@ impl<'a, CubeParam: COCountUD + EOCount + Display> StepVariant<CubeParam> for DR
         &self.pre_trans
     }
 
-    fn heuristic(&self, cube: &CubeParam, depth_left: u8, can_niss: bool) -> u8 {
+    fn heuristic(&self, cube: &CubeParam, _: u8, can_niss: bool) -> u8 {
         if can_niss {
             1
         } else {

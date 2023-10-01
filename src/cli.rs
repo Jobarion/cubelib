@@ -3,12 +3,12 @@ use std::str::FromStr;
 use clap::Parser;
 use itertools::Itertools;
 use regex::Regex;
-use crate::df_search::{NissType};
+use crate::df_search::{NissSwitchType};
 
 #[derive(Parser)]
 #[command(name = "Cubelib")]
 #[command(author = "Jonas Balsfulland <cubelib@joba.me>")]
-#[command(version = "1.1")]
+#[command(version = "1.2")]
 pub struct Cli {
     #[arg(short, long, default_value_t = false, group = "log_level", help = "Enables more detailed logging")]
     pub verbose: bool,
@@ -28,13 +28,9 @@ pub struct Cli {
     pub niss: bool,
     #[arg(short = 'n', help = "The number of solutions returned. By default 1 unless this option or --max is set")]
     pub solution_count: Option<usize>,
-    #[arg(short = 'q', long = "quality", group = "limits", help = "Maximum number of solutions calculated per step variations (Variations like eoud and eofb count separately). Defaults to 100")]
-    pub quality: Option<usize>,
-    #[arg(short = 'l', long = "limit", group = "step-limits", help = "Number of solutions carried over between steps (i.e. number of EOs considered for DRs)")]
-    pub step_limit: Option<usize>,
-    #[arg(long = "optimal", groups = ["limits", "step-limits"], help = "Look for optimal solutions")]
-    pub optimal: bool,
-    #[arg(long = "steps", short = 's', default_value = "EO > DR > HTR > FR > FIN", help = "")]
+    #[arg(short = 'q', long = "quality", default_value_t = 100, help = "Influences the maximum number of solutions calculated per step. Set to 0 for infinite quality. Defaults to 100")]
+    pub quality: usize,
+    #[arg(long = "steps", short = 's', default_value = "EO > RZP > DR[triggers=R,RU2R,RU'R] > HTR > FR > FIN", help = "Step ")]
     pub steps: String,
     pub scramble: String,
 }
@@ -45,9 +41,9 @@ pub struct StepConfig {
     pub substeps: Option<Vec<String>>,
     pub min: Option<u8>,
     pub max: Option<u8>,
-    pub quality: Option<usize>,
-    pub solution_count: Option<usize>,
-    pub niss: Option<NissType>,
+    pub step_limit: Option<usize>,
+    pub quality: usize,
+    pub niss: Option<NissSwitchType>,
     pub params: HashMap<String, String>,
 }
 
@@ -58,9 +54,9 @@ impl StepConfig {
             substeps: None,
             min: None,
             max: None,
-            quality: None,
-            solution_count: None,
+            step_limit: None,
             niss: None,
+            quality: 100,
             params: Default::default(),
         }
     }
@@ -96,36 +92,24 @@ impl FromStr for StepKind {
 
 impl Cli {
 
-    const DEFAULT_STEP_QUALITY: usize = 100;
-
-    fn get_default_step_quality(&self) -> Option<usize> {
-        if self.optimal {
-            None
-        } else {
-            Some(self.quality.unwrap_or(Self::DEFAULT_STEP_QUALITY))
-        }
-    }
-
-    fn get_default_niss_type(&self) -> Option<NissType> {
+    fn get_default_niss_type(&self) -> Option<NissSwitchType> {
         if self.niss {
             None //This means undefined, so steps can define their own niss type.
         } else {
-            Some(NissType::None)
+            Some(NissSwitchType::None)
         }
     }
 
     fn get_default_step_limit(&self) -> Option<usize> {
-        if self.optimal {
+        if self.quality <= 0 {
             None
         } else {
-            self.step_limit
+            Some(self.quality)
         }
     }
 
     pub fn parse_step_configs(&self) -> Result<Vec<StepConfig>, String> {
         let step_name_regex = Regex::new("[A-Za-z0-9_-]").unwrap();
-        let default_quality = self.get_default_step_quality();
-        let default_solution_count = self.get_default_step_limit();
         let default_niss_type = self.get_default_niss_type();
         self.steps.split(">")
             .map(|step| step.trim())
@@ -141,8 +125,8 @@ impl Cli {
                         min: None,
                         max: None,
                         niss: default_niss_type,
-                        solution_count: default_solution_count,
-                        quality: default_quality,
+                        step_limit: None,
+                        quality: self.quality,
                         params: HashMap::new()
                     });
                 } else {
@@ -157,8 +141,8 @@ impl Cli {
                         min: None,
                         max: None,
                         niss: default_niss_type,
-                        solution_count: default_solution_count,
-                        quality: default_quality,
+                        step_limit: None,
+                        quality: self.quality,
                         params: HashMap::new()
                     };
                     let params = (&step[(param_start + 1)..(step.len() - 1)]).split(";").collect_vec();
@@ -169,14 +153,13 @@ impl Cli {
                                 return Err(format!("Invalid param format {}", param));
                             }
                             match parts[0] {
-                                "limit" => step_prototype.solution_count = Some(usize::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for count. '{x}'", parts[1]))?),
-                                "quality" => step_prototype.quality = Some(usize::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for quality. '{x}'", parts[1]))?),
+                                "limit" => step_prototype.step_limit = Some(usize::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for count. '{x}'", parts[1]))?),
                                 "min" => step_prototype.min = Some(u8::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for min. '{x}'", parts[1]))?),
                                 "max" => step_prototype.max = Some(u8::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for max. '{x}'", parts[1]))?),
                                 "niss" => step_prototype.niss = Some(match parts[1] {
-                                    "always" => NissType::During,
-                                    "before" => NissType::Before,
-                                    "none" => NissType::None,
+                                    "always" => NissSwitchType::Always,
+                                    "before" => NissSwitchType::Before,
+                                    "none" => NissSwitchType::None,
                                     x => Err(format!("Invalid NISS type {x}. Expected one of 'always', 'before', 'none'"))?
                                 }),
                                 key => {

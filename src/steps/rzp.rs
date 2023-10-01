@@ -8,7 +8,7 @@ use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cube::{Axis, Face, Move, Transformation, FACES};
 use crate::cubie::{CubieCube, EdgeCubieCube};
-use crate::df_search::{ALL_MOVES, NissType};
+use crate::df_search::{ALL_MOVES, NissSwitchType};
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
 use crate::steps::{dr, eo, htr};
@@ -66,9 +66,12 @@ pub fn from_step_config<'a, C: 'a + EOCount>(config: StepConfig) -> Result<(Step
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(3),
-        config.niss.unwrap_or(NissType::Before),
-        config.quality,
-        config.solution_count
+        config.niss.unwrap_or(NissSwitchType::Before),
+        if config.quality == 0 {
+            None
+        } else {
+            config.step_limit.or(Some(config.quality * 10))
+        }
 
     );
     Ok((step, search_opts))
@@ -77,7 +80,7 @@ pub fn from_step_config<'a, C: 'a + EOCount>(config: StepConfig) -> Result<(Step
 pub fn rzp_any<'a, C: 'a + EOCount>() -> Step<'a, C> {
     Step::new(vec![
         Box::new(RZPStep::new_any()),
-    ], "rzp")
+    ], "rzp", false)
     // Step::new(vec![
     //     Box::new(RZPStep::new_eoud()),
     //     Box::new(RZPStep::new_eofb()),
@@ -100,7 +103,7 @@ pub fn rzp<'a, C: 'a + EOCount>(
             x
         })
         .collect_vec();
-    Step::new(step_variants, "rzp")
+    Step::new(step_variants, "rzp", false)
 }
 
 impl<'a> RZPStep<'a> {
@@ -146,14 +149,14 @@ impl<'a, C: EOCount> PreStepCheck<C> for RZPStep<'a>
 }
 
 impl<'a, C> PostStepCheck<C> for RZPStep<'a> {
-    fn is_solution_admissible(&self, cube: &C, alg: &Algorithm) -> bool {
+    fn is_solution_admissible(&self, _: &C, _: &Algorithm) -> bool {
         true
     }
 }
 
 impl<'a, CubeParam: EOCount> StepVariant<CubeParam> for RZPStep<'a>
 {
-    fn move_set(&self, cube: &CubeParam, depth_left: u8) -> &'a MoveSet {
+    fn move_set(&self, _: &CubeParam, _: u8) -> &'a MoveSet {
         self.move_set
     }
 

@@ -17,23 +17,7 @@ use cubelib::stream;
 use cubelib::tables::PruningTables;
 
 fn main() {
-    let cli: Cli = Cli {
-        verbose: true,
-        quiet: false,
-        compact_solutions: false,
-        plain_solution: false,
-        all_solutions: false,
-        min: 0,
-        max: None,
-        niss: true,
-        solution_count: Some(3),
-        quality: None,
-        step_limit: Some(1000),
-        optimal: false,
-        steps: "EO[max=6] > DR[triggers=R] > HTR > FR > FIN".to_string(),
-        scramble: "R F' U2 F2 D2 B' U L2 F2 B U2 R2 B L2 B D2 F D2 R' U2".to_string()
-    };
-    // let cli: Cli = Cli::parse();
+    let cli: Cli = Cli::parse();
     SimpleLogger::new()
         .with_level(if cli.verbose {
             LevelFilter::Debug
@@ -81,8 +65,10 @@ fn main() {
             (Some(StepKind::EO), StepKind::DR) => {
                 let dr_table = tables.dr().expect("DR table required");
                 if config.params.contains_key("triggers") {
-                    info!("Found explicitly defined DR triggers, adding RZP step");
-                    vec![rzp::from_step_config(StepConfig::new(StepKind::RZP)), dr_trigger::from_step_config(dr_table, config)].into_iter()
+                    info!("Found explicitly defined DR triggers without RZP. Adding RZP step with default settings.");
+                    let mut rzp_config = StepConfig::new(StepKind::RZP);
+                    rzp_config.quality = config.quality;
+                    vec![rzp::from_step_config(rzp_config), dr_trigger::from_step_config(dr_table, config)].into_iter()
                 } else {
                     vec![dr::from_step_config(dr_table, config)].into_iter()
                 }
@@ -117,7 +103,7 @@ fn main() {
 
     let first_step: Box<dyn Iterator<Item = Solution>> = Box::new(vec![Solution::new()].into_iter());
 
-    let mut solutions = steps.iter()
+    let solutions = steps.iter()
         .fold(first_step, |acc, (step, search_opts)|{
             debug!("Step {} with options {:?}", step.name(), search_opts);
             let next = step::next_step(acc, step, search_opts.clone(), cube.clone())
@@ -134,7 +120,7 @@ fn main() {
         .take_while(|alg| cli.max.map_or(true, |max| alg.len() <= max)));
 
 
-    // For FR the direction of the last move always matters so we can't filter if we're doing FR
+    // For e.g. FR the direction of the last move always matters so we can't filter if we're doing FR
     let can_filter_last_move = steps.last().map(|(s, _)| s.is_half_turn_invariant()).unwrap_or(true);
     if !cli.all_solutions && can_filter_last_move {
         solutions = Box::new(solutions

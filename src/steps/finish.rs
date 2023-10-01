@@ -9,7 +9,7 @@ use crate::coords::fr::{FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::cube::{Axis, FACES, Move, Transformation};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
-use crate::df_search::{NissType};
+use crate::df_search::{NissSwitchType};
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
 use crate::steps::fr;
@@ -42,9 +42,12 @@ pub fn from_step_config_fr<'a, C: 'a>(table: &'a FRFinishPruningTable, config: S
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(10),
-        config.niss.unwrap_or(NissType::None),
-        config.quality,
-        config.solution_count
+        config.niss.unwrap_or(NissSwitchType::None),
+        if config.quality == 0 {
+            None
+        } else {
+            config.step_limit.or(Some(config.quality * 1))
+        }
     );
     Ok((step, search_opts))
 }
@@ -68,9 +71,12 @@ pub fn from_step_config_fr_leave_slice<'a, C: 'a>(table: &'a FRFinishPruningTabl
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(10),
-        config.niss.unwrap_or(NissType::None),
-        config.quality,
-        config.solution_count
+        config.niss.unwrap_or(NissSwitchType::None),
+        if config.quality == 0 {
+            None
+        } else {
+            config.step_limit.or(Some(config.quality * 1))
+        }
     );
     Ok((step, search_opts))
 }
@@ -104,7 +110,7 @@ pub fn fr_finish<'a, C: 'a>(
             x
         })
         .collect_vec();
-    Step::new(step_variants, "finish")
+    Step::new(step_variants, "finish", true)
 }
 
 
@@ -137,7 +143,7 @@ pub fn fr_finish_leave_slice<'a, C: 'a>(
             x
         })
         .collect_vec();
-    Step::new(step_variants, "finish")
+    Step::new(step_variants, "finish", true)
 }
 
 const fn finish_transitions() -> [TransitionTable; 18] {

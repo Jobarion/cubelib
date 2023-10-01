@@ -6,7 +6,7 @@ use crate::algs::{Algorithm, Solution};
 use crate::coords::coord::Coord;
 use crate::cube::{ApplyAlgorithm, Invertible, Transformation, Turnable};
 use crate::cube::Turn::Half;
-use crate::df_search::{dfs_iter, NissType};
+use crate::df_search::{dfs_iter, NissSwitchType};
 use crate::lookup_table::PruningTable;
 use crate::moveset::MoveSet;
 use crate::stream;
@@ -14,10 +14,9 @@ use crate::stream;
 
 #[derive(Clone, Copy, Debug)]
 pub struct DefaultStepOptions {
-    pub niss_type: NissType,
+    pub niss_type: NissSwitchType,
     pub min_moves: u8,
     pub max_moves: u8,
-    pub step_quality: Option<usize>,
     pub step_limit: Option<usize>,
 }
 
@@ -44,7 +43,7 @@ pub trait PostStepCheck<CubeParam> {
 pub struct AnyPostStepCheck;
 
 impl <CubeParam> PostStepCheck<CubeParam> for AnyPostStepCheck {
-    fn is_solution_admissible(&self, cube: &CubeParam, alg: &Algorithm) -> bool {
+    fn is_solution_admissible(&self, _: &CubeParam, _: &Algorithm) -> bool {
         true
     }
 }
@@ -88,7 +87,7 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Co
         HC: for<'x> From<&'x CubeParam>,
         PC: for<'x> From<&'x CubeParam>, {
 
-    fn move_set(&self, cube: &CubeParam, depth_left: u8) -> &'_ MoveSet {
+    fn move_set(&self, _: &CubeParam, _: u8) -> &'_ MoveSet {
         self.move_set
     }
 
@@ -96,7 +95,7 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Co
         &self.pre_trans
     }
 
-    fn heuristic(&self, cube: &CubeParam, depth_left: u8, can_niss: bool) -> u8 {
+    fn heuristic(&self, cube: &CubeParam, _: u8, can_niss: bool) -> u8 {
         let coord = HC::from(cube);
         let val = self.table.get(coord).expect("Expected table to be filled");
         if can_niss && val != 0 {
@@ -142,6 +141,7 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Co
 
 pub struct Step<'a, CubeParam> {
     step_variants: Vec<Box<dyn StepVariant<CubeParam> + 'a>>,
+    is_major: bool,
     name: &'static str,
 }
 
@@ -151,29 +151,9 @@ impl<'a, CubeParam: 'a>
     pub fn new(
         step_variants: Vec<Box<dyn StepVariant<CubeParam> + 'a>>,
         name: &'static str,
+        is_major: bool,
     ) -> Self {
-        Step { step_variants, name }
-    }
-
-    pub fn new_basic<const C_SIZE: usize, CoordParam: Coord<C_SIZE> + 'a>(
-        name: &'static str,
-        moves: MoveSet,
-    ) -> Self
-    where
-        CoordParam: for<'x> From<&'x CubeParam>,
-    {
-        let variant: NoHeuristicStep<C_SIZE, CoordParam, CubeParam> =
-            NoHeuristicStep {
-                move_set: moves,
-                trans: vec![],
-                name,
-                _c: PhantomData::default(),
-                _cube: PhantomData::default(),
-            };
-        Step {
-            step_variants: vec![Box::new(variant)],
-            name: "unknown",
-        }
+        Step { step_variants, name, is_major }
     }
 
     pub fn name(&self) -> &'static str {
@@ -183,80 +163,6 @@ impl<'a, CubeParam: 'a>
     pub fn is_half_turn_invariant(&self) -> bool {
         self.step_variants.iter()
             .any(|sv|sv.is_half_turn_invariant())
-    }
-}
-
-struct NoHeuristicStep<
-    const C_SIZE: usize,
-    CoordParam: Coord<C_SIZE>,
-    CubeParam,
-> where
-    CoordParam: for<'x> From<&'x CubeParam>,
-{
-    move_set: MoveSet,
-    trans: Vec<Transformation>,
-    name: &'static str,
-    _c: PhantomData<CoordParam>,
-    _cube: PhantomData<CubeParam>,
-}
-
-impl<
-        const C_SIZE: usize,
-        CoordParam: Coord<C_SIZE>,
-        CubeParam,
-    > PreStepCheck<CubeParam>
-    for NoHeuristicStep<C_SIZE, CoordParam, CubeParam>
-where
-    CoordParam: for<'x> From<&'x CubeParam>,
-{
-    fn is_cube_ready(&self, _cube: &CubeParam) -> bool {
-        true
-    }
-}
-
-impl<
-    const C_SIZE: usize,
-    CoordParam: Coord<C_SIZE>,
-    CubeParam,
-> PostStepCheck<CubeParam>
-for NoHeuristicStep<C_SIZE, CoordParam, CubeParam>
-    where
-        CoordParam: for<'x> From<&'x CubeParam>,
-{
-    fn is_solution_admissible(&self, cube: &CubeParam, alg: &Algorithm) -> bool {
-        true
-    }
-}
-
-impl<
-        const C_SIZE: usize,
-        CoordParam: Coord<C_SIZE>,
-        CubeParam,
-    > StepVariant<CubeParam>
-    for NoHeuristicStep<C_SIZE, CoordParam, CubeParam>
-where
-    CoordParam: for<'x> From<&'x CubeParam>,
-{
-    fn move_set(&self, cube: &CubeParam, depth_left: u8) -> &'_ MoveSet {
-        &self.move_set
-    }
-
-    fn pre_step_trans(&self) -> &'_ Vec<Transformation> {
-        &self.trans
-    }
-
-    fn heuristic(&self, cube: &CubeParam, depth_left: u8, can_niss: bool) -> u8 {
-        min(CoordParam::from(cube).val(), 1) as u8
-    }
-
-    fn name(&self) -> &str {
-        self.name
-    }
-
-    fn is_half_turn_invariant(&self) -> bool {
-        !self.move_set.st_moves
-            .iter()
-            .any(|m| m.1 == Half)
     }
 }
 
@@ -292,8 +198,9 @@ pub fn next_step<
             } else {
                 let mut cube = cube.clone();
                 let alg: Algorithm = solution.clone().into();
+                let ends_on_normal = solution.ends_on_normal();
                 cube.apply_alg(&alg);
-                let stage_opts = DefaultStepOptions::new(depth, depth, search_opts.niss_type, search_opts.step_limit, search_opts.step_quality);
+                let stage_opts = DefaultStepOptions::new(depth, depth, search_opts.niss_type, search_opts.step_limit);
                 let previous_normal = alg.normal_moves.last().cloned();
                 let previous_inverse = alg.inverse_moves.last().cloned();
 
@@ -308,22 +215,19 @@ pub fn next_step<
                             stage_opts.clone(),
                             previous_normal,
                             previous_inverse,
+                            ends_on_normal,
                         )
                         .map(|alg| (step_variant.name(), alg))
                     })
-                    .flat_map(|(name, iter)| iter.map(move |alg| (name, alg)));
-                let values: Box<dyn Iterator<Item = (&str, Algorithm)>> = if depth == 0 {
-                    Box::new(values.take(100))
-                } else if let Some(step_quality) = search_opts.step_quality {
-                    Box::new(values.take(step_quality))
-                } else {
-                    Box::new(values)
-                };
-                Box::new(values.map(move |(step_name, step_alg)| {
+                    .flat_map(|(name, iter)| iter.map(move |alg| (name, alg)))
+                    .map(move |(step_name, step_alg)| {
                         let mut sol = solution.clone();
-                        sol.add_step(step_name.to_string(), step_alg);
+                        if step.is_major || step_alg.len() > 0 {
+                            sol.add_step(step_name.to_string(), step_alg);
+                        }
                         sol
-                    }))
+                    });
+                Box::new(values)
             };
         result
     })

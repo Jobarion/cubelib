@@ -167,11 +167,12 @@ impl Turnable for Algorithm {
 
 pub struct Solution {
     steps: Vec<(String, Algorithm)>,
+    ends_on_normal: bool,
 }
 
 impl Solution {
     pub fn new() -> Solution {
-        Solution { steps: vec![] }
+        Solution { steps: vec![], ends_on_normal: true }
     }
 
     pub fn len(&self) -> usize {
@@ -179,7 +180,19 @@ impl Solution {
     }
 
     pub fn add_step(&mut self, name: String, alg: Algorithm) {
+        if alg.normal_moves.is_empty() {
+            self.ends_on_normal = false;
+        }
+        else if alg.inverse_moves.is_empty() {
+            self.ends_on_normal = true;
+        } else {
+            self.ends_on_normal = !self.ends_on_normal;
+        }
         self.steps.push((name, alg));
+    }
+
+    pub fn ends_on_normal(&self) -> bool {
+        self.ends_on_normal
     }
 
     pub fn get_steps(&self) -> &'_ Vec<(String, Algorithm)> {
@@ -201,6 +214,7 @@ impl Clone for Solution {
     fn clone(&self) -> Self {
         Solution {
             steps: self.steps.clone(),
+            ends_on_normal: self.ends_on_normal
         }
     }
 }
@@ -243,6 +257,8 @@ impl Display for Solution {
             while i < self.steps.len() - 1 {
                 let next = self.steps.get(i + 1).unwrap();
                 if next.1.len() == 0 {
+                    // name.push_str(", ");
+                    // name.push_str(next.0.as_str());
                     name = next.0.clone();
                 } else {
                     break;

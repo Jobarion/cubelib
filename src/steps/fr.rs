@@ -11,7 +11,7 @@ use crate::coords;
 use crate::coords::coord::Coord;
 use crate::coords::fr::{FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::coords::htr::PureHTRDRUDCoord;
-use crate::df_search::{NissType};
+use crate::df_search::{NissSwitchType};
 
 pub const FR_UD_STATE_CHANGE_MOVES: &[Move] = &[
     Move(Up, Half),
@@ -53,9 +53,12 @@ pub fn from_step_config<'a, C: 'a>(table: &'a FRPruningTable, config: StepConfig
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(10),
-        config.niss.unwrap_or(NissType::Before),
-        config.quality,
-        config.solution_count
+        config.niss.unwrap_or(NissSwitchType::Before),
+        if config.quality == 0 {
+            None
+        } else {
+            config.step_limit.or(Some(config.quality * 1))
+        }
     );
     Ok((step, search_opts))
 }
@@ -80,9 +83,12 @@ pub fn from_step_config_no_slice<'a, C: 'a>(table: &'a FRLeaveSlicePruningTable,
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(10),
-        config.niss.unwrap_or(NissType::Before),
-        config.quality,
-        config.solution_count
+        config.niss.unwrap_or(NissSwitchType::Before),
+        if config.quality == 0 {
+            None
+        } else {
+            config.step_limit.or(Some(config.quality * 1))
+        }
     );
     Ok((step, search_opts))
 }
@@ -126,7 +132,7 @@ pub fn fr_no_slice<'a, C: 'a>(
             x
         })
         .collect_vec();
-    Step::new(step_variants, "fr")
+    Step::new(step_variants, "fr", true)
 }
 
 pub fn fr<'a, C: 'a>(
@@ -148,7 +154,7 @@ pub fn fr<'a, C: 'a>(
             x
         })
         .collect_vec();
-    Step::new(step_variants, "fr")
+    Step::new(step_variants, "fr", true)
 }
 
 const fn fr_transitions(axis_face: Face) -> [TransitionTable; 18] {

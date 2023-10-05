@@ -1,13 +1,12 @@
 #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
 pub mod wasm32_cubie {
-    use crate::alignment::AlignedU8;
     use crate::cube::{Axis, Corner, Edge, Face, Turn};
     use crate::cubie::{CornerCubieCube, EdgeCubieCube};
     use std::arch::wasm32;
     use std::arch::wasm32::{
-        u16x8_shr, u32x4, u32x4_shl, u32x4_shr, u64x2_extract_lane, u8x16, u8x16_add, u8x16_shl,
-        u8x16_shuffle, u8x16_sub, v128, v128_and, v128_andnot, v128_load, v128_or, v128_store,
-        v128_xor,
+        u16x8_shr, u32x4_shl, u32x4_shr, u64x2_extract_lane, u8x16, u8x16_add, u8x16_shl,
+        u8x16_sub, v128, v128_and, v128_andnot, v128_load, v128_or, v128_store,
+        v128_xor, u8x16_swizzle,
     };
 
     pub(crate) struct WASM32EdgeCubieCube;
@@ -54,30 +53,12 @@ pub mod wasm32_cubie {
 
         const TURN_EO_FLIP: [v128; 6] = unsafe {
             [
-                wasm32::u8x16(
-                    0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0,
-                ), //U
-                wasm32::u8x16(
-                    0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0,
-                    0, 0,
-                ), //D
-                wasm32::u8x16(
-                    0, 0, 0b00000100, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0,
-                    0, 0,
-                ), //F
-                wasm32::u8x16(
-                    0b00000100, 0, 0, 0, 0, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0,
-                    0, 0,
-                ), //B
-                wasm32::u8x16(
-                    0, 0, 0, 0b00000010, 0, 0b00000010, 0, 0b00000010, 0, 0, 0, 0b00000010, 0, 0,
-                    0, 0,
-                ), //L
-                wasm32::u8x16(
-                    0, 0b00000010, 0, 0, 0b00000010, 0, 0b00000010, 0, 0, 0b00000010, 0, 0, 0, 0,
-                    0, 0,
-                ), //R
+                wasm32::u8x16(0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ), //U
+                wasm32::u8x16(0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, ), //D
+                wasm32::u8x16(0, 0, 0b00000100, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, 0, 0, ), //F
+                wasm32::u8x16(0b00000100, 0, 0, 0, 0, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, ), //B
+                wasm32::u8x16(0, 0, 0, 0b00000010, 0, 0b00000010, 0, 0b00000010, 0, 0, 0, 0b00000010, 0, 0, 0, 0, ), //L
+                wasm32::u8x16(0, 0b00000010, 0, 0, 0b00000010, 0, 0b00000010, 0, 0, 0b00000010, 0, 0, 0, 0, 0, 0, ), //R
             ]
         };
 
@@ -126,7 +107,7 @@ pub mod wasm32_cubie {
 
         pub(crate) fn new_solved() -> EdgeCubieCube {
             EdgeCubieCube(u8x16_shl(
-                u8x16(0, 0, 0, 0, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0),
+                u8x16(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 0, 0, 0),
                 4,
             ))
         }
@@ -161,7 +142,7 @@ pub mod wasm32_cubie {
         }
 
         pub(crate) fn turn(cube: &mut EdgeCubieCube, face: Face, turn_type: Turn) {
-            cube.0 = u8x16_shuffle(
+            cube.0 = u8x16_swizzle(
                 cube.0,
                 Self::TURN_EDGE_SHUFFLE[face as usize][turn_type as usize],
             );
@@ -171,21 +152,21 @@ pub mod wasm32_cubie {
         }
 
         pub(crate) fn transform(cube: &mut EdgeCubieCube, axis: Axis, turn_type: Turn) {
-            let edges_translated = u8x16_shuffle(
+            let edges_translated = u8x16_swizzle(
                 cube.0,
                 Self::TRANSFORMATION_EP_SHUFFLE[axis as usize][turn_type as usize],
             );
             let ep = u32x4_shl(v128_and(edges_translated, u8x16set1(0xF0)), 4);
             let eo = v128_and(edges_translated, u8x16set1(0b00001110));
             let ep_translated = u32x4_shl(
-                u8x16_shuffle(
+                u8x16_swizzle(
                     Self::TRANSFORMATION_EP_SHUFFLE[axis as usize][turn_type.invert() as usize],
                     ep,
                 ),
                 4,
             );
             let eo = if turn_type != Turn::Half {
-                u8x16_shuffle(Self::TRANSFORMATION_EO_MAP[axis], eo)
+                u8x16_swizzle(Self::TRANSFORMATION_EO_MAP[axis], eo)
             } else {
                 eo
             };
@@ -210,10 +191,10 @@ pub mod wasm32_cubie {
 
             //Splice together the edge permutation, and the EO of the edges on the inverse (see niss prediction to see how this works)
             let ep = v128_and(
-                u8x16_shuffle(u8x16_shuffle(cube.0, edge_shuffle_mask), edge_shuffle_mask),
+                u8x16_swizzle(u8x16_swizzle(cube.0, edge_shuffle_mask), edge_shuffle_mask),
                 u8x16set1(0xF0),
             );
-            let eo_shuffle = u8x16_shuffle(cube.0, u32x4_shr(ep, 4));
+            let eo_shuffle = u8x16_swizzle(cube.0, u32x4_shr(ep, 4));
             let eo = v128_and(eo_shuffle, u8x16set1(0b1110));
 
             cube.0 = v128_or(ep, eo);
@@ -225,131 +206,61 @@ pub mod wasm32_cubie {
     impl WASM32CornerCubieCube {
         const TURN_CORNER_SHUFFLE: [[v128; 3]; 6] = [
             [
-                u8x16(
-                    3, 0, 1, 2, 4, 5, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //U
-                u8x16(
-                    2, 3, 0, 1, 4, 5, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //U2
-                u8x16(
-                    1, 2, 3, 0, 4, 5, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //U'
+                u8x16(3, 0, 1, 2, 4, 5, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //U
+                u8x16(2, 3, 0, 1, 4, 5, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //U2
+                u8x16(1, 2, 3, 0, 4, 5, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //U'
             ],
             [
-                u8x16(
-                    0, 1, 2, 3, 7, 4, 5, 6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //D
-                u8x16(
-                    0, 1, 2, 3, 6, 7, 4, 5, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //D2
-                u8x16(
-                    0, 1, 2, 3, 5, 6, 7, 4, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //D'
+                u8x16(0, 1, 2, 3, 7, 4, 5, 6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,), //D
+                u8x16(0, 1, 2, 3, 6, 7, 4, 5, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,), //D2
+                u8x16(0, 1, 2, 3, 5, 6, 7, 4, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,), //D'
             ],
             [
-                u8x16(
-                    0, 1, 3, 4, 5, 2, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //F
-                u8x16(
-                    0, 1, 4, 5, 2, 3, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //F2
-                u8x16(
-                    0, 1, 5, 2, 3, 4, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //F'
+                u8x16(0, 1, 3, 4, 5, 2, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,), //F
+                u8x16(0, 1, 4, 5, 2, 3, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,), //F2
+                u8x16(0, 1, 5, 2, 3, 4, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,), //F'
             ],
             [
-                u8x16(
-                    1, 6, 2, 3, 4, 5, 7, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //B
-                u8x16(
-                    6, 7, 2, 3, 4, 5, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //B2
-                u8x16(
-                    7, 0, 2, 3, 4, 5, 1, 6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //B'
+                u8x16(1, 6, 2, 3, 4, 5, 7, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,), //B
+                u8x16(6, 7, 2, 3, 4, 5, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //B2
+                u8x16(7, 0, 2, 3, 4, 5, 1, 6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //B'
             ],
             [
-                u8x16(
-                    7, 1, 2, 0, 3, 5, 6, 4, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //L
-                u8x16(
-                    4, 1, 2, 7, 0, 5, 6, 3, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //L2
-                u8x16(
-                    3, 1, 2, 4, 7, 5, 6, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //L'
+                u8x16(7, 1, 2, 0, 3, 5, 6, 4, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //L
+                u8x16(4, 1, 2, 7, 0, 5, 6, 3, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //L2
+                u8x16(3, 1, 2, 4, 7, 5, 6, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //L'
             ],
             [
-                u8x16(
-                    0, 2, 5, 3, 4, 6, 1, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //R
-                u8x16(
-                    0, 5, 6, 3, 4, 1, 2, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //R2
-                u8x16(
-                    0, 6, 1, 3, 4, 2, 5, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //R'
+                u8x16(0, 2, 5, 3, 4, 6, 1, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //R
+                u8x16(0, 5, 6, 3, 4, 1, 2, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //R2
+                u8x16(0, 6, 1, 3, 4, 2, 5, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //R'
             ],
         ];
 
         const TRANSFORMATION_CP_SHUFFLE: [[v128; 3]; 3] = [
             [
-                u8x16(
-                    3, 2, 5, 4, 7, 6, 1, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //x
-                u8x16(
-                    4, 5, 6, 7, 0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //x2
-                u8x16(
-                    7, 6, 1, 0, 3, 2, 5, 4, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //x'
+                u8x16(3, 2, 5, 4, 7, 6, 1, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //x
+                u8x16(4, 5, 6, 7, 0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //x2
+                u8x16(7, 6, 1, 0, 3, 2, 5, 4, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //x'
             ],
             [
-                u8x16(
-                    3, 0, 1, 2, 5, 6, 7, 4, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //y
-                u8x16(
-                    2, 3, 0, 1, 6, 7, 4, 5, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //y2
-                u8x16(
-                    1, 2, 3, 0, 7, 4, 5, 6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //y'
+                u8x16(3, 0, 1, 2, 5, 6, 7, 4, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //y
+                u8x16(2, 3, 0, 1, 6, 7, 4, 5, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //y2
+                u8x16(1, 2, 3, 0, 7, 4, 5, 6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //y'
             ],
             [
-                u8x16(
-                    7, 0, 3, 4, 5, 2, 1, 6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //F
-                u8x16(
-                    6, 7, 4, 5, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //F2
-                u8x16(
-                    1, 6, 5, 2, 3, 4, 7, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                ), //F'
+                u8x16(7, 0, 3, 4, 5, 2, 1, 6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //F
+                u8x16(6, 7, 4, 5, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //F2
+                u8x16(1, 6, 5, 2, 3, 4, 7, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //F'
             ],
         ];
-
-        //CPOO
-        // const CO_MAP: __m128i = u8x16(0b00, 0b01, 0b10, 0xFF, 0b01, 0b00, 0b10, 0xFF, 0b10, 0b01, 0b00, 0xFF, 0b00, 0b01, 0b10, 0xFF); //z
-
         const TRANSFORMATION_CO_MAP: [v128; 3] = [
-            u8x16(
-                0b00, 0b01, 0b10, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b00, 0b01,
-                0b10, 0xFF,
-            ), //z
-            u8x16(
-                0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01,
-                0b10, 0xFF,
-            ), //y
-            u8x16(
-                0b00, 0b01, 0b10, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b00, 0b01,
-                0b10, 0xFF,
-            ), //x
+            u8x16(0b00, 0b01, 0b10, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b00, 0b01, 0b10, 0xFF, ), //z
+            u8x16(0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, ), //y
+            u8x16(0b00, 0b01, 0b10, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b00, 0b01, 0b10, 0xFF, ), //x
         ];
 
-        const CO_OVERFLOW_MASK: v128 = u8x16(
-            0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100,
-            0b00000100, 0, 0, 0, 0, 0, 0, 0, 0,
-        );
+        const CO_OVERFLOW_MASK: v128 = u8x16(0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0, 0, 0, 0, 0, 0, 0, 0, );
 
         const TURN_CO_CHANGE: [v128; 6] = [
             u8x16(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0), //U
@@ -363,7 +274,7 @@ pub mod wasm32_cubie {
         #[inline]
         pub(crate) fn new_solved() -> CornerCubieCube {
             CornerCubieCube(u8x16_shl(
-                u8x16(0, 0, 0, 0, 0, 0, 0, 0, 7, 6, 5, 4, 3, 2, 1, 0),
+                u8x16(0, 1, 2, 3, 4, 5, 6, 7, 0, 0, 0, 0, 0, 0, 0, 0),
                 5,
             ))
         }
@@ -393,7 +304,7 @@ pub mod wasm32_cubie {
 
         #[inline]
         pub(crate) fn turn(cube: &mut CornerCubieCube, face: Face, turn_type: Turn) {
-            cube.0 = u8x16_shuffle(
+            cube.0 = u8x16_swizzle(
                 cube.0,
                 Self::TURN_CORNER_SHUFFLE[face as usize][turn_type as usize],
             );
@@ -402,7 +313,7 @@ pub mod wasm32_cubie {
                 //This code either subtracts 1 if there is no overflow (because we added 1 too much before), or 4, because this gives us the original addition mod 3.
                 let corners_tmp = u8x16_add(cube.0, Self::TURN_CO_CHANGE[face as usize]);
                 let overflow_bits = v128_and(corners_tmp, Self::CO_OVERFLOW_MASK);
-                let not_overflow = u16x8_shr(v128_andnot(corners_tmp, Self::CO_OVERFLOW_MASK), 2);
+                let not_overflow = u16x8_shr(v128_andnot(Self::CO_OVERFLOW_MASK, corners_tmp), 2);
                 let overflow_sub = v128_or(overflow_bits, not_overflow);
                 cube.0 = u8x16_sub(corners_tmp, overflow_sub);
             }
@@ -410,14 +321,14 @@ pub mod wasm32_cubie {
 
         #[inline]
         pub(crate) fn transform(cube: &mut CornerCubieCube, axis: Axis, turn_type: Turn) {
-            let corners_translated = u8x16_shuffle(
+            let corners_translated = u8x16_swizzle(
                 cube.0,
                 Self::TRANSFORMATION_CP_SHUFFLE[axis as usize][turn_type as usize],
             );
             let cp = u32x4_shr(v128_and(corners_translated, u8x16set1(0b11100000)), 5);
             let co = v128_and(corners_translated, u8x16set1(0b00000011));
             let cp_translated = u32x4_shl(
-                u8x16_shuffle(
+                u8x16_swizzle(
                     Self::TRANSFORMATION_CP_SHUFFLE[axis as usize][turn_type.invert() as usize],
                     cp,
                 ),
@@ -434,7 +345,7 @@ pub mod wasm32_cubie {
                         0, 0, 0, 0, 0, 0, 0, 0, 0b1000, 0, 0b1000, 0, 0b1000, 0, 0b1000, 0,
                     ),
                 );
-                u8x16_shuffle(Self::TRANSFORMATION_CO_MAP[axis], co_id)
+                u8x16_swizzle(Self::TRANSFORMATION_CO_MAP[axis], co_id)
             } else {
                 co
             };
@@ -456,13 +367,13 @@ pub mod wasm32_cubie {
             //Splice together the corner permutation, and the CO of the corners on the inverse (see niss prediction to see how this works)
             //Also switch CO 1 <-> 2,  CO 0 stays the same
             let cp = v128_and(
-                u8x16_shuffle(
-                    u8x16_shuffle(cube.0, corner_shuffle_mask),
+                u8x16_swizzle(
+                    u8x16_swizzle(cube.0, corner_shuffle_mask),
                     corner_shuffle_mask,
                 ),
                 u8x16set1(0b11100000),
             );
-            let co_shuffle = u8x16_shuffle(cube.0, u32x4_shr(cp, 5));
+            let co_shuffle = u8x16_swizzle(cube.0, u32x4_shr(cp, 5));
             let tmp = v128_and(u8x16_add(co_shuffle, u8x16set1(1)), u8x16set1(2));
             let co_flip_mask = v128_or(tmp, u32x4_shr(tmp, 1));
             let co = v128_and(v128_xor(co_shuffle, co_flip_mask), u8x16set1(7));

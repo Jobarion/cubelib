@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::algs::Algorithm;
-use crate::cli::StepConfig;
+use crate::steps::step::StepConfig;
 use crate::coords::coord::Coord;
 use crate::coords::eo::EOCoordFB;
 use crate::cube::Face::*;
@@ -66,7 +66,7 @@ pub fn from_step_config<'a, C: 'a + EOCount>(config: StepConfig) -> Result<(Step
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(3),
-        config.niss.unwrap_or(NissSwitchType::Before),
+        config.niss.unwrap_or(NissSwitchType::None),
         if config.quality == 0 {
             None
         } else {

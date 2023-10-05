@@ -4,7 +4,7 @@ use std::vec;
 use itertools::Itertools;
 use log::{debug, error, warn};
 use crate::algs::Algorithm;
-use crate::cli::StepConfig;
+use crate::steps::step::StepConfig;
 use crate::coords;
 
 use crate::coords::dr::DRUDEOFBCoord;

@@ -6,7 +6,7 @@ use crate::moveset::{MoveSet, TransitionTable};
 use crate::steps::step::{DefaultPruningTableStep, PreStepCheck, DefaultStepOptions, Step, StepVariant, AnyPostStepCheck};
 use itertools::Itertools;
 use std::fmt::{Debug};
-use crate::cli::StepConfig;
+use crate::steps::step::StepConfig;
 use crate::coords;
 use crate::coords::coord::Coord;
 use crate::coords::fr::{FRUDNoSliceCoord, FRUDWithSliceCoord};

@@ -7,8 +7,12 @@ edition = "2021"
 itertools = "0.11.0"
 log = "0.4.20"
 simple_logger = "4.2.0"
-clap = { version = "4.3.15", features = ["derive"] }
-regex = "1.9.5"
+#web-sys = "0.3.64"
 
-#[lib]
-#crate-type = ["cdylib", "rlib"]
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["cube"]
+cube = []
+solver = ["cube"]

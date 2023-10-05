@@ -9,7 +9,6 @@ use crate::cube::{
     Color, Corner, CornerPosition, Cube, Edge, EdgePosition, Invertible, Move, NewSolved,
     Transformation, Turnable,
 };
-use crate::steps::eo::EOCount;
 
 //One byte per edge, 4 bits for id, 3 bits for eo (UD/FB/RL), 1 bit free
 //UB UR UF UL FR FL BR BL DF DR DB DL
@@ -17,7 +16,7 @@ use crate::steps::eo::EOCount;
 pub struct EdgeCubieCube(
     #[cfg(target_feature = "avx2")] pub(crate) core::arch::x86_64::__m128i,
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    pub(crate)  core::arch::wasm32::v128,
+    pub core::arch::wasm32::v128,
 );
 
 impl EdgeCubieCube {
@@ -37,7 +36,7 @@ impl EdgeCubieCube {
 
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     pub fn get_edges(&self) -> [Edge; 12] {
-        wasm_cubie::WASM32EdgeCubieCube::get_edges(self)
+        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::get_edges(self)
     }
 
     #[cfg(target_feature = "avx2")]
@@ -47,7 +46,7 @@ impl EdgeCubieCube {
 
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     pub fn get_edges_raw(&self) -> [u64; 2] {
-        wasm_cubie::WASM32EdgeCubieCube::get_edges_raw(self)
+        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::get_edges_raw(self)
     }
 }
 
@@ -65,7 +64,7 @@ impl Turnable for EdgeCubieCube {
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn turn(&mut self, m: Move) {
         let Move(face, turn) = m;
-        wasm_cubie::WASM32EdgeCubieCube::turn(self, face, turn)
+        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::turn(self, face, turn)
     }
 
     #[inline]
@@ -81,7 +80,7 @@ impl Turnable for EdgeCubieCube {
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn transform(&mut self, t: Transformation) {
         let Transformation(axis, turn) = t;
-        wasm_cubie::WASM32EdgeCubieCube::transform(self, axis, turn)
+        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::transform(self, axis, turn)
     }
 }
 
@@ -97,7 +96,7 @@ impl Invertible for EdgeCubieCube {
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn invert(&mut self) {
-        wasm_cubie::WASM32EdgeCubieCube::invert(self)
+        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::invert(self)
     }
 }
 
@@ -111,7 +110,7 @@ impl NewSolved for EdgeCubieCube {
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn new_solved() -> Self {
-        wasm_cubie::WASM32EdgeCubieCube::new_solved()
+        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::new_solved()
     }
 }
 
@@ -121,7 +120,7 @@ impl NewSolved for EdgeCubieCube {
 pub struct CornerCubieCube(
     #[cfg(target_feature = "avx2")] pub(crate) core::arch::x86_64::__m128i,
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    pub(crate)  core::arch::wasm32::v128,
+    pub core::arch::wasm32::v128,
 );
 
 impl CornerCubieCube {
@@ -139,7 +138,7 @@ impl CornerCubieCube {
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn get_corners(&self) -> [Corner; 8] {
-        wasm_cubie::WASM32CornerCubieCube::get_corners(self)
+        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::get_corners(self)
     }
 
     #[inline]
@@ -151,7 +150,7 @@ impl CornerCubieCube {
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     pub fn get_corners_raw(&self) -> u64 {
-        wasm_cubie::WASM32CornerCubieCube::get_corners_raw(self)
+        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::get_corners_raw(self)
     }
 }
 
@@ -169,7 +168,7 @@ impl Turnable for CornerCubieCube {
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn turn(&mut self, m: Move) {
         let Move(face, turn) = m;
-        wasm_cubie::WASM32CornerCubieCube::turn(self, face, turn);
+        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::turn(self, face, turn);
     }
 
     #[inline]
@@ -185,7 +184,7 @@ impl Turnable for CornerCubieCube {
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn transform(&mut self, t: Transformation) {
         let Transformation(axis, turn) = t;
-        wasm_cubie::WASM32CornerCubieCube::transform(self, axis, turn);
+        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::transform(self, axis, turn);
     }
 }
 
@@ -201,7 +200,7 @@ impl Invertible for CornerCubieCube {
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn invert(&mut self) {
-        wasm_cubie::WASM32CornerCubieCube::invert(self);
+        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::invert(self);
     }
 }
 
@@ -215,7 +214,7 @@ impl NewSolved for CornerCubieCube {
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn new_solved() -> Self {
-        wasm_cubie::WASM32CornerCubieCube::new_solved()
+        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::new_solved()
     }
 }
 
@@ -231,6 +230,7 @@ impl CubieCube {
         CubieCube { edges, corners }
     }
 
+    #[cfg(target_arch = "avx2")]
     pub fn count_bad_edges(&self) -> (u8, u8, u8) {
         self.edges.count_bad_edges()
     }

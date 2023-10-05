@@ -47,7 +47,7 @@ impl COCountUD for CornerCubieCube {
 
 #[cfg(target_feature = "avx2")]
 mod avx2 {
-    use std::arch::x86_64::{_mm_and_si128, _mm_cmpeq_epi8, _mm_cmpgt_epi8, _mm_movemask_epi8, _mm_set1_epi8};
+    use std::arch::x86_64::{_mm_and_si128, _mm_cmpgt_epi8, _mm_movemask_epi8, _mm_set1_epi8};
     use crate::cubie::CornerCubieCube;
 
     pub unsafe fn co_ud(cube: &CornerCubieCube) -> u8 {

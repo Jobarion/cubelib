@@ -3,7 +3,8 @@ use std::str::FromStr;
 use clap::Parser;
 use itertools::Itertools;
 use regex::Regex;
-use crate::df_search::{NissSwitchType};
+use cubelib::df_search::NissSwitchType;
+use cubelib::steps::step::{StepConfig, StepKind};
 
 #[derive(Parser)]
 #[command(name = "Cubelib")]
@@ -30,64 +31,9 @@ pub struct Cli {
     pub solution_count: Option<usize>,
     #[arg(short = 'q', long = "quality", default_value_t = 100, help = "Influences the maximum number of solutions calculated per step. Set to 0 for infinite quality")]
     pub quality: usize,
-    #[arg(long = "steps", short = 's', default_value = "EO > RZP > DR[triggers=R,RU2R,RU'R] > HTR > FR > FIN", help = "List of steps to perform")]
+    #[arg(long = "steps", short = 's', default_value = "EO > RZP > DR[triggers=RL] > HTR > FR > FIN", help = "List of steps to perform")]
     pub steps: String,
     pub scramble: String,
-}
-
-#[derive(Debug)]
-pub struct StepConfig {
-    pub kind: StepKind,
-    pub substeps: Option<Vec<String>>,
-    pub min: Option<u8>,
-    pub max: Option<u8>,
-    pub step_limit: Option<usize>,
-    pub quality: usize,
-    pub niss: Option<NissSwitchType>,
-    pub params: HashMap<String, String>,
-}
-
-impl StepConfig {
-    pub fn new(kind: StepKind) -> StepConfig {
-        StepConfig {
-            kind,
-            substeps: None,
-            min: None,
-            max: None,
-            step_limit: None,
-            niss: None,
-            quality: 100,
-            params: Default::default(),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum StepKind {
-    EO,
-    RZP,
-    DR,
-    HTR,
-    FR,
-    FRLS,
-    FIN
-}
-
-impl FromStr for StepKind {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "eo" => Ok(Self::EO),
-            "dr" => Ok(Self::DR),
-            "rzp" => Ok(Self::RZP),
-            "htr" => Ok(Self::HTR),
-            "fr" => Ok(Self::FR),
-            "frls" => Ok(Self::FRLS),
-            "finish" | "fin" => Ok(Self::FIN),
-            x=> Err(format!("Unknown step '{x}'"))
-        }
-    }
 }
 
 impl Cli {

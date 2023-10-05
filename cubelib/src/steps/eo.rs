@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::algs::Algorithm;
-use crate::cli::StepConfig;
+use crate::steps::step::StepConfig;
 use crate::coords::eo::EOCoordFB;
 use crate::cube::Face::*;
 use crate::cube::Turn::*;

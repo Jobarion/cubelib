@@ -1,7 +1,6 @@
-use std::cmp::min;
-use std::env::var;
+use std::collections::HashMap;
 use std::marker::PhantomData;
-
+use std::str::FromStr;
 use crate::algs::{Algorithm, Solution};
 use crate::coords::coord::Coord;
 use crate::cube::{ApplyAlgorithm, Invertible, Transformation, Turnable};
@@ -11,6 +10,62 @@ use crate::lookup_table::PruningTable;
 use crate::moveset::MoveSet;
 use crate::stream;
 
+
+
+#[derive(Debug)]
+pub struct StepConfig {
+    pub kind: StepKind,
+    pub substeps: Option<Vec<String>>,
+    pub min: Option<u8>,
+    pub max: Option<u8>,
+    pub step_limit: Option<usize>,
+    pub quality: usize,
+    pub niss: Option<NissSwitchType>,
+    pub params: HashMap<String, String>,
+}
+
+impl StepConfig {
+    pub fn new(kind: StepKind) -> StepConfig {
+        StepConfig {
+            kind,
+            substeps: None,
+            min: None,
+            max: None,
+            step_limit: None,
+            niss: None,
+            quality: 100,
+            params: Default::default(),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum StepKind {
+    EO,
+    RZP,
+    DR,
+    HTR,
+    FR,
+    FRLS,
+    FIN
+}
+
+impl FromStr for StepKind {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "eo" => Ok(Self::EO),
+            "dr" => Ok(Self::DR),
+            "rzp" => Ok(Self::RZP),
+            "htr" => Ok(Self::HTR),
+            "fr" => Ok(Self::FR),
+            "frls" => Ok(Self::FRLS),
+            "finish" | "fin" => Ok(Self::FIN),
+            x=> Err(format!("Unknown step '{x}'"))
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct DefaultStepOptions {

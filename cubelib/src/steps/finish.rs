@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use itertools::Itertools;
 
-use crate::cli::StepConfig;
+use crate::steps::step::StepConfig;
 use crate::coords;
 use crate::coords::finish::{FR_FINISH_SIZE, FRUDFinishCoord};
 use crate::coords::fr::{FRUDNoSliceCoord, FRUDWithSliceCoord};

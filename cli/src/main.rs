@@ -1,3 +1,5 @@
+mod cli;
+
 use std::str::FromStr;
 use std::time::Instant;
 use std::vec;
@@ -8,13 +10,13 @@ use log::{debug, error, info, LevelFilter, warn};
 use simple_logger::SimpleLogger;
 
 use cubelib::algs::{Algorithm, Solution};
-use cubelib::cli::{Cli, StepConfig, StepKind};
 use cubelib::cube::{ApplyAlgorithm, Axis, Invertible, Move, NewSolved, Transformation, Turnable};
 use cubelib::cubie::CubieCube;
 use cubelib::steps::{dr, dr_trigger, eo, finish, fr, htr, rzp, step};
-use cubelib::steps::step::{DefaultStepOptions, Step};
+use cubelib::steps::step::{DefaultStepOptions, Step, StepConfig, StepKind};
 use cubelib::stream;
 use cubelib::tables::PruningTables;
+use crate::cli::Cli;
 
 fn main() {
     let cli: Cli = Cli::parse();

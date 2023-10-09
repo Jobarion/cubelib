@@ -1,35 +1,27 @@
-use cubelib::cube::{Move, NewSolved, Turnable};
-use yew::prelude::*;
-use cubelib::cubie::CubieCube;
+use leptos::*;
+use leptos::WriteSignal;
+use wasm_bindgen::prelude::wasm_bindgen;
 
-#[function_component]
-fn App() -> Html {
-    let mut cube = CubieCube::new_solved();
-    cube.turn(Move::R);
-    cube.turn(Move::U);
-    cube.turn(Move::Ri);
-    cube.turn(Move::Ui);
-    let first_string = cube.to_string();
+#[component]
+fn App() -> impl IntoView {
+    let (count, set_count): (ReadSignal<u32>, WriteSignal<u32>) = create_signal(0);
 
-    let counter = use_state(|| 0);
-    let onclick = {
-        let counter = counter.clone();
-        move |_| {
-            let value = *counter + 1;
-            counter.set(value);
-        }
+    let view = view! {
+        <input type="range" min="0" max="6"></input>
     };
+    // web_sys::console::log_1(&format!("{:?}", view.get_attribute("id")).into());
+    // create_slider("slider", 1, 10, 3, 5);
+    // view.
 
-    html! {
-        <div>
-            <input onchange={onchange}/>
-            <button {onclick}>{ "+1" }</button>
-            <p>{ *counter }</p>
-            <div style="white-space: pre-wrap;">{ first_string }</div>
-        </div>
-    }
+    view
 }
 
 fn main() {
-    yew::Renderer::<App>::new().render();
+    leptos::mount_to_body(|| view! { <App/> })
+}
+
+#[wasm_bindgen(module = "/src/js/slider.js")]
+extern "C" {
+    fn create_slider(id: &str, min: u32, max: u32, min_selected: u32, max_selected: u32);
+    fn set_slider(id: &str, min: u32, max: u32);
 }

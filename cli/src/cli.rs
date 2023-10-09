@@ -31,7 +31,7 @@ pub struct Cli {
     pub solution_count: Option<usize>,
     #[arg(short = 'q', long = "quality", default_value_t = 100, help = "Influences the maximum number of solutions calculated per step. Set to 0 for infinite quality")]
     pub quality: usize,
-    #[arg(long = "steps", short = 's', default_value = "EO > RZP > DR[triggers=RL] > HTR > FR > FIN", help = "List of steps to perform")]
+    #[arg(long = "steps", short = 's', default_value = "EO > RZP > DR[triggers=R,RUR,RU'R,RU2R] > HTR > FR > FIN", help = "List of steps to perform")]
     pub steps: String,
     pub scramble: String,
 }

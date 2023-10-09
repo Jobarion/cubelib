@@ -50,6 +50,15 @@ impl EdgeCubieCube {
     }
 }
 
+impl PartialEq for EdgeCubieCube {
+
+    fn eq(&self, other: &Self) -> bool {
+        let a = self.get_edges_raw();
+        let b = other.get_edges_raw();
+        a.eq(&b)
+    }
+}
+
 impl Turnable for EdgeCubieCube {
     #[inline]
     #[cfg(target_feature = "avx2")]
@@ -154,6 +163,15 @@ impl CornerCubieCube {
     }
 }
 
+impl PartialEq for CornerCubieCube {
+
+    fn eq(&self, other: &Self) -> bool {
+        let a = self.get_corners_raw();
+        let b = other.get_corners_raw();
+        a.eq(&b)
+    }
+}
+
 impl Turnable for CornerCubieCube {
     #[inline]
     #[cfg(target_feature = "avx2")]
@@ -219,7 +237,7 @@ impl NewSolved for CornerCubieCube {
 }
 
 //http://kociemba.org/math/cubielevel.htm
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CubieCube {
     pub edges: EdgeCubieCube,
     pub corners: CornerCubieCube,

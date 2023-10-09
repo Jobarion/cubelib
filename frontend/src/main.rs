@@ -1,27 +1,36 @@
+mod cube;
+
+use cubelib::cubie::CubieCube;
+use cubelib::cube::NewSolved;
 use leptos::*;
-use leptos::WriteSignal;
-use wasm_bindgen::prelude::wasm_bindgen;
+use leptonic::prelude::*;
+use crate::cube::Cube;
+
 
 #[component]
-fn App() -> impl IntoView {
-    let (count, set_count): (ReadSignal<u32>, WriteSignal<u32>) = create_signal(0);
-
-    let view = view! {
-        <input type="range" min="0" max="6"></input>
-    };
-    // web_sys::console::log_1(&format!("{:?}", view.get_attribute("id")).into());
-    // create_slider("slider", 1, 10, 3, 5);
-    // view.
-
-    view
+fn App(cx: Scope) -> impl IntoView {
+    let (value_a, set_value_a) = create_signal(cx, 0.5);
+    let (value_b, set_value_b) = create_signal(cx, 0.75);
+    let (cube, set_cube) = create_signal(cx, CubieCube::new_solved());
+    view! {cx,
+        <Root default_theme=LeptonicTheme::default()>
+            <RangeSlider
+                value_a=value_a
+                value_b=value_b
+                set_value_a=set_value_a
+                set_value_b=set_value_b
+                min=0.0
+                max=10.0
+                step=1.0
+                popover=SliderPopover::Always
+                marks=SliderMarks::Automatic { create_names: false }
+                value_display=create_callback(cx, move |v| format!("{v:.0}"))
+            />
+            <Cube cube=cube/>
+        </Root>
+    }
 }
 
 fn main() {
-    leptos::mount_to_body(|| view! { <App/> })
-}
-
-#[wasm_bindgen(module = "/src/js/slider.js")]
-extern "C" {
-    fn create_slider(id: &str, min: u32, max: u32, min_selected: u32, max_selected: u32);
-    fn set_slider(id: &str, min: u32, max: u32);
+    leptos::mount_to_body(|cx| view! {cx, <App/> })
 }

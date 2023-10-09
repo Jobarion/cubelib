@@ -1,3 +1,8 @@
 [build]
+#ignore = [
+#    # These files are generated from our build.rs script, not excluding them would result in an endless restart-cycle!
+#    # Keep this list in sync with what the build script generates.
+#    "./generated",
+#]
 #public_url = "/cube/"
 #release = true

@@ -118,6 +118,7 @@ impl From<&[Edge; 12]> for EOCoordAll {
 #[cfg(target_feature = "avx2")]
 mod avx2 {
     use std::arch::x86_64::{_mm_and_si128, _mm_movemask_epi8, _mm_set_epi8, _mm_slli_epi64};
+
     use crate::coords::eo::{EOCoordAll, EOCoordFB, EOCoordLR, EOCoordUD};
     use crate::cubie::EdgeCubieCube;
 

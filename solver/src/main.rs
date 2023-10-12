@@ -2,15 +2,17 @@ use std::str::FromStr;
 use std::time::Instant;
 
 use clap::Parser;
-use cubelib::algs::{Algorithm, Solution};
+use cubelib::algs::Algorithm;
 use cubelib::cube::{ApplyAlgorithm, NewSolved};
 use cubelib::cubie::CubieCube;
+use cubelib::solution::Solution;
 use cubelib::steps::eo;
 use cubelib::stream;
 use cubelib::tables::PruningTables;
 use itertools::Itertools;
 use log::{debug, error, info, LevelFilter};
 use simple_logger::SimpleLogger;
+
 use cubelib_solver::solver::gen_tables;
 
 use crate::cli::Cli;

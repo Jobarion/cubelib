@@ -1,24 +1,26 @@
 use std::collections::HashMap;
-use cubelib::algs::{Algorithm, Solution};
+use cubelib::algs::{Algorithm};
 use std::str::FromStr;
-use cubelib_interface::{NissSwitchType, SolverRequest, SolverResponse, StepConfig, StepKind};
+use cubelib_interface::{SolverRequest, SolverResponse, StepConfig};
+use cubelib::defs::*;
+use cubelib::solution::*;
 use leptos::*;
 use leptonic::prelude::*;
 use reqwest::Error;
 use crate::step::{DRConfig, EOConfig, FinishConfig, FRConfig, HTRConfig, NissType, RZPConfig, VariantAxis};
 
 #[component]
-pub fn SolutionComponent(cx: Scope) -> impl IntoView {
+pub fn SolutionComponent() -> impl IntoView {
 
-    let scramble = Signal::derive(cx, move || Algorithm::from_str(use_context::<RwSignal<String>>(cx).expect("Scramble context required").get().as_str()).ok());
-    let eo = use_context::<EOConfig>(cx).expect("EO context required");
-    let rzp = use_context::<RZPConfig>(cx).expect("RZP context required");
-    let dr = use_context::<DRConfig>(cx).expect("DR context required");
-    let htr = use_context::<HTRConfig>(cx).expect("HTR context required");
-    let fr = use_context::<FRConfig>(cx).expect("FR context required");
-    let fin = use_context::<FinishConfig>(cx).expect("Finish context required");
+    let scramble = Signal::derive(move || Algorithm::from_str(use_context::<RwSignal<String>>().expect("Scramble context required").get().as_str()).ok());
+    let eo = use_context::<EOConfig>().expect("EO context required");
+    let rzp = use_context::<RZPConfig>().expect("RZP context required");
+    let dr = use_context::<DRConfig>().expect("DR context required");
+    let htr = use_context::<HTRConfig>().expect("HTR context required");
+    let fr = use_context::<FRConfig>().expect("FR context required");
+    let fin = use_context::<FinishConfig>().expect("Finish context required");
 
-    let request = Signal::derive(cx, move||{
+    let request = Signal::derive(move||{
         if let Some(alg) = scramble.get() {
             let eo = map_eo_config_to_dto(eo, StepKind::EO);
             let (rzp, dr) = map_rzp_dr_config_to_dtos(rzp, dr);
@@ -31,7 +33,7 @@ pub fn SolutionComponent(cx: Scope) -> impl IntoView {
                 .flat_map(|f|f)
                 .collect();
             Some(SolverRequest {
-                quality: Some(1000),
+                quality: Some(3000),
                 steps: steps.clone(),
                 scramble: alg.to_string()
             })
@@ -42,7 +44,7 @@ pub fn SolutionComponent(cx: Scope) -> impl IntoView {
 
 
     let solution_resource = create_resource(
-        cx,
+
         move ||request.get(),
         |req| async move {
             if let Some(req) = req {
@@ -51,21 +53,22 @@ pub fn SolutionComponent(cx: Scope) -> impl IntoView {
                 Err("This shouldn't render".to_string())
             }
     });
-    view! {cx,
-        <Suspense fallback=move || view! {cx, <Code>"Fetching solution..."</Code>}>
+    view! {
+        <Suspense fallback=move || view! {<Code>"Fetching solution..."</Code>}>
             {move|| {
-                let res = solution_resource.read(cx);
+                let res = solution_resource.read();
                 match res {
                     Some(Ok(res)) => {
                         let solution: Solution = res.into();
-                        view! {cx,
+                        let solution = solution.to_string();
+                        view! {
                             <Code>{format!("{solution}")}</Code>
                         }
                     }
-                    Some(Err(err)) => view! {cx,
+                    Some(Err(err)) => view! {
                         <Code>"Error fetching solution"</Code>
                     },
-                    None => view! {cx,
+                    None => view! {
                         <Code>"Unknown error"</Code>
                     }
                 }
@@ -75,13 +78,13 @@ pub fn SolutionComponent(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn SolutionSteps(cx: Scope, solution: Solution) -> impl IntoView {
+pub fn SolutionSteps(solution: Solution) -> impl IntoView {
 
 }
 
 async fn fetch_solution(request: SolverRequest) -> Result<SolverResponse, Error> {
     let client = reqwest::Client::new();
-    client.post("http://localhost:8081/solve")
+    client.post("https://joba.me/cubeapi/solve")
         .json(&request)
         .send()
         .await?

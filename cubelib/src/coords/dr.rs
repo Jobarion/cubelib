@@ -1,5 +1,5 @@
-use crate::coords::coord::{Coord};
-use crate::cube::{Corner, Edge, Invertible};
+use crate::coords::coord::Coord;
+use crate::cube::{Corner, Invertible};
 use crate::cubie::{CornerCubieCube, CubieCube, EdgeCubieCube};
 
 //UD corner orientation
@@ -93,10 +93,10 @@ impl From<&CubieCube> for DRUDEOFBCoord {
 
 #[cfg(target_feature = "avx2")]
 mod avx2 {
-    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_movemask_epi8, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_set_epi32, _mm_set_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_slli_epi64, _mm_slli_si128, _mm_srli_epi32, _mm_sub_epi8};
+    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_set_epi32, _mm_set_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_slli_si128, _mm_srli_epi32, _mm_sub_epi8};
+
     use crate::alignment::avx2::C;
     use crate::coords::dr::{COUDCoord, UDSliceUnsortedCoord};
-    use crate::coords::eo::{EOCoordAll, EOCoordFB, EOCoordLR, EOCoordUD};
     use crate::cubie::{CornerCubieCube, EdgeCubieCube};
 
     const UD_SLICE_BINOM_0_ARR: [u8; 16] = [

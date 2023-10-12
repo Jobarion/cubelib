@@ -1,9 +1,10 @@
 use std::vec;
 
-use cubelib::algs::Solution;
 use cubelib::cubie::CubieCube;
+use cubelib::defs::*;
+use cubelib::solution::Solution;
 use cubelib::steps::{dr, dr_trigger, eo, finish, fr, htr, rzp, step};
-use cubelib::steps::step::{DefaultStepOptions, Step, StepConfig, StepKind};
+use cubelib::steps::step::{DefaultStepOptions, Step, StepConfig};
 use cubelib::tables::PruningTables;
 use itertools::Itertools;
 use log::{debug, info, warn};
@@ -70,7 +71,7 @@ pub fn solve_steps<'a>(cube: CubieCube, steps: &'a Vec<(Step<'a, CubieCube>, Def
 
     let solutions: Box<dyn Iterator<Item=Solution>> = steps.iter()
         .fold(first_step, |acc, (step, search_opts)|{
-            debug!("Step {} with options {:?}", step.name(), search_opts);
+            debug!("Step {} with options {:?}", step.kind(), search_opts);
             let next = step::next_step(acc, step, search_opts.clone(), cube.clone())
                 .zip(0..)
                 .take_while(|(sol, count)| search_opts.step_limit.map(|limit| limit > *count).unwrap_or(true))

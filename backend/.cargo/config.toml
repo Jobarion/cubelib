@@ -1,3 +1,6 @@
 [build]
 # `leptonic` depends on some `leptos-use` functions requiring this opt-in. This may change in the future.
 rustflags = "-C target-feature=+avx2"
+
+[target.x86_64-unknown-linux-musl]
+linker = "rust-lld"

@@ -1,11 +1,14 @@
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
 use std::str::FromStr;
-use crate::algs::{Algorithm, Solution};
+use crate::algs::Algorithm;
+use crate::solution::{Solution, SolutionStep};
 use crate::coords::coord::Coord;
 use crate::cube::{ApplyAlgorithm, Invertible, Transformation, Turnable};
 use crate::cube::Turn::Half;
-use crate::df_search::{dfs_iter, NissSwitchType};
+use crate::defs::*;
+use crate::df_search::dfs_iter;
 use crate::lookup_table::PruningTable;
 use crate::moveset::MoveSet;
 use crate::stream;
@@ -33,34 +36,6 @@ impl StepConfig {
             niss: None,
             quality: 100,
             params: Default::default(),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum StepKind {
-    EO,
-    RZP,
-    DR,
-    HTR,
-    FR,
-    FRLS,
-    FIN
-}
-
-impl FromStr for StepKind {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "eo" => Ok(Self::EO),
-            "dr" => Ok(Self::DR),
-            "rzp" => Ok(Self::RZP),
-            "htr" => Ok(Self::HTR),
-            "fr" => Ok(Self::FR),
-            "frls" => Ok(Self::FRLS),
-            "finish" | "fin" => Ok(Self::FIN),
-            x=> Err(format!("Unknown step '{x}'"))
         }
     }
 }
@@ -194,7 +169,7 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Co
 pub struct Step<'a, CubeParam> {
     step_variants: Vec<Box<dyn StepVariant<CubeParam> + 'a>>,
     is_major: bool,
-    name: &'static str,
+    kind: StepKind,
 }
 
 impl<'a, CubeParam: 'a>
@@ -202,14 +177,14 @@ impl<'a, CubeParam: 'a>
 {
     pub fn new(
         step_variants: Vec<Box<dyn StepVariant<CubeParam> + 'a>>,
-        name: &'static str,
+        kind: StepKind,
         is_major: bool,
     ) -> Self {
-        Step { step_variants, name, is_major }
+        Step { step_variants, kind, is_major }
     }
 
-    pub fn name(&self) -> &'static str {
-        self.name
+    pub fn kind(&self) -> StepKind {
+        self.kind
     }
 
     pub fn is_half_turn_invariant(&self) -> bool {
@@ -272,10 +247,15 @@ pub fn next_step<
                         .map(|alg| (step_variant.name(), alg))
                     })
                     .flat_map(|(name, iter)| iter.map(move |alg| (name, alg)))
-                    .map(move |(step_name, step_alg)| {
+                    .map(move |(variant_name, step_alg)| {
                         let mut sol = solution.clone();
                         if step.is_major || step_alg.len() > 0 {
-                            sol.add_step(step_name.to_string(), step_alg);
+                            let sol_step = SolutionStep {
+                                kind: step.kind(),
+                                alg: step_alg,
+                                variant: variant_name.to_string()
+                            };
+                            sol.add_step(sol_step);
                         }
                         sol
                     });

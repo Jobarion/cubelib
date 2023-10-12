@@ -1,17 +1,18 @@
-use crate::cube::Face::*;
-use crate::cube::Turn::*;
-use crate::cube::{Axis, Face, Move, Transformation};
-use crate::lookup_table::PruningTable;
-use crate::moveset::{MoveSet, TransitionTable};
-use crate::steps::step::{DefaultPruningTableStep, PreStepCheck, DefaultStepOptions, Step, StepVariant, AnyPostStepCheck};
+use std::fmt::Debug;
+
 use itertools::Itertools;
-use std::fmt::{Debug};
-use crate::steps::step::StepConfig;
+
 use crate::coords;
-use crate::coords::coord::Coord;
 use crate::coords::dr::DRUDEOFBCoord;
 use crate::coords::htr::HTRDRUDCoord;
-use crate::df_search::{NissSwitchType};
+use crate::cube::{Axis, Face, Move, Transformation};
+use crate::cube::Face::*;
+use crate::cube::Turn::*;
+use crate::defs::*;
+use crate::lookup_table::PruningTable;
+use crate::moveset::{MoveSet, TransitionTable};
+use crate::steps::step::{AnyPostStepCheck, DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
+use crate::steps::step::StepConfig;
 
 pub const HTR_DR_UD_STATE_CHANGE_MOVES: &[Move] = &[
     Move(Up, Clockwise),
@@ -88,14 +89,14 @@ where
         .into_iter()
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
-                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{coords::htr::HTRDRUD_SIZE}, HTRDRUDCoord, {coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, C, AnyPostStepCheck>::new(&HTR_DR_UD_MOVESET, vec![], table, AnyPostStepCheck, "htr-drud"))),
-                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{coords::htr::HTRDRUD_SIZE}, HTRDRUDCoord, {coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, C, AnyPostStepCheck>::new(&HTR_DR_UD_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, AnyPostStepCheck, "htr-drfb"))),
-                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{coords::htr::HTRDRUD_SIZE}, HTRDRUDCoord, {coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, C, AnyPostStepCheck>::new(&HTR_DR_UD_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, AnyPostStepCheck, "htr-drlr"))),
+                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{coords::htr::HTRDRUD_SIZE}, HTRDRUDCoord, {coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, C, AnyPostStepCheck>::new(&HTR_DR_UD_MOVESET, vec![], table, AnyPostStepCheck, "ud"))),
+                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{coords::htr::HTRDRUD_SIZE}, HTRDRUDCoord, {coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, C, AnyPostStepCheck>::new(&HTR_DR_UD_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, AnyPostStepCheck, "fb"))),
+                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{coords::htr::HTRDRUD_SIZE}, HTRDRUDCoord, {coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, C, AnyPostStepCheck>::new(&HTR_DR_UD_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, AnyPostStepCheck, "lr"))),
             };
             x
         })
         .collect_vec();
-    Step::new(step_variants, "htr", true)
+    Step::new(step_variants, StepKind::HTR, true)
 }
 
 const fn htr_transitions(axis_face: Face) -> [TransitionTable; 18] {

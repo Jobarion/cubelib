@@ -8,9 +8,9 @@ use leptonic::prelude::*;
 use leptos::html::Div;
 
 #[component]
-pub fn ScrambleComponent(cx: Scope) -> impl IntoView {
-    let scramble = use_context::<RwSignal<String>>(cx).unwrap();
-    let cube = Signal::derive(cx, move ||{
+pub fn ScrambleComponent() -> impl IntoView {
+    let scramble = use_context::<RwSignal<String>>().unwrap();
+    let cube = Signal::derive(move ||{
         Algorithm::from_str(scramble.get().as_str()).ok()
             .map(|alg| {
                 let mut cube = CubieCube::new_solved();
@@ -19,14 +19,14 @@ pub fn ScrambleComponent(cx: Scope) -> impl IntoView {
             })
     });
 
-    view! {cx,
+    view! {
         <div>
-            <TextInput get=scramble set=Callback::new(cx, move|s|scramble.set(s)) placeholder={"R' U' F".to_owned()}/>
+            <TextInput get=scramble set=Callback::new(move|s|scramble.set(s)) placeholder={"R' U' F".to_owned()}/>
             <Show
                 when=move || {cube.get().is_some()}
-                fallback=|cx| view! {cx, <br/><Chip color=ChipColor::Danger>"Invalid scramble"</Chip>}
+                fallback=|| view! {<br/><Chip color=ChipColor::Danger>"Invalid scramble"</Chip>}
             >
-                <Cube cube=Signal::derive(cx, move ||{
+                <Cube cube=Signal::derive(move ||{
                     cube.get().unwrap_or(CubieCube::new_solved())
                 })/>
             </Show>
@@ -35,8 +35,8 @@ pub fn ScrambleComponent(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn Cube(cx: Scope, cube: Signal<CubieCube>) -> impl IntoView {
-    let facelets = Signal::derive(cx, move || {
+pub fn Cube(cube: Signal<CubieCube>) -> impl IntoView {
+    let facelets = Signal::derive(move || {
         let facelets = cube.get().get_facelets();
 
         let mut colors: Vec<Color> = vec![];
@@ -81,12 +81,12 @@ pub fn Cube(cx: Scope, cube: Signal<CubieCube>) -> impl IntoView {
                 Color::None => None,
             })
             .map(|class| class.map_or(
-                view! {cx, <div class="cube-facelet"></div> },
-                |c| view! {cx, <div class={format!("cube-facelet {c}")}></div> }))
+                view! {<div class="cube-facelet"></div> },
+                |c| view! {<div class={format!("cube-facelet {c}")}></div> }))
             .collect();
         html_facelets
     });
-    view! {cx,
+    view! {
         <div class="cube-expanded-view">
             {move || facelets.get()}
         </div>

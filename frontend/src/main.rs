@@ -19,28 +19,28 @@ mod util;
 mod solution;
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    let scramble = create_rw_signal(cx, "".to_string());
-    provide_context(cx, scramble);
+fn App() -> impl IntoView {
+    let scramble = create_rw_signal("".to_string());
+    provide_context(scramble);
 
-    let enabled_states = build_toggle_chain::<4>(cx);
+    let enabled_states = build_toggle_chain::<4>();
 
-    let eo_enabled = create_rw_signal(cx, true);
-    let eo = EOConfig::new(cx, (Signal::derive(cx, move||eo_enabled.get()), Callback::new(cx, move|e|eo_enabled.set(e))));
-    let rzp = RZPConfig::new(cx);
-    let dr = DRConfig::new(cx, enabled_states[0]);
-    let htr = HTRConfig::new(cx, enabled_states[1]);
-    let fr = FRConfig::new(cx, enabled_states[2]);
-    let fin = FinishConfig::new(cx, enabled_states[3]);
+    let eo_enabled = create_rw_signal(true);
+    let eo = EOConfig::new((Signal::derive(move||eo_enabled.get()), Callback::new(move|e|eo_enabled.set(e))));
+    let rzp = RZPConfig::new();
+    let dr = DRConfig::new(enabled_states[0]);
+    let htr = HTRConfig::new(enabled_states[1]);
+    let fr = FRConfig::new(enabled_states[2]);
+    let fin = FinishConfig::new(enabled_states[3]);
 
-    provide_context(cx, eo);
-    provide_context(cx, rzp);
-    provide_context(cx, dr);
-    provide_context(cx, htr);
-    provide_context(cx, fr);
-    provide_context(cx, fin);
+    provide_context(eo);
+    provide_context(rzp);
+    provide_context(dr);
+    provide_context(htr);
+    provide_context(fr);
+    provide_context(fin);
 
-    view! {cx,
+    view! {
         <Root default_theme=LeptonicTheme::default()>
             <FMCAppContainer />
         </Root>
@@ -48,9 +48,9 @@ fn App(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn FMCAppContainer(cx: Scope) -> impl IntoView {
+fn FMCAppContainer() -> impl IntoView {
 
-    view! {cx,
+    view! {
         <Box id="app-container">
             <h2>"Scramble"</h2>
             <ScrambleComponent/>
@@ -63,5 +63,5 @@ fn FMCAppContainer(cx: Scope) -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|cx| view! {cx, <App/> })
+    leptos::mount_to_body(|| view! {<App/> })
 }

@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::str::FromStr;
-use cubelib::algs::{Algorithm, Solution};
+use cubelib::algs::Algorithm;
 use serde::{Deserialize, Serialize};
+use cubelib::defs::*;
+use cubelib::solution::Solution;
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct SolverRequest {
@@ -17,15 +19,37 @@ pub struct SolverResponse {
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Debug)]
 pub struct SolutionStep {
-    pub name: String,
-    pub alg: String
+    #[serde(with = "StepKindDef")]
+    pub kind: StepKind,
+    pub alg: String,
+    pub variant: String,
+}
+
+impl Into<SolutionStep> for cubelib::solution::SolutionStep {
+    fn into(self) -> SolutionStep {
+        SolutionStep {
+            kind: self.kind,
+            variant: self.variant,
+            alg: self.alg.to_string(),
+        }
+    }
+}
+
+impl From<SolutionStep> for cubelib::solution::SolutionStep  {
+    fn from(value: SolutionStep) -> cubelib::solution::SolutionStep {
+        cubelib::solution::SolutionStep {
+            kind: value.kind,
+            variant: value.variant,
+            alg: Algorithm::from_str(value.alg.as_str()).expect("Expected correct alg string"),
+        }
+    }
 }
 
 impl Into<Solution> for SolverResponse {
     fn into(self) -> Solution {
         Solution {
             steps: self.solution.into_iter()
-                .map(|step| (step.name, Algorithm::from_str(step.alg.as_str()).expect("Expect API to return correct algorithm")))
+                .map(|step| step.into())
                 .collect(),
             ends_on_normal: true //we don't care right now
         }
@@ -36,33 +60,27 @@ impl From<Solution> for SolverResponse {
     fn from(value: Solution) -> Self {
         Self {
             solution: value.steps.into_iter()
-                .map(SolutionStep::from)
+                .map(|step| step.into())
                 .collect()
-        }
-    }
-}
-
-impl From<(String, Algorithm)> for SolutionStep {
-    fn from(value: (String, Algorithm)) -> Self {
-        SolutionStep {
-            name: value.0,
-            alg: value.1.to_string()
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct StepConfig {
+    #[serde(with = "StepKindDef")]
     pub kind: StepKind,
     pub substeps: Vec<String>,
     pub min: u8,
     pub max: u8,
+    #[serde(with = "NissSwitchTypeDef")]
     pub niss: NissSwitchType,
     pub params: HashMap<String, String>,
 }
 
+#[serde(remote = "StepKind")]
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
-pub enum StepKind {
+pub enum StepKindDef {
     EO,
     RZP,
     DR,
@@ -72,8 +90,9 @@ pub enum StepKind {
     FIN
 }
 
+#[serde(remote = "NissSwitchType")]
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
-pub enum NissSwitchType {
+pub enum NissSwitchTypeDef {
     Never,
     Before,
     Always,

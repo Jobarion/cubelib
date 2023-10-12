@@ -1,33 +1,29 @@
-use std::cmp::min;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::marker::PhantomData;
 use std::str::FromStr;
 use std::vec;
-use itertools::Itertools;
-use log::{debug, error, warn};
-use crate::algs::Algorithm;
-use crate::steps::step::StepConfig;
-use crate::co::COCountUD;
-use crate::coords;
-use crate::coords::coord::Coord;
 
+use itertools::Itertools;
+use log::{debug, error};
+
+use crate::algs::Algorithm;
+use crate::co::COCountUD;
+use crate::coords::coord::Coord;
 use crate::coords::dr::DRUDEOFBCoord;
 use crate::coords::eo::EOCoordFB;
+use crate::cube::{Axis, Face, Move, NewSolved, Transformation, Turnable};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
-use crate::cube::{ApplyAlgorithm, Axis, Face, Move, NewSolved, Transformation, Turnable};
-use crate::cubie::{CornerCubieCube, CubieCube};
-use crate::df_search::{NissSwitchType};
-use crate::lookup_table::PruningTable;
+use crate::cubie::CubieCube;
+use crate::defs::*;
 use crate::moveset::{MoveSet, TransitionTable};
-use crate::steps::dr;
-use crate::steps::dr::DRPruningTable;
 use crate::steps::dr::DR_UD_EO_FB_MOVESET;
+use crate::steps::dr::DRPruningTable;
 use crate::steps::eo::EOCount;
 use crate::steps::htr::HTR_DR_UD_MOVESET;
-use crate::steps::step::{DefaultPruningTableStep, PreStepCheck, DefaultStepOptions, Step, StepVariant, AnyPostStepCheck, PostStepCheck};
-use crate::stream::distinct_algorithms;
+use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
+use crate::steps::step::StepConfig;
 
 pub struct DRTriggerStepTable<'a, CubeParam> {
     pre_trigger_move_set: &'a MoveSet,
@@ -81,7 +77,7 @@ pub fn from_step_config<'a, C: 'a + EOCount + COCountUD + Display>(table: &'a DR
             x => Err(format!("Invalid DR substep {x}"))
         }).collect();
         let variants = variants?.into_iter().flat_map(|v|v).collect_vec();
-        Step::new(variants, "dr", true)
+        Step::new(variants, StepKind::DR, true)
     } else {
         dr_any(table, triggers)
     };
@@ -110,7 +106,7 @@ where
     EOCoordFB: for<'x> From<&'x C>,
 {
     let step_variants = dr_step_variants(table, eo_axis, dr_axis, triggers);
-    Step::new(step_variants, "dr", true)
+    Step::new(step_variants, StepKind::DR, true)
 }
 
 pub fn dr_any<'a, C: 'a + COCountUD + EOCount + Display>(
@@ -139,12 +135,12 @@ fn dr_step_variants<'a, C: 'a + COCountUD + EOCount + Display, const EOA: usize,
         .flat_map(|eo| dr_axis.into_iter().map(move |dr| (eo, dr)))
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
-                (Axis::UD, Axis::FB) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::X], table, triggers.clone(), "drfb-eoud"))),
-                (Axis::UD, Axis::LR) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::X, Transformation::Z], table, triggers.clone(), "drlr-eoud"))),
-                (Axis::FB, Axis::UD) => Some(Box::new(DRTriggerStepTable::new(vec![], table, triggers.clone(), "drud-eofb"))),
-                (Axis::FB, Axis::LR) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::Z], table, triggers.clone(), "drlr-eofb"))),
-                (Axis::LR, Axis::UD) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::Y], table, triggers.clone(), "drud-eolr"))),
-                (Axis::LR, Axis::FB) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::Y, Transformation::Z], table, triggers.clone(), "drfb-eolr"))),
+                (Axis::UD, Axis::FB) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::X], table, triggers.clone(), "fb-eoud"))),
+                (Axis::UD, Axis::LR) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::X, Transformation::Z], table, triggers.clone(), "lr-eoud"))),
+                (Axis::FB, Axis::UD) => Some(Box::new(DRTriggerStepTable::new(vec![], table, triggers.clone(), "ud-eofb"))),
+                (Axis::FB, Axis::LR) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::Z], table, triggers.clone(), "lr-eofb"))),
+                (Axis::LR, Axis::UD) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::Y], table, triggers.clone(), "ud-eolr"))),
+                (Axis::LR, Axis::FB) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::Y, Transformation::Z], table, triggers.clone(), "fb-eolr"))),
                 _ => None,
             };
             x

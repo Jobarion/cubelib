@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::marker::PhantomData;
-use crate::algs::{Algorithm, Solution};
+use crate::algs::Algorithm;
+use crate::solution::Solution;
 
 pub(crate) fn iterated_dfs<
     'a,

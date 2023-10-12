@@ -4,7 +4,7 @@ use crate::algs::Algorithm;
 use crate::cube::{Axis, Face, FACES, Move, Transformation};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
-use crate::df_search::NissSwitchType;
+use crate::defs::*;
 use crate::moveset::{MoveSet, TransitionTable};
 use crate::steps::{dr, eo, htr};
 use crate::steps::eo::EOCount;
@@ -65,7 +65,7 @@ pub fn from_step_config<'a, C: 'a + EOCount>(config: StepConfig) -> Result<(Step
 pub fn rzp_any<'a, C: 'a + EOCount>() -> Step<'a, C> {
     Step::new(vec![
         Box::new(RZPStep::new_any()),
-    ], "rzp", false)
+    ], StepKind::RZP, false)
 }
 
 
@@ -83,7 +83,7 @@ pub fn rzp<'a, C: 'a + EOCount>(
             x
         })
         .collect_vec();
-    Step::new(step_variants, "rzp", false)
+    Step::new(step_variants, StepKind::RZP, false)
 }
 
 impl<'a> RZPStep<'a> {
@@ -91,7 +91,7 @@ impl<'a> RZPStep<'a> {
         RZPStep {
             move_set: &RZP_ANY,
             pre_trans: vec![],
-            name: "rzp",
+            name: "",
         }
     }
 
@@ -99,7 +99,7 @@ impl<'a> RZPStep<'a> {
         RZPStep {
             move_set: &RZP_EO_FB_MOVESET,
             pre_trans: vec![Transformation::X],
-            name: "rzp-ud",
+            name: "ud",
         }
     }
 
@@ -107,7 +107,7 @@ impl<'a> RZPStep<'a> {
         RZPStep {
             move_set: &RZP_EO_FB_MOVESET,
             pre_trans: vec![],
-            name: "rzp-fb",
+            name: "fb",
         }
     }
 
@@ -115,7 +115,7 @@ impl<'a> RZPStep<'a> {
         RZPStep {
             move_set: &RZP_EO_FB_MOVESET,
             pre_trans: vec![Transformation::Y],
-            name: "rzp-lr",
+            name: "lr",
         }
     }
 }

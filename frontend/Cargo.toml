@@ -6,9 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-leptos = { version = "0.4.10", features = ["csr"] }
+leptos = { version = "0.5.1", features = ["csr"] }
 web-sys = "0.3.64"
-leptonic = "0.2.0"
+leptonic = { git = "https://github.com/lhjok/leptonic"} # Until leptonic is officially compatible with leptos 0.5
+#leptonic = "0.2.0"
 leptos-use = "0.7.1"
 cubelib = { path = "../cubelib", features = ["cube"]}
 cubelib-interface = { path = "../interface" }

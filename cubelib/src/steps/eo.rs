@@ -1,16 +1,16 @@
 use itertools::Itertools;
 
 use crate::algs::Algorithm;
-use crate::steps::step::StepConfig;
 use crate::coords::eo::EOCoordFB;
+use crate::cube::{Axis, Face, FACES, Move, Transformation};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
-use crate::cube::{Axis, Face, Move, Transformation, FACES};
 use crate::cubie::{CubieCube, EdgeCubieCube};
-use crate::df_search::{NissSwitchType};
+use crate::defs::*;
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
-use crate::steps::step::{PreStepCheck, DefaultStepOptions, Step, StepVariant, PostStepCheck};
+use crate::steps::step::StepConfig;
+use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
 
 pub const UD_EO_STATE_CHANGE_MOVES: &[Move] = &[
     Move(Up, Clockwise),
@@ -167,7 +167,7 @@ where
             x
         })
         .collect_vec();
-    Step::new(step_variants, "eo", true)
+    Step::new(step_variants, StepKind::EO, true)
 }
 
 impl<'a> EOStepTable<'a> {
@@ -176,7 +176,7 @@ impl<'a> EOStepTable<'a> {
             move_set: &EO_FB_MOVESET,
             pre_trans: vec![Transformation(Axis::X, Clockwise)],
             table,
-            name: "eoud",
+            name: "ud",
         }
     }
 
@@ -185,7 +185,7 @@ impl<'a> EOStepTable<'a> {
             move_set: &EO_FB_MOVESET,
             pre_trans: vec![Transformation(Axis::Y, Clockwise)],
             table,
-            name: "eolr",
+            name: "lr",
         }
     }
 
@@ -194,7 +194,7 @@ impl<'a> EOStepTable<'a> {
             move_set: &EO_FB_MOVESET,
             pre_trans: vec![],
             table,
-            name: "eofb",
+            name: "fb",
         }
     }
 }

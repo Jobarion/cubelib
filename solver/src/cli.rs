@@ -3,8 +3,8 @@ use std::str::FromStr;
 use clap::Parser;
 use itertools::Itertools;
 use regex::Regex;
-use cubelib::df_search::NissSwitchType;
-use cubelib::steps::step::{StepConfig, StepKind};
+use cubelib::defs::*;
+use cubelib::steps::step::{StepConfig};
 
 #[derive(Parser)]
 #[command(name = "Cubelib")]

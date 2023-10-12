@@ -29,3 +29,7 @@ pub mod tables;
 mod avx2_cubie;
 #[cfg(feature = "cube")]
 mod wasm32_cubie;
+#[cfg(feature = "cube")]
+pub mod solution;
+#[cfg(feature = "cube")]
+pub mod defs;

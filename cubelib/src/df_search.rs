@@ -1,22 +1,15 @@
-
 use std::cmp::min;
 
 use crate::algs::Algorithm;
+use crate::cube::{FACES, Invertible, Move, Turnable, TURNS};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
-use crate::cube::{Face, Invertible, Move, Turnable, FACES, TURNS};
+use crate::defs::NissSwitchType;
 use crate::moveset::Transition;
 use crate::steps::step::{DefaultStepOptions, StepVariant};
 
 pub const LEGAL_MOVE_COUNT: usize = TURNS.len() * FACES.len();
 pub const ALL_MOVES: [Move; LEGAL_MOVE_COUNT] = get_all_moves();
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum NissSwitchType {
-    Never,
-    Before,
-    Always,
-}
 
 impl DefaultStepOptions {
     pub fn new(min_moves: u8, max_moves: u8, niss_type: NissSwitchType, step_limit: Option<usize>) -> Self {

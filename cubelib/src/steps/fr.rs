@@ -1,17 +1,18 @@
-use crate::cube::Face::*;
-use crate::cube::Turn::*;
-use crate::cube::{Axis, Face, FACES, Move, Transformation};
-use crate::lookup_table::PruningTable;
-use crate::moveset::{MoveSet, TransitionTable};
-use crate::steps::step::{DefaultPruningTableStep, PreStepCheck, DefaultStepOptions, Step, StepVariant, AnyPostStepCheck};
+use std::fmt::Debug;
+
 use itertools::Itertools;
-use std::fmt::{Debug};
-use crate::steps::step::StepConfig;
+
 use crate::coords;
-use crate::coords::coord::Coord;
 use crate::coords::fr::{FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::coords::htr::PureHTRDRUDCoord;
-use crate::df_search::{NissSwitchType};
+use crate::cube::{Axis, Face, FACES, Move, Transformation};
+use crate::cube::Face::*;
+use crate::cube::Turn::*;
+use crate::defs::*;
+use crate::lookup_table::PruningTable;
+use crate::moveset::{MoveSet, TransitionTable};
+use crate::steps::step::{AnyPostStepCheck, DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
+use crate::steps::step::StepConfig;
 
 pub const FR_UD_STATE_CHANGE_MOVES: &[Move] = &[
     Move(Up, Half),
@@ -125,14 +126,14 @@ pub fn fr_no_slice<'a, C: 'a>(
         .into_iter()
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
-                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C, AnyPostStepCheck>::new(&FR_UD_MOVESET, vec![], table, AnyPostStepCheck, "fr-ud-ls"))),
-                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C, AnyPostStepCheck>::new(&FR_UD_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, AnyPostStepCheck, "fr-fb-ls"))),
-                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C, AnyPostStepCheck>::new(&FR_UD_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, AnyPostStepCheck, "fr-lr-ls"))),
+                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C, AnyPostStepCheck>::new(&FR_UD_MOVESET, vec![], table, AnyPostStepCheck, "ud"))),
+                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C, AnyPostStepCheck>::new(&FR_UD_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, AnyPostStepCheck, "fb"))),
+                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C, AnyPostStepCheck>::new(&FR_UD_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, AnyPostStepCheck, "lr"))),
             };
             x
         })
         .collect_vec();
-    Step::new(step_variants, "fr", true)
+    Step::new(step_variants, StepKind::FRLS, true)
 }
 
 pub fn fr<'a, C: 'a>(
@@ -147,14 +148,14 @@ pub fn fr<'a, C: 'a>(
         .into_iter()
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
-                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C, AnyPostStepCheck>::new(&FR_UD_MOVESET, vec![], table, AnyPostStepCheck, "fr-ud"))),
-                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C, AnyPostStepCheck>::new(&FR_UD_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, AnyPostStepCheck, "fr-fb"))),
-                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C, AnyPostStepCheck>::new(&FR_UD_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, AnyPostStepCheck, "fr-lr"))),
+                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C, AnyPostStepCheck>::new(&FR_UD_MOVESET, vec![], table, AnyPostStepCheck, "ud"))),
+                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C, AnyPostStepCheck>::new(&FR_UD_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, AnyPostStepCheck, "fb"))),
+                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {coords::htr::PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, C, AnyPostStepCheck>::new(&FR_UD_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, AnyPostStepCheck, "lr"))),
             };
             x
         })
         .collect_vec();
-    Step::new(step_variants, "fr", true)
+    Step::new(step_variants, StepKind::FR, true)
 }
 
 const fn fr_transitions(axis_face: Face) -> [TransitionTable; 18] {

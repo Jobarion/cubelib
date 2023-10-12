@@ -166,8 +166,8 @@ impl Turnable for Algorithm {
 }
 
 pub struct Solution {
-    steps: Vec<(String, Algorithm)>,
-    ends_on_normal: bool,
+    pub steps: Vec<(String, Algorithm)>,
+    pub ends_on_normal: bool,
 }
 
 impl Solution {
@@ -197,6 +197,32 @@ impl Solution {
 
     pub fn get_steps(&self) -> &'_ Vec<(String, Algorithm)> {
         &self.steps
+    }
+
+    pub fn compact(self) -> Self {
+        let mut steps: Vec<(String, Algorithm)> = vec![];
+
+        let mut i = 0;
+        while i < self.steps.len() {
+            let (mut name, alg) = self.steps.get(i).cloned().unwrap();
+            while i < self.steps.len() - 1 {
+                let next = self.steps.get(i + 1).unwrap();
+                if next.1.len() == 0 {
+                    // name.push_str(", ");
+                    // name.push_str(next.0.as_str());
+                    name = next.0.clone();
+                } else {
+                    break;
+                }
+                i += 1;
+            }
+            steps.push((name, alg));
+            i += 1;
+        }
+        Solution {
+            steps,
+            ends_on_normal: self.ends_on_normal
+        }
     }
 }
 
@@ -235,38 +261,25 @@ impl Debug for Solution {
 
 impl Display for Solution {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let compact = self.clone().compact();
         let mut total_moves = 0;
-        let mut i = 0;
-        let longest_alg_length = self
+        let longest_alg_length = compact
             .steps
             .iter()
             .map(|(_, alg)| alg.to_string().len())
             .max()
             .unwrap_or(0);
-        let longest_name_length = self
+        let longest_name_length = compact
             .steps
             .iter()
             .map(|(name, _)| name.len())
             .max()
             .unwrap_or(0);
 
-        while i < self.steps.len() {
-            let (mut name, alg) = self.steps.get(i).cloned().unwrap();
+        for (name, alg) in compact.steps {
             let alg_length = alg.len();
             total_moves += alg_length;
-            while i < self.steps.len() - 1 {
-                let next = self.steps.get(i + 1).unwrap();
-                if next.1.len() == 0 {
-                    // name.push_str(", ");
-                    // name.push_str(next.0.as_str());
-                    name = next.0.clone();
-                } else {
-                    break;
-                }
-                i += 1;
-            }
             writeln!(f, "{:longest_alg_length$}  //{name:longest_name_length$} ({alg_length}/{total_moves})", alg.to_string())?;
-            i += 1;
         }
         writeln!(
             f,

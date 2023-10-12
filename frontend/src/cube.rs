@@ -1,10 +1,41 @@
-use cubelib::cube::{Color, Cube, Face};
+use std::str::FromStr;
+
+use cubelib::algs::Algorithm;
+use cubelib::cube::{ApplyAlgorithm, Color, Cube, Face, NewSolved};
 use cubelib::cubie::CubieCube;
 use leptos::*;
+use leptonic::prelude::*;
 use leptos::html::Div;
 
 #[component]
-pub fn Cube(cx: Scope, cube: ReadSignal<CubieCube>) -> impl IntoView {
+pub fn ScrambleComponent(cx: Scope) -> impl IntoView {
+    let scramble = use_context::<RwSignal<String>>(cx).unwrap();
+    let cube = Signal::derive(cx, move ||{
+        Algorithm::from_str(scramble.get().as_str()).ok()
+            .map(|alg| {
+                let mut cube = CubieCube::new_solved();
+                cube.apply_alg(&alg);
+                cube
+            })
+    });
+
+    view! {cx,
+        <div>
+            <TextInput get=scramble set=Callback::new(cx, move|s|scramble.set(s)) placeholder={"R' U' F".to_owned()}/>
+            <Show
+                when=move || {cube.get().is_some()}
+                fallback=|cx| view! {cx, <br/><Chip color=ChipColor::Danger>"Invalid scramble"</Chip>}
+            >
+                <Cube cube=Signal::derive(cx, move ||{
+                    cube.get().unwrap_or(CubieCube::new_solved())
+                })/>
+            </Show>
+        </div>
+    }
+}
+
+#[component]
+pub fn Cube(cx: Scope, cube: Signal<CubieCube>) -> impl IntoView {
     let facelets = Signal::derive(cx, move || {
         let facelets = cube.get().get_facelets();
 

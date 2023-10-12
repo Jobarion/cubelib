@@ -13,7 +13,7 @@ pub const ALL_MOVES: [Move; LEGAL_MOVE_COUNT] = get_all_moves();
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum NissSwitchType {
-    None,
+    Never,
     Before,
     Always,
 }
@@ -50,7 +50,7 @@ pub fn dfs_iter<
     }
 
     //Return immediately if the cube is solved. This avoids the issue where we return two solutions if the NISS type is AtStart.
-    if step.heuristic(&cube, search_opts.min_moves, search_opts.niss_type != NissSwitchType::None) == 0 {
+    if step.heuristic(&cube, search_opts.min_moves, search_opts.niss_type != NissSwitchType::Never) == 0 {
         //Only return a solution if we are allowed to return zero length solutions
         if search_opts.min_moves == 0 {
             return Some(Box::new(vec![Algorithm::new()].into_iter()));
@@ -64,7 +64,7 @@ pub fn dfs_iter<
             .into_iter()
             .flat_map(move |depth| {
                 let b: Box<dyn Iterator<Item = Algorithm>> = match search_opts.niss_type {
-                    NissSwitchType::None if starts_on_normal => {
+                    NissSwitchType::Never if starts_on_normal => {
                         Box::new(
                             next_dfs_level(
                                 step,
@@ -78,7 +78,7 @@ pub fn dfs_iter<
                                 .map(|alg| alg.reverse()),
                         )
                     },
-                    NissSwitchType::None => {
+                    NissSwitchType::Never => {
                         let mut inv_cube = cube.clone();
                         inv_cube.invert();
                         Box::new(

@@ -1,19 +1,15 @@
 use itertools::Itertools;
 
 use crate::algs::Algorithm;
-use crate::steps::step::StepConfig;
-use crate::coords::coord::Coord;
-use crate::coords::eo::EOCoordFB;
+use crate::cube::{Axis, Face, FACES, Move, Transformation};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
-use crate::cube::{Axis, Face, Move, Transformation, FACES};
-use crate::cubie::{CubieCube, EdgeCubieCube};
-use crate::df_search::{ALL_MOVES, NissSwitchType};
-use crate::lookup_table::PruningTable;
+use crate::df_search::NissSwitchType;
 use crate::moveset::{MoveSet, TransitionTable};
 use crate::steps::{dr, eo, htr};
 use crate::steps::eo::EOCount;
-use crate::steps::step::{PreStepCheck, DefaultStepOptions, Step, StepVariant, PostStepCheck};
+use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
+use crate::steps::step::StepConfig;
 
 const QT_MOVES: [Move; 12] = [
     Move(Up, Clockwise),
@@ -51,22 +47,11 @@ pub struct RZPStep<'a> {
 }
 
 pub fn from_step_config<'a, C: 'a + EOCount>(config: StepConfig) -> Result<(Step<'a, C>, DefaultStepOptions), String> {
-    // let step = if let Some(substeps) = config.substeps {
-    //     let axis: Result<Vec<Axis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
-    //         "rzpud" | "ud" => Ok(Axis::UD),
-    //         "rzpfb" | "fb" => Ok(Axis::FB),
-    //         "rzplr" | "lr" => Ok(Axis::LR),
-    //         x => Err(format!("Invalid EO substep {x}"))
-    //     }).collect();
-    //     rzp(axis?)
-    // } else {
-    //     rzp_any()
-    // };
     let step = rzp_any();
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(3),
-        config.niss.unwrap_or(NissSwitchType::None),
+        config.niss.unwrap_or(NissSwitchType::Never),
         if config.quality == 0 {
             None
         } else {
@@ -81,11 +66,6 @@ pub fn rzp_any<'a, C: 'a + EOCount>() -> Step<'a, C> {
     Step::new(vec![
         Box::new(RZPStep::new_any()),
     ], "rzp", false)
-    // Step::new(vec![
-    //     Box::new(RZPStep::new_eoud()),
-    //     Box::new(RZPStep::new_eofb()),
-    //     Box::new(RZPStep::new_eolr()),
-    // ], "rzp")
 }
 
 

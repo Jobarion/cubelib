@@ -14,7 +14,7 @@ use crate::cube::{
 //UB UR UF UL FR FL BR BL DF DR DB DL
 #[derive(Debug, Clone, Copy)]
 pub struct EdgeCubieCube(
-    #[cfg(target_feature = "avx2")] pub(crate) core::arch::x86_64::__m128i,
+    #[cfg(target_feature = "avx2")] pub core::arch::x86_64::__m128i,
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     pub core::arch::wasm32::v128,
 );
@@ -127,7 +127,7 @@ impl NewSolved for EdgeCubieCube {
 //UBL UBR UFR UFL DFL DFR DBR DBL
 #[derive(Debug, Clone, Copy)]
 pub struct CornerCubieCube(
-    #[cfg(target_feature = "avx2")] pub(crate) core::arch::x86_64::__m128i,
+    #[cfg(target_feature = "avx2")] pub core::arch::x86_64::__m128i,
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     pub core::arch::wasm32::v128,
 );

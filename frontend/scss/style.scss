@@ -1,47 +1,9 @@
 @import "../generated/leptonic/leptonic-themes";
+@import "layout";
+@import "cube";
 
-.cube-expanded-view {
-    margin-top:10px;
-    display:flex;
-    flex-wrap:wrap;
-    width:100%;
-    max-width:300px
-}
-.cube-expanded-view .cube-facelet {
-    flex:0 0 8.33%;
-    max-width:8.33%;
-    width:8.33%;
-    box-sizing: border-box;
-    margin-top:-1px;
-    margin-left:-1px;
-    transition:background-color .3s linear;
-}
-.cube-expanded-view .cube-facelet:before {
-    content:"";
-    padding-top:100%;
-    display:table;
-}
-.cube-expanded-view .cube-facelet-u {
-    background-color:#fff;
-    border:1px solid #000
-}
-.cube-expanded-view .cube-facelet-d {
-    background-color:#ff0;
-    border:1px solid #000
-}
-.cube-expanded-view .cube-facelet-r {
-    background-color:red;
-    border:1px solid #000
-}
-.cube-expanded-view .cube-facelet-l {
-    background-color:#f80;
-    border:1px solid #000
-}
-.cube-expanded-view .cube-facelet-f {
-    background-color:#0f0;
-    border:1px solid #000
-}
-.cube-expanded-view .cube-facelet-b {
-    background-color:#00f;
-    border:1px solid #000
+.grayed-out {
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
 }

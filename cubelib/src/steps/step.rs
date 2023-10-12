@@ -10,8 +10,6 @@ use crate::lookup_table::PruningTable;
 use crate::moveset::MoveSet;
 use crate::stream;
 
-
-
 #[derive(Debug)]
 pub struct StepConfig {
     pub kind: StepKind,
@@ -192,7 +190,6 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Co
         }
     }
 }
-
 
 pub struct Step<'a, CubeParam> {
     step_variants: Vec<Box<dyn StepVariant<CubeParam> + 'a>>,

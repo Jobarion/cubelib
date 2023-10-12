@@ -1,0 +1,32 @@
+html {
+    font-size: 16px;
+    //height: 100vh;
+    min-height: 100vh;
+    overflow-y: scroll;
+}
+
+body {
+    margin: 0;
+    display: flex;
+    //height: 100vh;
+    min-height: 100vh;
+    flex-direction: column;
+}
+
+#app-container {
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+@media (max-width: 500px) {
+    #app-container {
+        min-width: 100%;
+    }
+}
+
+@media (min-width: 500px) {
+    #app-container {
+        min-width: 500px;
+    }
+}

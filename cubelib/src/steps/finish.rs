@@ -42,7 +42,7 @@ pub fn from_step_config_fr<'a, C: 'a>(table: &'a FRFinishPruningTable, config: S
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(10),
-        config.niss.unwrap_or(NissSwitchType::None),
+        config.niss.unwrap_or(NissSwitchType::Never),
         if config.quality == 0 {
             None
         } else {
@@ -71,7 +71,7 @@ pub fn from_step_config_fr_leave_slice<'a, C: 'a>(table: &'a FRFinishPruningTabl
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(10),
-        config.niss.unwrap_or(NissSwitchType::None),
+        config.niss.unwrap_or(NissSwitchType::Never),
         if config.quality == 0 {
             None
         } else {

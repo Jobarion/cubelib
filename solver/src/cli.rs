@@ -42,15 +42,7 @@ impl Cli {
         if self.niss {
             None //This means undefined, so steps can define their own niss type.
         } else {
-            Some(NissSwitchType::None)
-        }
-    }
-
-    fn get_default_step_limit(&self) -> Option<usize> {
-        if self.quality <= 0 {
-            None
-        } else {
-            Some(self.quality)
+            Some(NissSwitchType::Never)
         }
     }
 
@@ -105,7 +97,7 @@ impl Cli {
                                 "niss" => step_prototype.niss = Some(match parts[1] {
                                     "always" => NissSwitchType::Always,
                                     "before" => NissSwitchType::Before,
-                                    "none" => NissSwitchType::None,
+                                    "none" => NissSwitchType::Never,
                                     x => Err(format!("Invalid NISS type {x}. Expected one of 'always', 'before', 'none'"))?
                                 }),
                                 key => {

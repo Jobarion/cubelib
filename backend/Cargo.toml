@@ -1,0 +1,14 @@
+[package]
+name = "cubelib-backend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4.4.0"
+cubelib = { path = "../cubelib", features = ["cube", "solver"]}
+cubelib-solver = { path = "../solver" }
+cubelib-interface = { path = "../interface" }
+serde = { version = "1.0.188", features = ["derive"] }
+actix-cors = "0.6.4"
+log = "0.4.20"
+simple_logger = "4.2.0"

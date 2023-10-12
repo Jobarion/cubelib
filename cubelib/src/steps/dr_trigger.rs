@@ -168,10 +168,10 @@ where
             }
             trigger_variants.append(&mut generate_trigger_variations(trigger));
         }
-        //Manually allow the "empty" trigger
-        debug!("Registering 0c/0e trigger with length 0");
-        trigger_types.insert((0, 0), 0);
-        trigger_variants.push(vec![]);
+        // //Manually allow the "empty" trigger
+        // debug!("Registering 0c/0e trigger with length 0");
+        // trigger_types.insert((0, 0), 0);
+        // trigger_variants.push(vec![]);
 
         DRTriggerStepTable {
             pre_trigger_move_set: &HTR_DR_UD_MOVESET,

@@ -57,7 +57,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .service(controller::solve)
     })
-        .bind(("127.0.0.1", 8081))?
+        .bind(("127.0.0.1", 8049))?
         .run()
         .await
 }

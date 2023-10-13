@@ -15,15 +15,18 @@ pub async fn solve(steps: web::Json<SolverRequest>, app_data: web::Data<AppData>
 
     let quality = steps.quality.unwrap_or(1000);
 
-    // if let Ok(mut conn) = app_data.pool.get() {
-    //     let cached = db::load_solution(&conn, &scramble, steps.steps.clone(), quality);
-    //     if let Ok(Some(solution)) = cached {
-    //         info!("Cache hit");
-    //         return Ok(HttpResponse::Ok().json(SolverResponse::from(solution)));
-    //     } else if let Err(err) = cached {
-    //         error!("{err}");
-    //     }
-    // }
+    let conn = app_data.pool.get();
+    if let Ok(conn) = conn {
+        let cached = db::load_solution(&conn, &scramble, steps.steps.clone(), quality);
+        if let Ok(Some(solution)) = cached {
+            info!("Cache hit");
+            return Ok(HttpResponse::Ok().json(SolverResponse::from(solution)));
+        } else if let Err(err) = cached {
+            error!("{err}");
+        }
+    } else if let Err(err) = conn {
+        error!("{err}");
+    }
 
     let steps_configs: Vec<cubelib::steps::step::StepConfig> = steps.steps.iter()
         .map(|step| cubelib::steps::step::StepConfig {
@@ -46,15 +49,15 @@ pub async fn solve(steps: web::Json<SolverRequest>, app_data: web::Data<AppData>
     let mut solutions = cubelib::stream::distinct_algorithms(solutions);
 
     let solution = solutions.next();
-    // if let Ok(mut conn) = app_data.pool.get() {
-    //     let insert_result = db::insert_solution(&mut conn, scramble, solution, steps.steps.clone(), quality);
-    //     if let Err(e) = insert_result {
-    //         error!("Failed to save solution '{}'", e);
-    //     }
-    // } else {
-    //     error!("Failed to get db connection");
-    // }
-    // info!("Cache miss");
+    if let Ok(mut conn) = app_data.pool.get() {
+        let insert_result = db::insert_solution(&mut conn, scramble, solution, steps.steps.clone(), quality);
+        if let Err(e) = insert_result {
+            error!("Failed to save solution '{}'", e);
+        }
+    } else {
+        error!("Failed to get db connection");
+    }
+    info!("Cache miss");
 
     Ok(HttpResponse::Ok().json(solutions.next().map(SolverResponse::from)))
 }

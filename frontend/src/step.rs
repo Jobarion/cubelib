@@ -75,7 +75,7 @@ impl DRConfig {
             max: create_rw_signal(12),
             niss: create_rw_signal(NissType::Before),
             variants: create_rw_signal(vec![UD, FB, LR]),
-            triggers: create_rw_signal(vec!["R".to_string(), "R U2 R".to_string(), "R U R".to_string(), "R U' R".to_string()]),
+            triggers: create_rw_signal(vec!["R".to_string(), "R U2 R".to_string(), "R F2 R".to_string(), "R U R".to_string(), "R U' R".to_string()]),
         }
     }
 }
@@ -224,7 +224,7 @@ pub fn DRParameters() -> impl IntoView {
         />
         <h4>"Triggers"</h4>
         <Multiselect
-            options=vec!["R".to_string(), "R U2 R".to_string(), "R U R".to_string(), "R U' R".to_string(), "R L".to_string()]
+            options=vec!["R".to_string(), "R U2 R".to_string(), "R F2 R".to_string(), "R U R".to_string(), "R U' R".to_string(), "R L".to_string()]
             search_text_provider=move |o| format!("{o}")
             render_option=move |o| format!("{o}").into_view()
             selected=dr_config.triggers

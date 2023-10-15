@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::time::Duration;
 
 use actix_web::{error, HttpResponse, post, Responder, web};
 use cubelib::algs::Algorithm;
@@ -48,17 +49,26 @@ pub async fn solve(steps: web::Json<SolverRequest>, app_data: web::Data<AppData>
     let solutions = cubelib_solver::solver::solve_steps(cube, &solver_steps);
     let mut solutions = cubelib::stream::distinct_algorithms(solutions);
 
-    let solution = solutions.next();
-    if let Ok(mut conn) = app_data.pool.get() {
-        let insert_result = db::insert_solution(&mut conn, scramble, solution, steps.steps.clone(), quality);
-        if let Err(e) = insert_result {
-            error!("Failed to save solution '{}'", e);
-        }
-    } else {
-        error!("Failed to get db connection");
-    }
-    info!("Cache miss");
+    let solution = async {
+        solutions.next()
+    };
 
-    Ok(HttpResponse::Ok().json(solutions.next().map(SolverResponse::from)))
+    if let Ok(solution) = actix_web::rt::time::timeout(Duration::from_secs(20), solution).await {
+        if let Ok(mut conn) = app_data.pool.get() {
+            let insert_result = db::insert_solution(&mut conn, scramble, solution.clone(), steps.steps.clone(), quality);
+            if let Err(e) = insert_result {
+                error!("Failed to save solution '{}'", e);
+            }
+        } else {
+            error!("Failed to get db connection");
+        }
+        info!("Cache miss");
+
+        Ok(HttpResponse::Ok().json(solution.map(SolverResponse::from)))
+    } else {
+        Ok(HttpResponse::RequestTimeout().into())
+    }
+
+
 }
 

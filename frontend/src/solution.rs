@@ -33,7 +33,7 @@ pub fn SolutionComponent() -> impl IntoView {
                 .flat_map(|f|f)
                 .collect();
             Some(SolverRequest {
-                quality: Some(3000),
+                quality: Some(10000),
                 steps: steps.clone(),
                 scramble: alg.to_string()
             })

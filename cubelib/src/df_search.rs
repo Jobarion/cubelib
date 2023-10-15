@@ -30,12 +30,14 @@ pub fn dfs_iter<
     step: &'a S,
     mut cube: C,
     search_opts: DefaultStepOptions,
-    previous_normal: Option<Move>,
-    previous_inverse: Option<Move>,
+    mut previous_normal: Option<Move>,
+    mut previous_inverse: Option<Move>,
     starts_on_normal: bool,
 ) -> Option<Box<dyn Iterator<Item = Algorithm> + 'a>> {
     for t in step.pre_step_trans().iter().cloned() {
         cube.transform(t);
+        previous_normal = previous_normal.map(|m|m.transform(t));
+        previous_inverse = previous_inverse.map(|m|m.transform(t));
     }
 
     if !step.is_cube_ready(&cube) {

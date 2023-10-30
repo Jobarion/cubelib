@@ -19,8 +19,6 @@ pub mod moveset;
 #[cfg(feature = "solver")]
 pub mod stream;
 #[cfg(feature = "solver")]
-pub mod coords;
-#[cfg(feature = "solver")]
 pub mod steps;
 #[cfg(feature = "solver")]
 pub mod tables;
@@ -33,3 +31,5 @@ mod wasm32_cubie;
 pub mod solution;
 #[cfg(feature = "cube")]
 pub mod defs;
+#[cfg(feature = "solver")]
+pub mod solver;

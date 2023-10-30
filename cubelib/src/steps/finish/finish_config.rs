@@ -2,9 +2,8 @@ use std::fmt::Debug;
 
 use itertools::Itertools;
 
-use crate::coords;
-use crate::coords::finish::{FR_FINISH_SIZE, FRUDFinishCoord};
-use crate::coords::fr::{FRUDNoSliceCoord, FRUDWithSliceCoord};
+use crate::steps::finish::coords::{FR_FINISH_SIZE, FRUDFinishCoord};
+use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::cube::{Axis, FACES, Move, Transformation};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
@@ -16,7 +15,7 @@ use crate::steps::step::StepConfig;
 use crate::steps::step::{AnyPostStepCheck, DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
 
 pub const FRUD_FINISH_MOVESET: MoveSet = MoveSet {
-    st_moves: fr::FR_UD_AUX_MOVES,
+    st_moves: fr::fr_config::FR_UD_AUX_MOVES,
     aux_moves: &[],
     transitions: finish_transitions(),
 };
@@ -103,9 +102,9 @@ pub fn fr_finish<'a, C: 'a>(
         .into_iter()
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
-                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, C, AnyPostStepCheck>::new(&FRUD_FINISH_MOVESET, vec![], table, AnyPostStepCheck, ""))),
-                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, C, AnyPostStepCheck>::new(&FRUD_FINISH_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, AnyPostStepCheck, ""))),
-                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {coords::fr::FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, C, AnyPostStepCheck>::new(&FRUD_FINISH_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, AnyPostStepCheck, ""))),
+                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, C, AnyPostStepCheck>::new(&FRUD_FINISH_MOVESET, vec![], table, AnyPostStepCheck, ""))),
+                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, C, AnyPostStepCheck>::new(&FRUD_FINISH_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, AnyPostStepCheck, ""))),
+                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, C, AnyPostStepCheck>::new(&FRUD_FINISH_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, AnyPostStepCheck, ""))),
             };
             x
         })
@@ -136,9 +135,9 @@ pub fn fr_finish_leave_slice<'a, C: 'a>(
         .into_iter()
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
-                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, C, AnyPostStepCheck>::new(&FRUD_FINISH_MOVESET, vec![], table, AnyPostStepCheck, "ud"))),
-                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, C, AnyPostStepCheck>::new(&FRUD_FINISH_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, AnyPostStepCheck, "fb"))),
-                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {coords::fr::FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, C, AnyPostStepCheck>::new(&FRUD_FINISH_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, AnyPostStepCheck, "lr"))),
+                Axis::UD => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, C, AnyPostStepCheck>::new(&FRUD_FINISH_MOVESET, vec![], table, AnyPostStepCheck, "ud"))),
+                Axis::FB => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, C, AnyPostStepCheck>::new(&FRUD_FINISH_MOVESET, vec![Transformation(Axis::X, Clockwise)], table, AnyPostStepCheck, "fb"))),
+                Axis::LR => Some(Box::new(DefaultPruningTableStep::<{ FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, C, AnyPostStepCheck>::new(&FRUD_FINISH_MOVESET, vec![Transformation(Axis::Z, Clockwise)], table, AnyPostStepCheck, "lr"))),
             };
             x
         })

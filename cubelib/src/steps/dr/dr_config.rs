@@ -2,9 +2,8 @@ use std::vec;
 
 use itertools::Itertools;
 
-use crate::coords;
-use crate::coords::dr::DRUDEOFBCoord;
-use crate::coords::eo::EOCoordFB;
+use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
+use crate::steps::eo::coords::EOCoordFB;
 use crate::cube::{Axis, Face, Move, Transformation};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
@@ -13,6 +12,29 @@ use crate::moveset::{MoveSet, TransitionTable};
 use crate::steps::step::StepConfig;
 use crate::defs::*;
 use crate::steps::step::{AnyPostStepCheck, DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
+
+
+pub const HTR_DR_UD_STATE_CHANGE_MOVES: &[Move] = &[
+    Move(Up, Clockwise),
+    Move(Up, CounterClockwise),
+    Move(Down, Clockwise),
+    Move(Down, CounterClockwise),
+];
+
+pub const HTR_MOVES: &[Move] = &[
+    Move(Up, Half),
+    Move(Down, Half),
+    Move(Right, Half),
+    Move(Left, Half),
+    Move(Front, Half),
+    Move(Back, Half),
+];
+
+pub const HTR_DR_UD_MOVESET: MoveSet = MoveSet {
+    st_moves: HTR_DR_UD_STATE_CHANGE_MOVES,
+    aux_moves: HTR_MOVES,
+    transitions: dr_transitions(Up),
+};
 
 pub const DR_UD_EO_FB_STATE_CHANGE_MOVES: &[Move] = &[
     Move(Right, Clockwise),
@@ -40,7 +62,7 @@ pub const DR_UD_EO_FB_MOVESET: MoveSet = MoveSet {
     transitions: dr_transitions(Left),
 };
 
-pub type DRPruningTable = PruningTable<{ coords::dr::DRUDEOFB_SIZE }, DRUDEOFBCoord>;
+pub type DRPruningTable = PruningTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
 
 pub fn from_step_config<'a, C: 'a>(table: &'a DRPruningTable, config: StepConfig) -> Result<(Step<'a, C>, DefaultStepOptions), String>
     where
@@ -99,12 +121,12 @@ fn dr_step_variants<'a, C: 'a, const EOA: usize, const DRA: usize>(
         .flat_map(|eo| dr_axis.into_iter().map(move |dr| (eo, dr)))
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
-                (Axis::UD, Axis::FB) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::X], table, AnyPostStepCheck, "fb-eoud"))),
-                (Axis::UD, Axis::LR) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::X, Transformation::Z], table, AnyPostStepCheck, "lr-eoud"))),
-                (Axis::FB, Axis::UD) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![], table, AnyPostStepCheck, "ud-eofb"))),
-                (Axis::FB, Axis::LR) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Z], table, AnyPostStepCheck, "lr-eofb"))),
-                (Axis::LR, Axis::UD) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Y], table, AnyPostStepCheck, "ud-eolr"))),
-                (Axis::LR, Axis::FB) => Some(Box::new(DefaultPruningTableStep::<{coords::dr::DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Y, Transformation::Z], table, AnyPostStepCheck, "fb-eolr"))),
+                (Axis::UD, Axis::FB) => Some(Box::new(DefaultPruningTableStep::<{DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::X], table, AnyPostStepCheck, "fb-eoud"))),
+                (Axis::UD, Axis::LR) => Some(Box::new(DefaultPruningTableStep::<{DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::X, Transformation::Z], table, AnyPostStepCheck, "lr-eoud"))),
+                (Axis::FB, Axis::UD) => Some(Box::new(DefaultPruningTableStep::<{DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![], table, AnyPostStepCheck, "ud-eofb"))),
+                (Axis::FB, Axis::LR) => Some(Box::new(DefaultPruningTableStep::<{DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Z], table, AnyPostStepCheck, "lr-eofb"))),
+                (Axis::LR, Axis::UD) => Some(Box::new(DefaultPruningTableStep::<{DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Y], table, AnyPostStepCheck, "ud-eolr"))),
+                (Axis::LR, Axis::FB) => Some(Box::new(DefaultPruningTableStep::<{DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::Y, Transformation::Z], table, AnyPostStepCheck, "fb-eolr"))),
                 (_eo, _dr) => None,
             };
             x
@@ -136,5 +158,5 @@ where
 }
 
 const fn dr_transitions(axis_face: Face) -> [TransitionTable; 18] {
-    crate::steps::eo::eo_transitions(axis_face)
+    crate::steps::eo::eo_config::eo_transitions(axis_face)
 }

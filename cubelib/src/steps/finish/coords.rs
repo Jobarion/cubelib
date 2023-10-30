@@ -1,4 +1,4 @@
-use crate::coords::coord::Coord;
+use crate::steps::coord::Coord;
 use crate::cubie::CubieCube;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -29,7 +29,7 @@ impl From<&CubieCube> for FRUDFinishCoord {
 mod avx2 {
     use std::arch::x86_64::{_mm_and_si128, _mm_cmpeq_epi8, _mm_extract_epi16, _mm_movemask_epi8, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi8, _mm_set_epi8};
 
-    use crate::coords::finish::FRUDFinishCoord;
+    use crate::steps::finish::coords::FRUDFinishCoord;
     use crate::cubie::CubieCube;
 
     #[target_feature(enable = "avx2")]

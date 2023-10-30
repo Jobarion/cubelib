@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4.4.0"
-cubelib = { path = "../cubelib", features = ["cube", "solver"]}
+cubelib = { path = "../cubelib" }
 cubelib-solver = { path = "../solver" }
 cubelib-interface = { path = "../interface" }
 serde = { version = "1.0.188", features = ["derive"] }

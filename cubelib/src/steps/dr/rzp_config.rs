@@ -6,8 +6,8 @@ use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::defs::*;
 use crate::moveset::{MoveSet, TransitionTable};
-use crate::steps::{dr, eo, htr};
-use crate::steps::eo::EOCount;
+use crate::steps::{dr, eo};
+use crate::steps::eo::eo_config::EOCount;
 use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
 use crate::steps::step::StepConfig;
 
@@ -29,14 +29,14 @@ const QT_MOVES: [Move; 12] = [
 
 //Exactly the same as DR
 pub const RZP_EO_FB_MOVESET: MoveSet = MoveSet {
-    st_moves: dr::DR_UD_EO_FB_STATE_CHANGE_MOVES,
-    aux_moves: dr::DR_UD_EO_FB_MOVES,
+    st_moves: dr::dr_config::DR_UD_EO_FB_STATE_CHANGE_MOVES,
+    aux_moves: dr::dr_config::DR_UD_EO_FB_MOVES,
     transitions: rzp_transitions(Left),
 };
 
 pub const RZP_ANY: MoveSet = MoveSet {
     st_moves: &QT_MOVES,
-    aux_moves: htr::HTR_MOVES,
+    aux_moves: dr::dr_config::HTR_MOVES,
     transitions: rzp_transitions_any(),
 };
 
@@ -160,7 +160,7 @@ impl<'a, CubeParam: EOCount> StepVariant<CubeParam> for RZPStep<'a>
 }
 
 const fn rzp_transitions(axis_face: Face) -> [TransitionTable; 18] {
-    eo::eo_transitions(axis_face)
+    eo::eo_config::eo_transitions(axis_face)
 }
 
 const fn rzp_transitions_any() -> [TransitionTable; 18] {

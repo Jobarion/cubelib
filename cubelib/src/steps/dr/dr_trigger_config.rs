@@ -9,19 +9,19 @@ use log::{debug, error};
 
 use crate::algs::Algorithm;
 use crate::co::COCountUD;
-use crate::coords::coord::Coord;
-use crate::coords::dr::DRUDEOFBCoord;
-use crate::coords::eo::EOCoordFB;
+use crate::steps::coord::Coord;
+use crate::steps::dr::coords::DRUDEOFBCoord;
+use crate::steps::eo::coords::EOCoordFB;
 use crate::cube::{Axis, Face, Move, NewSolved, Transformation, Turnable};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::cubie::CubieCube;
 use crate::defs::*;
 use crate::moveset::{MoveSet, TransitionTable};
-use crate::steps::dr::DR_UD_EO_FB_MOVESET;
-use crate::steps::dr::DRPruningTable;
-use crate::steps::eo::EOCount;
-use crate::steps::htr::HTR_DR_UD_MOVESET;
+use crate::steps::dr::dr_config::DR_UD_EO_FB_MOVESET;
+use crate::steps::dr::dr_config::DRPruningTable;
+use crate::steps::eo::eo_config::EOCount;
+use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
 use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
 use crate::steps::step::StepConfig;
 
@@ -325,5 +325,5 @@ pub fn filter_dr_trigger(alg: &Algorithm, triggers: &Vec<Vec<Move>>) -> bool {
 }
 
 const fn dr_transitions(axis_face: Face) -> [TransitionTable; 18] {
-    crate::steps::eo::eo_transitions(axis_face)
+    crate::steps::eo::eo_config::eo_transitions(axis_face)
 }

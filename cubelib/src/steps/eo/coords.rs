@@ -1,4 +1,4 @@
-use crate::coords::coord::Coord;
+use crate::steps::coord::Coord;
 use crate::cube::Edge;
 use crate::cubie::{CubieCube, EdgeCubieCube};
 
@@ -54,6 +54,12 @@ impl From<&EdgeCubieCube> for EOCoordAll {
     fn from(value: &EdgeCubieCube) -> Self {
         unsafe { avx2::unsafe_from_eocoord_all(value) }
     }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn from(value: &EdgeCubieCube) -> Self {
+        wasm32::from_eocoord_all(value)
+    }
 }
 
 impl From<&EdgeCubieCube> for EOCoordUD {
@@ -61,6 +67,12 @@ impl From<&EdgeCubieCube> for EOCoordUD {
     #[cfg(target_feature = "avx2")]
     fn from(value: &EdgeCubieCube) -> Self {
         unsafe { avx2::unsafe_from_eocoord_ud(value) }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn from(value: &EdgeCubieCube) -> Self {
+        wasm32::from_eocoord_ud(value)
     }
 }
 
@@ -76,6 +88,12 @@ impl From<&EdgeCubieCube> for EOCoordFB {
     fn from(value: &EdgeCubieCube) -> Self {
         unsafe { avx2::unsafe_from_eocoord_fb(value) }
     }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn from(value: &EdgeCubieCube) -> Self {
+        wasm32::from_eocoord_fb(value)
+    }
 }
 
 impl From<&CubieCube> for EOCoordFB {
@@ -90,6 +108,12 @@ impl From<&EdgeCubieCube> for EOCoordLR {
     fn from(value: &EdgeCubieCube) -> Self {
         unsafe { avx2::unsafe_from_eocoord_lr(value) }
     }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn from(value: &EdgeCubieCube) -> Self {
+        wasm32::from_eocoord_lr(value)
+    }
 }
 
 impl From<&CubieCube> for EOCoordLR {
@@ -98,31 +122,13 @@ impl From<&CubieCube> for EOCoordLR {
     }
 }
 
-impl From<&[Edge; 12]> for EOCoordAll {
-    fn from(value: &[Edge; 12]) -> Self {
-        let mut ud = 0_u16;
-        let mut fb = 0_u16;
-        let mut lr = 0_u16;
-
-        for i in (0..11).rev() {
-            let edge = value[i];
-            ud = (ud << 1) | (!edge.oriented_ud as u16);
-            fb = (fb << 1) | (!edge.oriented_fb as u16);
-            lr = (lr << 1) | (!edge.oriented_rl as u16);
-        }
-
-        EOCoordAll(EOCoordUD(ud), EOCoordFB(fb), EOCoordLR(lr))
-    }
-}
-
 #[cfg(target_feature = "avx2")]
 mod avx2 {
     use std::arch::x86_64::{_mm_and_si128, _mm_movemask_epi8, _mm_set_epi8, _mm_slli_epi64};
 
-    use crate::coords::eo::{EOCoordAll, EOCoordFB, EOCoordLR, EOCoordUD};
+    use crate::steps::eo::coords::{EOCoordAll, EOCoordFB, EOCoordLR, EOCoordUD};
     use crate::cubie::EdgeCubieCube;
 
-    #[target_feature(enable = "avx2")]
     #[inline]
     pub(crate) unsafe fn unsafe_from_eocoord_all(value: &EdgeCubieCube) -> EOCoordAll {
         //Number of oriented edges is always even, so the last edge can be ignored in the coordinate
@@ -139,7 +145,6 @@ mod avx2 {
         EOCoordAll(EOCoordUD(ud), EOCoordFB(fb), EOCoordLR(lr))
     }
 
-    #[target_feature(enable = "avx2")]
     #[inline]
     pub(crate) unsafe fn unsafe_from_eocoord_ud(value: &EdgeCubieCube) -> EOCoordUD {
         //Number of oriented edges is always even, so the last edge can be ignored in the coordinate
@@ -154,7 +159,6 @@ mod avx2 {
         EOCoordUD(ud)
     }
 
-    #[target_feature(enable = "avx2")]
     #[inline]
     pub(crate) unsafe fn unsafe_from_eocoord_fb(value: &EdgeCubieCube) -> EOCoordFB {
         //Number of oriented edges is always even, so the last edge can be ignored in the coordinate
@@ -169,7 +173,6 @@ mod avx2 {
         EOCoordFB(fb)
     }
 
-    #[target_feature(enable = "avx2")]
     #[inline]
     pub(crate) unsafe fn unsafe_from_eocoord_lr(value: &EdgeCubieCube) -> EOCoordLR {
         //Number of oriented edges is always even, so the last edge can be ignored in the coordinate
@@ -182,5 +185,52 @@ mod avx2 {
         );
         let rl = _mm_movemask_epi8(_mm_slli_epi64::<6>(no_db_edge)) as u16;
         EOCoordLR(rl)
+    }
+}
+
+#[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+mod wasm32 {
+    use std::arch::wasm32::{u32x4_shl, u8x16, v128_and, u8x16_bitmask};
+    use crate::steps::eo::coords::{EOCoordAll, EOCoordFB, EOCoordLR, EOCoordUD};
+    use crate::cubie::EdgeCubieCube;
+
+    #[inline]
+    pub(crate) fn from_eocoord_ud(value: &EdgeCubieCube) -> EOCoordUD {
+        EOCoordUD(get_eocoord::<4>(value))
+    }
+
+    #[inline]
+    pub(crate) fn from_eocoord_fb(value: &EdgeCubieCube) -> EOCoordFB {
+        EOCoordFB(get_eocoord::<5>(value))
+    }
+
+    #[inline]
+    pub(crate) fn from_eocoord_lr(value: &EdgeCubieCube) -> EOCoordLR {
+        EOCoordLR(get_eocoord::<6>(value))
+    }
+
+    #[inline]
+    fn get_eocoord<const SHL: u32>(value: &EdgeCubieCube) -> u16 {
+        //Number of oriented edges is always even, so the last edge can be ignored in the coordinate
+        let no_db_edge = v128_and(
+            value.0,
+            u8x16(0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F,
+                  0x0F, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00),
+        );
+        u8x16_bitmask(u32x4_shl(no_db_edge, SHL))
+    }
+
+    #[inline]
+    pub(crate) fn from_eocoord_all(value: &EdgeCubieCube) -> EOCoordAll {
+        //Number of oriented edges is always even, so the last edge can be ignored in the coordinate
+        let no_db_edge = v128_and(
+            value.0,
+            u8x16(0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F,
+                  0x0F, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00),
+        );
+        let ud = u8x16_bitmask(u32x4_shl(no_db_edge, 4));
+        let fb = u8x16_bitmask(u32x4_shl(no_db_edge, 5));
+        let lr = u8x16_bitmask(u32x4_shl(no_db_edge, 6));
+        EOCoordAll(EOCoordUD(ud), EOCoordFB(fb), EOCoordLR(lr))
     }
 }

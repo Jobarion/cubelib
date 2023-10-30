@@ -1,16 +1,19 @@
 use std::str::FromStr;
-use cubelib::algs::Algorithm;
 
-use cubelib::cube::{ApplyAlgorithm, NewSolved};
+use cubelib::algs::Algorithm;
+use cubelib::cube::{ApplyAlgorithm, Axis, Move, NewSolved, Turnable};
 use cubelib::cubie::CubieCube;
+use cubelib::steps::dr::dr_trigger_config::dr;
+use cubelib::steps::eo::coords::EOCoordUD;
+use cubelib::steps::step::{DefaultStepOptions, first_step, StepConfig};
 use leptonic::prelude::*;
 use leptos::*;
 
 use crate::cube::Cube;
 use crate::cube::ScrambleComponent;
-use crate::step::DefaultStepParameters;
 use crate::solution::SolutionComponent;
 use crate::step::*;
+use crate::step::DefaultStepParameters;
 use crate::util::build_toggle_chain;
 
 mod cube;
@@ -49,7 +52,6 @@ fn App() -> impl IntoView {
 
 #[component]
 fn FMCAppContainer() -> impl IntoView {
-
     view! {
         <Box id="app-container">
             <h2>"Scramble"</h2>
@@ -63,5 +65,50 @@ fn FMCAppContainer() -> impl IntoView {
 }
 
 fn main() {
+
+    let mut pt = cubelib::tables::PruningTables::new();
+    web_sys::console::log_1(&format!("Pre EO").into());
+    pt.gen_eo();
+    web_sys::console::log_1(&format!("EO").into());
+    pt.gen_dr();
+    web_sys::console::log_1(&format!("DR").into());
+
+    let eo_step = (
+        cubelib::steps::eo::eo_config::eo(&pt.eo().unwrap(), vec![Axis::UD, Axis::FB, Axis::LR]),
+        DefaultStepOptions {
+            niss_type: cubelib::defs::NissSwitchType::Never,
+            min_moves: 0,
+            max_moves: 5,
+            step_limit: None
+        }
+    );
+    let dr_step = (
+        cubelib::steps::dr::dr_config::dr(&pt.dr().unwrap(), [Axis::UD, Axis::FB, Axis::LR], [Axis::UD, Axis::FB, Axis::LR]),
+        DefaultStepOptions {
+            niss_type: cubelib::defs::NissSwitchType::Before,
+            min_moves: 0,
+            max_moves: 12,
+            step_limit: None
+        }
+    );
+    let steps = vec![eo_step, dr_step];
+
+    let mut cube = CubieCube::new_solved();
+    cube.turn(Move::Ri);
+    cube.turn(Move::Ui);
+    cube.turn(Move::F);
+    cube.turn(Move::D2);
+    cube.turn(Move::L2);
+    cube.turn(Move::F2);
+    cube.turn(Move::R);
+    cube.turn(Move::B2);
+    cube.turn(Move::Ri);
+    cube.turn(Move::Ui);
+    cube.turn(Move::F);
+
+    let mut sol = cubelib::solver::solve_steps(cube, &steps);
+
+    web_sys::console::log_1(&format!("{}", sol.next().unwrap().to_string()).into());
+
     leptos::mount_to_body(|| view! {<App/> })
 }

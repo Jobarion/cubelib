@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 use crate::algs::Algorithm;
 use crate::solution::{Solution, SolutionStep};
-use crate::coords::coord::Coord;
+use crate::steps::coord::Coord;
 use crate::cube::{ApplyAlgorithm, Invertible, Transformation, Turnable};
 use crate::cube::Turn::Half;
 use crate::defs::*;

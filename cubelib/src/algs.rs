@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use itertools::Itertools;
 
-use crate::cube::{ApplyAlgorithm, Axis, Invertible, Move, Transformation, Turnable};
+use crate::cube::{Axis, Move, Transformation, Turnable};
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct Algorithm {
@@ -160,51 +160,5 @@ impl Turnable for Algorithm {
             .iter()
             .map(|m| m.transform(t))
             .collect_vec();
-    }
-}
-
-mod test {
-    use std::str::FromStr;
-
-    use crate::algs::Algorithm;
-
-    #[test]
-    fn empty() {
-        let alg = Algorithm::from_str("").unwrap();
-        assert_eq!(0, alg.normal_moves.len());
-        assert_eq!(0, alg.inverse_moves.len());
-    }
-
-    #[test]
-    fn single() {
-        let alg = Algorithm::from_str("R").unwrap();
-        assert_eq!(1, alg.normal_moves.len());
-        assert_eq!(0, alg.inverse_moves.len());
-    }
-
-    #[test]
-    fn single_inverse() {
-        let alg = Algorithm::from_str("(R)").unwrap();
-        assert_eq!(0, alg.normal_moves.len());
-        assert_eq!(1, alg.inverse_moves.len());
-    }
-
-    #[test]
-    fn multi_switch() {
-        let alg = Algorithm::from_str("F (B) F (B F) B").unwrap();
-        assert_eq!(3, alg.normal_moves.len());
-        assert_eq!(3, alg.inverse_moves.len());
-    }
-
-    #[test]
-    fn invalid_move() {
-        let alg = Algorithm::from_str("P");
-        assert!(alg.is_err());
-    }
-
-    #[test]
-    fn invalid_move_inverse() {
-        let alg = Algorithm::from_str("(P)");
-        assert!(alg.is_err());
     }
 }

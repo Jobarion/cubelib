@@ -11,7 +11,7 @@ web-sys = "0.3.64"
 leptonic = { git = "https://github.com/lhjok/leptonic"} # Until leptonic is officially compatible with leptos 0.5
 #leptonic = "0.2.0"
 leptos-use = "0.7.1"
-cubelib = { path = "../cubelib", features = ["cube"]}
+cubelib = { path = "../cubelib", features = ["cube"], default-features = false }
 cubelib-interface = { path = "../interface" }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0"
@@ -20,3 +20,7 @@ reqwest = { version = "0.11", features = ["json"] }
 [build-dependencies]
 leptonic-theme = "0.2.0"
 leptos-tiptap-build = "0.2.3"
+
+[features]
+default = ["cubelib/cube"]
+wasm_solver = ["cubelib/cube", "cubelib/step_eo", "cubelib/step_dr"]

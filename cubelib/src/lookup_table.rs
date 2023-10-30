@@ -3,7 +3,7 @@ use std::collections::{HashMap};
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::marker::PhantomData;
-use crate::coords::coord::Coord;
+use crate::steps::coord::Coord;
 
 use crate::cube::{NewSolved, Turnable};
 use crate::moveset::{MoveSet, TransitionTable};

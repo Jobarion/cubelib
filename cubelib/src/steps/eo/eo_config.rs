@@ -1,7 +1,6 @@
 use itertools::Itertools;
 
 use crate::algs::Algorithm;
-use crate::coords::eo::EOCoordFB;
 use crate::cube::{Axis, Face, FACES, Move, Transformation};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
@@ -9,6 +8,7 @@ use crate::cubie::{CubieCube, EdgeCubieCube};
 use crate::defs::*;
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
+use crate::steps::eo::coords::EOCoordFB;
 use crate::steps::step::StepConfig;
 use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
 

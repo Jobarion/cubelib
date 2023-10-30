@@ -43,6 +43,11 @@ impl COCountUD for CornerCubieCube {
             avx2::co_ud(self)
         }
     }
+
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn co_count(&self) -> u8 {
+        wasm32::co_ud(self)
+    }
 }
 
 #[cfg(target_feature = "avx2")]
@@ -55,5 +60,22 @@ mod avx2 {
         let bad_corners = _mm_cmpgt_epi8(co, _mm_set1_epi8(0));
         let count = ((_mm_movemask_epi8(bad_corners) & 0xFF) as usize).count_ones();
         count as u8
+    }
+}
+
+#[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+mod wasm32 {
+    use std::arch::wasm32::{u64x2, u8x16, v128, u8x16_gt, v128_and, u8x16_bitmask};
+    use crate::cubie::CornerCubieCube;
+
+    pub fn co_ud(cube: &CornerCubieCube) -> u8 {
+        let co = v128_and(cube.0, u8x16set1(0x0F));
+        let bad_corners = u8x16_gt(co, u64x2(0, 0));
+        let count = ((u8x16_bitmask(bad_corners) & 0xFF) as usize).count_ones();
+        count as u8
+    }
+
+    fn u8x16set1(a: u8) -> v128 {
+        u8x16(a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a)
     }
 }

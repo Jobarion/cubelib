@@ -1,4 +1,4 @@
-use crate::coords::coord::Coord;
+use crate::steps::coord::Coord;
 use crate::cubie::{CornerCubieCube, CubieCube, EdgeCubieCube};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -159,7 +159,7 @@ impl From<&CubieCube> for FRUDWithSliceCoord {
 mod avx2 {
     use std::arch::x86_64::{_mm_and_si128, _mm_castpd_si128, _mm_castsi128_pd, _mm_cmpeq_epi8, _mm_cmpgt_epi8, _mm_extract_epi16, _mm_movemask_epi8, _mm_or_si128, _mm_permute_pd, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_set_epi8, _mm_shuffle_epi8, _mm_srli_epi32, _mm_xor_si128};
 
-    use crate::coords::fr::{FRCPOrbitCoord, FREdgesCoord, FROrbitParityCoord, FRSliceEdgesCoord};
+    use crate::steps::fr::coords::{FRCPOrbitCoord, FREdgesCoord, FROrbitParityCoord, FRSliceEdgesCoord};
     use crate::cubie::{CornerCubieCube, CubieCube, EdgeCubieCube};
 
     #[target_feature(enable = "avx2")]

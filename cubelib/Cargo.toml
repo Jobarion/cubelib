@@ -7,12 +7,18 @@ edition = "2021"
 itertools = "0.11.0"
 log = "0.4.20"
 simple_logger = "4.2.0"
-#web-sys = "0.3.64"
+web-sys = "0.3.64"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["cube"]
+default = ["cube", "default_solver"]
 cube = []
 solver = ["cube"]
+default_solver = ["cube", "solver", "step_eo", "step_dr", "step_htr", "step_fr", "step_finish"]
+step_eo = ["cube", "solver"]
+step_dr = ["step_eo", "solver"]
+step_htr = ["step_dr", "solver"]
+step_fr = ["step_htr", "solver"]
+step_finish = ["step_fr", "solver"]

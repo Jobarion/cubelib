@@ -75,7 +75,7 @@ fn main() {
     let can_filter_last_move = steps.last().map(|(s, _)| s.is_half_turn_invariant()).unwrap_or(true);
     if !cli.all_solutions && can_filter_last_move {
         solutions = Box::new(solutions
-            .filter(|alg| eo::filter_eo_last_moves_pure(&alg.clone().into())));
+            .filter(|alg| eo::eo_config::filter_eo_last_moves_pure(&alg.clone().into())));
     }
 
     //We already generate a mostly duplicate iterator, but sometimes the same solution is valid for different stages and that can cause duplicates.

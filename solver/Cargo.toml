@@ -12,3 +12,11 @@ simple_logger = "4.2.0"
 clap = { version = "4.3.15", features = ["derive"] }
 regex = "1.9.5"
 cubelib = { path = "../cubelib", features = ["cube", "solver"]}
+
+[features]
+default = ["cubelib/default_solver"]
+eo = ["cubelib/step_eo"]
+dr = ["eo", "cubelib/step_dr"]
+htr = ["dr", "cubelib/step_htr"]
+fr = ["htr", "cubelib/step_fr"]
+finish = ["fr", "cubelib/step_finish"]

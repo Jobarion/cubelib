@@ -1,4 +1,4 @@
-use crate::coords::coord::Coord;
+use crate::steps::coord::Coord;
 use crate::cube::Corner;
 use crate::cubie::{CornerCubieCube, CubieCube, EdgeCubieCube};
 
@@ -212,7 +212,7 @@ mod avx2 {
     use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_castps_si128, _mm_castsi128_ps, _mm_cmpeq_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi16, _mm_hadd_epi32, _mm_movemask_epi8, _mm_mullo_epi16, _mm_or_si128, _mm_permute_ps, _mm_sad_epu8, _mm_set1_epi8, _mm_set_epi16, _mm_set_epi32, _mm_set_epi64x, _mm_set_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_slli_epi32, _mm_srli_epi32, _mm_sub_epi8, _mm_xor_si128};
 
     use crate::alignment::avx2::C;
-    use crate::coords::htr::{CPCoord, CPOrbitTwistCoord, CPOrbitUnsortedCoord, FBSliceUnsortedCoord, ParityCoord};
+    use crate::steps::htr::coords::{CPCoord, CPOrbitTwistCoord, CPOrbitUnsortedCoord, FBSliceUnsortedCoord, ParityCoord};
     use crate::cubie::{CornerCubieCube, EdgeCubieCube};
 
     const UD_SLICE_BINOM_0_ARR: [u8; 16] = [

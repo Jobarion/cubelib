@@ -2,7 +2,7 @@
 pub mod avx2_cubie {
     use std::arch::x86_64::{
         __m128i, _mm_add_epi8, _mm_and_si128, _mm_andnot_si128, _mm_extract_epi64, _mm_load_si128,
-        _mm_loadl_epi64, _mm_or_si128, _mm_set1_epi8, _mm_set_epi8,
+        _mm_loadl_epi64, _mm_or_si128, _mm_set1_epi8, _mm_setr_epi8,
         _mm_shuffle_epi8, _mm_slli_epi32, _mm_slli_epi64, _mm_srli_epi16, _mm_srli_epi32,
         _mm_store_si128, _mm_sub_epi8, _mm_xor_si128,
     };
@@ -304,9 +304,8 @@ pub mod avx2_cubie {
         #[target_feature(enable = "avx2")]
         pub(crate) unsafe fn unsafe_new_solved() -> EdgeCubieCube {
             EdgeCubieCube(unsafe {
-                _mm_slli_epi64::<4>(_mm_set_epi8(
-                    0, 0, 0, 0, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
-                ))
+                _mm_slli_epi64::<4>(_mm_setr_epi8( 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 0, 0,
+                    0))
             })
         }
 
@@ -750,7 +749,7 @@ pub mod avx2_cubie {
         #[inline]
         pub(crate) unsafe fn unsafe_new_solved() -> CornerCubieCube {
             CornerCubieCube(unsafe {
-                _mm_slli_epi64::<5>(_mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, 7, 6, 5, 4, 3, 2, 1, 0))
+                _mm_slli_epi64::<5>(_mm_setr_epi8( 0, 1, 2, 3, 4, 5, 6, 7, 0, 0, 0, 0, 0, 0, 0,0))
             })
         }
 
@@ -825,9 +824,8 @@ pub mod avx2_cubie {
                 let co_id = _mm_or_si128(_mm_srli_epi32::<3>(corner_orbit_id), co);
                 let co_id = _mm_or_si128(
                     co_id,
-                    _mm_set_epi8(
-                        0, 0, 0, 0, 0, 0, 0, 0, 0b1000, 0, 0b1000, 0, 0b1000, 0, 0b1000, 0,
-                    ),
+                    _mm_setr_epi8( 0, 0b1000, 0, 0b1000, 0, 0b1000, 0, 0b1000, 0, 0, 0, 0, 0, 0, 0,
+                        0),
                 );
                 _mm_shuffle_epi8(Self::TRANSFORMATION_CO_MAP[axis], co_id)
             } else {
@@ -866,7 +864,7 @@ pub mod avx2_cubie {
             let tmp = _mm_and_si128(
                 _mm_add_epi8(
                     co_shuffle,
-                    _mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1),
+                    _mm_setr_epi8( 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0,0),
                 ),
                 _mm_set1_epi8(2),
             );

@@ -1,16 +1,16 @@
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 use std::marker::PhantomData;
-use std::str::FromStr;
+
 use crate::algs::Algorithm;
-use crate::solution::{Solution, SolutionStep};
-use crate::steps::coord::Coord;
 use crate::cube::{ApplyAlgorithm, Invertible, Transformation, Turnable};
 use crate::cube::Turn::Half;
 use crate::defs::*;
 use crate::df_search::dfs_iter;
 use crate::lookup_table::PruningTable;
 use crate::moveset::MoveSet;
+use crate::solution::{Solution, SolutionStep};
+use crate::steps::coord::Coord;
 use crate::stream;
 
 #[derive(Debug)]

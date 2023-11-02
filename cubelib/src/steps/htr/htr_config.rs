@@ -2,17 +2,16 @@ use std::fmt::Debug;
 
 use itertools::Itertools;
 
-use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
-use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
-use crate::cube::{Axis, Face, Move, Transformation};
+use crate::cube::{Axis, Transformation};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::defs::*;
 use crate::lookup_table::PruningTable;
-use crate::moveset::{MoveSet, TransitionTable};
+use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
+pub use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
+use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
 use crate::steps::step::{AnyPostStepCheck, DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
 use crate::steps::step::StepConfig;
-use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
 
 pub type HTRPruningTable = PruningTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
 

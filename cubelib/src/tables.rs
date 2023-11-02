@@ -185,8 +185,10 @@ fn gen_fr_leave_slice() -> PruningTable<{ crate::steps::fr::coords::FRUD_NO_SLIC
 #[cfg(feature = "step_fr")]
 fn gen_fr() -> PruningTable<{ crate::steps::fr::coords::FRUD_WITH_SLICE_SIZE }, FRUDWithSliceCoord> {
     info!("Generating FR pruning table...");
+    #[cfg(not(target_arch = "wasm32"))]
     let time = Instant::now();
     let table = lookup_table::generate(&FR_UD_MOVESET, &|c: &CubieCube| FRUDWithSliceCoord::from(c));
+    #[cfg(not(target_arch = "wasm32"))]
     debug!("Took {}ms", time.elapsed().as_millis());
     table
 }

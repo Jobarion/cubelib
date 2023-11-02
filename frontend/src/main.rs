@@ -1,13 +1,16 @@
+use std::panic;
 use std::str::FromStr;
 
 use cubelib::algs::Algorithm;
 use cubelib::cube::{ApplyAlgorithm, Axis, Move, NewSolved, Turnable};
 use cubelib::cubie::CubieCube;
+use cubelib::steps::dr::coords::DRUDEOFBCoord;
 use cubelib::steps::dr::dr_trigger_config::dr;
 use cubelib::steps::eo::coords::EOCoordUD;
 use cubelib::steps::step::{DefaultStepOptions, first_step, StepConfig};
 use leptonic::prelude::*;
 use leptos::*;
+use log::{info, Level};
 
 use crate::cube::Cube;
 use crate::cube::ScrambleComponent;
@@ -65,13 +68,15 @@ fn FMCAppContainer() -> impl IntoView {
 }
 
 fn main() {
+    wasm_log::init(wasm_log::Config::new(Level::Debug));
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     let mut pt = cubelib::tables::PruningTables::new();
-    web_sys::console::log_1(&format!("Pre EO").into());
     pt.gen_eo();
-    web_sys::console::log_1(&format!("EO").into());
     pt.gen_dr();
-    web_sys::console::log_1(&format!("DR").into());
+    pt.gen_htr();
+    pt.gen_fr();
+    pt.gen_fr_finish();
 
     let eo_step = (
         cubelib::steps::eo::eo_config::eo(&pt.eo().unwrap(), vec![Axis::UD, Axis::FB, Axis::LR]),
@@ -79,7 +84,7 @@ fn main() {
             niss_type: cubelib::defs::NissSwitchType::Never,
             min_moves: 0,
             max_moves: 5,
-            step_limit: None
+            step_limit: Some(10000)
         }
     );
     let dr_step = (
@@ -88,10 +93,37 @@ fn main() {
             niss_type: cubelib::defs::NissSwitchType::Before,
             min_moves: 0,
             max_moves: 12,
-            step_limit: None
+            step_limit: Some(10000)
         }
     );
-    let steps = vec![eo_step, dr_step];
+    let htr_step = (
+        cubelib::steps::htr::htr_config::htr(&pt.htr().unwrap(), vec![Axis::UD, Axis::FB, Axis::LR]),
+        DefaultStepOptions {
+            niss_type: cubelib::defs::NissSwitchType::Before,
+            min_moves: 0,
+            max_moves: 12,
+            step_limit: Some(10000)
+        }
+    );
+    let fr_step = (
+        cubelib::steps::fr::fr_config::fr(&pt.fr().unwrap(), vec![Axis::UD, Axis::FB, Axis::LR]),
+        DefaultStepOptions {
+            niss_type: cubelib::defs::NissSwitchType::Before,
+            min_moves: 0,
+            max_moves: 12,
+            step_limit: Some(10000)
+        }
+    );
+    let finish_step = (
+        cubelib::steps::finish::finish_config::fr_finish(&pt.fr_finish().unwrap(), vec![Axis::UD, Axis::FB, Axis::LR]),
+        DefaultStepOptions {
+            niss_type: cubelib::defs::NissSwitchType::Before,
+            min_moves: 0,
+            max_moves: 12,
+            step_limit: Some(10000)
+        }
+    );
+    let steps = vec![eo_step, dr_step, htr_step, fr_step, finish_step];
 
     let mut cube = CubieCube::new_solved();
     cube.turn(Move::Ri);
@@ -107,7 +139,7 @@ fn main() {
     cube.turn(Move::F);
 
     let mut sol = cubelib::solver::solve_steps(cube, &steps);
-
+    log::info!("Solving now");
     web_sys::console::log_1(&format!("{}", sol.next().unwrap().to_string()).into());
 
     leptos::mount_to_body(|| view! {<App/> })

@@ -13,13 +13,13 @@ use itertools::Itertools;
 use log::{debug, error, info, LevelFilter};
 use simple_logger::SimpleLogger;
 
-use cubelib_solver::solver::gen_tables;
+use cubelib::solver::gen_tables;
+use cubelib::steps::dr::coords::DRUDEOFBCoord;
+use cubelib::steps::fr::coords::FRUDWithSliceCoord;
 
 use crate::cli::Cli;
-use crate::solver::{build_steps, solve_steps};
 
 mod cli;
-mod solver;
 
 fn main() {
     let cli: Cli = Cli::parse();
@@ -46,7 +46,7 @@ fn main() {
         return;
     } else if let Ok(val) = steps {
         gen_tables(&val, &mut tables);
-        build_steps(val, &tables)
+        cubelib::solver::build_steps(val, &tables)
     } else {
         unreachable!()
     };
@@ -61,7 +61,7 @@ fn main() {
     };
 
 
-    let solutions = solve_steps(cube, &steps);
+    let solutions = cubelib::solver::solve_steps(cube, &steps);
 
     info!("Generating solutions\n");
     let time = Instant::now();

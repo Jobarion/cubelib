@@ -8,6 +8,7 @@ pub mod wasm32_cubie {
         u8x16_sub, v128, v128_and, v128_andnot, v128_load, v128_or, v128_store,
         v128_xor, u8x16_swizzle,
     };
+    use crate::wasm_util::u8x16_set1;
 
     pub(crate) struct WASM32EdgeCubieCube;
 
@@ -156,8 +157,8 @@ pub mod wasm32_cubie {
                 cube.0,
                 Self::TRANSFORMATION_EP_SHUFFLE[axis as usize][turn_type as usize],
             );
-            let ep = u32x4_shl(v128_and(edges_translated, u8x16set1(0xF0)), 4);
-            let eo = v128_and(edges_translated, u8x16set1(0b00001110));
+            let ep = u32x4_shl(v128_and(edges_translated, u8x16_set1(0xF0)), 4);
+            let eo = v128_and(edges_translated, u8x16_set1(0b00001110));
             let ep_translated = u32x4_shl(
                 u8x16_swizzle(
                     Self::TRANSFORMATION_EP_SHUFFLE[axis as usize][turn_type.invert() as usize],
@@ -178,7 +179,7 @@ pub mod wasm32_cubie {
                 let mut a_arr = [0u8; 16];
                 v128_store(
                     a_arr.as_mut_ptr() as *mut v128,
-                    u32x4_shr(v128_and(cube.0, u8x16set1(0xF0)), 4),
+                    u32x4_shr(v128_and(cube.0, u8x16_set1(0xF0)), 4),
                 );
                 a_arr
             };
@@ -192,10 +193,10 @@ pub mod wasm32_cubie {
             //Splice together the edge permutation, and the EO of the edges on the inverse (see niss prediction to see how this works)
             let ep = v128_and(
                 u8x16_swizzle(u8x16_swizzle(cube.0, edge_shuffle_mask), edge_shuffle_mask),
-                u8x16set1(0xF0),
+                u8x16_set1(0xF0),
             );
             let eo_shuffle = u8x16_swizzle(cube.0, u32x4_shr(ep, 4));
-            let eo = v128_and(eo_shuffle, u8x16set1(0b1110));
+            let eo = v128_and(eo_shuffle, u8x16_set1(0b1110));
 
             cube.0 = v128_or(ep, eo);
         }
@@ -325,8 +326,8 @@ pub mod wasm32_cubie {
                 cube.0,
                 Self::TRANSFORMATION_CP_SHUFFLE[axis as usize][turn_type as usize],
             );
-            let cp = u32x4_shr(v128_and(corners_translated, u8x16set1(0b11100000)), 5);
-            let co = v128_and(corners_translated, u8x16set1(0b00000011));
+            let cp = u32x4_shr(v128_and(corners_translated, u8x16_set1(0b11100000)), 5);
+            let co = v128_and(corners_translated, u8x16_set1(0b00000011));
             let cp_translated = u32x4_shl(
                 u8x16_swizzle(
                     Self::TRANSFORMATION_CP_SHUFFLE[axis as usize][turn_type.invert() as usize],
@@ -335,7 +336,7 @@ pub mod wasm32_cubie {
                 5,
             );
             let co = if turn_type != Turn::Half {
-                let corner_orbit_id = v128_and(cp_translated, u8x16set1(0b00100000));
+                let corner_orbit_id = v128_and(cp_translated, u8x16_set1(0b00100000));
                 //We want 4 bits. The lowest two are for the corner CO, the third tells us which orbit the corner belongs to, and the fourth is which orbit the corner is in.
                 //Changing the CO only depends on the axis, corner orbit and previous UD-CO, so we can just use a lookup table to do this in a simple way
                 let co_id = v128_or(u32x4_shr(corner_orbit_id, 3), co);
@@ -355,7 +356,7 @@ pub mod wasm32_cubie {
         #[inline]
         pub(crate) fn invert(cube: &mut CornerCubieCube) {
             let corner_ids =
-                (u64x2_extract_lane::<0>(u32x4_shr(v128_and(cube.0, u8x16set1(0xE0)), 5)))
+                (u64x2_extract_lane::<0>(u32x4_shr(v128_and(cube.0, u8x16_set1(0xE0)), 5)))
                     .to_le_bytes();
 
             let mut corner_shuffle = corner_ids.clone();
@@ -371,18 +372,14 @@ pub mod wasm32_cubie {
                     u8x16_swizzle(cube.0, corner_shuffle_mask),
                     corner_shuffle_mask,
                 ),
-                u8x16set1(0b11100000),
+                u8x16_set1(0b11100000),
             );
             let co_shuffle = u8x16_swizzle(cube.0, u32x4_shr(cp, 5));
-            let tmp = v128_and(u8x16_add(co_shuffle, u8x16set1(1)), u8x16set1(2));
+            let tmp = v128_and(u8x16_add(co_shuffle, u8x16_set1(1)), u8x16_set1(2));
             let co_flip_mask = v128_or(tmp, u32x4_shr(tmp, 1));
-            let co = v128_and(v128_xor(co_shuffle, co_flip_mask), u8x16set1(7));
+            let co = v128_and(v128_xor(co_shuffle, co_flip_mask), u8x16_set1(7));
 
             cube.0 = v128_or(cp, co);
         }
-    }
-
-    fn u8x16set1(a: u8) -> v128 {
-        u8x16(a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a)
     }
 }

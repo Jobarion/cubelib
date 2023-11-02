@@ -1,6 +1,6 @@
-use crate::steps::coord::Coord;
-use crate::cube::{Corner, Invertible};
+use crate::cube::Invertible;
 use crate::cubie::{CornerCubieCube, CubieCube, EdgeCubieCube};
+use crate::steps::coord::Coord;
 
 //UD corner orientation
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -94,11 +94,11 @@ impl From<&CubieCube> for DRUDEOFBCoord {
 
 #[cfg(target_feature = "avx2")]
 mod avx2 {
-    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_set_epi32, _mm_set_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_slli_si128, _mm_srli_epi32, _mm_sub_epi8};
+    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_slli_si128, _mm_srli_epi32, _mm_sub_epi8};
 
     use crate::alignment::avx2::C;
-    use crate::steps::dr::coords::{COUDCoord, UDSliceUnsortedCoord};
     use crate::cubie::{CornerCubieCube, EdgeCubieCube};
+    use crate::steps::dr::coords::{COUDCoord, UDSliceUnsortedCoord};
 
     const UD_SLICE_BINOM_0_ARR: [u8; 16] = [
         b(0, 0), b(0, 1), b(0, 2), b(0, 3),
@@ -144,32 +144,32 @@ mod avx2 {
             //We map to Kociemba's order here to make things simpler for us, but this could be optimized out if we just adjust the later shuffle masks
             let slice_edges = _mm_shuffle_epi8(
                 slice_edges,
-                _mm_set_epi8(-1, -1, -1, -1, 6, 7, 5, 4, 10, 11, 8, 9, 0, 3, 2, 1),
+                _mm_setr_epi8( 1, 2, 3, 0, 9, 8, 11, 10, 4, 5, 7, 6, -1, -1, -1,-1),
             );
 
             let non_slice_edge_mask = _mm_cmpeq_epi8(slice_edges, _mm_set1_epi8(0));
 
             let e0123 = _mm_shuffle_epi8(
                 slice_edges,
-                _mm_set_epi8(3, -1, -1, -1, 2, 2, -1, -1, 1, 1, 1, -1, 0, 0, 0, 0),
+                _mm_setr_epi8( 0, 0, 0, 0, -1, 1, 1, 1, -1, -1, 2, 2, -1, -1, -1,3),
             );
             let e4567 = _mm_shuffle_epi8(
                 slice_edges,
-                _mm_set_epi8(7, -1, -1, -1, 6, 6, -1, -1, 5, 5, 5, -1, 4, 4, 4, 4),
+                _mm_setr_epi8( 4, 4, 4, 4, -1, 5, 5, 5, -1, -1, 6, 6, -1, -1, -1,7),
             );
             let e891011 = _mm_shuffle_epi8(
                 slice_edges,
-                _mm_set_epi8(11, -1, -1, -1, 10, 10, -1, -1, 9, 9, 9, -1, 8, 8, 8, 8),
+                _mm_setr_epi8( 8, 8, 8, 8, -1, 9, 9, 9, -1, -1, 10, 10, -1, -1, -1,11),
             );
 
             let hadd = _mm_hadd_epi32(e0123, e4567);
             let hadd = _mm_hadd_epi32(hadd, e891011);
-            let hadd0123 = _mm_and_si128(hadd, _mm_set_epi32(0, 0, 0, -1));
+            let hadd0123 = _mm_and_si128(hadd, _mm_setr_epi32( -1, 0, 0,0));
 
             let hadd4567891011 = _mm_hadd_epi32(
                 _mm_shuffle_epi8(
                     hadd,
-                    _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 3, 3, 3),
+                    _mm_setr_epi8( 3, 3, 3, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,15),
                 ),
                 _mm_set1_epi8(0),
             );
@@ -177,11 +177,11 @@ mod avx2 {
                 hadd4567891011,
                 _mm_shuffle_epi8(
                     hadd4567891011,
-                    _mm_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1, 3, 3, 3, 3, 15, 15, 15, 15),
+                    _mm_setr_epi8( 15, 15, 15, 15, 3, 3, 3, 3, -1, -1, -1, -1, -1, -1, -1,-1),
                 ),
             );
-            let hadd = _mm_or_si128(_mm_slli_si128::<4>(hadd4567891011), hadd0123);
 
+            let hadd = _mm_or_si128(_mm_slli_si128::<4>(hadd4567891011), hadd0123);
             let hadd = _mm_and_si128(hadd, non_slice_edge_mask);
 
             let lut_index = _mm_and_si128(
@@ -190,20 +190,20 @@ mod avx2 {
             );
             let lut_index = _mm_add_epi8(
                 lut_index,
-                _mm_set_epi8(0, 0, 0, 0, 12, 8, 4, 0, 12, 8, 4, 0, 12, 8, 4, 0),
+                _mm_setr_epi8( 0, 4, 8, 12, 0, 4, 8, 12, 0, 4, 8, 12, 0, 0, 0,0),
             );
 
             let binom0123 = _mm_and_si128(
                 _mm_shuffle_epi8(UD_SLICE_BINOM_0, lut_index),
-                _mm_set_epi32(0, 0, 0, -1),
+                _mm_setr_epi32( -1, 0, 0,0),
             );
             let binom4567 = _mm_and_si128(
                 _mm_shuffle_epi8(UD_SLICE_BINOM_1, lut_index),
-                _mm_set_epi32(0, 0, -1, 0),
+                _mm_setr_epi32( 0, -1, 0,0),
             );
             let binom891011 = _mm_and_si128(
                 _mm_shuffle_epi8(UD_SLICE_BINOM_2, lut_index),
-                _mm_set_epi32(0, -1, 0, 0),
+                _mm_setr_epi32( 0, 0, -1,0),
             );
 
             let hsum = _mm_or_si128(binom0123, _mm_or_si128(binom4567, binom891011));
@@ -256,10 +256,11 @@ mod avx2 {
 
 #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
 mod wasm32 {
-    use std::arch::wasm32::{u16x8_mul, u64x2_add, u64x2_shuffle, i32x4, u16x8, u32x4, u32x4_add, u32x4_shl, u32x4_shr, u8x16, u8x16_add, u8x16_eq, u16x8_add, u16x8_extract_lane, u16x8_shuffle, u32x4_shuffle, u8x16_sub, u8x16_swizzle, v128, v128_and, v128_or, i64x2, i8x16, u8x16_extract_lane, i16x8, u64x2};
+    use std::arch::wasm32::{i32x4, i8x16, u16x8, u16x8_extract_lane, u16x8_mul, u32x4_shr, u32x4_shuffle, u8x16, u8x16_add, u8x16_eq, u8x16_sub, u8x16_swizzle, v128, v128_and, v128_or};
 
     use crate::cubie::{CornerCubieCube, EdgeCubieCube};
     use crate::steps::dr::coords::{COUDCoord, UDSliceUnsortedCoord};
+    use crate::wasm_util::{complete_hsum_epi16, hsum_narrow_epi32, hsum_wide_epi32, mm_sad_epu8, u8x16_set1};
 
     const UD_SLICE_BINOM_0: v128 = u8x16(
         b(0, 0), b(0, 1), b(0, 2), b(0, 3),
@@ -289,7 +290,7 @@ mod wasm32 {
     ) -> UDSliceUnsortedCoord {
         let coord = {
             let slice_edges =
-                u32x4_shr(v128_and(value.0, u8x16set1(0b01000000)), 6);
+                u32x4_shr(v128_and(value.0, u8x16_set1(0b01000000)), 6);
             //Our edge order is
             // UB UR UF UL FR FL BR BL DF DR DB DL
 
@@ -302,8 +303,7 @@ mod wasm32 {
                 i8x16(1, 2, 3, 0, 9, 8, 11, 10, 4, 5, 7, 6, -1, -1, -1, -1)
             );
 
-
-            let non_slice_edge_mask = u8x16_eq(slice_edges, u8x16set1(0));
+            let non_slice_edge_mask = u8x16_eq(slice_edges, u8x16_set1(0));
 
             let e0123 = u8x16_swizzle(
                 slice_edges,
@@ -320,7 +320,7 @@ mod wasm32 {
 
             let hadd = hsum_wide_epi32(e0123, e4567);
             let hadd = hsum_wide_epi32(hadd, e891011);
-            let hadd0123 = v128_and(hadd, i32x4(0, 0, 0, -1));
+            let hadd0123 = v128_and(hadd, i32x4(-1, 0, 0, 0));
 
             let hadd4567891011 = hsum_narrow_epi32(
                 u8x16_swizzle(
@@ -336,13 +336,13 @@ mod wasm32 {
                 ),
             );
 
-            let hadd = v128_or(u32x4_shl(hadd4567891011, 4), hadd0123);
+            let hadd = v128_or(u32x4_shuffle::<4, 0, 1, 2>(hadd4567891011, i32x4(0, 0, 0, 0)), hadd0123);
 
             let hadd = v128_and(hadd, non_slice_edge_mask);
 
             let lut_index = v128_and(
-                u8x16_sub(hadd, u8x16set1(1)),
-                u8x16set1(0b10001111),
+                u8x16_sub(hadd, u8x16_set1(1)),
+                u8x16_set1(0b10001111),
             );
             let lut_index = u8x16_add(
                 lut_index,
@@ -364,7 +364,7 @@ mod wasm32 {
 
             let hsum = v128_or(binom0123, v128_or(binom4567, binom891011));
 
-            narrow_hsum_epu8_to_epu16(hsum)
+            u16x8_extract_lane::<0>(mm_sad_epu8(hsum))
         };
         UDSliceUnsortedCoord(coord)
     }
@@ -374,58 +374,13 @@ mod wasm32 {
         //Spread co data out into 16bit values to avoid overflow later
         let co_epi16 = v128_and(
             u8x16_swizzle(value.0, CO_SHUFFLE_8_TO_16),
-            u8x16set1(0b11),
+            u8x16_set1(0b11),
         );
         //Multiply with 3^0, 3^1, etc.
         let coord_values = u16x8_mul(co_epi16, CO_MUL);
         //Horizontal sum
-        let coord = complete_hsum_epi16(coord_values);
+        let coord = u16x8_extract_lane::<0>(complete_hsum_epi16(coord_values));
         COUDCoord(coord)
-    }
-
-    #[inline]
-    fn complete_hsum_epi16(v: v128) -> u16 {
-        let sum = hsum_narrow_epi16(v);
-        let sum = hsum_narrow_epi16(sum);
-        let sum = hsum_narrow_epi16(sum);
-        u16x8_extract_lane::<0>(sum)
-    }
-
-    #[inline]
-    fn narrow_hsum_epu8_to_epu16(mut v: v128) -> u16 {
-        let a = u8x16_swizzle(v, i8x16(0, -1, 2, -1, 4, -1, 6, -1, 8, -1, 10, -1, 12, -1, 14, -1));
-        let b = u8x16_swizzle(v, i8x16(1, -1, 3, -1, 5, -1, 7, -1, 9, -1, 11, -1, 13, -1, 15, -1));
-        complete_hsum_epi16(u16x8_add(a, b))
-    }
-
-    #[inline]
-    fn hsum_narrow_epi16(v: v128) -> v128 {
-        let a = u16x8_shuffle::<0, 2, 4, 6, 8, 8, 8, 8>(v, u64x2(0, 0));
-        let b = u16x8_shuffle::<1, 3, 5, 7, 8, 8, 8, 8>(v, u64x2(0, 0));
-        u16x8_add(a, b)
-    }
-
-    #[inline]
-    fn hsum_wide_epi32(v1: v128, v2: v128) -> v128 {
-        let a0 = u32x4_shuffle::<0, 2, 4, 4>(v1, u64x2(0, 0));
-        let a1 = u32x4_shuffle::<1, 3, 4, 4>(v1, u64x2(0, 0));
-
-        let b0 = u32x4_shuffle::<4, 4, 0, 2>(v2, u64x2(0, 0));
-        let b1 = u32x4_shuffle::<4, 4, 1, 3>(v2, u64x2(0, 0));
-
-        u32x4_add(v128_or(a0, b0), v128_or(a1, b1))
-    }
-
-    #[inline]
-    fn hsum_narrow_epi32(v1: v128) -> v128 {
-        let a0 = u32x4_shuffle::<0, 2, 4, 4>(v1, u64x2(0, 0));
-        let a1 = u32x4_shuffle::<1, 3, 4, 4>(v1, u64x2(0, 0));
-
-        u32x4_add(a0, a1)
-    }
-
-    fn u8x16set1(a: u8) -> v128 {
-        u8x16(a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a)
     }
 
     const FACTORIAL: [u32; 12] = [

@@ -33,3 +33,5 @@ pub mod solution;
 pub mod defs;
 #[cfg(feature = "solver")]
 pub mod solver;
+#[cfg(target_arch = "wasm32")]
+mod wasm_util;

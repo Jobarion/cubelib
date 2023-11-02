@@ -1,3 +1,4 @@
 [build]
 # `leptonic` depends on some `leptos-use` functions requiring this opt-in. This may change in the future.
 rustflags = "-C target-feature=+simd128 --cfg=web_sys_unstable_apis"
+target = "wasm32-unknown-unknown"

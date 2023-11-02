@@ -124,7 +124,7 @@ impl From<&CubieCube> for EOCoordLR {
 
 #[cfg(target_feature = "avx2")]
 mod avx2 {
-    use std::arch::x86_64::{_mm_and_si128, _mm_movemask_epi8, _mm_set_epi8, _mm_slli_epi64};
+    use std::arch::x86_64::{_mm_and_si128, _mm_movemask_epi8, _mm_setr_epi8, _mm_slli_epi64};
 
     use crate::steps::eo::coords::{EOCoordAll, EOCoordFB, EOCoordLR, EOCoordUD};
     use crate::cubie::EdgeCubieCube;
@@ -134,10 +134,9 @@ mod avx2 {
         //Number of oriented edges is always even, so the last edge can be ignored in the coordinate
         let no_db_edge = _mm_and_si128(
             value.0,
-            _mm_set_epi8(
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F,
-                0x0F, 0x0F,
-            ),
+            _mm_setr_epi8( 0x0F,
+                0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x00, 0x00, 0x00, 0x00,
+                0x00),
         );
         let ud = _mm_movemask_epi8(_mm_slli_epi64::<4>(no_db_edge)) as u16;
         let fb = _mm_movemask_epi8(_mm_slli_epi64::<5>(no_db_edge)) as u16;
@@ -150,10 +149,9 @@ mod avx2 {
         //Number of oriented edges is always even, so the last edge can be ignored in the coordinate
         let no_db_edge = _mm_and_si128(
             value.0,
-            _mm_set_epi8(
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F,
-                0x0F, 0x0F,
-            ),
+            _mm_setr_epi8( 0x0F,
+                0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x00, 0x00, 0x00, 0x00,
+                0x00),
         );
         let ud = _mm_movemask_epi8(_mm_slli_epi64::<4>(no_db_edge)) as u16;
         EOCoordUD(ud)
@@ -164,10 +162,9 @@ mod avx2 {
         //Number of oriented edges is always even, so the last edge can be ignored in the coordinate
         let no_db_edge = _mm_and_si128(
             value.0,
-            _mm_set_epi8(
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F,
-                0x0F, 0x0F,
-            ),
+            _mm_setr_epi8( 0x0F,
+                0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x00, 0x00, 0x00, 0x00,
+                0x00),
         );
         let fb = _mm_movemask_epi8(_mm_slli_epi64::<5>(no_db_edge)) as u16;
         EOCoordFB(fb)
@@ -178,10 +175,9 @@ mod avx2 {
         //Number of oriented edges is always even, so the last edge can be ignored in the coordinate
         let no_db_edge = _mm_and_si128(
             value.0,
-            _mm_set_epi8(
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F,
-                0x0F, 0x0F,
-            ),
+            _mm_setr_epi8( 0x0F,
+                0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x00, 0x00, 0x00, 0x00,
+                0x00),
         );
         let rl = _mm_movemask_epi8(_mm_slli_epi64::<6>(no_db_edge)) as u16;
         EOCoordLR(rl)

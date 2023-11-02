@@ -168,7 +168,6 @@ fn next_dfs_level<
     } else {
         step.heuristic(&cube, depth_left, invert_allowed)
     };
-
     let mut inverse = cube.clone();
     let normal_solutions: Box<dyn Iterator<Item = Algorithm>> = if depth_left == 0 && lower_bound == 0 {
         Box::new(vec![Algorithm::new()].into_iter())

@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
+use log::error;
 use crate::algs::Algorithm;
 use crate::cube::{Invertible, Turnable};
 use crate::defs::StepKind;

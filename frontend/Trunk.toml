@@ -4,5 +4,5 @@ ignore = [
     # Keep this list in sync with what the build script generates.
     "./generated",
 ]
-public_url = "/cube/"
+public_url = "/mallard/"
 #release = true

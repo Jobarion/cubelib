@@ -6,21 +6,30 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-leptos = { version = "0.5.1", features = ["csr"] }
+leptos = { version = "0.5.2", features = ["csr"] }
+leptonic = "0.3.0"
 web-sys = "0.3.64"
-leptonic = { git = "https://github.com/lhjok/leptonic"} # Until leptonic is officially compatible with leptos 0.5
-#leptonic = "0.2.0"
 leptos-use = "0.7.1"
 log = "0.4.20"
 wasm-log = "0.3.1"
+console_error_panic_hook = "0.1.7"
 
 cubelib = { path = "../cubelib", features = ["cube", "solver", "serde_support"], default-features = false }
-cubelib-interface = { path = "../interface" }
 
 serde = { version = "1.0.190", features = ["derive"] }
-serde_json = "1.0"
-reqwest = { version = "0.11", features = ["json"] }
-console_error_panic_hook = "0.1.7"
+
+# Backend
+cubelib-interface = { path = "../interface", optional = true }
+serde_json = { version = "1.0", optional = true }
+reqwest = { version = "0.11", features = ["json"], optional = true }
+
+# WASM Solver
+gloo-worker = { version = "0.5", features = ["futures"], optional = true }
+serde_closure = { version = "0.3", optional = true }
+serde_bytes = { version = "0.11", optional = true }
+serde-wasm-bindgen = { version = "0.6.1", optional = true }
+idb = { version = "0.4.1", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
 
 [build-dependencies]
 leptonic-theme = "0.2.0"
@@ -28,4 +37,16 @@ leptos-tiptap-build = "0.2.3"
 
 [features]
 default = []
-wasm_solver = ["cubelib/step_eo", "cubelib/step_dr", "cubelib/step_htr", "cubelib/step_fr", "cubelib/step_finish"]
+wasm_solver = [
+    "dep:gloo-worker",
+    "dep:serde_closure",
+    "dep:serde_bytes",
+    "dep:serde-wasm-bindgen",
+    "dep:wasm-bindgen",
+    "dep:idb",
+    "cubelib/step_eo",
+    "cubelib/step_dr",
+    "cubelib/step_htr",
+    "cubelib/step_fr",
+    "cubelib/step_finish"]
+backend = ["dep:reqwest", "dep:serde_json", "dep:cubelib-interface"]

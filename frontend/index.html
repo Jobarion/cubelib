@@ -11,12 +11,14 @@
     <title>Cubelib</title>
     <!-- <link rel="icon" href="/res/icon/leptonic_x64.png" /> -->
 
-    <link data-trunk rel="rust" data-wasm-opt="z" />
     <link data-trunk rel="scss" href="scss/style.scss" />
     <link data-trunk rel="copy-dir" href="generated/js/" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto&display=swap">
 </head>
 
-<body></body>
+<body>
+<link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="frontend" data-type="main"/>
+<link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="worker" data-type="worker"/>
+</body>
 
 </html>

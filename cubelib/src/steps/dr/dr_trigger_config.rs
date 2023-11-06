@@ -9,19 +9,18 @@ use log::{debug, error};
 
 use crate::algs::Algorithm;
 use crate::co::COCountUD;
-use crate::steps::coord::Coord;
-use crate::steps::dr::coords::DRUDEOFBCoord;
-use crate::steps::eo::coords::EOCoordFB;
-use crate::cube::{Axis, Face, Move, NewSolved, Transformation, Turnable};
-use crate::cube::Face::*;
+use crate::cube::{Axis, Move, NewSolved, Transformation, Turnable};
 use crate::cube::Turn::*;
 use crate::cubie::CubieCube;
 use crate::defs::*;
-use crate::moveset::{MoveSet, TransitionTable};
+use crate::moveset::MoveSet;
+use crate::steps::coord::Coord;
+use crate::steps::dr::coords::DRUDEOFBCoord;
 use crate::steps::dr::dr_config::DR_UD_EO_FB_MOVESET;
 use crate::steps::dr::dr_config::DRPruningTable;
-use crate::steps::eo::eo_config::EOCount;
 use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
+use crate::steps::eo::coords::EOCoordFB;
+use crate::steps::eo::eo_config::EOCount;
 use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
 use crate::steps::step::StepConfig;
 
@@ -30,7 +29,7 @@ pub struct DRTriggerStepTable<'a, CubeParam> {
     trigger_move_set: &'a MoveSet,
     pre_trans: Vec<Transformation>,
     table: &'a DRPruningTable,
-    trigger_types: HashMap<(u8, u8), u8>, //(co, eolr) - trigger_length
+    trigger_types: HashMap<(u8, u8), u8>,
     trigger_variants: Vec<Vec<Move>>,
     name: &'a str,
     _c: PhantomData<CubeParam>
@@ -59,20 +58,20 @@ pub fn from_step_config<'a, C: 'a + EOCount + COCountUD + Display>(table: &'a DR
 
     let step = if let Some(substeps) = config.substeps {
         let variants: Result<Vec<Vec<Box<dyn StepVariant<C> + 'a>>>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
-            "ud" | "drud" => Ok(dr_step_variants(table, [Axis::FB, Axis::LR], [Axis::UD], triggers.clone())),
-            "fb" | "drfb" => Ok(dr_step_variants(table, [Axis::UD, Axis::LR], [Axis::FB], triggers.clone())),
-            "lr" | "drlr" => Ok(dr_step_variants(table, [Axis::UD, Axis::FB], [Axis::LR], triggers.clone())),
+            "ud" | "drud" => Ok(dr_step_variants(table, vec![Axis::FB, Axis::LR], vec![Axis::UD], triggers.clone())),
+            "fb" | "drfb" => Ok(dr_step_variants(table, vec![Axis::UD, Axis::LR], vec![Axis::FB], triggers.clone())),
+            "lr" | "drlr" => Ok(dr_step_variants(table, vec![Axis::UD, Axis::FB], vec![Axis::LR], triggers.clone())),
 
-            "eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::FB, Axis::LR], triggers.clone())),
-            "eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::UD, Axis::LR], triggers.clone())),
-            "eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::UD, Axis::FB], triggers.clone())),
+            "eoud" => Ok(dr_step_variants(table, vec![Axis::UD], vec![Axis::FB, Axis::LR], triggers.clone())),
+            "eofb" => Ok(dr_step_variants(table, vec![Axis::FB], vec![Axis::UD, Axis::LR], triggers.clone())),
+            "eolr" => Ok(dr_step_variants(table, vec![Axis::LR], vec![Axis::UD, Axis::FB], triggers.clone())),
 
-            "drud-eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::UD], triggers.clone())),
-            "drud-eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::UD], triggers.clone())),
-            "drfb-eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::FB], triggers.clone())),
-            "drfb-eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::FB], triggers.clone())),
-            "drlr-eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::LR], triggers.clone())),
-            "drlr-eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::LR], triggers.clone())),
+            "drud-eofb" => Ok(dr_step_variants(table, vec![Axis::FB], vec![Axis::UD], triggers.clone())),
+            "drud-eolr" => Ok(dr_step_variants(table, vec![Axis::LR], vec![Axis::UD], triggers.clone())),
+            "drfb-eoud" => Ok(dr_step_variants(table, vec![Axis::UD], vec![Axis::FB], triggers.clone())),
+            "drfb-eolr" => Ok(dr_step_variants(table, vec![Axis::LR], vec![Axis::FB], triggers.clone())),
+            "drlr-eoud" => Ok(dr_step_variants(table, vec![Axis::UD], vec![Axis::LR], triggers.clone())),
+            "drlr-eofb" => Ok(dr_step_variants(table, vec![Axis::FB], vec![Axis::LR], triggers.clone())),
 
             x => Err(format!("Invalid DR substep {x}"))
         }).collect();
@@ -95,10 +94,10 @@ pub fn from_step_config<'a, C: 'a + EOCount + COCountUD + Display>(table: &'a DR
     Ok((step, search_opts))
 }
 
-pub fn dr<'a, C: 'a + COCountUD + EOCount + Display, const EOA: usize, const DRA: usize>(
+pub fn dr<'a, C: 'a + COCountUD + EOCount + Display>(
     table: &'a DRPruningTable,
-    eo_axis: [Axis; EOA],
-    dr_axis: [Axis; DRA],
+    eo_axis: Vec<Axis>,
+    dr_axis: Vec<Axis>,
     triggers: Vec<Algorithm>,
 ) -> Step<'a, C>
 where
@@ -117,13 +116,13 @@ where
     DRUDEOFBCoord: for<'x> From<&'x C>,
     EOCoordFB: for<'x> From<&'x C>,
 {
-    dr(table, [Axis::UD, Axis::FB, Axis::LR], [Axis::UD, Axis::FB, Axis::LR], triggers)
+    dr(table, vec![Axis::UD, Axis::FB, Axis::LR], vec![Axis::UD, Axis::FB, Axis::LR], triggers)
 }
 
-fn dr_step_variants<'a, C: 'a + COCountUD + EOCount + Display, const EOA: usize, const DRA: usize>(
+fn dr_step_variants<'a, C: 'a + COCountUD + EOCount + Display>(
     table: &'a DRPruningTable,
-    eo_axis: [Axis; EOA],
-    dr_axis: [Axis; DRA],
+    eo_axis: Vec<Axis>,
+    dr_axis: Vec<Axis>,
     triggers: Vec<Algorithm>,
 ) -> Vec<Box<dyn StepVariant<C> + 'a>>
     where
@@ -132,7 +131,7 @@ fn dr_step_variants<'a, C: 'a + COCountUD + EOCount + Display, const EOA: usize,
 {
     eo_axis
         .into_iter()
-        .flat_map(|eo| dr_axis.into_iter().map(move |dr| (eo, dr)))
+        .flat_map(|eo| dr_axis.clone().into_iter().map(move |dr| (eo, dr)))
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
                 (Axis::UD, Axis::FB) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation::X], table, triggers.clone(), "fb-eoud"))),
@@ -322,8 +321,4 @@ pub fn filter_dr_trigger(alg: &Algorithm, triggers: &Vec<Vec<Move>>) -> bool {
         }
     }
     return false;
-}
-
-const fn dr_transitions(axis_face: Face) -> [TransitionTable; 18] {
-    crate::steps::eo::eo_config::eo_transitions(axis_face)
 }

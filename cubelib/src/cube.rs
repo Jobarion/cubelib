@@ -10,6 +10,7 @@ pub const FACES: [Face; 6] = [Up, Down, Front, Back, Left, Right];
 pub const TURNS: [Turn; 3] = [Clockwise, CounterClockwise, Half];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub enum Face {
     Up = 0,
     Down = 1,
@@ -112,6 +113,7 @@ impl From<u32> for Face {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub enum Turn {
     Clockwise = 0,
     Half = 1,
@@ -129,6 +131,7 @@ impl Turn {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub struct Move(pub Face, pub Turn);
 
 impl Into<usize> for &Move {
@@ -137,6 +140,7 @@ impl Into<usize> for &Move {
     }
 }
 
+#[allow(non_upper_case_globals)]
 impl Move {
     pub const U: Move = Move(Up, Clockwise);
     pub const U2: Move = Move(Up, Half);
@@ -241,6 +245,7 @@ impl<T, const N: usize> Index<Axis> for [T; N] {
 #[derive(Copy, Clone)]
 pub struct Transformation(pub Axis, pub Turn);
 
+#[allow(non_upper_case_globals)]
 impl Transformation {
     pub const X: Transformation = Transformation(Axis::X, Clockwise);
     pub const X2: Transformation = Transformation(Axis::X, Half);

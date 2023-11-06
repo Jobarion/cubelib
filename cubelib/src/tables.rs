@@ -1,5 +1,6 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
-use log::{debug, info};
+use log::{info, debug};
 #[cfg(feature = "step_dr")]
 use crate::steps::dr::coords::DRUDEOFBCoord;
 #[cfg(feature = "step_eo")]
@@ -39,8 +40,9 @@ pub struct PruningTables {
     fr_finish: Option<FRFinishPruningTable>
 }
 
-
 impl PruningTables {
+
+    pub const VERSION: u32 = 1;
 
     pub fn new() -> PruningTables {
         PruningTables {
@@ -56,6 +58,24 @@ impl PruningTables {
             fr: None,
             #[cfg(feature = "step_finish")]
             fr_finish: None
+        }
+    }
+
+    pub fn load(&mut self, key: &str, data: Vec<u8>) {
+        match key {
+            #[cfg(feature = "step_eo")]
+            "eo" => self.eo = Some(EOPruningTable::load(data)),
+            #[cfg(feature = "step_dr")]
+            "dr" => self.dr = Some(DRPruningTable::load(data)),
+            #[cfg(feature = "step_htr")]
+            "htr" => self.htr = Some(HTRPruningTable::load(data)),
+            #[cfg(feature = "step_fr")]
+            "fr" => self.fr = Some(FRPruningTable::load(data)),
+            #[cfg(feature = "step_fr")]
+            "frls" => self.frls = Some(FRLeaveSlicePruningTable::load(data)),
+            #[cfg(feature = "step_finish")]
+            "frfin" => self.fr_finish = Some(FRFinishPruningTable::load(data)),
+            _ => {}
         }
     }
 

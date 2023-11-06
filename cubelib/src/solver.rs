@@ -9,7 +9,7 @@ use itertools::Itertools;
 use log::{debug, info, warn};
 use crate::steps;
 
-pub fn gen_tables(steps: &Vec<StepConfig>, mut tables: &mut PruningTables) {
+pub fn gen_tables(steps: &Vec<StepConfig>, tables: &mut PruningTables) {
     let previous = vec![None].into_iter().chain(steps.iter().map(|x|Some(x.kind))).collect_vec();
     let steps = steps.into_iter().zip(previous.into_iter()).collect_vec();
 
@@ -89,7 +89,7 @@ pub fn solve_steps<'a>(cube: CubieCube, steps: &'a Vec<(Step<'a, CubieCube>, Def
             debug!("Step {} with options {:?}", step.kind(), search_opts);
             let next = steps::step::next_step(acc, step, search_opts.clone(), cube.clone())
                 .zip(0..)
-                .take_while(|(sol, count)| search_opts.step_limit.map(|limit| limit > *count).unwrap_or(true))
+                .take_while(|(_, count)| search_opts.step_limit.map(|limit| limit > *count).unwrap_or(true))
                 .map(|(sol, _)|sol);
             Box::new(next)
         });
@@ -98,6 +98,7 @@ pub fn solve_steps<'a>(cube: CubieCube, steps: &'a Vec<(Step<'a, CubieCube>, Def
 }
 
 pub struct SolutionIterator<'a> {
+    #[allow(unused)]
     steps: Vec<(Step<'a, CubieCube>, DefaultStepOptions)>,
     solutions: Box<dyn Iterator<Item=Solution>>,
 }

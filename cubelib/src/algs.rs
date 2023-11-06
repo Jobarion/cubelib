@@ -7,6 +7,7 @@ use itertools::Itertools;
 use crate::cube::{Axis, Move, Transformation, Turnable};
 
 #[derive(PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub struct Algorithm {
     pub normal_moves: Vec<Move>,
     pub inverse_moves: Vec<Move>,

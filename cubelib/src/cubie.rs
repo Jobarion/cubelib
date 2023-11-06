@@ -1,6 +1,5 @@
 use std::fmt::{Display, Formatter};
 
-use crate::avx2_cubie;
 use crate::cube::Color::*;
 use crate::cube::CornerPosition::*;
 use crate::cube::EdgePosition::*;
@@ -10,234 +9,9 @@ use crate::cube::{
     Transformation, Turnable,
 };
 
-//One byte per edge, 4 bits for id, 3 bits for eo (UD/FB/RL), 1 bit free
-//UB UR UF UL FR FL BR BL DF DR DB DL
-#[derive(Debug, Clone, Copy)]
-pub struct EdgeCubieCube(
-    #[cfg(target_feature = "avx2")] pub core::arch::x86_64::__m128i,
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    pub core::arch::wasm32::v128,
-);
-
-impl EdgeCubieCube {
-    pub(crate) const BAD_EDGE_MASK_UD: u64 = 0x0808080808080808;
-    pub(crate) const BAD_EDGE_MASK_FB: u64 = 0x0404040404040404;
-    pub(crate) const BAD_EDGE_MASK_RL: u64 = 0x0202020202020202;
-
-    #[cfg(target_feature = "avx2")]
-    pub fn new(state: std::arch::x86_64::__m128i) -> EdgeCubieCube {
-        EdgeCubieCube(state)
-    }
-
-    #[cfg(target_feature = "avx2")]
-    pub fn get_edges(&self) -> [Edge; 12] {
-        unsafe { avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_get_edges(self) }
-    }
-
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    pub fn get_edges(&self) -> [Edge; 12] {
-        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::get_edges(self)
-    }
-
-    #[cfg(target_feature = "avx2")]
-    pub fn get_edges_raw(&self) -> [u64; 2] {
-        unsafe { avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_get_edges_raw(self) }
-    }
-
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    pub fn get_edges_raw(&self) -> [u64; 2] {
-        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::get_edges_raw(self)
-    }
-}
-
-impl PartialEq for EdgeCubieCube {
-
-    fn eq(&self, other: &Self) -> bool {
-        let a = self.get_edges_raw();
-        let b = other.get_edges_raw();
-        a.eq(&b)
-    }
-}
-
-impl Turnable for EdgeCubieCube {
-    #[inline]
-    #[cfg(target_feature = "avx2")]
-    fn turn(&mut self, m: Move) {
-        let Move(face, turn) = m;
-        unsafe {
-            avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_turn(self, face, turn);
-        }
-    }
-
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn turn(&mut self, m: Move) {
-        let Move(face, turn) = m;
-        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::turn(self, face, turn)
-    }
-
-    #[inline]
-    #[cfg(target_feature = "avx2")]
-    fn transform(&mut self, t: Transformation) {
-        let Transformation(axis, turn) = t;
-        unsafe {
-            avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_transform(self, axis, turn);
-        }
-    }
-
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn transform(&mut self, t: Transformation) {
-        let Transformation(axis, turn) = t;
-        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::transform(self, axis, turn)
-    }
-}
-
-impl Invertible for EdgeCubieCube {
-    #[inline]
-    #[cfg(target_feature = "avx2")]
-    fn invert(&mut self) {
-        unsafe {
-            avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_invert(self);
-        }
-    }
-
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn invert(&mut self) {
-        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::invert(self)
-    }
-}
-
-impl NewSolved for EdgeCubieCube {
-    #[inline]
-    #[cfg(target_feature = "avx2")]
-    fn new_solved() -> Self {
-        unsafe { avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_new_solved() }
-    }
-
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn new_solved() -> Self {
-        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::new_solved()
-    }
-}
-
-//One byte per corner, 3 bits for id, 2 bits free, 3 bits for co (from UD perspective)
-//UBL UBR UFR UFL DFL DFR DBR DBL
-#[derive(Debug, Clone, Copy)]
-pub struct CornerCubieCube(
-    #[cfg(target_feature = "avx2")] pub core::arch::x86_64::__m128i,
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    pub core::arch::wasm32::v128,
-);
-
-impl CornerCubieCube {
-    #[cfg(target_feature = "avx2")]
-    pub fn new(state: std::arch::x86_64::__m128i) -> CornerCubieCube {
-        CornerCubieCube(state)
-    }
-
-    #[inline]
-    #[cfg(target_feature = "avx2")]
-    pub fn get_corners(&self) -> [Corner; 8] {
-        unsafe { avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_get_corners(self) }
-    }
-
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn get_corners(&self) -> [Corner; 8] {
-        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::get_corners(self)
-    }
-
-    #[inline]
-    #[cfg(target_feature = "avx2")]
-    pub fn get_corners_raw(&self) -> u64 {
-        unsafe { avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_get_corners_raw(self) }
-    }
-
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    pub fn get_corners_raw(&self) -> u64 {
-        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::get_corners_raw(self)
-    }
-}
-
-impl PartialEq for CornerCubieCube {
-
-    fn eq(&self, other: &Self) -> bool {
-        let a = self.get_corners_raw();
-        let b = other.get_corners_raw();
-        a.eq(&b)
-    }
-}
-
-impl Turnable for CornerCubieCube {
-    #[inline]
-    #[cfg(target_feature = "avx2")]
-    fn turn(&mut self, m: Move) {
-        let Move(face, turn) = m;
-        unsafe {
-            avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_turn(self, face, turn);
-        }
-    }
-
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn turn(&mut self, m: Move) {
-        let Move(face, turn) = m;
-        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::turn(self, face, turn);
-    }
-
-    #[inline]
-    #[cfg(target_feature = "avx2")]
-    fn transform(&mut self, t: Transformation) {
-        let Transformation(axis, turn) = t;
-        unsafe {
-            avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_transform(self, axis, turn);
-        }
-    }
-
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn transform(&mut self, t: Transformation) {
-        let Transformation(axis, turn) = t;
-        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::transform(self, axis, turn);
-    }
-}
-
-impl Invertible for CornerCubieCube {
-    #[inline]
-    #[cfg(target_feature = "avx2")]
-    fn invert(&mut self) {
-        unsafe {
-            avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_invert(self);
-        }
-    }
-
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn invert(&mut self) {
-        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::invert(self);
-    }
-}
-
-impl NewSolved for CornerCubieCube {
-    #[inline]
-    #[cfg(target_feature = "avx2")]
-    fn new_solved() -> Self {
-        unsafe { avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_new_solved() }
-    }
-
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn new_solved() -> Self {
-        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::new_solved()
-    }
-}
-
 //http://kociemba.org/math/cubielevel.htm
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub struct CubieCube {
     pub edges: EdgeCubieCube,
     pub corners: CornerCubieCube,
@@ -290,6 +64,336 @@ impl NewSolved for CubieCube {
             edges: EdgeCubieCube::new_solved(),
             corners: CornerCubieCube::new_solved(),
         }
+    }
+}
+
+//One byte per edge, 4 bits for id, 3 bits for eo (UD/FB/RL), 1 bit free
+//UB UR UF UL FR FL BR BL DF DR DB DL
+#[derive(Debug, Clone, Copy)]
+pub struct EdgeCubieCube(
+    #[cfg(target_feature = "avx2")] pub core::arch::x86_64::__m128i,
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    pub core::arch::wasm32::v128,
+);
+
+impl EdgeCubieCube {
+    pub(crate) const BAD_EDGE_MASK_UD: u64 = 0x0808080808080808;
+    pub(crate) const BAD_EDGE_MASK_FB: u64 = 0x0404040404040404;
+    pub(crate) const BAD_EDGE_MASK_RL: u64 = 0x0202020202020202;
+
+    #[cfg(target_feature = "avx2")]
+    pub fn new(state: std::arch::x86_64::__m128i) -> EdgeCubieCube {
+        EdgeCubieCube(state)
+    }
+
+    #[cfg(target_feature = "avx2")]
+    pub fn get_edges(&self) -> [Edge; 12] {
+        unsafe { crate::avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_get_edges(self) }
+    }
+
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    pub fn get_edges(&self) -> [Edge; 12] {
+        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::get_edges(self)
+    }
+
+    #[cfg(target_feature = "avx2")]
+    pub fn get_edges_raw(&self) -> [u64; 2] {
+        unsafe { crate::avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_get_edges_raw(self) }
+    }
+
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    pub fn get_edges_raw(&self) -> [u64; 2] {
+        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::get_edges_raw(self)
+    }
+}
+
+#[cfg(feature = "serde_support")]
+impl serde::Serialize for EdgeCubieCube {
+
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
+        let bytes = [0_u8; 16];
+        unsafe {
+            #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+            std::arch::wasm32::v128_store(bytes.as_ptr() as *mut std::arch::wasm32::v128, self.0);
+            #[cfg(target_feature = "avx2")]
+            std::arch::x86_64::_mm_store_si128(bytes.as_ptr() as *mut std::arch::x86_64::__m128i, self.0);
+        }
+        serializer.serialize_bytes(&bytes)
+    }
+}
+
+#[cfg(feature = "serde_support")]
+struct EdgeCubieCubeVisitor;
+
+#[cfg(feature = "serde_support")]
+impl<'de> serde::de::Visitor<'de> for EdgeCubieCubeVisitor {
+    type Value = EdgeCubieCube;
+
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+        formatter.write_str("a byte array of length 16")
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E> where E: serde::de::Error {
+        if v.len() != 16 {
+            Err(E::custom("Array length must be 16"))
+        } else {
+            let val = unsafe {
+                #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+                let val = std::arch::wasm32::v128_load(v.as_ptr() as *const std::arch::wasm32::v128);
+                #[cfg(target_feature = "avx2")]
+                let val = std::arch::x86_64::_mm_load_si128(v.as_ptr() as *const std::arch::x86_64::__m128i);
+                val
+            };
+            Ok(EdgeCubieCube(val))
+        }
+    }
+}
+
+#[cfg(feature = "serde_support")]
+impl<'de> serde::Deserialize<'de> for EdgeCubieCube {
+    fn deserialize<D>(deserializer: D) -> Result<EdgeCubieCube, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_bytes(EdgeCubieCubeVisitor)
+    }
+}
+
+impl PartialEq for EdgeCubieCube {
+
+    fn eq(&self, other: &Self) -> bool {
+        let a = self.get_edges_raw();
+        let b = other.get_edges_raw();
+        a.eq(&b)
+    }
+}
+
+impl Turnable for EdgeCubieCube {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn turn(&mut self, m: Move) {
+        let Move(face, turn) = m;
+        unsafe {
+            crate::avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_turn(self, face, turn);
+        }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn turn(&mut self, m: Move) {
+        let Move(face, turn) = m;
+        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::turn(self, face, turn)
+    }
+
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn transform(&mut self, t: Transformation) {
+        let Transformation(axis, turn) = t;
+        unsafe {
+            crate::avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_transform(self, axis, turn);
+        }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn transform(&mut self, t: Transformation) {
+        let Transformation(axis, turn) = t;
+        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::transform(self, axis, turn)
+    }
+}
+
+impl Invertible for EdgeCubieCube {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn invert(&mut self) {
+        unsafe {
+            crate::avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_invert(self);
+        }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn invert(&mut self) {
+        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::invert(self)
+    }
+}
+
+impl NewSolved for EdgeCubieCube {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn new_solved() -> Self {
+        unsafe { crate::avx2_cubie::avx2_cubie::AVX2EdgeCubieCube::unsafe_new_solved() }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn new_solved() -> Self {
+        crate::wasm32_cubie::wasm32_cubie::WASM32EdgeCubieCube::new_solved()
+    }
+}
+
+//One byte per corner, 3 bits for id, 2 bits free, 3 bits for co (from UD perspective)
+//UBL UBR UFR UFL DFL DFR DBR DBL
+#[derive(Debug, Clone, Copy)]
+pub struct CornerCubieCube(
+    #[cfg(target_feature = "avx2")] pub core::arch::x86_64::__m128i,
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    pub core::arch::wasm32::v128,
+);
+
+impl CornerCubieCube {
+    #[cfg(target_feature = "avx2")]
+    pub fn new(state: std::arch::x86_64::__m128i) -> CornerCubieCube {
+        CornerCubieCube(state)
+    }
+
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    pub fn get_corners(&self) -> [Corner; 8] {
+        unsafe { crate::avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_get_corners(self) }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn get_corners(&self) -> [Corner; 8] {
+        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::get_corners(self)
+    }
+
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    pub fn get_corners_raw(&self) -> u64 {
+        unsafe { crate::avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_get_corners_raw(self) }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    pub fn get_corners_raw(&self) -> u64 {
+        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::get_corners_raw(self)
+    }
+}
+
+#[cfg(feature = "serde_support")]
+impl serde::Serialize for CornerCubieCube {
+
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
+        let bytes = [0_u8; 16];
+        unsafe {
+            #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+            std::arch::wasm32::v128_store(bytes.as_ptr() as *mut std::arch::wasm32::v128, self.0);
+            #[cfg(target_feature = "avx2")]
+            std::arch::x86_64::_mm_store_si128(bytes.as_ptr() as *mut std::arch::x86_64::__m128i, self.0);
+        }
+        serializer.serialize_bytes(&bytes)
+    }
+}
+
+#[cfg(feature = "serde_support")]
+struct CornerCubieCubeVisitor;
+
+#[cfg(feature = "serde_support")]
+impl<'de> serde::de::Visitor<'de> for CornerCubieCubeVisitor {
+    type Value = CornerCubieCube;
+
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+        formatter.write_str("a byte array of length 16")
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E> where E: serde::de::Error {
+        if v.len() != 16 {
+            Err(E::custom("Array length must be 16"))
+        } else {
+            let val = unsafe {
+                #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+                    let val = std::arch::wasm32::v128_load(v.as_ptr() as *const std::arch::wasm32::v128);
+                #[cfg(target_feature = "avx2")]
+                    let val = std::arch::x86_64::_mm_load_si128(v.as_ptr() as *const std::arch::x86_64::__m128i);
+                val
+            };
+            Ok(CornerCubieCube(val))
+        }
+    }
+}
+
+#[cfg(feature = "serde_support")]
+impl<'de> serde::Deserialize<'de> for CornerCubieCube {
+    fn deserialize<D>(deserializer: D) -> Result<CornerCubieCube, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_bytes(CornerCubieCubeVisitor)
+    }
+}
+
+impl PartialEq for CornerCubieCube {
+
+    fn eq(&self, other: &Self) -> bool {
+        let a = self.get_corners_raw();
+        let b = other.get_corners_raw();
+        a.eq(&b)
+    }
+}
+
+impl Turnable for CornerCubieCube {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn turn(&mut self, m: Move) {
+        let Move(face, turn) = m;
+        unsafe {
+            crate::avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_turn(self, face, turn);
+        }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn turn(&mut self, m: Move) {
+        let Move(face, turn) = m;
+        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::turn(self, face, turn);
+    }
+
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn transform(&mut self, t: Transformation) {
+        let Transformation(axis, turn) = t;
+        unsafe {
+            crate::avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_transform(self, axis, turn);
+        }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn transform(&mut self, t: Transformation) {
+        let Transformation(axis, turn) = t;
+        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::transform(self, axis, turn);
+    }
+}
+
+impl Invertible for CornerCubieCube {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn invert(&mut self) {
+        unsafe {
+            crate::avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_invert(self);
+        }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn invert(&mut self) {
+        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::invert(self);
+    }
+}
+
+impl NewSolved for CornerCubieCube {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn new_solved() -> Self {
+        unsafe { crate::avx2_cubie::avx2_cubie::AVX2CornerCubieCube::unsafe_new_solved() }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn new_solved() -> Self {
+        crate::wasm32_cubie::wasm32_cubie::WASM32CornerCubieCube::new_solved()
     }
 }
 

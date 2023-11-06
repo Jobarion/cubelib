@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use itertools::Itertools;
 
 use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};

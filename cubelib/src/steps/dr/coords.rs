@@ -1,4 +1,3 @@
-use crate::cube::Invertible;
 use crate::cubie::{CornerCubieCube, CubieCube, EdgeCubieCube};
 use crate::steps::coord::Coord;
 

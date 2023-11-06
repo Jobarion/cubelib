@@ -1,18 +1,15 @@
-use std::fmt::Debug;
-
 use itertools::Itertools;
 
-use crate::steps::finish::coords::{FR_FINISH_SIZE, FRUDFinishCoord};
-use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::cube::{Axis, FACES, Move, Transformation};
-use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::defs::*;
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
+use crate::steps::finish::coords::{FR_FINISH_SIZE, FRUDFinishCoord};
 use crate::steps::fr;
-use crate::steps::step::StepConfig;
+use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::steps::step::{AnyPostStepCheck, DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
+use crate::steps::step::StepConfig;
 
 pub const FRUD_FINISH_MOVESET: MoveSet = MoveSet {
     st_moves: fr::fr_config::FR_UD_AUX_MOVES,

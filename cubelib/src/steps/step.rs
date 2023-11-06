@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt::Display;
 use std::marker::PhantomData;
 
 use crate::algs::Algorithm;
@@ -13,7 +12,8 @@ use crate::solution::{Solution, SolutionStep};
 use crate::steps::coord::Coord;
 use crate::stream;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub struct StepConfig {
     pub kind: StepKind,
     pub substeps: Option<Vec<String>>,
@@ -76,7 +76,7 @@ impl <CubeParam> PostStepCheck<CubeParam> for AnyPostStepCheck {
     }
 }
 
-pub(crate) struct DefaultPruningTableStep<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam, PSC: PostStepCheck<CubeParam>>
+pub struct DefaultPruningTableStep<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, CubeParam, PSC: PostStepCheck<CubeParam>>
     where
         HC: for<'x> From<&'x CubeParam>,
         PC: for<'x> From<&'x CubeParam>,

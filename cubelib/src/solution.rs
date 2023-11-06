@@ -1,15 +1,17 @@
 use std::fmt::{Debug, Display, Formatter};
-use log::error;
+
 use crate::algs::Algorithm;
 use crate::cube::{Invertible, Turnable};
 use crate::defs::StepKind;
 
+#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub struct Solution {
     pub steps: Vec<SolutionStep>,
     pub ends_on_normal: bool,
 }
 
 #[derive(Clone)]
+#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub struct SolutionStep {
     pub kind: StepKind,
     pub variant: String,

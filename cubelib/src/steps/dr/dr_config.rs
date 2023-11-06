@@ -2,17 +2,16 @@ use std::vec;
 
 use itertools::Itertools;
 
-use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
-use crate::steps::eo::coords::EOCoordFB;
 use crate::cube::{Axis, Face, Move, Transformation};
 use crate::cube::Face::*;
 use crate::cube::Turn::*;
+use crate::defs::*;
 use crate::lookup_table::PruningTable;
 use crate::moveset::{MoveSet, TransitionTable};
-use crate::steps::step::StepConfig;
-use crate::defs::*;
+use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
+use crate::steps::eo::coords::EOCoordFB;
 use crate::steps::step::{AnyPostStepCheck, DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
-
+use crate::steps::step::StepConfig;
 
 pub const HTR_DR_UD_STATE_CHANGE_MOVES: &[Move] = &[
     Move(Up, Clockwise),
@@ -71,20 +70,20 @@ pub fn from_step_config<'a, C: 'a>(table: &'a DRPruningTable, config: StepConfig
 
     let step = if let Some(substeps) = config.substeps {
         let variants: Result<Vec<Vec<Box<dyn StepVariant<C> + 'a>>>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
-            "ud" | "drud" => Ok(dr_step_variants(table, [Axis::FB, Axis::LR], [Axis::UD])),
-            "fb" | "drfb" => Ok(dr_step_variants(table, [Axis::UD, Axis::LR], [Axis::FB])),
-            "lr" | "drlr" => Ok(dr_step_variants(table, [Axis::UD, Axis::FB], [Axis::LR])),
+            "ud" | "drud" => Ok(dr_step_variants(table, vec![Axis::FB, Axis::LR], vec![Axis::UD])),
+            "fb" | "drfb" => Ok(dr_step_variants(table, vec![Axis::UD, Axis::LR], vec![Axis::FB])),
+            "lr" | "drlr" => Ok(dr_step_variants(table, vec![Axis::UD, Axis::FB], vec![Axis::LR])),
 
-            "eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::FB, Axis::LR])),
-            "eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::UD, Axis::LR])),
-            "eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::UD, Axis::FB])),
+            "eoud" => Ok(dr_step_variants(table, vec![Axis::UD], vec![Axis::FB, Axis::LR])),
+            "eofb" => Ok(dr_step_variants(table, vec![Axis::FB], vec![Axis::UD, Axis::LR])),
+            "eolr" => Ok(dr_step_variants(table, vec![Axis::LR], vec![Axis::UD, Axis::FB])),
 
-            "drud-eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::UD])),
-            "drud-eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::UD])),
-            "drfb-eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::FB])),
-            "drfb-eolr" => Ok(dr_step_variants(table, [Axis::LR], [Axis::FB])),
-            "drlr-eoud" => Ok(dr_step_variants(table, [Axis::UD], [Axis::LR])),
-            "drlr-eofb" => Ok(dr_step_variants(table, [Axis::FB], [Axis::LR])),
+            "drud-eofb" => Ok(dr_step_variants(table, vec![Axis::FB], vec![Axis::UD])),
+            "drud-eolr" => Ok(dr_step_variants(table, vec![Axis::LR], vec![Axis::UD])),
+            "drfb-eoud" => Ok(dr_step_variants(table, vec![Axis::UD], vec![Axis::FB])),
+            "drfb-eolr" => Ok(dr_step_variants(table, vec![Axis::LR], vec![Axis::FB])),
+            "drlr-eoud" => Ok(dr_step_variants(table, vec![Axis::UD], vec![Axis::LR])),
+            "drlr-eofb" => Ok(dr_step_variants(table, vec![Axis::FB], vec![Axis::LR])),
 
             x => Err(format!("Invalid DR substep {x}"))
         }).collect();
@@ -107,10 +106,10 @@ pub fn from_step_config<'a, C: 'a>(table: &'a DRPruningTable, config: StepConfig
     Ok((step, search_opts))
 }
 
-fn dr_step_variants<'a, C: 'a, const EOA: usize, const DRA: usize>(
+fn dr_step_variants<'a, C: 'a>(
     table: &'a DRPruningTable,
-    eo_axis: [Axis; EOA],
-    dr_axis: [Axis; DRA]
+    eo_axis: Vec<Axis>,
+    dr_axis: Vec<Axis>
 ) -> Vec<Box<dyn StepVariant<C> + 'a>>
     where
         DRUDEOFBCoord: for<'x> From<&'x C>,
@@ -118,7 +117,7 @@ fn dr_step_variants<'a, C: 'a, const EOA: usize, const DRA: usize>(
 {
     eo_axis
         .into_iter()
-        .flat_map(|eo| dr_axis.into_iter().map(move |dr| (eo, dr)))
+        .flat_map(|eo| dr_axis.clone().into_iter().map(move |dr| (eo, dr)))
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<C> + 'a>> = match x {
                 (Axis::UD, Axis::FB) => Some(Box::new(DefaultPruningTableStep::<{DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, C, AnyPostStepCheck>::new(&DR_UD_EO_FB_MOVESET, vec![Transformation::X], table, AnyPostStepCheck, "fb-eoud"))),
@@ -134,10 +133,10 @@ fn dr_step_variants<'a, C: 'a, const EOA: usize, const DRA: usize>(
         .collect_vec()
 }
 
-pub fn dr<'a, C: 'a, const EOA: usize, const DRA: usize>(
+pub fn dr<'a, C: 'a>(
     table: &'a DRPruningTable,
-    eo_axis: [Axis; EOA],
-    dr_axis: [Axis; DRA],
+    eo_axis: Vec<Axis>,
+    dr_axis: Vec<Axis>,
 ) -> Step<'a, C>
 where
     DRUDEOFBCoord: for<'x> From<&'x C>,
@@ -154,7 +153,7 @@ where
     DRUDEOFBCoord: for<'x> From<&'x C>,
     EOCoordFB: for<'x> From<&'x C>,
 {
-    dr(table, [Axis::UD, Axis::FB, Axis::LR], [Axis::UD, Axis::FB, Axis::LR])
+    dr(table, vec![Axis::UD, Axis::FB, Axis::LR], vec![Axis::UD, Axis::FB, Axis::LR])
 }
 
 const fn dr_transitions(axis_face: Face) -> [TransitionTable; 18] {

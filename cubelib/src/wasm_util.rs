@@ -1,4 +1,4 @@
-use std::arch::wasm32::{v128, u8x16, i16x8, u16x8_extract_lane, u8x16_swizzle, i8x16, u16x8_add, u64x2, u16x8_shuffle, u32x4_shuffle, u32x4_add, v128_or};
+use std::arch::wasm32::{i8x16, u16x8_add, u16x8_shuffle, u32x4_add, u32x4_shuffle, u64x2, u8x16, u8x16_swizzle, v128, v128_or};
 
 #[inline]
 pub fn u8x16_set1(a: u8) -> v128 {

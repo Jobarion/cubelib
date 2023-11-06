@@ -1,9 +1,6 @@
-use std::fmt::Debug;
-
 use itertools::Itertools;
 
 use crate::cube::{Axis, Transformation};
-use crate::cube::Face::*;
 use crate::cube::Turn::*;
 use crate::defs::*;
 use crate::lookup_table::PruningTable;

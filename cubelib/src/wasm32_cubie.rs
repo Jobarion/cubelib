@@ -2,7 +2,6 @@
 pub mod wasm32_cubie {
     use crate::cube::{Axis, Corner, Edge, Face, Turn};
     use crate::cubie::{CornerCubieCube, EdgeCubieCube};
-    use std::arch::wasm32;
     use std::arch::wasm32::{
         u16x8_shr, u32x4_shl, u32x4_shr, u64x2_extract_lane, u8x16, u8x16_add, u8x16_shl,
         u8x16_sub, v128, v128_and, v128_andnot, v128_load, v128_or, v128_store,
@@ -13,92 +12,73 @@ pub mod wasm32_cubie {
     pub(crate) struct WASM32EdgeCubieCube;
 
     impl WASM32EdgeCubieCube {
-        const VALID_EDGE_MASK_HI: u64 = 0x00000000FFFFFFFF;
-
         //UB UR UF UL FR FL BR BL DF DR DB DL
         // 0  1  2  3  4  5  6  7  8  9 10 11
-        const TURN_EDGE_SHUFFLE: [[v128; 3]; 6] = unsafe {
+        const TURN_EDGE_SHUFFLE: [[v128; 3]; 6] = [
             [
-                [
-                    wasm32::u8x16(3, 0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //U
-                    wasm32::u8x16(2, 3, 0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //U2
-                    wasm32::u8x16(1, 2, 3, 0, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //U'
-                ],
-                [
-                    wasm32::u8x16(0, 1, 2, 3, 4, 5, 6, 7, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF), //D
-                    wasm32::u8x16(0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF), //D2
-                    wasm32::u8x16(0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF), //D'
-                ],
-                [
-                    wasm32::u8x16(0, 1, 5, 3, 2, 8, 6, 7, 4, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //F
-                    wasm32::u8x16(0, 1, 8, 3, 5, 4, 6, 7, 2, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //F2
-                    wasm32::u8x16(0, 1, 4, 3, 8, 2, 6, 7, 5, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //F'
-                ],
-                [
-                    wasm32::u8x16(6, 1, 2, 3, 4, 5, 10, 0, 8, 9, 7, 11, 0xFF, 0xFF, 0xFF, 0xFF), //B
-                    wasm32::u8x16(10, 1, 2, 3, 4, 5, 7, 6, 8, 9, 0, 11, 0xFF, 0xFF, 0xFF, 0xFF), //B2
-                    wasm32::u8x16(7, 1, 2, 3, 4, 5, 0, 10, 8, 9, 6, 11, 0xFF, 0xFF, 0xFF, 0xFF), //B'
-                ],
-                [
-                    wasm32::u8x16(0, 1, 2, 7, 4, 3, 6, 11, 8, 9, 10, 5, 0xFF, 0xFF, 0xFF, 0xFF), //L
-                    wasm32::u8x16(0, 1, 2, 11, 4, 7, 6, 5, 8, 9, 10, 3, 0xFF, 0xFF, 0xFF, 0xFF), //L2
-                    wasm32::u8x16(0, 1, 2, 5, 4, 11, 6, 3, 8, 9, 10, 7, 0xFF, 0xFF, 0xFF, 0xFF), //L'
-                ],
-                [
-                    wasm32::u8x16(0, 4, 2, 3, 9, 5, 1, 7, 8, 6, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //R
-                    wasm32::u8x16(0, 9, 2, 3, 6, 5, 4, 7, 8, 1, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //R2
-                    wasm32::u8x16(0, 6, 2, 3, 1, 5, 9, 7, 8, 4, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //R'
-                ],
-            ]
-        };
+                u8x16(3, 0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //U
+                u8x16(2, 3, 0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //U2
+                u8x16(1, 2, 3, 0, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //U'
+            ],
+            [
+                u8x16(0, 1, 2, 3, 4, 5, 6, 7, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF), //D
+                u8x16(0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF), //D2
+                u8x16(0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF), //D'
+            ],
+            [
+                u8x16(0, 1, 5, 3, 2, 8, 6, 7, 4, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //F
+                u8x16(0, 1, 8, 3, 5, 4, 6, 7, 2, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //F2
+                u8x16(0, 1, 4, 3, 8, 2, 6, 7, 5, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //F'
+            ],
+            [
+                u8x16(6, 1, 2, 3, 4, 5, 10, 0, 8, 9, 7, 11, 0xFF, 0xFF, 0xFF, 0xFF), //B
+                u8x16(10, 1, 2, 3, 4, 5, 7, 6, 8, 9, 0, 11, 0xFF, 0xFF, 0xFF, 0xFF), //B2
+                u8x16(7, 1, 2, 3, 4, 5, 0, 10, 8, 9, 6, 11, 0xFF, 0xFF, 0xFF, 0xFF), //B'
+            ],
+            [
+                u8x16(0, 1, 2, 7, 4, 3, 6, 11, 8, 9, 10, 5, 0xFF, 0xFF, 0xFF, 0xFF), //L
+                u8x16(0, 1, 2, 11, 4, 7, 6, 5, 8, 9, 10, 3, 0xFF, 0xFF, 0xFF, 0xFF), //L2
+                u8x16(0, 1, 2, 5, 4, 11, 6, 3, 8, 9, 10, 7, 0xFF, 0xFF, 0xFF, 0xFF), //L'
+            ],
+            [
+                u8x16(0, 4, 2, 3, 9, 5, 1, 7, 8, 6, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //R
+                u8x16(0, 9, 2, 3, 6, 5, 4, 7, 8, 1, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //R2
+                u8x16(0, 6, 2, 3, 1, 5, 9, 7, 8, 4, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF), //R'
+            ],
+        ];
 
-        const TURN_EO_FLIP: [v128; 6] = unsafe {
-            [
-                wasm32::u8x16(0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ), //U
-                wasm32::u8x16(0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, ), //D
-                wasm32::u8x16(0, 0, 0b00000100, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, 0, 0, ), //F
-                wasm32::u8x16(0b00000100, 0, 0, 0, 0, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, ), //B
-                wasm32::u8x16(0, 0, 0, 0b00000010, 0, 0b00000010, 0, 0b00000010, 0, 0, 0, 0b00000010, 0, 0, 0, 0, ), //L
-                wasm32::u8x16(0, 0b00000010, 0, 0, 0b00000010, 0, 0b00000010, 0, 0, 0b00000010, 0, 0, 0, 0, 0, 0, ), //R
-            ]
-        };
+        const TURN_EO_FLIP: [v128; 6] = [
+            u8x16(0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ), //U
+            u8x16(0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, ), //D
+            u8x16(0, 0, 0b00000100, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, 0, 0, ), //F
+            u8x16(0b00000100, 0, 0, 0, 0, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, ), //B
+            u8x16(0, 0, 0, 0b00000010, 0, 0b00000010, 0, 0b00000010, 0, 0, 0, 0b00000010, 0, 0, 0, 0, ), //L
+            u8x16(0, 0b00000010, 0, 0, 0b00000010, 0, 0b00000010, 0, 0, 0b00000010, 0, 0, 0, 0, 0, 0, ), //R
+        ];
 
-        const TRANSFORMATION_EP_SHUFFLE: [[v128; 3]; 3] = unsafe {
+        const TRANSFORMATION_EP_SHUFFLE: [[v128; 3]; 3] = [
             [
-                [
-                    wasm32::u8x16(2, 4, 8, 5, 9, 11, 1, 3, 10, 6, 0, 7, 0xFF, 0xFF, 0xFF, 0xFF), //x
-                    wasm32::u8x16(8, 9, 10, 11, 6, 7, 4, 5, 0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF), //x2
-                    wasm32::u8x16(10, 6, 0, 7, 1, 3, 9, 11, 2, 4, 8, 5, 0xFF, 0xFF, 0xFF, 0xFF), //x'
-                ],
-                [
-                    wasm32::u8x16(3, 0, 1, 2, 6, 4, 7, 5, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF), //y
-                    wasm32::u8x16(2, 3, 0, 1, 7, 6, 5, 4, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF), //y2
-                    wasm32::u8x16(1, 2, 3, 0, 5, 7, 4, 6, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF), //y'
-                ],
-                [
-                    wasm32::u8x16(7, 3, 5, 11, 2, 8, 0, 10, 4, 1, 6, 9, 0xFF, 0xFF, 0xFF, 0xFF), //z
-                    wasm32::u8x16(10, 11, 8, 9, 5, 4, 7, 6, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF), //z2
-                    wasm32::u8x16(6, 9, 4, 1, 8, 2, 10, 0, 5, 11, 7, 3, 0xFF, 0xFF, 0xFF, 0xFF), //z'
-                ],
-            ]
-        };
+                u8x16(2, 4, 8, 5, 9, 11, 1, 3, 10, 6, 0, 7, 0xFF, 0xFF, 0xFF, 0xFF), //x
+                u8x16(8, 9, 10, 11, 6, 7, 4, 5, 0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF), //x2
+                u8x16(10, 6, 0, 7, 1, 3, 9, 11, 2, 4, 8, 5, 0xFF, 0xFF, 0xFF, 0xFF), //x'
+            ],
+            [
+                u8x16(3, 0, 1, 2, 6, 4, 7, 5, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF), //y
+                u8x16(2, 3, 0, 1, 7, 6, 5, 4, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF), //y2
+                u8x16(1, 2, 3, 0, 5, 7, 4, 6, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF), //y'
+            ],
+            [
+                u8x16(7, 3, 5, 11, 2, 8, 0, 10, 4, 1, 6, 9, 0xFF, 0xFF, 0xFF, 0xFF), //z
+                u8x16(10, 11, 8, 9, 5, 4, 7, 6, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF), //z2
+                u8x16(6, 9, 4, 1, 8, 2, 10, 0, 5, 11, 7, 3, 0xFF, 0xFF, 0xFF, 0xFF), //z'
+            ],
+        ];
 
-        const TRANSFORMATION_EO_MAP: [v128; 3] = unsafe {
-            [
-                wasm32::u8x16(
-                    0b0000, 0xFF, 0b0010, 0xFF, 0b1000, 0xFF, 0b1010, 0xFF, 0b0100, 0xFF, 0b0110,
-                    0xFF, 0b1100, 0xFF, 0b1110, 0xFF,
-                ), //X
-                wasm32::u8x16(
-                    0b0000, 0xFF, 0b0100, 0xFF, 0b0010, 0xFF, 0b0110, 0xFF, 0b1000, 0xFF, 0b1100,
-                    0xFF, 0b1010, 0xFF, 0b1110, 0xFF,
-                ), //X
-                wasm32::u8x16(
-                    0b0000, 0xFF, 0b1000, 0xFF, 0b0100, 0xFF, 0b1100, 0xFF, 0b0010, 0xFF, 0b1010,
-                    0xFF, 0b0110, 0xFF, 0b1110, 0xFF,
-                ), //X
-            ]
-        };
+        const TRANSFORMATION_EO_MAP: [v128; 3] = [
+            u8x16(0b0000, 0xFF, 0b0010, 0xFF, 0b1000, 0xFF, 0b1010, 0xFF, 0b0100, 0xFF, 0b0110, 0xFF, 0b1100, 0xFF, 0b1110, 0xFF), //X
+            u8x16(0b0000, 0xFF, 0b0100, 0xFF, 0b0010, 0xFF, 0b0110, 0xFF, 0b1000, 0xFF, 0b1100, 0xFF, 0b1010, 0xFF, 0b1110, 0xFF), //Y
+            u8x16(0b0000, 0xFF, 0b1000, 0xFF, 0b0100, 0xFF, 0b1100, 0xFF, 0b0010, 0xFF, 0b1010, 0xFF, 0b0110, 0xFF, 0b1110, 0xFF), //Z
+        ];
 
         pub(crate) fn get_edges_raw(cube: &EdgeCubieCube) -> [u64; 2] {
             let low = u64x2_extract_lane::<0>(cube.0);

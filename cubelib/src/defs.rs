@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub enum StepKind {
     EO = 0,
     RZP = 1,
@@ -50,6 +51,7 @@ impl Into<String> for StepKind {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub enum NissSwitchType {
     Never = 0,
     Before = 1,

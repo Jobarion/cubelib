@@ -6,11 +6,20 @@ use std::marker::PhantomData;
 use crate::steps::coord::Coord;
 
 use crate::cube::{NewSolved, Turnable};
+use crate::lookup_table::TableSource::Loaded;
 use crate::moveset::{MoveSet, TransitionTable};
+use crate::tables::PruningTables;
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum TableSource {
+    Generated,
+    Loaded
+}
 
 pub struct PruningTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
     entries: Box<[u8; C_SIZE]>,
     coord_type: PhantomData<C>,
+    source: TableSource,
 }
 
 impl<const C_SIZE: usize, C: Coord<C_SIZE>> PruningTable<C_SIZE, C> {
@@ -18,7 +27,25 @@ impl<const C_SIZE: usize, C: Coord<C_SIZE>> PruningTable<C_SIZE, C> {
         PruningTable {
             entries: vec![0xFF; C_SIZE].into_boxed_slice().try_into().unwrap(),
             coord_type: PhantomData,
+            source: TableSource::Generated
         }
+    }
+
+    pub fn load(data: Vec<u8>) -> Self {
+        assert_eq!(data.len(), C_SIZE);
+        PruningTable {
+            entries: data.into_boxed_slice().try_into().unwrap(),
+            coord_type: PhantomData,
+            source: Loaded
+        }
+    }
+
+    pub fn get_source(&self) -> TableSource {
+        self.source
+    }
+
+    pub fn get_bytes(&self) -> &[u8; C_SIZE] {
+        &*self.entries
     }
 
     pub fn get(&self, id: C) -> Option<u8> {

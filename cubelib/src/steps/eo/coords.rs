@@ -1,5 +1,4 @@
 use crate::steps::coord::Coord;
-use crate::cube::Edge;
 use crate::cubie::{CubieCube, EdgeCubieCube};
 
 //Edge orientation on the respective axis

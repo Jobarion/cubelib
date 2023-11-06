@@ -173,7 +173,7 @@ impl From<&CornerCubieCube> for CPOrbitTwistCoord {
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn from(value: &CornerCubieCube) -> Self {
-        unsafe { wasm32::from_cp_orbit_twist_parity_coord(value) }
+        wasm32::from_cp_orbit_twist_parity_coord(value)
     }
 }
 
@@ -238,12 +238,6 @@ mod avx2 {
         b(5, 0), b(5, 1), b(5, 2), b(5, 3),
         b(6, 0), b(6, 1), b(6, 2), b(6, 3),
         b(7, 0), b(7, 1), b(7, 2), b(7, 3),
-    ];
-    const UD_SLICE_BINOM_2_ARR: [u8; 16] = [
-        b(8, 0), b(8, 1), b(8, 2), b(8, 3),
-        b(9, 0), b(9, 1), b(9, 2), b(9, 3),
-        b(10, 0), b(10, 1), b(10, 2), b(10, 3),
-        b(11, 0), b(11, 1), b(11, 2), b(11, 3),
     ];
 
     const UD_SLICE_BINOM_0: __m128i = unsafe {

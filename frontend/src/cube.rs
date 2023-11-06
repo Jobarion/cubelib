@@ -10,8 +10,6 @@ use leptos::html::Div;
 #[component]
 pub fn ScrambleComponent() -> impl IntoView {
     let scramble = use_context::<RwSignal<String>>().unwrap();
-    // cubelib::steps::eo::coords::EOCoordLR(1);
-    // cubelib::steps::coord::Coord;
     let cube = Signal::derive(move ||{
         Algorithm::from_str(scramble.get().as_str()).ok()
             .map(|alg| {

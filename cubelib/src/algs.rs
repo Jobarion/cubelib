@@ -61,6 +61,15 @@ impl Algorithm {
         }
     }
 
+    pub fn to_uninverted(mut self) -> Self {
+        self.inverse_moves.reverse();
+        for i in 0..self.inverse_moves.len() {
+            self.inverse_moves[i].1 = self.inverse_moves[i].1.invert();
+        }
+        self.normal_moves.append(&mut self.inverse_moves);
+        self
+    }
+
     pub fn reverse(mut self) -> Self {
         self.normal_moves.reverse();
         self.inverse_moves.reverse();

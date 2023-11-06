@@ -5,10 +5,10 @@ use std::time::Instant;
 use clap::Parser;
 use cubelib::algs::Algorithm;
 use cubelib::cube::{ApplyAlgorithm, NewSolved};
-use cubelib::cubie::{CornerCubieCube, CubieCube};
-use cubelib::df_search::ALL_MOVES;
-use cubelib::moveset::{MoveSet, TransitionTable};
+use cubelib::cubie::CubieCube;
 use cubelib::solution::Solution;
+use cubelib::solver::gen_tables;
+use cubelib::steps::coord::Coord;
 use cubelib::steps::eo;
 use cubelib::stream;
 use cubelib::tables::PruningTables;
@@ -16,24 +16,11 @@ use itertools::Itertools;
 use log::{debug, error, info, LevelFilter};
 use simple_logger::SimpleLogger;
 
-use cubelib::solver::gen_tables;
-use cubelib::steps::coord::Coord;
-use cubelib::steps::dr::coords::COUDCoord;
-use cubelib::steps::htr::coords::CPCoord;
-
 use crate::cli::Cli;
 
 mod cli;
 
 fn main() {
-    SimpleLogger::new()
-        .with_level(LevelFilter::Debug)
-        .init()
-        .unwrap();
-    let time = Instant::now();
-
-    println!("Took {}ms", time.elapsed().as_millis());
-
     let cli: Cli = Cli::parse();
     SimpleLogger::new()
         .with_level(if cli.verbose {

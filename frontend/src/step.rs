@@ -1,25 +1,24 @@
 use std::fmt::{Display, Formatter};
+
 use cubelib::cube::Axis;
-use leptos::*;
-use leptos::html::*;
+use cubelib::defs::NissSwitchType;
 use leptonic::prelude::*;
-use crate::step::VariantAxis::{FB, LR, UD};
-use crate::util;
+use leptos::*;
 
 #[derive(Copy, Clone)]
 pub struct EOConfig {
     pub enabled: (Signal<bool>, Callback<bool>),
     pub min: RwSignal<u8>,
     pub max: RwSignal<u8>,
-    pub niss: RwSignal<NissType>,
-    pub variants: RwSignal<Vec<VariantAxis>>
+    pub niss: RwSignal<NissSwitchType>,
+    pub variants: RwSignal<Vec<Axis>>
 }
 
 #[derive(Copy, Clone)]
 pub struct RZPConfig {
-   pub min: RwSignal<u8>,
-   pub max: RwSignal<u8>,
-   pub niss: RwSignal<NissType>,
+    pub min: RwSignal<u8>,
+    pub max: RwSignal<u8>,
+    pub niss: RwSignal<NissSwitchType>,
 }
 
 #[derive(Copy, Clone)]
@@ -27,8 +26,8 @@ pub struct DRConfig {
     pub enabled: (Signal<bool>, Callback<bool>),
     pub min: RwSignal<u8>,
     pub max: RwSignal<u8>,
-    pub niss: RwSignal<NissType>,
-    pub variants: RwSignal<Vec<VariantAxis>>,
+    pub niss: RwSignal<NissSwitchType>,
+    pub variants: RwSignal<Vec<Axis>>,
     pub triggers: RwSignal<Vec<String>>,
 }
 
@@ -37,8 +36,8 @@ pub struct  HTRConfig {
     pub enabled: (Signal<bool>, Callback<bool>),
     pub min: RwSignal<u8>,
     pub max: RwSignal<u8>,
-    pub niss: RwSignal<NissType>,
-    pub variants: RwSignal<Vec<VariantAxis>>
+    pub niss: RwSignal<NissSwitchType>,
+    pub variants: RwSignal<Vec<Axis>>
 }
 
 #[derive(Copy, Clone)]
@@ -46,8 +45,8 @@ pub struct  FRConfig {
     pub enabled: (Signal<bool>, Callback<bool>),
     pub min: RwSignal<u8>,
     pub max: RwSignal<u8>,
-    pub niss: RwSignal<NissType>,
-    pub variants: RwSignal<Vec<VariantAxis>>
+    pub niss: RwSignal<NissSwitchType>,
+    pub variants: RwSignal<Vec<Axis>>
 }
 
 #[derive(Copy, Clone)]
@@ -55,6 +54,7 @@ pub struct FinishConfig {
     pub enabled: (Signal<bool>, Callback<bool>),
     pub min: RwSignal<u8>,
     pub max: RwSignal<u8>,
+    pub leave_slice: RwSignal<bool>,
 }
 
 impl FinishConfig {
@@ -63,6 +63,7 @@ impl FinishConfig {
             enabled,
             min: create_rw_signal(0),
             max: create_rw_signal(10),
+            leave_slice: create_rw_signal(false),
         }
     }
 }
@@ -73,8 +74,8 @@ impl DRConfig {
             enabled,
             min: create_rw_signal(0),
             max: create_rw_signal(12),
-            niss: create_rw_signal(NissType::Before),
-            variants: create_rw_signal(vec![UD, FB, LR]),
+            niss: create_rw_signal(NissSwitchType::Before),
+            variants: create_rw_signal(vec![Axis::UD, Axis::FB, Axis::LR]),
             triggers: create_rw_signal(vec!["R".to_string(), "R U2 R".to_string(), "R F2 R".to_string(), "R U R".to_string(), "R U' R".to_string()]),
         }
     }
@@ -85,7 +86,7 @@ impl RZPConfig {
         Self {
             min: create_rw_signal(0),
             max: create_rw_signal(3),
-            niss: create_rw_signal(NissType::Never),
+            niss: create_rw_signal(NissSwitchType::Never),
         }
     }
 }
@@ -96,8 +97,8 @@ impl EOConfig {
             enabled,
             min: create_rw_signal(0),
             max: create_rw_signal(5),
-            niss: create_rw_signal(NissType::Always),
-            variants: create_rw_signal(vec![UD, FB, LR]),
+            niss: create_rw_signal(NissSwitchType::Always),
+            variants: create_rw_signal(vec![Axis::UD, Axis::FB, Axis::LR]),
         }
     }
 }
@@ -108,8 +109,8 @@ impl HTRConfig {
             enabled,
             min: create_rw_signal(0),
             max: create_rw_signal(12),
-            niss: create_rw_signal(NissType::Before),
-            variants: create_rw_signal(vec![UD, FB, LR]),
+            niss: create_rw_signal(NissSwitchType::Before),
+            variants: create_rw_signal(vec![Axis::UD, Axis::FB, Axis::LR]),
         }
     }
 }
@@ -120,27 +121,40 @@ impl FRConfig {
             enabled,
             min: create_rw_signal(0),
             max: create_rw_signal(10),
-            niss: create_rw_signal(NissType::Before),
-            variants: create_rw_signal(vec![UD, FB, LR]),
+            niss: create_rw_signal(NissSwitchType::Before),
+            variants: create_rw_signal(vec![Axis::UD, Axis::FB, Axis::LR]),
         }
     }
 }
 
 #[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
-pub enum VariantAxis {
+pub enum SelectableAxis {
     UD,
     FB,
     LR
 }
 
-#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
-pub enum NissType {
-    Never,
-    Before,
-    Always
+impl Into<Axis> for SelectableAxis {
+    fn into(self) -> Axis {
+        match self {
+            Self::UD => Axis::UD,
+            Self::FB => Axis::FB,
+            Self::LR => Axis::LR,
+        }
+    }
 }
 
-impl Display for VariantAxis {
+impl From<Axis> for SelectableAxis {
+    fn from(value: Axis) -> Self {
+        match value {
+            Axis::UD => Self::UD,
+            Axis::FB => Self::FB,
+            Axis::LR => Self::LR,
+        }
+    }
+}
+
+impl Display for SelectableAxis {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UD => write!(f, "UD"),
@@ -283,7 +297,6 @@ pub fn FRParameters() -> impl IntoView {
 
 #[component]
 pub fn FinishParameters() -> impl IntoView {
-
     let fin_config = use_context::<FinishConfig>().expect("Finish context required");
     view! {
         <StepLengthComponent
@@ -293,6 +306,13 @@ pub fn FinishParameters() -> impl IntoView {
             set_max=fin_config.max
             total_max=10
         />
+        <div style="display: flex; align-items: center;">
+            <label style="margin-right: 10px;">"Leave slice:"</label>
+            <Toggle
+                state=Signal::derive(move || fin_config.leave_slice.get())
+                set_state=Callback::new(move |s| fin_config.leave_slice.set(s))
+            />
+        </div>
     }
 }
 
@@ -330,22 +350,22 @@ pub fn StepLengthComponent(
 }
 
 #[component]
-pub fn NissSettingsComponent(niss_default: RwSignal<NissType>) -> impl IntoView {
-    let niss_1 = Signal::derive(move || niss_default.get() != NissType::Never);
-    let niss_2 = Signal::derive(move || niss_default.get() == NissType::Always);
+pub fn NissSettingsComponent(niss_default: RwSignal<NissSwitchType>) -> impl IntoView {
+    let niss_1 = Signal::derive(move || niss_default.get() != NissSwitchType::Never);
+    let niss_2 = Signal::derive(move || niss_default.get() == NissSwitchType::Always);
     view! {
         <div style="display: flex; align-items: center; margin-bottom: 5px;">
             <label style="margin-right: 10px;">"Allow switching before step:"</label>
             <Toggle
                 state=niss_1
-                set_state=Callback::new(move |s| if s { niss_default.set(NissType::Before) } else { niss_default.set(NissType::Never)})
+                set_state=Callback::new(move |s| if s { niss_default.set(NissSwitchType::Before) } else { niss_default.set(NissSwitchType::Never)})
             />
         </div>
         <div style="display: flex; align-items: center;" class:grayed-out=move || !niss_1.get()>
             <label style="margin-right: 10px;">"Allow switching during step:"</label>
             <Toggle
                 state=niss_2
-                set_state=Callback::new(move |s| if s { niss_default.set(NissType::Always) } else { niss_default.set(NissType::Before)})
+                set_state=Callback::new(move |s| if s { niss_default.set(NissSwitchType::Always) } else { niss_default.set(NissSwitchType::Before)})
             />
         </div>
     }
@@ -357,20 +377,19 @@ pub fn DefaultStepParameters(total_max: u8,
                              max: RwSignal<u8>,
                              set_min: RwSignal<u8>,
                              set_max: RwSignal<u8>,
-                             niss_default: RwSignal<NissType>,
-                             variants: RwSignal<Vec<VariantAxis>>
-                             // #[prop(into, optional)] set_niss_type: OptionalMaybeSignal<NissType>,
+                             niss_default: RwSignal<NissSwitchType>,
+                             variants: RwSignal<Vec<Axis>>
 ) -> impl IntoView {
     view! {
         <h4>"Step length"</h4>
         <StepLengthComponent min=min max=max set_min=set_min set_max=set_max total_max=total_max/>
         <h4>"Variations"</h4>
         <Multiselect
-            options=vec![VariantAxis::UD, VariantAxis::FB, VariantAxis::LR]
+            options=vec![SelectableAxis::UD, SelectableAxis::FB, SelectableAxis::LR]
             search_text_provider=move |o| format!("{o}")
             render_option=move |o| format!("{o:?}").into_view()
-            selected=variants
-            set_selected=move |v| variants.set(v)
+            selected=Signal::derive(move || variants.get().iter().cloned().map(|v|Into::<SelectableAxis>::into(v)).collect())
+            set_selected=Callback::new(move |v: Vec<SelectableAxis>| variants.set(v.iter().cloned().map(|v|Into::<Axis>::into(v)).collect()))
         />
         <h4>"NISS"</h4>
         <NissSettingsComponent niss_default=niss_default/>

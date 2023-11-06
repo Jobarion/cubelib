@@ -5,12 +5,13 @@ use crate::cube::{Invertible, Turnable};
 use crate::defs::StepKind;
 
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Eq, PartialEq)]
 pub struct Solution {
     pub steps: Vec<SolutionStep>,
     pub ends_on_normal: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub struct SolutionStep {
     pub kind: StepKind,
@@ -135,11 +136,16 @@ impl Display for Solution {
             total_moves += alg_length;
             writeln!(f, "{:longest_alg_length$}  //{name:longest_name_length$} ({alg_length}/{total_moves})", step.alg.to_string())?;
         }
+        let final_alg: Algorithm = if self.steps.last().map(|x| x.kind == StepKind::FIN).unwrap_or(false) {
+            Into::<Algorithm>::into(self.clone()).to_uninverted()
+        } else {
+            self.clone().into()
+        };
         writeln!(
             f,
             "\nSolution ({}): {}",
             total_moves,
-            Into::<Algorithm>::into(self.clone())
+            final_alg
         )
     }
 }

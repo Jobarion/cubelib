@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 use std::str::FromStr;
-use actix_web::web::to;
-use cubelib::algs::Algorithm;
 
-use cubelib::defs::StepKind;
+use cubelib::algs::Algorithm;
+use cubelib::defs::{NissSwitchType, StepKind};
 use cubelib::solution::{Solution, SolutionStep};
-use cubelib_interface::StepConfig;
+use cubelib::steps::step::StepConfig;
 use log::warn;
-use rusqlite::{params, params_from_iter, ToSql};
+use rusqlite::params_from_iter;
 use rusqlite::types::Value;
 
 pub type Connection = r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>;
@@ -29,11 +28,11 @@ pub fn insert_solution(mut conn: &mut Connection, scramble: Algorithm, solution:
 
     for (config, solution) in map.values() {
         let props = format_props(config.params.clone());
-        let variants = format_variants(config.substeps.clone());
+        let variants = format_variants(config.substeps.clone().unwrap_or(vec![]).clone());
 
         tx.execute(
             "INSERT INTO step_settings (solution_id, step_kind, min, max, niss, variants, props) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (id, config.kind as usize, config.min, config.max, config.niss as usize, variants, props)
+            (id, config.kind as usize, config.min, config.max, config.niss.unwrap_or(NissSwitchType::Never) as usize, variants, props)
         )?;
         if let Some(sol) = solution {
             let normal = sol.alg.normal_moves.iter().map(|x|x.to_string()).collect::<Vec<String>>().join("");
@@ -84,7 +83,7 @@ pub fn load_solution(conn: &Connection, scramble: &Algorithm, step_configs: Vec<
     let params = step_configs.iter()
         .flat_map(|sc| {
             let props = format_props(sc.params.clone());
-            let variants = format_variants(sc.substeps.clone());
+            let variants = format_variants(sc.substeps.clone().unwrap_or(vec![]).clone());
 
             vec![
                 Value::from(sc.kind as usize as u32),
@@ -92,7 +91,7 @@ pub fn load_solution(conn: &Connection, scramble: &Algorithm, step_configs: Vec<
                 Value::from(sc.max),
                 Value::from(sc.min),
                 Value::from(sc.max),
-                Value::from(sc.niss as usize as u32),
+                Value::from(sc.niss.unwrap_or(NissSwitchType::Never) as usize as u32),
                 Value::from(variants.clone()),
                 Value::from(variants),
                 Value::from(props),

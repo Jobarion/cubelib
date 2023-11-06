@@ -27,7 +27,7 @@ struct AppData {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     SimpleLogger::new()
-        .with_level(LevelFilter::Info)
+        .with_level(LevelFilter::Debug)
         .init()
         .unwrap();
 

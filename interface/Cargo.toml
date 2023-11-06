@@ -7,5 +7,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0.188", features = ["derive"] }
-cubelib = { path = "../cubelib", features = ["cube"], default-features = false}
+serde = { version = "1.0.190", features = ["derive"] }
+cubelib = { path = "../cubelib", features = ["cube", "solver", "serde_support"], default-features = false}

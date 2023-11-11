@@ -1,4 +1,4 @@
-use crate::cubie::{CornerCubieCube, CubieCube};
+use crate::puzzles::c333::{CornerCube333, Cube333};
 
 pub trait COCountUD {
     fn co_count(&self) -> u8;
@@ -28,14 +28,14 @@ COCount for CO
     }
 }
 
-impl COCountUD for CubieCube {
+impl COCountUD for Cube333 {
 
     fn co_count(&self) -> u8 {
         self.corners.co_count()
     }
 }
 
-impl COCountUD for CornerCubieCube {
+impl COCountUD for CornerCube333 {
 
     #[cfg(target_feature = "avx2")]
     fn co_count(&self) -> u8 {
@@ -53,9 +53,9 @@ impl COCountUD for CornerCubieCube {
 #[cfg(target_feature = "avx2")]
 mod avx2 {
     use std::arch::x86_64::{_mm_and_si128, _mm_cmpgt_epi8, _mm_movemask_epi8, _mm_set1_epi8};
-    use crate::cubie::CornerCubieCube;
+    use crate::puzzles::c333::CornerCube333;
 
-    pub unsafe fn co_ud(cube: &CornerCubieCube) -> u8 {
+    pub unsafe fn co_ud(cube: &CornerCube333) -> u8 {
         let co = _mm_and_si128(cube.0, _mm_set1_epi8(0x0F));
         let bad_corners = _mm_cmpgt_epi8(co, _mm_set1_epi8(0));
         let count = ((_mm_movemask_epi8(bad_corners) & 0xFF) as usize).count_ones();

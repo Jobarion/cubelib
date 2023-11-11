@@ -1,16 +1,18 @@
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
+use std::string::ToString;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub enum StepKind {
-    EO = 0,
-    RZP = 1,
-    DR = 2,
-    HTR = 3,
-    FR = 4,
-    FRLS = 5,
-    FIN = 6
+    EO,
+    RZP,
+    DR,
+    HTR,
+    FR,
+    FRLS,
+    FIN,
+    Other(String)
 }
 
 impl Display for StepKind {
@@ -31,7 +33,7 @@ impl FromStr for StepKind {
             "fr" => Ok(Self::FR),
             "frls" => Ok(Self::FRLS),
             "finish" | "fin" => Ok(Self::FIN),
-            x=> Err(format!("Unknown step '{x}'"))
+            x=> Ok(Self::Other(x.to_string()))
         }
     }
 }
@@ -39,14 +41,15 @@ impl FromStr for StepKind {
 impl Into<String> for StepKind {
     fn into(self) -> String {
         match self {
-            Self::EO => "eo",
-            Self::RZP => "rzp",
-            Self::DR => "dr",
-            Self::HTR => "htr",
-            Self::FR => "fr",
-            Self::FRLS => "frls",
-            Self::FIN => "finish",
-        }.to_string()
+            StepKind::EO => "eo".to_string(),
+            StepKind::RZP => "rzp".to_string(),
+            StepKind::DR => "dr".to_string(),
+            StepKind::HTR => "htr".to_string(),
+            StepKind::FR => "fr".to_string(),
+            StepKind::FRLS => "frls".to_string(),
+            StepKind::FIN => "finish".to_string(),
+            StepKind::Other(x) => x,
+        }
     }
 }
 

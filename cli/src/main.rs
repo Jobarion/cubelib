@@ -1,18 +1,16 @@
-use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::time::Instant;
 
 use clap::Parser;
 use cubelib::algs::Algorithm;
-use cubelib::cube::{ApplyAlgorithm, NewSolved};
-use cubelib::cubie::CubieCube;
+use cubelib::defs::StepKind;
+use cubelib::puzzles::c333::{Cube333, Turn333};
+use cubelib::puzzles::c333::steps::eo;
+use cubelib::puzzles::c333::steps::solver::{build_steps, gen_tables};
+use cubelib::puzzles::puzzle::ApplyAlgorithm;
 use cubelib::solution::Solution;
-use cubelib::solver::gen_tables;
-use cubelib::steps::coord::Coord;
-use cubelib::steps::eo;
 use cubelib::stream;
 use cubelib::tables::PruningTables;
-use itertools::Itertools;
 use log::{debug, error, info, LevelFilter};
 use simple_logger::SimpleLogger;
 
@@ -34,7 +32,7 @@ fn main() {
         .unwrap();
 
     let scramble = Algorithm::from_str(cli.scramble.as_str()).expect("Invalid scramble {}");
-    let mut cube = CubieCube::new_solved();
+    let mut cube = Cube333::default();
     cube.apply_alg(&scramble);
 
     let steps = cli.parse_step_configs();
@@ -45,7 +43,7 @@ fn main() {
         return;
     } else if let Ok(val) = steps {
         gen_tables(&val, &mut tables);
-        cubelib::solver::build_steps(val, &tables)
+        build_steps(val, &tables)
     } else {
         unreachable!()
     };
@@ -65,13 +63,13 @@ fn main() {
     info!("Generating solutions\n");
     let time = Instant::now();
 
-    let mut solutions: Box<dyn Iterator<Item = Solution>> = Box::new(solutions
+    let mut solutions: Box<dyn Iterator<Item = Solution<Turn333>>> = Box::new(solutions
         .skip_while(|alg| alg.len() < cli.min)
         .take_while(|alg| cli.max.map_or(true, |max| alg.len() <= max)));
 
 
     // For e.g. FR the direction of the last move always matters so we can't filter if we're doing FR
-    let can_filter_last_move = steps.last().map(|(s, _)| s.is_half_turn_invariant()).unwrap_or(true);
+    let can_filter_last_move = steps.last().map(|(s, _)| s.kind() != StepKind::FR && s.kind() != StepKind::FRLS && s.kind() != StepKind::FIN).unwrap_or(true);
     if !cli.all_solutions && can_filter_last_move {
         solutions = Box::new(solutions
             .filter(|alg| eo::eo_config::filter_eo_last_moves_pure(&alg.clone().into())));
@@ -80,7 +78,7 @@ fn main() {
     //We already generate a mostly duplicate iterator, but sometimes the same solution is valid for different stages and that can cause duplicates.
     let solutions = stream::distinct_algorithms(solutions);
 
-    let mut solutions: Box<dyn Iterator<Item = Solution>> = Box::new(solutions);
+    let mut solutions: Box<dyn Iterator<Item = Solution<Turn333>>> = Box::new(solutions);
 
     if cli.max.is_none() || cli.solution_count.is_some() {
         solutions = Box::new(solutions
@@ -91,9 +89,9 @@ fn main() {
     for solution in solutions {
         if cli.compact_solutions {
             if cli.plain_solution {
-                println!("{}", Into::<Algorithm>::into(solution));
+                println!("{}", Into::<Algorithm<Turn333>>::into(solution));
             } else {
-                let alg = Into::<Algorithm>::into(solution);
+                let alg = Into::<Algorithm<Turn333>>::into(solution);
                 println!("{alg} ({})", alg.len());
             }
         } else {

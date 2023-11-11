@@ -4,16 +4,16 @@ use std::str::FromStr;
 
 use itertools::Itertools;
 
-use crate::cube::{Axis, Move, Transformation, Turnable};
+use crate::puzzles::puzzle::{PuzzleMove, Transformable, TransformableMut, TurnableMut};
 
 #[derive(PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
-pub struct Algorithm {
-    pub normal_moves: Vec<Move>,
-    pub inverse_moves: Vec<Move>,
+pub struct Algorithm<Turn: PuzzleMove> {
+    pub normal_moves: Vec<Turn>,
+    pub inverse_moves: Vec<Turn>,
 }
 
-impl Clone for Algorithm {
+impl <Turn: PuzzleMove> Clone for Algorithm<Turn> {
     fn clone(&self) -> Self {
         Algorithm {
             normal_moves: self.normal_moves.clone(),
@@ -22,7 +22,7 @@ impl Clone for Algorithm {
     }
 }
 
-impl Display for Algorithm {
+impl <Turn: PuzzleMove + Display> Display for Algorithm<Turn> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match (self.normal_moves.len(), self.inverse_moves.len()) {
             (_, 0) => write!(f, "{}", Algorithm::fmt_alg(&self.normal_moves)),
@@ -37,14 +37,14 @@ impl Display for Algorithm {
     }
 }
 
-impl Debug for Algorithm {
+impl <Turn: PuzzleMove + Display> Debug for Algorithm<Turn> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl Add for Algorithm {
-    type Output = Algorithm;
+impl <Turn: PuzzleMove>Add for Algorithm<Turn> {
+    type Output = Algorithm<Turn>;
 
     fn add(mut self, mut rhs: Self) -> Self::Output {
         self.normal_moves.append(&mut rhs.normal_moves);
@@ -53,7 +53,7 @@ impl Add for Algorithm {
     }
 }
 
-impl Algorithm {
+impl <Turn: PuzzleMove> Algorithm<Turn> {
     pub fn new() -> Self {
         Algorithm {
             normal_moves: vec![],
@@ -64,7 +64,7 @@ impl Algorithm {
     pub fn to_uninverted(mut self) -> Self {
         self.inverse_moves.reverse();
         for i in 0..self.inverse_moves.len() {
-            self.inverse_moves[i].1 = self.inverse_moves[i].1.invert();
+            self.inverse_moves[i] = self.inverse_moves[i].invert();
         }
         self.normal_moves.append(&mut self.inverse_moves);
         self
@@ -76,7 +76,14 @@ impl Algorithm {
         self
     }
 
-    pub fn mirror(&mut self, axis: Axis) {
+    pub fn len(&self) -> usize {
+        self.normal_moves.len() + self.inverse_moves.len()
+    }
+}
+
+#[cfg(feature = "333")]
+impl Algorithm<crate::puzzles::c333::Turn333> {
+    pub fn mirror(&mut self, axis: crate::puzzles::cube::CubeAxis) {
         self.normal_moves = self
             .normal_moves
             .iter()
@@ -88,12 +95,10 @@ impl Algorithm {
             .map(|m| m.mirror(axis))
             .collect_vec();
     }
+}
 
-    pub fn len(&self) -> usize {
-        self.normal_moves.len() + self.inverse_moves.len()
-    }
-
-    fn fmt_alg(moves: &Vec<Move>) -> String {
+impl <Turn: PuzzleMove + Display> Algorithm<Turn> {
+    fn fmt_alg(moves: &Vec<Turn>) -> String {
         if moves.is_empty() {
             return String::new();
         }
@@ -107,23 +112,23 @@ impl Algorithm {
     }
 }
 
-impl FromStr for Algorithm {
+impl <Turn: PuzzleMove + FromStr<Err = ()>> FromStr for Algorithm<Turn> {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let chars = s.chars();
-        let mut moves: Vec<Move> = vec![];
-        let mut inverse_moves: Vec<Move> = vec![];
+        let mut moves: Vec<Turn> = vec![];
+        let mut inverse_moves: Vec<Turn> = vec![];
         let mut current = "".to_string();
         let mut inverse = false;
         for c in chars.filter(|c| !c.is_whitespace()) {
             current.push(c);
-            if let Err(_) = Move::from_str(current.as_str()) {
+            if let Err(_) = Turn::from_str(current.as_str()) {
                 let mut chars = current.chars();
                 chars.next_back();
                 let previous = chars.as_str();
                 if !previous.is_empty() {
-                    moves.push(Move::from_str(previous)?);
+                    moves.push(Turn::from_str(previous)?);
                 }
                 if c == '(' {
                     if inverse {
@@ -145,7 +150,7 @@ impl FromStr for Algorithm {
             }
         }
         if !current.is_empty() {
-            moves.push(Move::from_str(current.as_str())?);
+            moves.push(Turn::from_str(current.as_str())?);
         }
         Ok(Algorithm {
             normal_moves: moves,
@@ -154,11 +159,13 @@ impl FromStr for Algorithm {
     }
 }
 
-impl Turnable for Algorithm {
-    fn turn(&mut self, m: Move) {
+impl <Turn: PuzzleMove> TurnableMut<Turn> for Algorithm<Turn> {
+    fn turn(&mut self, m: Turn) {
         self.normal_moves.push(m);
     }
+}
 
+impl <Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove> TransformableMut<Transformation> for Algorithm<Turn> {
     fn transform(&mut self, t: Transformation) {
         self.normal_moves = self
             .normal_moves

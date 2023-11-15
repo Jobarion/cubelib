@@ -1,6 +1,6 @@
-use crate::puzzles::cube::CornerCube;
+use crate::puzzles::cube::CubeCornersOdd;
 use crate::steps::coord::Coord;
-use crate::puzzles::cube::coords::CPCoord;
+use crate::puzzles::cube::coords::EPCoord;
 use crate::puzzles::cube::coords::COUDCoord;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -19,9 +19,9 @@ impl Into<usize> for CornerCoord {
     }
 }
 
-impl From<&CornerCube> for CornerCoord {
-    fn from(value: &CornerCube) -> Self {
-        let cp = CPCoord::from(value);
+impl From<&CubeCornersOdd> for CornerCoord {
+    fn from(value: &CubeCornersOdd) -> Self {
+        let cp = EPCoord::from(value);
         let co = COUDCoord::from(value);
         let coord = co.val() + cp.val() * COUDCoord::size();
         Self(coord as u64)

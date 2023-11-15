@@ -97,10 +97,11 @@ where
     for depth in 0..20 {
         total_checked += to_check.len();
         debug!(
-            "Checked {:width$}/{} cubes at depth {depth}",
+            "Checked {:width$}/{} cubes at depth {depth} (new {})",
             total_checked,
             CoordParam::size(),
-            width = CoordParam::size().to_string().len()
+            to_check.len(),
+            width = CoordParam::size().to_string().len(),
         );
         to_check = fill_table(&move_set, &mut table, depth, mapper, to_check);
         if to_check.is_empty() {
@@ -177,10 +178,11 @@ where
     for depth in 0..20 {
         total_checked += to_check.len();
         debug!(
-            "Checked {:width$}/{} cubes at depth {depth}",
+            "Checked {:width$}/{} cubes at depth {depth} (new {})",
             total_checked,
             CoordParam::size(),
-            width = CoordParam::size().to_string().len()
+            to_check.len(),
+            width = CoordParam::size().to_string().len(),
         );
         to_check = fill_table(move_set, &mut table, depth, &mapper, to_check);
         if to_check.is_empty() {

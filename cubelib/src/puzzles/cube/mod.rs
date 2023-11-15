@@ -1,4 +1,7 @@
-mod corners;
+#[cfg(feature = "cubic-odd")]
+mod corners_odd;
+#[cfg(feature = "cubic-even")]
+mod corners_even;
 #[cfg(feature = "cubic-odd")]
 mod center_edges;
 #[cfg(feature = "solver")]
@@ -19,7 +22,10 @@ pub struct CubeOuterTurn {
     pub dir: Direction,
 }
 
-pub use corners::CornerCube;
+#[cfg(feature = "cubic-even")]
+pub use corners_even::CubeCornersEven;
+#[cfg(feature = "cubic-odd")]
+pub use corners_odd::CubeCornersOdd;
 #[cfg(feature = "cubic-odd")]
 pub use center_edges::CenterEdgeCube;
 
@@ -33,7 +39,9 @@ impl Invertible for CubeOuterTurn {
 }
 
 impl PuzzleMove for CubeOuterTurn {
-
+    fn all() -> &'static [Self] {
+        &Self::ALL
+    }
 }
 
 impl Transformable<CubeTransformation> for CubeOuterTurn {
@@ -67,7 +75,9 @@ const TRANSFORMATIONS: [CubeTransformation; 9] = [
 ];
 
 impl PuzzleMove for CubeTransformation {
-
+    fn all() -> &'static [Self] {
+        &Self::ALL
+    }
 }
 
 impl Invertible for CubeTransformation {
@@ -101,6 +111,8 @@ impl CubeTransformation {
     pub const Z: CubeTransformation = CubeTransformation::new(CubeAxis::Z, Clockwise);
     pub const Z2: CubeTransformation = CubeTransformation::new(CubeAxis::Z, Half);
     pub const Zi: CubeTransformation = CubeTransformation::new(CubeAxis::Z, CounterClockwise);
+
+    pub const ALL: [Self; 9] = [Self::X, Self::X2, Self::Xi, Self::Y, Self::Y2, Self::Yi, Self::Z, Self::Z2, Self::Zi];
 
     pub const fn new(axis: CubeAxis, dir: Direction) -> Self {
         Self { axis, dir }

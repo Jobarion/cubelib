@@ -18,7 +18,7 @@ cubic = []
 cubic-even = ["cubic"]
 cubic-odd = ["cubic"]
 
-default = ["333", "222", "pyraminx"]
+default = ["333", "222", "pyraminx", "pyraminxfinish", "222finish", "333finish", "solver"]
 
 222 = ["cubic-even"]
 222finish = ["222", "solver"]
@@ -31,5 +31,6 @@ default = ["333", "222", "pyraminx"]
 333finish = ["333fr"]
 
 pyraminx = []
+pyraminxfinish = []
 
 serde_support = ["dep:serde"]

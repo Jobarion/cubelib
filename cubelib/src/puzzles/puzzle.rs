@@ -17,7 +17,7 @@ impl<Turn: PuzzleMove, Transformation: PuzzleMove, P: Copy + Clone + Default> Pu
 }
 
 pub trait PuzzleMove: Sized + Copy + Clone + Hash + Eq + PartialEq + From<usize> + Into<usize> + Invertible + 'static {
-
+    fn all() -> &'static [Self];
 }
 
 pub trait TransformableMut<Transformation: PuzzleMove> {
@@ -49,10 +49,12 @@ impl<Turn: PuzzleMove, C: TurnableMut<Turn> + InvertibleMut> ApplyAlgorithm<Turn
         for m in &alg.normal_moves {
             self.turn(*m);
         }
-        self.invert();
-        for m in &alg.inverse_moves {
-            self.turn(*m);
+        if !alg.inverse_moves.is_empty() {
+            self.invert();
+            for m in &alg.inverse_moves {
+                self.turn(*m);
+            }
+            self.invert();
         }
-        self.invert();
     }
 }

@@ -1,4 +1,4 @@
-use crate::puzzles::cube::CubeCornersOdd;
+use crate::puzzles::cube::{CubeCornersEven, CubeCornersOdd};
 use crate::steps::coord::Coord;
 
 //UD corner orientation
@@ -6,7 +6,7 @@ use crate::steps::coord::Coord;
 pub struct COUDCoord(pub(crate) u16);
 //Corner permutation
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EPCoord(pub(crate) u16);
+pub struct CPCoord(pub(crate) u16);
 
 impl Coord<2187> for COUDCoord {
     fn val(&self) -> usize {
@@ -20,13 +20,13 @@ impl Into<usize> for COUDCoord {
     }
 }
 
-impl Coord<40320> for EPCoord {
+impl Coord<40320> for CPCoord {
     fn val(&self) -> usize {
         self.0 as usize
     }
 }
 
-impl Into<usize> for EPCoord {
+impl Into<usize> for CPCoord {
     fn into(self) -> usize {
         self.0 as usize
     }
@@ -36,7 +36,7 @@ impl From<&CubeCornersOdd> for COUDCoord {
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn from(value: &CubeCornersOdd) -> Self {
-        unsafe { avx2::unsafe_from_cocoord(value) }
+        unsafe { avx2::unsafe_from_cocoord(value.0) }
     }
 
     #[inline]
@@ -46,11 +46,25 @@ impl From<&CubeCornersOdd> for COUDCoord {
     }
 }
 
-impl From<&CubeCornersOdd> for EPCoord {
+impl From<&CubeCornersEven> for COUDCoord {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn from(value: &CubeCornersEven) -> Self {
+        unsafe { avx2::unsafe_from_cocoord(value.0) }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn from(value: &CubeCornersEven) -> Self {
+        wasm32::from_cocoord(value)
+    }
+}
+
+impl From<&CubeCornersOdd> for CPCoord {
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn from(value: &CubeCornersOdd) -> Self {
-        unsafe { avx2::unsafe_from_cpcoord(value) }
+        unsafe { avx2::unsafe_from_cpcoord(value.0) }
     }
 
     #[inline]
@@ -60,22 +74,36 @@ impl From<&CubeCornersOdd> for EPCoord {
     }
 }
 
+impl From<&CubeCornersEven> for CPCoord {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    fn from(value: &CubeCornersEven) -> Self {
+        unsafe { avx2::unsafe_from_cpcoord(value.0) }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    fn from(value: &CubeCornersEven) -> Self {
+        wasm32::from_cpcoord(value)
+    }
+}
+
 #[cfg(target_feature = "avx2")]
 mod avx2 {
     use std::arch::x86_64::{__m128i, _mm_and_si128, _mm_cmplt_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_mullo_epi16, _mm_set1_epi8, _mm_set_epi64x, _mm_setr_epi16, _mm_setr_epi8, _mm_shuffle_epi8, _mm_srli_epi32};
 
     use crate::alignment::avx2::C;
-    use crate::puzzles::cube::coords::{COUDCoord, EPCoord};
+    use crate::puzzles::cube::coords::{COUDCoord, CPCoord};
     use crate::puzzles::cube::CubeCornersOdd;
 
     const CO_MUL: __m128i = unsafe { C { a_u16: [1, 3, 9, 27, 81, 243, 729, 0] }.a };
     const CO_SHUFFLE_8_TO_16: __m128i = unsafe { C { a_u8: [0, 0xFF, 1, 0xFF, 2, 0xFF, 3, 0xFF, 4, 0xFF, 5, 0xFF, 6, 0xFF, 7, 0xFF] }.a };
 
     #[inline]
-    pub(crate) unsafe fn unsafe_from_cocoord(value: &CubeCornersOdd) -> COUDCoord {
+    pub(crate) unsafe fn unsafe_from_cocoord(value: __m128i) -> COUDCoord {
         //Spread co data out into 16bit values to avoid overflow later
         let co_epi16 = _mm_and_si128(
-            _mm_shuffle_epi8(value.0, CO_SHUFFLE_8_TO_16),
+            _mm_shuffle_epi8(value, CO_SHUFFLE_8_TO_16),
             _mm_set1_epi8(0b11),
         );
         //Multiply with 3^0, 3^1, etc.
@@ -87,8 +115,8 @@ mod avx2 {
 
     #[target_feature(enable = "avx2")]
     #[inline]
-    pub(crate) unsafe fn unsafe_from_cpcoord(value: &CubeCornersOdd) -> EPCoord {
-        let cp_values = _mm_and_si128(_mm_srli_epi32::<5>(value.0), _mm_set1_epi8(0b111));
+    pub(crate) unsafe fn unsafe_from_cpcoord(value: __m128i) -> CPCoord {
+        let cp_values = _mm_and_si128(_mm_srli_epi32::<5>(value), _mm_set1_epi8(0b111));
 
         //We interleave the values to make using hadd_epi_<16/32> easier when we combine them
         let values_67 = _mm_shuffle_epi8(
@@ -140,7 +168,7 @@ mod avx2 {
         let factorials = _mm_setr_epi16( 1, 2, 6, 24, 120, 720, 5040,0);
         let prod = _mm_mullo_epi16(hsum, factorials);
 
-        EPCoord(hsum_epi16_sse3(prod))
+        CPCoord(hsum_epi16_sse3(prod))
     }
 
     #[inline]
@@ -156,7 +184,7 @@ mod avx2 {
 mod wasm32 {
     use std::arch::wasm32::{i32x4, i8x16, u16x8, u16x8_extract_lane, u16x8_mul, u32x4_shr, u32x4_shuffle, u8x16, u8x16_add, u8x16_eq, u8x16_sub, u8x16_swizzle, v128, v128_and, v128_or};
 
-    use crate::puzzles::cube::coords::{COUDCoord, EPCoord};
+    use crate::puzzles::cube::coords::{COUDCoord, CPCoord};
     use crate::puzzles::cube::CubeCornersOdd;
 
     use crate::wasm_util::{complete_hsum_epi16, hsum_narrow_epi32, hsum_wide_epi32, mm_sad_epu8, u8x16_set1};

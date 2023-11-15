@@ -1,5 +1,5 @@
 use crate::puzzles::c333::{CornerCube333, Cube333, EdgeCube333};
-use crate::puzzles::cube::coords::EPCoord;
+use crate::puzzles::cube::coords::CPCoord;
 use crate::steps::coord::Coord;
 
 //Coordinate representing the position of edges that belong into the FB slice, assuming the UD slice is already correct.
@@ -181,9 +181,9 @@ impl From<&Cube333> for PureHTRDRUDCoord {
 impl From<&Cube333> for ImpureHTRDRUDCoord {
     fn from(value: &Cube333) -> Self {
         let ep_fbslice_coord = FBSliceUnsortedCoord::from(&value.edges).val();
-        let cp = EPCoord::from(&value.corners).val();
+        let cp = CPCoord::from(&value.corners).val();
 
-        let val = cp + ep_fbslice_coord * EPCoord::size();
+        let val = cp + ep_fbslice_coord * CPCoord::size();
         Self(val as u32)
     }
 }
@@ -489,7 +489,7 @@ mod wasm32 {
     use std::arch::wasm32::{i32x4, i8x16, u16x8, u16x8_extract_lane, u16x8_mul, u32x4_shl, u32x4_shr, u32x4_shuffle, u64x2, u64x2_extract_lane, u8x16, u8x16_add, u8x16_bitmask, u8x16_eq, u8x16_extract_lane, u8x16_lt, u8x16_sub, u8x16_swizzle, v128, v128_and, v128_or, v128_xor};
 
     use crate::puzzles::c333::{CornerCube333, EdgeCube333};
-    use crate::puzzles::c333::steps::htr::coords::{EPCoord, CPOrbitTwistCoord, CPOrbitUnsortedCoord, FBSliceUnsortedCoord, ParityCoord};
+    use crate::puzzles::c333::steps::htr::coords::{CPCoord, CPOrbitTwistCoord, CPOrbitUnsortedCoord, FBSliceUnsortedCoord, ParityCoord};
     use crate::wasm_util::{hsum_narrow_epi16, hsum_narrow_epi32, hsum_wide_epi32, mm_sad_epu8, u8x16_set1};
 
     const UD_SLICE_BINOM_0: v128 = u8x16(
@@ -644,7 +644,7 @@ mod wasm32 {
     }
 
     #[inline]
-    pub(crate) fn from_cpcoord(value: &CornerCube333) -> EPCoord {
+    pub(crate) fn from_cpcoord(value: &CornerCube333) -> CPCoord {
         let cp_values = v128_and(u32x4_shr(value.0, 5), u8x16_set1(0b111));
 
         //We interleave the values to make using hadd_epi_<16/32> easier when we combine them
@@ -697,7 +697,7 @@ mod wasm32 {
         let factorials = u16x8( 1, 2, 6, 24, 120, 720, 5040,0);
         let prod = u16x8_mul(hsum, factorials);
 
-        EPCoord(hsum_epi16_sse3(prod))
+        CPCoord(hsum_epi16_sse3(prod))
     }
 
     #[inline]

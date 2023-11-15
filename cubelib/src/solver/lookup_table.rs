@@ -147,6 +147,16 @@ where
             visited.insert(coord, cube.clone());
             check_next.push(cube);
         }
+        for m in Transformation::all() {
+            let mut cube = cube.clone();
+            cube.transform(*m);
+            let coord = mapper(&cube);
+            if visited.contains_key(&coord) {
+                continue;
+            }
+            visited.insert(coord, cube.clone());
+            check_next.push(cube);
+        }
     }
     check_next
 }

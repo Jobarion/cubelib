@@ -7,6 +7,7 @@ pub struct AlignedU64(pub [u64; 2]);
 pub struct AlignedU8(pub [u8; 16]);
 
 #[cfg(target_feature = "avx2")]
+#[allow(dead_code)]
 pub mod avx2 {
     use std::arch::x86_64::__m128i;
 

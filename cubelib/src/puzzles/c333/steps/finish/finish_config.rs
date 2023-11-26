@@ -36,6 +36,8 @@ pub fn from_step_config_fr(table: &FRFinishPruningTable, config: StepConfig) -> 
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(10),
+        config.absolute_min,
+        config.absolute_max,
         config.niss.unwrap_or(NissSwitchType::Never),
         if config.quality == 0 {
             None
@@ -61,6 +63,8 @@ pub fn from_step_config_fr_leave_slice(table: &FRFinishPruningTable, config: Ste
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(10),
+        config.absolute_min,
+        config.absolute_max,
         config.niss.unwrap_or(NissSwitchType::Never),
         if config.quality == 0 {
             None

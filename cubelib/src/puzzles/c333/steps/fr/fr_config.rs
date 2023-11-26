@@ -51,6 +51,8 @@ pub fn from_step_config(table: &FRPruningTable, config: StepConfig) -> Result<(S
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(10),
+        config.absolute_min,
+        config.absolute_max,
         config.niss.unwrap_or(NissSwitchType::Before),
         if config.quality == 0 {
             None
@@ -77,6 +79,8 @@ pub fn from_step_config_no_slice(table: &FRLeaveSlicePruningTable, config: StepC
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(10),
+        config.absolute_min,
+        config.absolute_max,
         config.niss.unwrap_or(NissSwitchType::Before),
         if config.quality == 0 {
             None

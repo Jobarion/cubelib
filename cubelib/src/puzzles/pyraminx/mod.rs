@@ -1,15 +1,16 @@
-use std::fmt::{Display, Formatter, write};
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
+
+pub use pyraminx::Pyraminx;
+
+use crate::algs::Algorithm;
+use crate::puzzles::puzzle::{Invertible, PuzzleMove, Transformable};
 use crate::puzzles::pyraminx::Direction::*;
 use crate::puzzles::pyraminx::PyraminxTip::*;
-use crate::puzzles::puzzle::{Invertible, PuzzleMove, Transformable};
 
 pub mod coords;
 pub mod steps;
 mod pyraminx;
-
-pub use pyraminx::Pyraminx;
-use crate::algs::Algorithm;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct PyraminxTurn {
@@ -143,7 +144,7 @@ impl Invertible for Direction {
 }
 
 impl Transformable<PyraminxTransformation> for PyraminxTurn {
-    fn transform(&self, transformation: PyraminxTransformation) -> Self {
+    fn transform(&self, _: PyraminxTransformation) -> Self {
         todo!()
     }
 }

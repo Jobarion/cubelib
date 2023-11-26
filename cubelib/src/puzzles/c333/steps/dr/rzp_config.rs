@@ -52,6 +52,8 @@ pub fn from_step_config<'a>(config: StepConfig) -> Result<(Step333<'a>, DefaultS
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(3),
+        config.absolute_min,
+        config.absolute_max,
         config.niss.unwrap_or(NissSwitchType::Never),
         if config.quality == 0 {
             None

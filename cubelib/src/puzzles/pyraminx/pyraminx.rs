@@ -21,7 +21,7 @@ impl TurnableMut<PyraminxTurn> for Pyraminx {
 }
 
 impl TransformableMut<PyraminxTransformation> for Pyraminx {
-    fn transform(&mut self, transformation: PyraminxTransformation) {
+    fn transform(&mut self, _: PyraminxTransformation) {
         todo!()
     }
 }

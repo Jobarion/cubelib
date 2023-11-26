@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 use clap::Parser;
-use itertools::Itertools;
 use regex::Regex;
 use cubelib::defs::*;
 use cubelib::steps::step::{StepConfig};
@@ -62,6 +61,8 @@ impl Cli {
                         substeps: None,
                         min: None,
                         max: None,
+                        absolute_min: None,
+                        absolute_max: None,
                         niss: default_niss_type,
                         step_limit: None,
                         quality: self.quality,
@@ -78,26 +79,30 @@ impl Cli {
                         substeps: None,
                         min: None,
                         max: None,
+                        absolute_min: None,
+                        absolute_max: None,
                         niss: default_niss_type,
                         step_limit: None,
                         quality: self.quality,
                         params: HashMap::new()
                     };
-                    let params = (&step[(param_start + 1)..(step.len() - 1)]).split(";").collect_vec();
+                    let params: Vec<&str> = (&step[(param_start + 1)..(step.len() - 1)]).split(";").collect();
                     for param in params {
                         if param.contains("=") {
-                            let parts = param.split("=").collect_vec();
+                            let parts: Vec<&str> = param.split("=").collect();
                             if parts.len() != 2 {
                                 return Err(format!("Invalid param format {}", param));
                             }
                             match parts[0] {
                                 "limit" => step_prototype.step_limit = Some(usize::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for count. '{x}'", parts[1]))?),
-                                "min" => step_prototype.min = Some(u8::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for min. '{x}'", parts[1]))?),
-                                "max" => step_prototype.max = Some(u8::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for max. '{x}'", parts[1]))?),
+                                key @ "min" | key @ "min-rel" => step_prototype.min = Some(u8::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for {key}. '{x}'", parts[1]))?),
+                                key @ "max" | key @ "max-rel" => step_prototype.max = Some(u8::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for {key}. '{x}'", parts[1]))?),
+                                "min-abs" => step_prototype.absolute_min = Some(u8::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for min-abs. '{x}'", parts[1]))?),
+                                "max-abs" => step_prototype.absolute_max = Some(u8::from_str(parts[1]).map_err(|x| format!("Unable to parse value '{}' for max-abs. '{x}'", parts[1]))?),
                                 "niss" => step_prototype.niss = Some(match parts[1] {
-                                    "always" => NissSwitchType::Always,
+                                    "always" | "true" => NissSwitchType::Always,
                                     "before" => NissSwitchType::Before,
-                                    "none" => NissSwitchType::Never,
+                                    "none" | "never" | "false" => NissSwitchType::Never,
                                     x => Err(format!("Invalid NISS type {x}. Expected one of 'always', 'before', 'none'"))?
                                 }),
                                 key => {

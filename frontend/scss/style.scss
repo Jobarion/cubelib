@@ -7,3 +7,18 @@
   pointer-events: none;
   user-select: none;
 }
+
+.hidden {
+  display: none;
+}
+
+//Leptos 0.3.0 fix
+leptonic-progress-bar[data-indeterminate] leptonic-progress-bar-background leptonic-progress-bar-fill {
+  display: block;
+  animation: animate-move 1.3s cubic-bezier(0.29, 0.63, 0.81, 0.07) infinite;
+}
+leptonic-progress-bar[data-indeterminate] leptonic-progress-bar-background leptonic-progress-bar-fill leptonic-progress-bar-fill-overlay {
+  display: block;
+  background: none;
+  animation: none;
+}

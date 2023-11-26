@@ -5,10 +5,8 @@ use crate::puzzles::c333::cube::Cube333;
 use crate::puzzles::c333::{Transformation333, Turn333};
 use crate::steps::step::{DefaultStepOptions, Step, StepConfig};
 use crate::puzzles::c333::steps;
-#[cfg(any(feature = "333eo", feature = "333dr", feature = "333htr", feature = "333fr", feature = "333finish"))]
 use crate::puzzles::c333::steps::tables::PruningTables333;
 
-#[cfg(any(feature = "333eo", feature = "333dr", feature = "333htr", feature = "333fr", feature = "333finish"))]
 pub fn gen_tables(steps: &Vec<StepConfig>, tables: &mut PruningTables333) {
     let previous = vec![None].into_iter().chain(steps.iter().map(|x|Some(x.kind.clone()))).collect_vec();
     let steps = steps.into_iter().zip(previous.into_iter()).collect_vec();
@@ -32,7 +30,6 @@ pub fn gen_tables(steps: &Vec<StepConfig>, tables: &mut PruningTables333) {
     }
 }
 
-#[cfg(any(feature = "333eo", feature = "333dr", feature = "333htr", feature = "333fr", feature = "333finish"))]
 pub fn build_steps(steps: Vec<StepConfig>, tables: &PruningTables333) -> Result<Vec<(Step<Turn333, Transformation333, Cube333, TransitionTable333>, DefaultStepOptions)>, String> {
     let previous = vec![None].into_iter().chain(steps.iter().map(|x|Some(x.kind.clone()))).collect_vec();
     let steps = steps.into_iter().zip(previous.into_iter()).collect_vec();

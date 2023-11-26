@@ -1,6 +1,6 @@
 [package]
 name = "cubelib"
-version = "1.2.0"
+version = "1.3.0"
 edition = "2021"
 
 [dependencies]
@@ -8,17 +8,17 @@ itertools = "0.11.0"
 log = "0.4.20"
 simple_logger = "4.2.0"
 serde = { version = "1.0.190", optional = true, features = ["derive"] }
+tokio-util = "0.7.10"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [features]
+default = []
 solver = []
 cubic = []
 cubic-even = ["cubic"]
 cubic-odd = ["cubic"]
-
-default = ["333", "222", "pyraminx", "pyraminxfinish", "222finish", "333finish", "solver"]
 
 222 = ["cubic-even"]
 222finish = ["222", "solver"]

@@ -1,5 +1,3 @@
-use std::io::Write;
-
 pub fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=Cargo.lock");

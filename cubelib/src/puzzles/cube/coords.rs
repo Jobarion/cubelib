@@ -1,4 +1,7 @@
-use crate::puzzles::cube::{CubeCornersEven, CubeCornersOdd};
+#[cfg(feature = "cubic-even")]
+use crate::puzzles::cube::CubeCornersEven;
+#[cfg(feature = "cubic-odd")]
+use crate::puzzles::cube::CubeCornersOdd;
 use crate::steps::coord::Coord;
 
 //UD corner orientation
@@ -32,6 +35,7 @@ impl Into<usize> for CPCoord {
     }
 }
 
+#[cfg(feature = "cubic-odd")]
 impl From<&CubeCornersOdd> for COUDCoord {
     #[inline]
     #[cfg(target_feature = "avx2")]
@@ -41,11 +45,12 @@ impl From<&CubeCornersOdd> for COUDCoord {
 
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn from(value: &CornerCube333) -> Self {
+    fn from(value: &CubeCornersOdd) -> Self {
         wasm32::from_cocoord(value)
     }
 }
 
+#[cfg(feature = "cubic-even")]
 impl From<&CubeCornersEven> for COUDCoord {
     #[inline]
     #[cfg(target_feature = "avx2")]
@@ -60,20 +65,17 @@ impl From<&CubeCornersEven> for COUDCoord {
     }
 }
 
+#[cfg(target_feature = "avx2")] //Unsupported in WASM right now
+#[cfg(feature = "cubic-odd")]
 impl From<&CubeCornersOdd> for CPCoord {
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn from(value: &CubeCornersOdd) -> Self {
         unsafe { avx2::unsafe_from_cpcoord(value.0) }
     }
-
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn from(value: &CubeCornersOdd) -> Self {
-        wasm32::from_cpcoord(value)
-    }
 }
 
+#[cfg(feature = "cubic-even")]
 impl From<&CubeCornersEven> for CPCoord {
     #[inline]
     #[cfg(target_feature = "avx2")]
@@ -94,7 +96,6 @@ mod avx2 {
 
     use crate::alignment::avx2::C;
     use crate::puzzles::cube::coords::{COUDCoord, CPCoord};
-    use crate::puzzles::cube::CubeCornersOdd;
 
     const CO_MUL: __m128i = unsafe { C { a_u16: [1, 3, 9, 27, 81, 243, 729, 0] }.a };
     const CO_SHUFFLE_8_TO_16: __m128i = unsafe { C { a_u8: [0, 0xFF, 1, 0xFF, 2, 0xFF, 3, 0xFF, 4, 0xFF, 5, 0xFF, 6, 0xFF, 7, 0xFF] }.a };
@@ -186,7 +187,6 @@ mod wasm32 {
 
     use crate::puzzles::cube::coords::{COUDCoord, CPCoord};
     use crate::puzzles::cube::CubeCornersOdd;
-
     use crate::wasm_util::{complete_hsum_epi16, hsum_narrow_epi32, hsum_wide_epi32, mm_sad_epu8, u8x16_set1};
 
     const CO_MUL: v128 = u16x8(1, 3, 9, 27, 81, 243, 729, 0);

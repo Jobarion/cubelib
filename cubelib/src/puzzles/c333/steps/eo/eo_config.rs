@@ -131,6 +131,8 @@ pub fn from_step_config(table: &EOPruningTable, config: StepConfig) -> Result<(S
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(5),
+        config.absolute_min,
+        config.absolute_max,
         config.niss.unwrap_or(NissSwitchType::Always),
         if config.quality == 0 {
             None
@@ -257,15 +259,19 @@ impl EOCount for Cube333 {
     }
 }
 
+const BAD_EDGE_MASK_UD: u64 = 0x0808080808080808;
+const BAD_EDGE_MASK_FB: u64 = 0x0404040404040404;
+const BAD_EDGE_MASK_RL: u64 = 0x0202020202020202;
+
 impl EOCount for EdgeCube333 {
     fn count_bad_edges(&self) -> (u8, u8, u8) {
         let edges = self.get_edges_raw();
-        let ud = (edges[0] & Self::BAD_EDGE_MASK_UD).count_ones()
-            + (edges[1] & Self::BAD_EDGE_MASK_UD).count_ones();
-        let fb = (edges[0] & Self::BAD_EDGE_MASK_FB).count_ones()
-            + (edges[1] & Self::BAD_EDGE_MASK_FB).count_ones();
-        let rl = (edges[0] & Self::BAD_EDGE_MASK_RL).count_ones()
-            + (edges[1] & Self::BAD_EDGE_MASK_RL).count_ones();
+        let ud = (edges[0] & BAD_EDGE_MASK_UD).count_ones()
+            + (edges[1] & BAD_EDGE_MASK_UD).count_ones();
+        let fb = (edges[0] & BAD_EDGE_MASK_FB).count_ones()
+            + (edges[1] & BAD_EDGE_MASK_FB).count_ones();
+        let rl = (edges[0] & BAD_EDGE_MASK_RL).count_ones()
+            + (edges[1] & BAD_EDGE_MASK_RL).count_ones();
         (ud as u8, fb as u8, rl as u8)
     }
 }

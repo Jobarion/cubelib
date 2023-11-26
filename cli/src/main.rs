@@ -5,12 +5,12 @@ use clap::Parser;
 use cubelib::algs::Algorithm;
 use cubelib::defs::StepKind;
 use cubelib::puzzles::c333::{Cube333, Turn333};
-use cubelib::puzzles::c333::steps::eo;
-use cubelib::puzzles::c333::steps::solver::{build_steps, gen_tables};
-use cubelib::puzzles::puzzle::ApplyAlgorithm;
-use cubelib::solution::Solution;
-use cubelib::stream;
-use cubelib::tables::PruningTables;
+use cubelib::puzzles::c333::steps::{eo, solver};
+use cubelib::puzzles::c333::steps::tables::PruningTables333;
+use cubelib::puzzles::puzzle::{ApplyAlgorithm, Puzzle, PuzzleMove, Transformable};
+use cubelib::solver::{CancellationToken, stream};
+use cubelib::solver::moveset::TransitionTable;
+use cubelib::solver::solution::Solution;
 use log::{debug, error, info, LevelFilter};
 use simple_logger::SimpleLogger;
 
@@ -31,19 +31,20 @@ fn main() {
         .init()
         .unwrap();
 
+
     let scramble = Algorithm::from_str(cli.scramble.as_str()).expect("Invalid scramble {}");
     let mut cube = Cube333::default();
     cube.apply_alg(&scramble);
 
     let steps = cli.parse_step_configs();
-    let mut tables = PruningTables::new();
+    let mut tables = PruningTables333::new();
 
     let steps = if let Err(e) = steps {
         error!("Unable to parse steps config. {e}");
         return;
     } else if let Ok(val) = steps {
-        gen_tables(&val, &mut tables);
-        build_steps(val, &tables)
+        solver::gen_tables(&val, &mut tables);
+        solver::build_steps(val, &tables)
     } else {
         unreachable!()
     };
@@ -58,7 +59,7 @@ fn main() {
     };
 
 
-    let solutions = cubelib::solver::solve_steps(cube, &steps);
+    let solutions = cubelib::solver::solve_steps(cube, &steps, CancellationToken::new());
 
     info!("Generating solutions\n");
     let time = Instant::now();
@@ -69,7 +70,7 @@ fn main() {
 
 
     // For e.g. FR the direction of the last move always matters so we can't filter if we're doing FR
-    let can_filter_last_move = steps.last().map(|(s, _)| s.kind() != StepKind::FR && s.kind() != StepKind::FRLS && s.kind() != StepKind::FIN).unwrap_or(true);
+    let can_filter_last_move = steps.last().map(|(s, _)| s.kind() == StepKind::FR || s.kind() == StepKind::FIN).unwrap_or(true);
     if !cli.all_solutions && can_filter_last_move {
         solutions = Box::new(solutions
             .filter(|alg| eo::eo_config::filter_eo_last_moves_pure(&alg.clone().into())));

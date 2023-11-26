@@ -1,12 +1,10 @@
 use std::panic;
 use std::str::FromStr;
 
-use cubelib::cube::{ApplyAlgorithm, NewSolved, Turnable};
 use leptonic::prelude::*;
 use leptos::*;
 use log::Level;
 
-use crate::cube::Cube;
 use crate::cube::ScrambleComponent;
 use crate::solution::SolutionComponent;
 use crate::step::*;

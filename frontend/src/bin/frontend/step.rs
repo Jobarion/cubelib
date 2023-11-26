@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 
-use cubelib::cube::Axis;
 use cubelib::defs::NissSwitchType;
+use cubelib::puzzles::cube::CubeAxis;
 use leptonic::prelude::*;
 use leptos::*;
 
@@ -11,7 +11,7 @@ pub struct EOConfig {
     pub min: RwSignal<u8>,
     pub max: RwSignal<u8>,
     pub niss: RwSignal<NissSwitchType>,
-    pub variants: RwSignal<Vec<Axis>>
+    pub variants: RwSignal<Vec<CubeAxis>>
 }
 
 #[derive(Copy, Clone)]
@@ -27,7 +27,7 @@ pub struct DRConfig {
     pub min: RwSignal<u8>,
     pub max: RwSignal<u8>,
     pub niss: RwSignal<NissSwitchType>,
-    pub variants: RwSignal<Vec<Axis>>,
+    pub variants: RwSignal<Vec<CubeAxis>>,
     pub triggers: RwSignal<Vec<String>>,
 }
 
@@ -37,7 +37,7 @@ pub struct  HTRConfig {
     pub min: RwSignal<u8>,
     pub max: RwSignal<u8>,
     pub niss: RwSignal<NissSwitchType>,
-    pub variants: RwSignal<Vec<Axis>>
+    pub variants: RwSignal<Vec<CubeAxis>>
 }
 
 #[derive(Copy, Clone)]
@@ -46,7 +46,7 @@ pub struct  FRConfig {
     pub min: RwSignal<u8>,
     pub max: RwSignal<u8>,
     pub niss: RwSignal<NissSwitchType>,
-    pub variants: RwSignal<Vec<Axis>>
+    pub variants: RwSignal<Vec<CubeAxis>>
 }
 
 #[derive(Copy, Clone)]
@@ -75,7 +75,7 @@ impl DRConfig {
             min: create_rw_signal(0),
             max: create_rw_signal(12),
             niss: create_rw_signal(NissSwitchType::Before),
-            variants: create_rw_signal(vec![Axis::UD, Axis::FB, Axis::LR]),
+            variants: create_rw_signal(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
             triggers: create_rw_signal(vec!["R".to_string(), "R U2 R".to_string(), "R F2 R".to_string(), "R U R".to_string(), "R U' R".to_string()]),
         }
     }
@@ -98,7 +98,7 @@ impl EOConfig {
             min: create_rw_signal(0),
             max: create_rw_signal(5),
             niss: create_rw_signal(NissSwitchType::Always),
-            variants: create_rw_signal(vec![Axis::UD, Axis::FB, Axis::LR]),
+            variants: create_rw_signal(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
         }
     }
 }
@@ -110,7 +110,7 @@ impl HTRConfig {
             min: create_rw_signal(0),
             max: create_rw_signal(12),
             niss: create_rw_signal(NissSwitchType::Before),
-            variants: create_rw_signal(vec![Axis::UD, Axis::FB, Axis::LR]),
+            variants: create_rw_signal(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
         }
     }
 }
@@ -122,7 +122,7 @@ impl FRConfig {
             min: create_rw_signal(0),
             max: create_rw_signal(10),
             niss: create_rw_signal(NissSwitchType::Before),
-            variants: create_rw_signal(vec![Axis::UD, Axis::FB, Axis::LR]),
+            variants: create_rw_signal(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
         }
     }
 }
@@ -134,22 +134,22 @@ pub enum SelectableAxis {
     LR
 }
 
-impl Into<Axis> for SelectableAxis {
-    fn into(self) -> Axis {
+impl Into<CubeAxis> for SelectableAxis {
+    fn into(self) -> CubeAxis {
         match self {
-            Self::UD => Axis::UD,
-            Self::FB => Axis::FB,
-            Self::LR => Axis::LR,
+            Self::UD => CubeAxis::UD,
+            Self::FB => CubeAxis::FB,
+            Self::LR => CubeAxis::LR,
         }
     }
 }
 
-impl From<Axis> for SelectableAxis {
-    fn from(value: Axis) -> Self {
+impl From<CubeAxis> for SelectableAxis {
+    fn from(value: CubeAxis) -> Self {
         match value {
-            Axis::UD => Self::UD,
-            Axis::FB => Self::FB,
-            Axis::LR => Self::LR,
+            CubeAxis::UD => Self::UD,
+            CubeAxis::FB => Self::FB,
+            CubeAxis::LR => Self::LR,
         }
     }
 }
@@ -378,7 +378,7 @@ pub fn DefaultStepParameters(total_max: u8,
                              set_min: RwSignal<u8>,
                              set_max: RwSignal<u8>,
                              niss_default: RwSignal<NissSwitchType>,
-                             variants: RwSignal<Vec<Axis>>
+                             variants: RwSignal<Vec<CubeAxis>>
 ) -> impl IntoView {
     view! {
         <h4>"Step length"</h4>
@@ -389,7 +389,7 @@ pub fn DefaultStepParameters(total_max: u8,
             search_text_provider=move |o| format!("{o}")
             render_option=move |o| format!("{o:?}").into_view()
             selected=Signal::derive(move || variants.get().iter().cloned().map(|v|Into::<SelectableAxis>::into(v)).collect())
-            set_selected=Callback::new(move |v: Vec<SelectableAxis>| variants.set(v.iter().cloned().map(|v|Into::<Axis>::into(v)).collect()))
+            set_selected=Callback::new(move |v: Vec<SelectableAxis>| variants.set(v.iter().cloned().map(|v|Into::<CubeAxis>::into(v)).collect()))
         />
         <h4>"NISS"</h4>
         <NissSettingsComponent niss_default=niss_default/>

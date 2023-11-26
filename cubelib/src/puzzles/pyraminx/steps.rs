@@ -8,7 +8,7 @@ pub type MoveSetPyraminx = crate::solver::moveset::MoveSet<PyraminxTurn, Transit
 pub struct TransitionTablePyraminx;
 
 impl TransitionTable<PyraminxTurn> for TransitionTablePyraminx {
-    fn check_move(&self, m: PyraminxTurn) -> Transition {
+    fn check_move(&self, _: PyraminxTurn) -> Transition {
         Transition::any()
     }
 }
@@ -31,8 +31,6 @@ pub mod finish {
     pub type NoTipsFinishPruningTable = PruningTable<{ NO_TIPS_COORD_SIZE }, NoTipsCoord>;
     pub type TipsFinishStep<'a> = DefaultPruningTableStep::<'a, { NO_TIPS_COORD_SIZE }, NoTipsCoord, 0, ZeroCoord, PyraminxTurn, PyraminxTransformation, Pyraminx, TransitionTablePyraminx, AnyPostStepCheck>;
     pub type TipsFinishPruningTable = PruningTable<{ NO_TIPS_COORD_SIZE }, NoTipsCoord>;
-
-    const NO_TRANS: Vec<PyraminxTransformation> = vec![];
 
     pub const NO_TIPS_MOVESET: MoveSetPyraminx = MoveSetPyraminx {
         st_moves: &PyraminxTurn::NO_TIPS,
@@ -76,19 +74,19 @@ pub mod finish {
     }
 
     impl PreStepCheck<PyraminxTurn, PyraminxTransformation, Pyraminx> for TipStepVariant {
-        fn is_cube_ready(&self, cube: &Pyraminx) -> bool {
+        fn is_cube_ready(&self, _: &Pyraminx) -> bool {
             true
         }
     }
 
     impl PostStepCheck<PyraminxTurn, PyraminxTransformation, Pyraminx> for TipStepVariant {
-        fn is_solution_admissible(&self, cube: &Pyraminx, alg: &Algorithm<PyraminxTurn>) -> bool {
+        fn is_solution_admissible(&self, _: &Pyraminx, _: &Algorithm<PyraminxTurn>) -> bool {
             true
         }
     }
 
     impl StepVariant<PyraminxTurn, PyraminxTransformation, Pyraminx, TransitionTablePyraminx> for TipStepVariant {
-        fn move_set(&self, cube: &Pyraminx, depth_left: u8) -> &'_ MoveSet<PyraminxTurn, TransitionTablePyraminx> {
+        fn move_set(&self, cube: &Pyraminx, _: u8) -> &'_ MoveSet<PyraminxTurn, TransitionTablePyraminx> {
             let turn = cube.get_tips().iter()
                 .zip(vec![Up, Left, Right, Back].into_iter())
                 .filter(|(x, _)| x.is_some())
@@ -102,7 +100,7 @@ pub mod finish {
             &self.0
         }
 
-        fn heuristic(&self, cube: &Pyraminx, depth_left: u8, can_niss: bool) -> u8 {
+        fn heuristic(&self, cube: &Pyraminx, _: u8, _: bool) -> u8 {
             cube.get_tips()
                 .iter()
                 .filter(|x| x.is_some())

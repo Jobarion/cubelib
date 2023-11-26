@@ -16,6 +16,7 @@ pub enum TableSource {
     Loaded
 }
 
+#[derive(Clone)]
 pub struct PruningTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
     entries: Box<[u8; C_SIZE]>,
     coord_type: PhantomData<C>,

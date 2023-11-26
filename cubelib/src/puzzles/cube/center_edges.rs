@@ -63,10 +63,6 @@ impl InvertibleMut for CenterEdgeCube {
 }
 
 impl CenterEdgeCube {
-    pub(crate) const BAD_EDGE_MASK_UD: u64 = 0x0808080808080808;
-    pub(crate) const BAD_EDGE_MASK_FB: u64 = 0x0404040404040404;
-    pub(crate) const BAD_EDGE_MASK_RL: u64 = 0x0202020202020202;
-
     #[cfg(target_feature = "avx2")]
     pub fn new(state: std::arch::x86_64::__m128i) -> CenterEdgeCube {
         CenterEdgeCube(state)

@@ -152,7 +152,7 @@ impl Cube333 {
         [Yellow, Orange],
     ];
 
-    fn get_facelets(&self) -> [[CubeColor; 9]; 6] {
+    pub fn get_facelets(&self) -> [[CubeColor; 9]; 6] {
         let corners = self.corners.get_corners();
         let edges = self.edges.get_edges();
         let mut facelets = [[None; 9]; 6];

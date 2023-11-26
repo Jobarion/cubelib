@@ -77,7 +77,7 @@ impl CubeCornersOdd {
 
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn get_corners(&self) -> [Corner; 8] {
+    pub fn get_corners(&self) -> [Corner; 8] {
         wasm32::get_corners(self)
     }
 

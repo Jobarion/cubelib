@@ -8,6 +8,7 @@ pub mod htr;
 pub mod fr;
 #[cfg(feature = "333finish")]
 pub mod finish;
+#[cfg(any(feature = "333eo", feature = "333dr", feature = "333htr", feature = "333fr", feature = "333finish"))]
 pub mod solver;
 #[cfg(any(feature = "333eo", feature = "333dr", feature = "333htr", feature = "333fr", feature = "333finish"))]
 pub mod tables;

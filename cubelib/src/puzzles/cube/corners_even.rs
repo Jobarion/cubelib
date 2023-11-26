@@ -233,15 +233,6 @@ mod avx2 {
         ],
     ];
 
-    //CPOO
-    // const CO_MAP: __m128i = unsafe { C { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b01, 0b00, 0b10, 0xFF, 0b10, 0b01, 0b00, 0xFF, 0b00, 0b01, 0b10, 0xFF] }.a }; //z
-
-    const TRANSFORMATION_CO_MAP: [__m128i; 3] = [
-        unsafe { C { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b00, 0b01, 0b10, 0xFF, ], }.a }, //z
-        unsafe { C { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, ], }.a }, //y
-        unsafe { C { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b00, 0b01, 0b10, 0xFF, ], }.a }, //x
-    ];
-
     const CO_OVERFLOW_MASK: __m128i = unsafe { C { a_u8: [0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0, 0, 0, 0, 0, 0, 0, 0, ], }.a };
 
     const TURN_CO_CHANGE: [__m128i; 6] = [

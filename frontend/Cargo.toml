@@ -14,14 +14,14 @@ log = "0.4.20"
 wasm-log = "0.3.1"
 console_error_panic_hook = "0.1.7"
 
-cubelib = { path = "../cubelib", features = ["cube", "solver", "serde_support"], default-features = false }
+cubelib = { path = "../cubelib", features = ["333", "solver", "serde_support"], default-features = false }
 
 serde = { version = "1.0.190", features = ["derive"] }
 
 # Backend
 cubelib-interface = { path = "../interface", optional = true }
 serde_json = { version = "1.0", optional = true }
-reqwest = { version = "0.11", features = ["json"], optional = true }
+ehttp = { version = "0.3.1", features = ["streaming"], optional = true }
 
 # WASM Solver
 gloo-worker = { version = "0.5", features = ["futures"], optional = true }
@@ -30,6 +30,7 @@ serde_bytes = { version = "0.11", optional = true }
 serde-wasm-bindgen = { version = "0.6.1", optional = true }
 idb = { version = "0.4.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
+tokio-util = { version = "0.7.10", optional = true, features = ["io"] }
 
 [build-dependencies]
 leptonic-theme = "0.2.0"
@@ -44,9 +45,15 @@ wasm_solver = [
     "dep:serde-wasm-bindgen",
     "dep:wasm-bindgen",
     "dep:idb",
-    "cubelib/step_eo",
-    "cubelib/step_dr",
-    "cubelib/step_htr",
-    "cubelib/step_fr",
-    "cubelib/step_finish"]
-backend = ["dep:reqwest", "dep:serde_json", "dep:cubelib-interface"]
+    "cubelib/333eo",
+    "cubelib/333dr",
+    "cubelib/333htr",
+    "cubelib/333fr",
+    "cubelib/333finish"
+]
+backend = [
+    "dep:ehttp",
+    "dep:serde_json",
+    "dep:cubelib-interface",
+    "dep:tokio-util"
+]

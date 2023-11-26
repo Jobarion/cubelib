@@ -31,6 +31,8 @@ pub fn from_step_config(table: &HTRPruningTable, config: StepConfig) -> Result<(
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(14),
+        config.absolute_min,
+        config.absolute_max,
         config.niss.unwrap_or(NissSwitchType::Before),
         if config.quality == 0 {
             None

@@ -1,4 +1,5 @@
 use std::cmp::min;
+use tokio_util::sync::CancellationToken;
 
 use crate::algs::Algorithm;
 use crate::defs::NissSwitchType;
@@ -7,10 +8,12 @@ use crate::puzzles::puzzle::{Puzzle, PuzzleMove, Transformable, TransformableMut
 use crate::steps::step::{DefaultStepOptions, StepVariant};
 
 impl DefaultStepOptions {
-    pub fn new(min_moves: u8, max_moves: u8, niss_type: NissSwitchType, step_limit: Option<usize>) -> Self {
+    pub fn new(min_moves: u8, max_moves: u8, absolute_min_moves: Option<u8>, absolute_max_moves: Option<u8>, niss_type: NissSwitchType, step_limit: Option<usize>) -> Self {
         DefaultStepOptions {
             min_moves,
             max_moves,
+            absolute_min_moves,
+            absolute_max_moves,
             niss_type,
             step_limit,
         }
@@ -31,6 +34,7 @@ pub fn dfs_iter<
     mut previous_normal: Option<Turn>,
     mut previous_inverse: Option<Turn>,
     starts_on_normal: bool,
+    cancel_token: CancellationToken,
 ) -> Option<Box<dyn Iterator<Item = Algorithm<Turn>> + 'a>> {
     for t in step.pre_step_trans().iter().cloned() {
         cube.transform(t);
@@ -67,6 +71,7 @@ pub fn dfs_iter<
                                 false,
                                 previous_normal,
                                 previous_inverse,
+                                cancel_token.clone()
                             )
                                 .map(|alg| alg.reverse()),
                         )
@@ -83,6 +88,7 @@ pub fn dfs_iter<
                                 false,
                                 previous_normal,
                                 previous_inverse,
+                                cancel_token.clone(),
                             )
                                 .map(|alg| alg.reverse())
                                 .map(|alg| {
@@ -103,6 +109,7 @@ pub fn dfs_iter<
                             true,
                             previous_normal,
                             previous_inverse,
+                            cancel_token.clone(),
                         )
                             .map(|alg| alg.reverse()),
                     ),
@@ -115,6 +122,7 @@ pub fn dfs_iter<
                             false,
                             previous_normal,
                             previous_inverse,
+                            cancel_token.clone(),
                         )
                         .map(|alg| alg.reverse());
                         let mut inverted = cube.clone();
@@ -127,6 +135,7 @@ pub fn dfs_iter<
                             false,
                             previous_inverse,
                             previous_normal,
+                            cancel_token.clone(),
                         )
                         .map(|alg| alg.reverse())
                         .map(|alg| Algorithm {
@@ -163,6 +172,7 @@ fn next_dfs_level<
     invert_allowed: bool,
     previous_normal: Option<Turn>,
     previous_inverse: Option<Turn>,
+    cancel_token: CancellationToken,
 ) -> Box<dyn Iterator<Item = Algorithm<Turn>> + 'a> {
     let lower_bound = if invert_allowed {
         min(1, step.heuristic(&cube, depth_left, invert_allowed))
@@ -170,11 +180,13 @@ fn next_dfs_level<
         step.heuristic(&cube, depth_left, invert_allowed)
     };
     let mut inverse = cube.clone();
+    let cancel_token_inverse = cancel_token.clone();
     let normal_solutions: Box<dyn Iterator<Item = Algorithm<Turn>>> = if depth_left == 0 && lower_bound == 0 {
         Box::new(vec![Algorithm::new()].into_iter())
-    } else if lower_bound == 0 || lower_bound > depth_left {
+    } else if lower_bound == 0 || lower_bound > depth_left || cancel_token.is_cancelled() {
         Box::new(vec![].into_iter())
     } else {
+        let cancel_token_aux = cancel_token.clone();
         let state_change_moves = step
             .move_set(&cube, depth_left)
             .st_moves
@@ -198,6 +210,7 @@ fn next_dfs_level<
                     invert_allowed,
                     Some(m),
                     previous_inverse,
+                    cancel_token.clone(),
                 );
                 cube.turn(m.invert());
                 result.map(move |mut alg| {
@@ -205,6 +218,7 @@ fn next_dfs_level<
                     alg
                 })
             });
+        let cancel_token = cancel_token_aux;
         let aux_moves = step
             .move_set(&cube, depth_left)
             .aux_moves
@@ -228,6 +242,7 @@ fn next_dfs_level<
                     invert_allowed,
                     Some(m),
                     previous_inverse,
+                    cancel_token.clone(),
                 );
                 cube.turn(m.invert());
                 result.map(move |mut alg| {
@@ -247,6 +262,7 @@ fn next_dfs_level<
             false,
             previous_inverse,
             previous_normal,
+            cancel_token_inverse.clone()
         )
         .map(|alg| Algorithm {
             normal_moves: alg.inverse_moves,

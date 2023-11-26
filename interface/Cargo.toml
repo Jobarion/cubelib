@@ -8,4 +8,4 @@ edition = "2021"
 
 [dependencies]
 serde = { version = "1.0.190", features = ["derive"] }
-cubelib = { path = "../cubelib", features = ["cube", "solver", "serde_support"], default-features = false}
+cubelib = { path = "../cubelib", features = ["333", "solver"], default-features = false}

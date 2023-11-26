@@ -24,6 +24,7 @@ use crate::puzzles::c333::steps::fr::fr_config::{FR_UD_MOVESET, FRLeaveSlicePrun
 #[cfg(feature = "333htr")]
 use crate::puzzles::c333::steps::htr::htr_config::{HTR_DR_UD_MOVESET, HTRPruningTable};
 
+#[derive(Clone)]
 pub struct PruningTables333 {
     #[cfg(feature = "333eo")]
     eo: Option<EOPruningTable>,

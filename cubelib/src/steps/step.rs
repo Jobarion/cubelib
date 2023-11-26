@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
+use tokio_util::sync::CancellationToken;
+
 use crate::algs::Algorithm;
 use crate::defs::*;
+use crate::puzzles::puzzle::{ApplyAlgorithm, Puzzle, PuzzleMove, Transformable};
 use crate::solver::df_search::dfs_iter;
 use crate::solver::lookup_table::PruningTable;
 use crate::solver::moveset::{MoveSet, TransitionTable};
-use crate::puzzles::puzzle::{ApplyAlgorithm, Puzzle, PuzzleMove, Transformable};
 use crate::solver::solution::{Solution, SolutionStep};
-use crate::steps::coord::Coord;
 use crate::solver::stream;
+use crate::steps::coord::Coord;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
@@ -18,6 +20,8 @@ pub struct StepConfig {
     pub substeps: Option<Vec<String>>,
     pub min: Option<u8>,
     pub max: Option<u8>,
+    pub absolute_min: Option<u8>,
+    pub absolute_max: Option<u8>,
     pub step_limit: Option<usize>,
     pub quality: usize,
     pub niss: Option<NissSwitchType>,
@@ -31,6 +35,8 @@ impl StepConfig {
             substeps: None,
             min: None,
             max: None,
+            absolute_min: None,
+            absolute_max: None,
             step_limit: None,
             niss: None,
             quality: 100,
@@ -44,6 +50,8 @@ pub struct DefaultStepOptions {
     pub niss_type: NissSwitchType,
     pub min_moves: u8,
     pub max_moves: u8,
+    pub absolute_min_moves: Option<u8>,
+    pub absolute_max_moves: Option<u8>,
     pub step_limit: Option<usize>,
 }
 
@@ -227,8 +235,9 @@ pub fn first_step<
     step: &'a Step<'b, Turn, Transformation, PuzzleParam, TransTable>,
     search_opts: DefaultStepOptions,
     cube: PuzzleParam,
+    cancel_token: CancellationToken
 ) -> impl Iterator<Item = Solution<Turn>> + 'a {
-    next_step(vec![Solution::new()].into_iter(), step, search_opts, cube)
+    next_step(vec![Solution::new()].into_iter(), step, search_opts, cube, cancel_token)
 }
 
 //TODO once we have a better way to merge alg iterators, we should invoke df_search with the full bounds immediately.
@@ -246,17 +255,22 @@ pub fn next_step<
     step: &'a Step<'b, Turn, Transformation, PuzzleParam, TransTable>,
     search_opts: DefaultStepOptions,
     cube: PuzzleParam,
+    cancel_token: CancellationToken,
 ) -> impl Iterator<Item = Solution<Turn>> + 'a {
-    stream::iterated_dfs(algs, move |solution, depth| {
+    stream::iterated_dfs(algs, cancel_token, move |solution, depth, cancel_token| {
+        let absolute_target_length = solution.len() as u8 + depth;
         let result: Box<dyn Iterator<Item = Solution<Turn>>> =
-            if depth < search_opts.min_moves || depth > search_opts.max_moves {
+            if depth < search_opts.min_moves ||
+                depth > search_opts.max_moves ||
+                search_opts.absolute_min_moves.map(|m| m > absolute_target_length).unwrap_or(false) ||
+                search_opts.absolute_max_moves.map(|m| m < absolute_target_length).unwrap_or(false) {
                 Box::new(vec![].into_iter())
             } else {
                 let mut cube = cube.clone();
                 let alg: Algorithm<Turn> = solution.clone().into();
                 let ends_on_normal = solution.ends_on_normal();
                 cube.apply_alg(&alg);
-                let stage_opts = DefaultStepOptions::new(depth, depth, search_opts.niss_type, search_opts.step_limit);
+                let stage_opts = DefaultStepOptions::new(depth, depth, None, None, search_opts.niss_type, search_opts.step_limit);
                 let previous_normal = alg.normal_moves.last().cloned();
                 let previous_inverse = alg.inverse_moves.last().cloned();
 
@@ -272,6 +286,7 @@ pub fn next_step<
                             previous_normal,
                             previous_inverse,
                             ends_on_normal,
+                            cancel_token.clone(),
                         )
                         .map(|alg| (step_variant.name(), alg))
                     })

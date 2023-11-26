@@ -1,8 +1,9 @@
 use std::str::FromStr;
 
 use cubelib::algs::Algorithm;
-use cubelib::cube::{ApplyAlgorithm, Color, Cube, Face, NewSolved};
-use cubelib::cubie::CubieCube;
+use cubelib::puzzles::c333::Cube333;
+use cubelib::puzzles::cube::{CubeColor, CubeFace};
+use cubelib::puzzles::puzzle::ApplyAlgorithm;
 use leptos::*;
 use leptonic::prelude::*;
 use leptos::html::Div;
@@ -13,7 +14,7 @@ pub fn ScrambleComponent() -> impl IntoView {
     let cube = Signal::derive(move ||{
         Algorithm::from_str(scramble.get().as_str()).ok()
             .map(|alg| {
-                let mut cube = CubieCube::new_solved();
+                let mut cube = Cube333::default();
                 cube.apply_alg(&alg);
                 cube
             })
@@ -27,7 +28,7 @@ pub fn ScrambleComponent() -> impl IntoView {
                 fallback=|| view! {<br/><Chip color=ChipColor::Danger>"Invalid scramble"</Chip>}
             >
                 <Cube cube=Signal::derive(move ||{
-                    cube.get().unwrap_or(CubieCube::new_solved())
+                    cube.get().unwrap_or(Cube333::default())
                 })/>
             </Show>
         </div>
@@ -35,50 +36,50 @@ pub fn ScrambleComponent() -> impl IntoView {
 }
 
 #[component]
-pub fn Cube(cube: Signal<CubieCube>) -> impl IntoView {
+pub fn Cube(cube: Signal<Cube333>) -> impl IntoView {
     let facelets = Signal::derive(move || {
         let facelets = cube.get().get_facelets();
 
-        let mut colors: Vec<Color> = vec![];
+        let mut colors: Vec<CubeColor> = vec![];
         for x in (0..3).rev() {
-            colors.append(&mut vec![Color::None; 3]);
+            colors.append(&mut vec![CubeColor::None; 3]);
             for y in (0..3).rev() {
-                colors.push(facelets[Face::Back][x * 3 + y]);
+                colors.push(facelets[CubeFace::Back][x * 3 + y]);
             }
-            colors.append(&mut vec![Color::None; 6]);
+            colors.append(&mut vec![CubeColor::None; 6]);
         }
         for x in 0..3 {
             let x_rev = 2 - x;
             for y in (0..3).rev() {
-                colors.push(facelets[Face::Left][x + y * 3]);
+                colors.push(facelets[CubeFace::Left][x + y * 3]);
             }
             for y in 0..3 {
-                colors.push(facelets[Face::Up][x * 3 + y]);
+                colors.push(facelets[CubeFace::Up][x * 3 + y]);
             }
             for y in 0..3 {
-                colors.push(facelets[Face::Right][x_rev + y * 3]);
+                colors.push(facelets[CubeFace::Right][x_rev + y * 3]);
             }
             for y in (0..3).rev() {
-                colors.push(facelets[Face::Down][x_rev * 3 + y]);
+                colors.push(facelets[CubeFace::Down][x_rev * 3 + y]);
             }
         }
 
         for x in 0..3 {
-            colors.append(&mut vec![Color::None; 3]);
+            colors.append(&mut vec![CubeColor::None; 3]);
             for y in 0..3 {
-                colors.push(facelets[Face::Front][x * 3 + y]);
+                colors.push(facelets[CubeFace::Front][x * 3 + y]);
             }
-            colors.append(&mut vec![Color::None; 6]);
+            colors.append(&mut vec![CubeColor::None; 6]);
         }
         let html_facelets: Vec<HtmlElement<Div>> = colors.into_iter()
             .map(|c| match c {
-                Color::White => Some("cube-facelet-u"),
-                Color::Yellow => Some("cube-facelet-d"),
-                Color::Green => Some("cube-facelet-f"),
-                Color::Blue => Some("cube-facelet-b"),
-                Color::Orange => Some("cube-facelet-l"),
-                Color::Red => Some("cube-facelet-r"),
-                Color::None => None,
+                CubeColor::White => Some("cube-facelet-u"),
+                CubeColor::Yellow => Some("cube-facelet-d"),
+                CubeColor::Green => Some("cube-facelet-f"),
+                CubeColor::Blue => Some("cube-facelet-b"),
+                CubeColor::Orange => Some("cube-facelet-l"),
+                CubeColor::Red => Some("cube-facelet-r"),
+                CubeColor::None => None,
             })
             .map(|class| class.map_or(
                 view! {<div class="cube-facelet"></div> },

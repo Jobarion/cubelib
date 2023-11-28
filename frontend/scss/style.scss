@@ -12,6 +12,34 @@
   display: none;
 }
 
+.icon-button {
+  border:0;
+  background:none;
+  cursor: pointer;
+}
+
+.settings-container {
+  width: 100%;
+  margin-bottom: 5px;
+}
+
+.settings-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.settings-label {
+  margin-right: 10px;
+}
+
+.settings-description {
+  opacity: 50%;
+  font-size: 14px;
+  inline-size: 330px;
+}
+
 //Leptos 0.3.0 fix
 leptonic-progress-bar[data-indeterminate] leptonic-progress-bar-background leptonic-progress-bar-fill {
   display: block;
@@ -21,4 +49,8 @@ leptonic-progress-bar[data-indeterminate] leptonic-progress-bar-background lepto
   display: block;
   background: none;
   animation: none;
+}
+
+leptonic-box {
+  min-height: 100vh;
 }

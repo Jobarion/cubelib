@@ -4,6 +4,7 @@ use cubelib::defs::NissSwitchType;
 use cubelib::puzzles::cube::CubeAxis;
 use leptonic::prelude::*;
 use leptos::*;
+use leptos_icons::IoIcon;
 
 #[derive(Copy, Clone)]
 pub struct EOConfig {
@@ -354,6 +355,7 @@ pub fn NissSettingsComponent(niss_default: RwSignal<NissSwitchType>) -> impl Int
     let niss_1 = Signal::derive(move || niss_default.get() != NissSwitchType::Never);
     let niss_2 = Signal::derive(move || niss_default.get() == NissSwitchType::Always);
     view! {
+        
         <div style="display: flex; align-items: center; margin-bottom: 5px;">
             <label style="margin-right: 10px;">"Allow switching before step:"</label>
             <Toggle

@@ -1,3 +1,4 @@
+use leptonic::Out;
 use leptos::*;
 
 pub fn build_toggle_chain<const L: usize>() -> Vec<(Signal<bool>, Callback<bool>)> {
@@ -21,4 +22,8 @@ pub fn build_toggle_chain<const L: usize>() -> Vec<(Signal<bool>, Callback<bool>
         })));
     }
     callbacks
+}
+
+pub fn rw_signal_to_out<T>(rw: RwSignal<T>) -> Out<T> {
+    Callback::new(move |x| rw.set(x)).into()
 }

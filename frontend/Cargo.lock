@@ -485,7 +485,8 @@ dependencies = [
  "leptonic-theme",
  "leptos",
  "leptos-tiptap-build",
- "leptos-use",
+ "leptos-use 0.8.2",
+ "leptos_icons",
  "log",
  "serde",
  "serde-wasm-bindgen 0.6.1",
@@ -624,6 +625,18 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "gloo-timers"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbb143cf96099802033e0d4f4963b19fd2e0b728bcf076cd9cf7f6634f092994"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "js-sys",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -807,6 +820,7 @@ checksum = "f41f2deec9249d16ef6b1a8442fbe16013f67053797052aa0b7d2f5ebd0f0098"
 dependencies = [
  "icondata_bs",
  "icondata_core",
+ "icondata_io",
 ]
 
 [[package]]
@@ -823,6 +837,15 @@ name = "icondata_core"
 version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1640a4c1d5ddd08ab1d9854ffa7a2fa3dc52339492676b6d3031e77ca579f434"
+
+[[package]]
+name = "icondata_io"
+version = "0.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "134d9fb91cdd0e7ac971199e2c8c8eb917a975faeeee54b227a0068c4f70c886"
+dependencies = [
+ "icondata_core",
+]
 
 [[package]]
 name = "idb"
@@ -992,7 +1015,7 @@ dependencies = [
  "js-sys",
  "leptos",
  "leptos-tiptap",
- "leptos-use",
+ "leptos-use 0.7.1",
  "leptos_icons",
  "leptos_router",
  "serde",
@@ -1008,9 +1031,9 @@ dependencies = [
 
 [[package]]
 name = "leptonic-theme"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0116da634adabbd6f7e715e2fe0607274ea50396fba6f52922016a6444c931d"
+checksum = "98da76a9e983158251918c9268d8cebec4cfc2ae55633d71e4e6084f2465fe76"
 dependencies = [
  "include_dir",
  "indoc",
@@ -1072,6 +1095,27 @@ dependencies = [
  "num",
  "paste",
  "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "leptos-use"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1932eb047df16a30da3af0019b209f80026f5581ed75f76b356ef2b8efcb835"
+dependencies = [
+ "cfg-if",
+ "default-struct-builder",
+ "futures-util",
+ "gloo-timers",
+ "js-sys",
+ "lazy_static",
+ "leptos",
+ "paste",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

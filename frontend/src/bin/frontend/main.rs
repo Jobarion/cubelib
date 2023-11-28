@@ -7,13 +7,17 @@ use log::Level;
 
 use crate::cube::ScrambleComponent;
 use crate::solution::SolutionComponent;
+use crate::settings::{SettingsComponent, SettingsState};
 use crate::step::*;
 use crate::util::build_toggle_chain;
+use leptos_icons::IoIcon;
+use leptos_use::storage::use_local_storage;
 
 mod cube;
 mod step;
 mod util;
 mod solution;
+mod settings;
 
 #[component]
 fn App() -> impl IntoView {
@@ -37,6 +41,9 @@ fn App() -> impl IntoView {
     provide_context(fr);
     provide_context(fin);
 
+    let settings = SettingsState::from_local_storage();
+    provide_context(settings);
+
     view! {
         <Root default_theme=LeptonicTheme::default()>
             <FMCAppContainer />
@@ -46,14 +53,30 @@ fn App() -> impl IntoView {
 
 #[component]
 fn FMCAppContainer() -> impl IntoView {
+
+    let (settings_modal, set_settings_modal) = create_signal(false);
+
     view! {
         <Box id="app-container">
-            <h2>"Scramble"</h2>
+            <div>
+                <h2>
+                    <span style:float="left">"Scramble"</span>
+                    <button
+                        on:click=move|_|set_settings_modal.set(true)
+                        class="icon-button"
+                        style:float="right"
+                        style:font-size="30px">
+                        <Icon icon=IoIcon::IoSettingsOutline/>
+                    </button>
+                    <div style:clear="both"></div>
+                </h2>
+            </div>
             <ScrambleComponent/>
             <h2>"Steps"</h2>
             <StepsComponent/>
             <h2>"Solution"</h2>
             <SolutionComponent/>
+            <SettingsComponent active=settings_modal set_active=set_settings_modal/>
         </Box>
     }
 }

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
 use cubelib::defs::NissSwitchType;
@@ -322,10 +323,13 @@ pub fn FRParameters() -> impl IntoView {
 pub fn FinishParameters() -> impl IntoView {
     let fin_config = use_context::<FinishConfig>().expect("Finish context required");
     view! {
-        <StepLengthComponent
-            min=fin_config.min_abs
-            max=fin_config.max_abs
+        <DefaultStepParameters
+            min_abs=fin_config.min_abs
+            max_abs=fin_config.max_abs
+            min_rel=fin_config.min_rel
+            max_rel=fin_config.max_rel
             total_max=10
+            total_max_rel=30
         />
         <div style="display: flex; align-items: center;">
             <label style="margin-right: 10px;">"Leave slice:"</label>
@@ -353,8 +357,10 @@ pub fn StepLengthComponent(
     min: RwSignalTup<u8>,
     max: RwSignalTup<u8>,
 ) -> impl IntoView {
+
     view! {
         <RangeSlider
+            class={move||if total_max < 20 || total_max >= 30 { "" } else { "slider-reduce-mark-clutter" }}
             value_a=Signal::derive(move||min.0.get() as f64)
             value_b=Signal::derive(move||max.0.get() as f64)
             set_value_a=Callback::new(move|x|min.1.set(x as u8))
@@ -366,7 +372,7 @@ pub fn StepLengthComponent(
             value_display=move |v| if total_max < 20 || v as u8 % 2 == 0 {
                 format!("{v:.0}")
             } else {
-                format!("")
+                format!("{v:.0}")
             }
         />
     }
@@ -422,16 +428,13 @@ pub fn DefaultStepParameters(total_max: u8,
 
     let settings = use_context::<SettingsState>().expect("Settings context required");
     view! {
+        <h4>"Step length"</h4>
         {move || if settings.is_absolute() || (min_rel.is_none() || max_rel.is_none()) {
-            log::info!("abs");
             view! {
-                <h4>"Step length abs"</h4>
                 <StepLengthComponent min=min_abs max=max_abs total_max=total_max/>
             }
         } else {
-            log::info!("rel");
             view! {
-                <h4>"Step length rel"</h4>
                 <StepLengthComponent min=min_rel.unwrap() max=max_rel.unwrap() total_max=total_max_rel.unwrap()/>
             }
         }}

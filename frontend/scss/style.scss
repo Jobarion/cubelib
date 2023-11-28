@@ -40,6 +40,10 @@
   inline-size: 330px;
 }
 
+.slider-reduce-mark-clutter > .marks div:nth-child(even) {
+  display: none;
+}
+
 //Leptos 0.3.0 fix
 leptonic-progress-bar[data-indeterminate] leptonic-progress-bar-background leptonic-progress-bar-fill {
   display: block;

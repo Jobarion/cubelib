@@ -253,56 +253,56 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
     if eo.enabled.0.get() {
         steps_config.push(StepConfig {
             kind: StepKind::EO,
-            substeps: Some(variants_to_string(eo.variants.get())),
-            min: Some(eo.min.get()),
-            max: Some(eo.max.get()),
+            substeps: Some(variants_to_string(eo.variants.0.get())),
+            min: Some(eo.min_abs.0.get()),
+            max: Some(eo.max_abs.0.get()),
             absolute_min: None,
             absolute_max: None,
             step_limit: None,
             quality: 10000,
-            niss: Some(eo.niss.get()),
+            niss: Some(eo.niss.0.get()),
             params: Default::default(),
         });
     }
     if dr.enabled.0.get() {
-        if dr.triggers.get().len() > 0 {
+        if dr.triggers.0.get().len() > 0 {
             steps_config.push(StepConfig {
                 kind: StepKind::RZP,
                 substeps: None,
-                min: Some(rzp.min.get()),
-                max: Some(rzp.max.get()),
+                min: Some(rzp.min_rel.0.get()),
+                max: Some(rzp.max_rel.0.get()),
                 absolute_min: None,
                 absolute_max: None,
                 step_limit: None,
                 quality: 10000,
-                niss: Some(rzp.niss.get()),
+                niss: Some(rzp.niss.0.get()),
                 params: Default::default(),
             });
             let mut triggers = HashMap::new();
-            triggers.insert("triggers".to_string(), dr.triggers.get().join(","));
+            triggers.insert("triggers".to_string(), dr.triggers.0.get().join(","));
             steps_config.push(StepConfig {
                 kind: StepKind::DR,
-                substeps: Some(variants_to_string(dr.variants.get())),
-                min: Some(dr.min.get()),
-                max: Some(dr.max.get()),
+                substeps: Some(variants_to_string(dr.variants.0.get())),
+                min: Some(dr.min_rel.0.get()),
+                max: Some(dr.max_rel.0.get()),
                 absolute_min: None,
                 absolute_max: None,
                 step_limit: None,
                 quality: 10000,
-                niss: Some(dr.niss.get()),
+                niss: Some(dr.niss.0.get()),
                 params: triggers,
             });
         } else {
             steps_config.push(StepConfig {
                 kind: StepKind::DR,
-                substeps: Some(variants_to_string(dr.variants.get())),
-                min: Some(dr.min.get()),
-                max: Some(dr.max.get()),
+                substeps: Some(variants_to_string(dr.variants.0.get())),
+                min: Some(dr.min_rel.0.get()),
+                max: Some(dr.max_rel.0.get()),
                 absolute_min: None,
                 absolute_max: None,
                 step_limit: None,
                 quality: 10000,
-                niss: Some(dr.niss.get()),
+                niss: Some(dr.niss.0.get()),
                 params: Default::default(),
             });
         }
@@ -310,32 +310,32 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
     if htr.enabled.0.get() {
         steps_config.push(StepConfig {
             kind: StepKind::HTR,
-            substeps: Some(variants_to_string(htr.variants.get())),
-            min: Some(htr.min.get()),
-            max: Some(htr.max.get()),
+            substeps: Some(variants_to_string(htr.variants.0.get())),
+            min: Some(htr.min_rel.0.get()),
+            max: Some(htr.max_rel.0.get()),
             absolute_min: None,
             absolute_max: None,
             step_limit: None,
             quality: 10000,
-            niss: Some(htr.niss.get()),
+            niss: Some(htr.niss.0.get()),
             params: Default::default(),
         });
     }
     if fr.enabled.0.get() {
         steps_config.push(StepConfig {
-            kind: if fin.leave_slice.get() {
+            kind: if fin.leave_slice.0.get() {
                 StepKind::FRLS
             } else {
                 StepKind::FR
             },
-            substeps: Some(variants_to_string(fr.variants.get())),
-            min: Some(fr.min.get()),
-            max: Some(fr.max.get()),
+            substeps: Some(variants_to_string(fr.variants.0.get())),
+            min: Some(fr.min_rel.0.get()),
+            max: Some(fr.max_rel.0.get()),
             absolute_min: None,
             absolute_max: None,
             step_limit: None,
             quality: 10000,
-            niss: Some(fr.niss.get()),
+            niss: Some(fr.niss.0.get()),
             params: Default::default(),
         });
     }
@@ -343,8 +343,8 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
         steps_config.push(StepConfig {
             kind: StepKind::FIN,
             substeps: Some(vec!["ud".to_string(), "fb".to_string(), "lr".to_string()]),
-            min: Some(fin.min.get()),
-            max: Some(fin.max.get()),
+            min: Some(fin.min_rel.0.get()),
+            max: Some(fin.max_rel.0.get()),
             absolute_min: None,
             absolute_max: None,
             step_limit: None,

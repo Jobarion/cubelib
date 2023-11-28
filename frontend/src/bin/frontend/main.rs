@@ -27,12 +27,12 @@ fn App() -> impl IntoView {
     let enabled_states = build_toggle_chain::<4>();
 
     let eo_enabled = create_rw_signal(true);
-    let eo = EOConfig::new((Signal::derive(move||eo_enabled.get()), Callback::new(move|e|eo_enabled.set(e))));
-    let rzp = RZPConfig::new();
-    let dr = DRConfig::new(enabled_states[0]);
-    let htr = HTRConfig::new(enabled_states[1]);
-    let fr = FRConfig::new(enabled_states[2]);
-    let fin = FinishConfig::new(enabled_states[3]);
+    let eo = EOConfig::from_local_storage((Signal::derive(move||eo_enabled.get()), Callback::new(move|e|eo_enabled.set(e))));
+    let rzp = RZPConfig::from_local_storage();
+    let dr = DRConfig::from_local_storage(enabled_states[0]);
+    let htr = HTRConfig::from_local_storage(enabled_states[1]);
+    let fr = FRConfig::from_local_storage(enabled_states[2]);
+    let fin = FinishConfig::from_local_storage(enabled_states[3]);
 
     provide_context(eo);
     provide_context(rzp);

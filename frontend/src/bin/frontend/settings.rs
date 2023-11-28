@@ -10,6 +10,16 @@ pub struct SettingsState {
 }
 
 impl SettingsState {
+    pub fn is_advanced(&self) -> bool {
+        self.advanced.0.get()
+    }
+
+    pub fn is_absolute(&self) -> bool {
+        self.absolute_step_length.0.get()
+    }
+}
+
+impl SettingsState {
     pub fn from_local_storage() -> Self {
         let advanced = use_local_storage("settings-advanced", false);
         let abs_step_len = use_local_storage("settings-rel-step-len", true);

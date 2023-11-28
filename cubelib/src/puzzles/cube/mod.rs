@@ -332,6 +332,7 @@ impl FromStr for CubeOuterTurn {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub enum CubeAxis {
     X = 0,
     Y = 1,

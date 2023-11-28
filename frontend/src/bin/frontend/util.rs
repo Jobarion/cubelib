@@ -1,6 +1,13 @@
 use leptonic::Out;
 use leptos::*;
 
+pub type RwSignalTup<T: Clone> = (Signal<T>, WriteSignal<T>);
+
+pub fn use_local_storage<T: Clone + for<'de> leptos::server_fn::serde::Deserialize<'de> + leptos::server_fn::serde::Serialize>(key: &str, default: T) -> RwSignalTup<T>{
+    let x = leptos_use::storage::use_local_storage(key, default);
+    (x.0, x.1)
+}
+
 pub fn build_toggle_chain<const L: usize>() -> Vec<(Signal<bool>, Callback<bool>)> {
     let signals: Vec<RwSignal<bool>> = (0..L).into_iter()
         .map(|_| create_rw_signal(true))

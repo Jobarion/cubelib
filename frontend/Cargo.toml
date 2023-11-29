@@ -12,6 +12,8 @@ leptos-use = { version = "0.8.2", features = ["storage"]}
 leptos_icons = { version = "0.1.0", features = [
     "IoSettingsOutline",
     "IoCloseOutline",
+    "IoAddOutline",
+    "IoRefreshOutline"
 ] }
 web-sys = "0.3.64"
 log = "0.4.20"

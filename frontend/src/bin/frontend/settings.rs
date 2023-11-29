@@ -1,12 +1,17 @@
+use std::str::FromStr;
+use cubelib::algs::Algorithm;
+use cubelib::puzzles::c333::Turn333;
 use leptonic::prelude::*;
 use leptos::*;
 use leptos_icons::IoIcon;
-use leptos_use::storage::use_local_storage;
+use crate::util::RwSignalTup;
+use crate::util::use_local_storage;
 
 #[derive(Clone)]
 pub struct SettingsState {
-    advanced: (Signal<bool>, WriteSignal<bool>),
-    absolute_step_length: (Signal<bool>, WriteSignal<bool>),
+    advanced: RwSignalTup<bool>,
+    relative_step_length: RwSignalTup<bool>,
+    additional_triggers: RwSignalTup<Vec<Algorithm<Turn333>>>
 }
 
 impl SettingsState {
@@ -14,26 +19,67 @@ impl SettingsState {
         self.advanced.0.get()
     }
 
-    pub fn is_absolute(&self) -> bool {
-        self.absolute_step_length.0.get()
+    pub fn advanced(&self) -> Signal<bool> {
+        self.advanced.0
+    }
+
+    pub fn is_relative(&self) -> bool {
+        self.relative_step_length.0.get()
+    }
+
+    pub fn relative(&self) -> Signal<bool> {
+        self.relative_step_length.0
+    }
+
+    pub fn additional_triggers(&self) -> Signal<Vec<String>> {
+        let triggers = self.additional_triggers.0.clone();
+        Signal::derive(move||triggers.get()
+            .into_iter()
+            .map(|x|x.to_string())
+            .collect()
+        )
     }
 }
 
 impl SettingsState {
     pub fn from_local_storage() -> Self {
         let advanced = use_local_storage("settings-advanced", false);
-        let abs_step_len = use_local_storage("settings-rel-step-len", true);
+        let rel_step_len = use_local_storage("settings-rel-step-len", true);
+        let additional_triggers = use_local_storage("settings-additional-triggers", Vec::<Algorithm<Turn333>>::new());
         Self {
-            advanced: (advanced.0, advanced.1),
-            absolute_step_length: (abs_step_len.0, abs_step_len.1),
+            advanced,
+            relative_step_length: rel_step_len,
+            additional_triggers,
         }
     }
 }
 
 #[component]
 pub fn SettingsComponent(active: ReadSignal<bool>, set_active: WriteSignal<bool>) -> impl IntoView {
-
     let settings = use_context::<SettingsState>().expect("Settings context required");
+    let (cur_trig, cur_trig_set) = create_signal("".to_string());
+
+    let is_trigger_valid = Signal::derive(move|| {
+        if let Ok(alg) = Algorithm::<Turn333>::from_str(cur_trig.get().as_str()) {
+            if !alg.inverse_moves.is_empty() {
+                return false;
+            }
+            if alg.len() == 0 {
+                return false;
+            }
+            if alg.normal_moves[0] != Turn333::R {
+                return false;
+            }
+            let last = alg.normal_moves[alg.normal_moves.len() - 1];
+            if last != Turn333::R && last != Turn333::L {
+                return false;
+            }
+            true
+        } else {
+            false
+        }
+    });
+
     view! {
         <Modal show_when=active>
             <div style:position="relative">
@@ -50,23 +96,56 @@ pub fn SettingsComponent(active: ReadSignal<bool>, set_active: WriteSignal<bool>
             </div>
             <ModalHeader><ModalTitle>"Preferences"</ModalTitle></ModalHeader>
             <ModalBody>
-                <SettingsOption
+                <SettingsOptionSmall
                     label="Advanced mode:"
-                    description="Shows advanced options that are otherwise hidden to make Mallard easier to understand"
+                    description="Shows advanced options that are otherwise hidden to make Mallard easier to understand."
                 >
                     <Toggle
                         state=settings.advanced.0
                         set_state=settings.advanced.1
                     />
-                </SettingsOption>
-                <SettingsOption
+                </SettingsOptionSmall>
+                <SettingsOptionSmall
                     label="Relative step length:"
                     description="By default the step length is absolute. This means RZP in 6 moves means EO and RZP together have to be in 6 moves. When enabled, RZP in 3 means RZP can take 3 moves, regardless of the EO length.">
                     <Toggle
-                        state=settings.absolute_step_length.0
-                        set_state=settings.absolute_step_length.1
+                        state=settings.relative_step_length.0
+                        set_state=settings.relative_step_length.1
                     />
-                </SettingsOption>
+                </SettingsOptionSmall>
+                <div>
+                    <SettingsOptionSmall
+                        label="Additional Triggers:"
+                        description="Configure additional triggers to select in the DR step. Triggers are rotated and mirrored to all positions and must start with an R and end with an R or L."
+                    >
+                        <TextInput
+                            get=cur_trig
+                            set=cur_trig_set placeholder="R U L"
+                            style="width: 150px"
+                            class=move|| if is_trigger_valid.get() || cur_trig.get().is_empty() { "" } else { "leptonic-input-invalid" }
+                        />
+                        <button
+                            enabled=move||false
+                            on:click=move|_|{
+                                if is_trigger_valid.get()  {
+                                    let mut triggers = settings.additional_triggers.0.get();
+                                    let alg = Algorithm::from_str(cur_trig.get().as_str()).unwrap();
+                                    if !triggers.contains(&alg) {
+                                        triggers.push(alg);
+                                        settings.additional_triggers.1.set(triggers);
+                                    }
+                                    cur_trig_set.set("".to_string());
+                                }
+                            }
+                            class="icon-button"
+                            style:cursor=move||if is_trigger_valid.get() { "pointer" } else { "default" }
+                            style:opacity="60%"
+                            style:font-size="30px">
+                            <Icon icon=IoIcon::IoAddOutline/>
+                        </button>
+                    </SettingsOptionSmall>
+                    <TriggerList triggers=settings.additional_triggers.0 triggers_set=settings.additional_triggers.1 />
+                </div>
             </ModalBody>
             <ModalFooter>""</ModalFooter>
         </Modal>
@@ -74,7 +153,7 @@ pub fn SettingsComponent(active: ReadSignal<bool>, set_active: WriteSignal<bool>
 }
 
 #[component]
-pub fn SettingsOption(
+pub fn SettingsOptionSmall(
     #[prop(into)] label: String,
     #[prop(into, optional)] description: Option<String>,
     children: Children) -> impl IntoView {
@@ -90,6 +169,34 @@ pub fn SettingsOption(
                 {children()}
             </div>
             {description}
+        </div>
+    }
+}
+
+
+#[component]
+fn TriggerList(triggers: Signal<Vec<Algorithm<Turn333>>>, triggers_set: WriteSignal<Vec<Algorithm<Turn333>>>) -> impl IntoView {
+    view! {
+        <div style:width="500px">
+        {move || {
+            triggers.get()
+                .iter()
+                .map(|alg| alg.to_string())
+                .map(|alg| {
+                    let alg_c = alg.clone();
+                    view! {
+                        <Chip color=ChipColor::Secondary dismissible=move |_| {
+                            triggers_set.set(triggers.get()
+                                .into_iter()
+                                .filter(|x|!alg_c.eq(&x.to_string()))
+                                .collect());
+                        }>
+                            {alg}
+                        </Chip>
+                    }
+                })
+                .collect_view()
+        }}
         </div>
     }
 }

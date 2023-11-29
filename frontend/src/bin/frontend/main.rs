@@ -9,7 +9,7 @@ use crate::cube::ScrambleComponent;
 use crate::solution::SolutionComponent;
 use crate::settings::{SettingsComponent, SettingsState};
 use crate::step::*;
-use crate::util::build_toggle_chain;
+use crate::util::{build_toggle_chain, RwSignalTup};
 use leptos_icons::IoIcon;
 use leptos_use::storage::use_local_storage;
 
@@ -21,10 +21,10 @@ mod settings;
 
 #[component]
 fn App() -> impl IntoView {
-    let scramble = create_rw_signal("".to_string());
-    provide_context(scramble);
+    let scramble = use_local_storage("scramble", "".to_string());
+    provide_context((scramble.0, scramble.1));
 
-    let enabled_states = build_toggle_chain::<4>();
+    let enabled_states = build_toggle_chain::<4>("enabled");
 
     let eo_enabled = create_rw_signal(true);
     let eo = EOConfig::from_local_storage((Signal::derive(move||eo_enabled.get()), Callback::new(move|e|eo_enabled.set(e))));
@@ -67,6 +67,13 @@ fn FMCAppContainer() -> impl IntoView {
                         style:float="right"
                         style:font-size="30px">
                         <Icon icon=IoIcon::IoSettingsOutline/>
+                    </button>
+                    <button
+                        on:click=move|_|set_settings_modal.set(true)
+                        class="icon-button"
+                        style:float="right"
+                        style:font-size="30px">
+                        <Icon icon=IoIcon::IoRefreshOutline/>
                     </button>
                     <div style:clear="both"></div>
                 </h2>

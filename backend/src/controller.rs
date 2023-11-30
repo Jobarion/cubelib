@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use actix_web::{error, HttpResponse, post, Responder, web};
 use actix_web_lab::body;
+use base64::Engine;
 use cubelib::algs::Algorithm;
 use cubelib::defs::StepKind;
 use cubelib::puzzles::c333::{Cube333, Turn333};
@@ -16,12 +17,15 @@ use cubelib::solver::stream;
 use cubelib::steps::step::StepConfig;
 use cubelib_interface::{SolverRequest, SolverResponse};
 use cubelib::solver::CancellationToken;
+use log::info;
 
 use crate::AppData;
 
 #[post("/solve_stream")]
 pub async fn solve_stream(steps: web::Json<SolverRequest>, app_data: web::Data<AppData>) -> impl Responder {
     let SolverRequest{ steps, scramble } = steps.0;
+    let encoded_steps = base64::engine::general_purpose::STANDARD.encode(serde_json::to_string(&steps).unwrap());
+    info!("Requesting streaming solve for {scramble} with settings {encoded_steps}");
 
     let scramble = Algorithm::from_str(scramble.as_str()).unwrap();
     let mut cube = Cube333::default();

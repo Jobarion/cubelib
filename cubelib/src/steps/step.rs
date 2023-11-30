@@ -17,13 +17,20 @@ use crate::steps::coord::Coord;
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub struct StepConfig {
     pub kind: StepKind,
+    #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
     pub substeps: Option<Vec<String>>,
+    #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
     pub min: Option<u8>,
+    #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
     pub max: Option<u8>,
+    #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
     pub absolute_min: Option<u8>,
+    #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
     pub absolute_max: Option<u8>,
+    #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
     pub step_limit: Option<usize>,
     pub quality: usize,
+    #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
     pub niss: Option<NissSwitchType>,
     pub params: HashMap<String, String>,
 }

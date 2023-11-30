@@ -21,28 +21,6 @@ mod settings;
 
 #[component]
 fn App() -> impl IntoView {
-    let scramble = use_local_storage("scramble", "".to_string());
-    provide_context((scramble.0, scramble.1));
-
-    let enabled_states = build_toggle_chain::<4>("enabled");
-
-    let eo_enabled = create_rw_signal(true);
-    let eo = EOConfig::from_local_storage((Signal::derive(move||eo_enabled.get()), Callback::new(move|e|eo_enabled.set(e))));
-    let rzp = RZPConfig::from_local_storage();
-    let dr = DRConfig::from_local_storage(enabled_states[0]);
-    let htr = HTRConfig::from_local_storage(enabled_states[1]);
-    let fr = FRConfig::from_local_storage(enabled_states[2]);
-    let fin = FinishConfig::from_local_storage(enabled_states[3]);
-
-    provide_context(eo);
-    provide_context(rzp);
-    provide_context(dr);
-    provide_context(htr);
-    provide_context(fr);
-    provide_context(fin);
-
-    let settings = SettingsState::from_local_storage();
-    provide_context(settings);
 
     view! {
         <Root default_theme=LeptonicTheme::default()>
@@ -55,7 +33,28 @@ fn App() -> impl IntoView {
 fn FMCAppContainer() -> impl IntoView {
 
     let (settings_modal, set_settings_modal) = create_signal(false);
+    let scramble = util::use_local_storage("scramble", "".to_string());
+    provide_context(scramble.clone());
 
+    let enabled_states = build_toggle_chain::<4>("enabled");
+
+    let eo_enabled = create_rw_signal(true);
+    let eo = EOConfig::from_local_storage((Signal::derive(move||eo_enabled.get()), Callback::new(move|e|eo_enabled.set(e))));
+    let rzp = RZPConfig::from_local_storage();
+    let dr = DRConfig::from_local_storage(enabled_states[0]);
+    let htr = HTRConfig::from_local_storage(enabled_states[1]);
+    let fr = FRConfig::from_local_storage(enabled_states[2]);
+    let fin = FinishConfig::from_local_storage(enabled_states[3]);
+
+    provide_context(eo.clone());
+    provide_context(rzp.clone());
+    provide_context(dr.clone());
+    provide_context(htr.clone());
+    provide_context(fr.clone());
+    provide_context(fin.clone());
+
+    let settings = SettingsState::from_local_storage();
+    provide_context(settings);
     view! {
         <Box id="app-container">
             <div>
@@ -69,7 +68,17 @@ fn FMCAppContainer() -> impl IntoView {
                         <Icon icon=IoIcon::IoSettingsOutline/>
                     </button>
                     <button
-                        on:click=move|_|set_settings_modal.set(true)
+                        on:click=move|_|{
+                            scramble.1.set("".to_string());
+                            scramble.2();
+                            eo.reset();
+                            dr.reset();
+                            rzp.reset();
+                            htr.reset();
+                            fr.reset();
+                            fin.reset();
+                            fin.enabled.1.call(true);
+                        }
                         class="icon-button"
                         style:float="right"
                         style:font-size="30px">

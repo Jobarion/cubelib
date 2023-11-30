@@ -14,17 +14,31 @@ use cubelib::solver::CancellationToken;
 use cubelib::solver::solution::Solution;
 use cubelib::steps::step::StepConfig;
 use cubelib_interface::{SolverRequest, SolverResponse};
-use log::info;
+use log::{error, info};
 
-use crate::AppData;
+use crate::{AppData, db};
 
 #[post("/solve_stream")]
 pub async fn solve_stream(steps: web::Json<SolverRequest>, app_data: web::Data<AppData>) -> impl Responder {
     let SolverRequest{ steps, scramble } = steps.0;
-    let encoded_steps = base64::engine::general_purpose::STANDARD.encode(serde_json::to_string(&steps).unwrap());
-    info!("Requesting streaming solve for {scramble} with settings {encoded_steps}");
-
     let scramble = Algorithm::from_str(scramble.as_str()).unwrap();
+    let conn = app_data.pool.get();
+
+    match conn {
+        Ok(conn) => {
+            if let Err(err) = db::record_request(&conn, &scramble, &steps, app_data.pruning_tables.as_ref()) {
+                error!("{err}");
+                return HttpResponse::InternalServerError().finish()
+            }
+        },
+        Err(err) => {
+            error!("{err}");
+            return HttpResponse::InternalServerError().finish()
+        }
+    }
+
+    info!("Streaming solve request for {scramble}");
+
     let mut cube = Cube333::default();
     cube.apply_alg(&scramble);
 

@@ -38,7 +38,6 @@ async fn main() -> std::io::Result<()> {
                 pruning_tables: pruning_tables.clone(),
             }))
             .wrap(cors)
-            .service(controller::solve_single)
             .service(controller::solve_stream)
     })
         .bind(("127.0.0.1", 8049))?

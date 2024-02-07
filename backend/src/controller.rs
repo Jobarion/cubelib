@@ -2,32 +2,43 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use actix_web::{error, HttpResponse, post, Responder, web};
+use actix_web::{HttpResponse, post, Responder, web};
 use actix_web_lab::body;
 use base64::Engine;
 use cubelib::algs::Algorithm;
-use cubelib::defs::StepKind;
 use cubelib::puzzles::c333::{Cube333, Turn333};
 use cubelib::puzzles::c333::steps::solver;
-use cubelib::puzzles::c333::steps::solver::build_steps;
 use cubelib::puzzles::c333::steps::tables::PruningTables333;
 use cubelib::puzzles::puzzle::ApplyAlgorithm;
+use cubelib::solver::CancellationToken;
 use cubelib::solver::solution::Solution;
-use cubelib::solver::stream;
 use cubelib::steps::step::StepConfig;
 use cubelib_interface::{SolverRequest, SolverResponse};
-use cubelib::solver::CancellationToken;
-use log::info;
+use log::{error, info};
 
-use crate::AppData;
+use crate::{AppData, db};
 
 #[post("/solve_stream")]
 pub async fn solve_stream(steps: web::Json<SolverRequest>, app_data: web::Data<AppData>) -> impl Responder {
     let SolverRequest{ steps, scramble } = steps.0;
-    let encoded_steps = base64::engine::general_purpose::STANDARD.encode(serde_json::to_string(&steps).unwrap());
-    info!("Requesting streaming solve for {scramble} with settings {encoded_steps}");
-
     let scramble = Algorithm::from_str(scramble.as_str()).unwrap();
+    let conn = app_data.pool.get();
+
+    match conn {
+        Ok(conn) => {
+            if let Err(err) = db::record_request(&conn, &scramble, &steps, app_data.pruning_tables.as_ref()) {
+                error!("{err}");
+                return HttpResponse::InternalServerError().finish()
+            }
+        },
+        Err(err) => {
+            error!("{err}");
+            return HttpResponse::InternalServerError().finish()
+        }
+    }
+
+    info!("Streaming solve request for {scramble}");
+
     let mut cube = Cube333::default();
     cube.apply_alg(&scramble);
 
@@ -59,35 +70,6 @@ pub async fn solve_stream(steps: web::Json<SolverRequest>, app_data: web::Data<A
     });
 
     HttpResponse::Ok().body(body)
-}
-
-#[post("/solve")]
-pub async fn solve_single(steps: web::Json<SolverRequest>, app_data: web::Data<AppData>) -> actix_web::Result<impl Responder> {
-    let SolverRequest{ steps, scramble } = steps.0;
-
-    let scramble = Algorithm::from_str(scramble.as_str()).map_err(|_|error::ErrorBadRequest("Invalid algorithm"))?;
-
-    let mut cube = Cube333::default();
-    cube.apply_alg(&scramble);
-
-    let cancel_token = CancellationToken::new();
-
-    let token_1 = cancel_token.clone();
-    let (mut body_tx, body) = body::channel::<std::convert::Infallible>();
-    let _ = web::block(move || {
-        let solver_steps = build_steps(steps.clone(), &app_data.pruning_tables).map_err(|err|error::ErrorBadRequest(err)).unwrap();
-        let solutions = cubelib::solver::solve_steps(cube, &solver_steps, token_1);
-        let mut solutions = stream::distinct_algorithms(solutions);
-        let data = web::Bytes::from(serde_json::to_string(&SolverResponse{ solution: solutions.next(), done: true }).unwrap());
-        let _ = body_tx.send(data);
-    });
-
-    actix_rt::spawn(async move {
-        actix_rt::time::sleep(Duration::from_secs(60)).await;
-        cancel_token.cancel();
-    });
-
-    Ok(HttpResponse::Ok().body(body))
 }
 
 pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>, tables: Arc<PruningTables333>, cancel_token: CancellationToken) -> impl Iterator<Item = Solution<Turn333>> {

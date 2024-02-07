@@ -1,76 +1,65 @@
-use std::collections::HashMap;
-use std::str::FromStr;
+use std::time::SystemTime;
+use base64::Engine;
 
 use cubelib::algs::Algorithm;
 use cubelib::defs::{NissSwitchType, StepKind};
-use cubelib::puzzles::c333::Turn333;
-use cubelib::solver::solution::{Solution, SolutionStep};
+use cubelib::puzzles::c333::{Cube333, Turn333};
+use cubelib::puzzles::c333::steps::solver::build_steps;
+use cubelib::puzzles::c333::steps::tables::PruningTables333;
+use cubelib::puzzles::puzzle::{ApplyAlgorithm, InvertibleMut};
+use cubelib::solver::{CancellationToken, solve_steps};
 use cubelib::steps::step::StepConfig;
-use log::warn;
-use rusqlite::params_from_iter;
-use rusqlite::types::Value;
 
 pub type Connection = r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>;
 
-pub fn insert_solution(mut conn: &mut Connection, scramble: Algorithm<Turn333>, solution: Option<Solution<Turn333>>, step_configs: Vec<StepConfig>, quality: usize) -> rusqlite::Result<()> {
-    let last_step = step_configs.last().map_or(-1, |sk|kind_to_id(sk.kind.clone()));
-    let tx = conn.transaction()?;
-    tx.execute("INSERT INTO solutions (id, scramble, quality, last_step, solved) VALUES (NULL, ?, ?, ?, ?)", (scramble.to_string(), quality, last_step, solution.is_some() as usize))?;
-    let id = tx.last_insert_rowid();
-
-    let mut map: HashMap<StepKind, (StepConfig, Option<SolutionStep<Turn333>>)> = HashMap::default();
-    for step_config in step_configs {
-        let sl = solution.iter()
-            .flat_map(|s|s.steps.iter())
-            .find(|s| s.kind == step_config.kind)
-            .cloned();
-        map.insert(step_config.kind.clone(), (step_config, sl));
-    }
-
-    for (config, solution) in map.values() {
-        let props = format_props(config.params.clone());
-        let variants = format_variants(config.substeps.clone().unwrap_or(vec![]).clone());
-
-        tx.execute(
-            "INSERT INTO step_settings (solution_id, step_kind, min, max, niss, variants, props) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (id, kind_to_id(config.kind.clone()) as usize, config.min, config.max, config.niss.unwrap_or(NissSwitchType::Never) as usize, variants, props)
-        )?;
-        if let Some(sol) = solution {
-            let normal = sol.alg.normal_moves.iter().map(|x|x.to_string()).collect::<Vec<String>>().join("");
-            let inverse = sol.alg.inverse_moves.iter().map(|x|x.to_string()).collect::<Vec<String>>().join("");
-            let variant = sol.variant.splitn(2, "-").collect::<Vec<&str>>()[0].to_string();
-            tx.execute(
-                "INSERT INTO step_solutions (solution_id, step_kind, length, variant, normal, inverse) VALUES (?, ?, ?, ?, ?, ?)",
-                (id, kind_to_id(config.kind.clone()) as usize, sol.alg.len(), variant, normal, inverse)
-            )?;
-        }
-    }
-    tx.commit()
+pub fn record_request(conn: &Connection, scramble: &Algorithm<Turn333>, step_configs: &Vec<StepConfig>, tables: &PruningTables333) -> rusqlite::Result<()> {
+    let time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).expect("System time before unix epoch").as_secs();
+    let canonical = get_canonical_scramble_id(scramble);
+    let encoded_steps = base64::engine::general_purpose::STANDARD.encode(serde_json::to_string(step_configs).unwrap());
+    conn.execute(
+        "INSERT INTO requests (id, timestamp, scramble, canonical_scramble_id, settings) VALUES (NULL, ?, ?, ?, ?)",
+        (
+            time,
+            scramble.to_string(),
+            canonical,
+            encoded_steps
+        )
+    ).map(|_|())
 }
 
-fn kind_to_id(kind: StepKind) -> isize {
-    match kind {
-        StepKind::EO => 0,
-        StepKind::RZP => 1,
-        StepKind::DR => 2,
-        StepKind::HTR => 3,
-        StepKind::FR => 4,
-        StepKind::FRLS => 5,
-        StepKind::FIN => 6,
-        StepKind::Other(_) => 7,
-    }
+fn get_canonical_scramble_id(scramble: &Algorithm<Turn333>) -> String {
+    let mut cube = Cube333::default();
+    cube.apply_alg(scramble);
+    let normal_encoded = serialize_cube_to_base64(&cube);
+    cube.invert();
+    let inverse_encoded = serialize_cube_to_base64(&cube);
+    std::cmp::min(normal_encoded, inverse_encoded)
 }
 
-fn format_props(props: HashMap<String, String>) -> String {
-    let mut props: Vec<(String, String)> = props.into_iter().collect();
-    props.sort_by(|s1, s2|s1.0.cmp(&s2.0));
-    props.iter()
-        .map(|x|format!("{}={}", x.0, x.1))
-        .collect::<Vec<String>>()
-        .join(";")
+pub fn init_db(conn: &Connection) -> rusqlite::Result<usize> {
+    create_requests_table(&conn)
 }
 
-fn format_variants(mut variants: Vec<String>) -> String {
-    variants.sort();
-    variants.join(";")
+fn create_requests_table(conn: &Connection) -> rusqlite::Result<usize> {
+    conn.execute("
+        CREATE TABLE IF NOT EXISTS requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scramble TEXT NOT NULL,
+            timestamp INTEGER NOT NULL,
+            canonical_scramble_id TEXT NOT NULL,
+            settings TEXT NOT NULL
+        )
+    ", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS id ON requests (scramble)", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS id ON requests (canonical_scramble_id)", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS id ON requests (canonical_scramble_inv_id)", [])
+}
+
+fn serialize_cube_to_base64(cube: &Cube333) -> String {
+    let mut cube_longs = cube.edges.get_edges_raw().to_vec();
+    cube_longs.push(cube.corners.get_corners_raw());
+    let bytes: Vec<u8> = cube_longs.into_iter()
+        .flat_map(|x| x.to_le_bytes().into_iter())
+        .collect();
+    base64::engine::general_purpose::STANDARD.encode(&bytes)
 }

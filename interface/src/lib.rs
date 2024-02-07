@@ -3,7 +3,7 @@ use std::str::FromStr;
 use cubelib::puzzles::c333::Turn333;
 use cubelib::solver::solution::Solution;
 use cubelib::steps::step::StepConfig;
-use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct SolverRequest {

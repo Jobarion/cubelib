@@ -11,6 +11,7 @@ use leptos::*;
 pub use backend::SolutionComponent;
 #[cfg(feature = "wasm_solver")]
 pub use wasm_solver::SolutionComponent;
+use crate::settings::SettingsState;
 
 use crate::step::{DRConfig, EOConfig, FinishConfig, FRConfig, HTRConfig, RZPConfig, SelectableAxis};
 
@@ -26,10 +27,12 @@ pub mod backend {
     use ehttp::Request;
     use leptonic::prelude::*;
     use leptos::*;
-    use leptos_use::watch_debounced;
+    use leptos_use::{watch_debounced, watch_debounced_with_options, WatchDebouncedOptions};
+    use crate::settings::SettingsState;
 
     use crate::solution::get_step_configs;
     use crate::step::{DRConfig, EOConfig, FinishConfig, FRConfig, HTRConfig, RZPConfig};
+    use crate::util::RwSignalTup;
 
     #[derive(Clone)]
     enum SolutionState {
@@ -41,17 +44,18 @@ pub mod backend {
     #[component]
     pub fn SolutionComponent() -> impl IntoView {
 
-        let scramble = Signal::derive(move || Algorithm::<Turn333>::from_str(use_context::<RwSignal<String>>().expect("Scramble context required").get().as_str()).ok());
+        let scramble = Signal::derive(move || Algorithm::<Turn333>::from_str(use_context::<RwSignalTup<String>>().expect("Scramble context required").0.get().as_str()).ok());
         let eo = use_context::<EOConfig>().expect("EO context required");
         let rzp = use_context::<RZPConfig>().expect("RZP context required");
         let dr = use_context::<DRConfig>().expect("DR context required");
         let htr = use_context::<HTRConfig>().expect("HTR context required");
         let fr = use_context::<FRConfig>().expect("FR context required");
         let fin = use_context::<FinishConfig>().expect("Finish context required");
+        let settings = use_context::<SettingsState>().expect("Settings required");
 
         let req_signal = Signal::derive(move||{
             if let Some(alg) = scramble.get() {
-                let steps = get_step_configs(eo, rzp, dr, htr, fr, fin);
+                let steps = get_step_configs(eo.clone(), rzp.clone(), dr.clone(), htr.clone(), fr.clone(), fin.clone(), &settings);
                 Some(SolverRequest {
                     steps: steps.clone(),
                     scramble: alg.to_string()
@@ -67,7 +71,7 @@ pub mod backend {
         let is_done_data = create_rw_signal(true);
         let req_id = create_rw_signal(0usize);
 
-        let _ = watch_debounced(move || req_signal.get(), move |req, _, _| {
+        let _ = watch_debounced_with_options(move || req_signal.get(), move |req, _, _| {
             let req = req.clone();
             //watch_debounced previous is buggy so we do this
             if let Some(prev) = prev_req.get() {
@@ -76,13 +80,17 @@ pub mod backend {
                 }
             }
             prev_req.set(Some(req.clone()));
-            req_id.update(|x| *x = *x + 1);
-            solution_data.set(SolutionState::Requested);
             if let Some(req) = req {
+                req_id.update(|x| *x = *x + 1);
+                if req.scramble.is_empty() {
+                    solution_data.set(SolutionState::NotFetched);
+                    return;
+                }
+                solution_data.set(SolutionState::Requested);
                 is_done_data.set(false);
                 fetch_solution(req.clone(), req_id.get(), solution_data, is_done_data, req_id);
             }
-        }, 1000f64);
+        }, 1000f64, WatchDebouncedOptions::default().immediate(true));
 
         view! {
             {move ||
@@ -114,7 +122,7 @@ pub mod backend {
         let current_bytes = RefCell::<Vec<u8>>::new(vec![]);
 
         let body = serde_json::to_vec(&request).unwrap();
-        let mut req = Request::post("https://joba.me/cubeapi/solve_stream", body);
+        let mut req = Request::post("http://localhost:8049/solve_stream", body);
         req.headers.insert("content-type".to_string(), "application/json".to_string());
 
         ehttp::streaming::fetch(req, move |res: ehttp::Result<ehttp::streaming::Part>| {
@@ -248,12 +256,15 @@ pub mod wasm_solver {
     }
 }
 
-fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, fr: FRConfig, fin: FinishConfig) -> Vec<StepConfig> {
+fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, fr: FRConfig, fin: FinishConfig, settings: &SettingsState) -> Vec<StepConfig> {
+    let relative = settings.is_relative();
+    let advanced = settings.is_advanced();
+    let default_variants = Some(vec!["ud".to_string(), "fb".to_string(), "lr".to_string()]);
     let mut steps_config = vec![];
     if eo.enabled.0.get() {
         steps_config.push(StepConfig {
             kind: StepKind::EO,
-            substeps: Some(variants_to_string(eo.variants.0.get())),
+            substeps: if advanced { Some(variants_to_string(eo.variants.0.get())) } else { default_variants.clone() },
             min: Some(eo.min_abs.0.get()),
             max: Some(eo.max_abs.0.get()),
             absolute_min: None,
@@ -269,10 +280,10 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
             steps_config.push(StepConfig {
                 kind: StepKind::RZP,
                 substeps: None,
-                min: Some(rzp.min_rel.0.get()),
-                max: Some(rzp.max_rel.0.get()),
-                absolute_min: None,
-                absolute_max: None,
+                min: if !relative { Some(0) } else { Some(rzp.min_rel.0.get()) },
+                max: if !relative { Some(3) } else { Some(rzp.max_rel.0.get()) },
+                absolute_min: Some(rzp.min_abs.0.get()).filter(|_| !relative),
+                absolute_max: Some(rzp.max_abs.0.get()).filter(|_| !relative),
                 step_limit: None,
                 quality: 10000,
                 niss: Some(rzp.niss.0.get()),
@@ -282,11 +293,11 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
             triggers.insert("triggers".to_string(), dr.triggers.0.get().join(","));
             steps_config.push(StepConfig {
                 kind: StepKind::DR,
-                substeps: Some(variants_to_string(dr.variants.0.get())),
-                min: Some(dr.min_rel.0.get()),
-                max: Some(dr.max_rel.0.get()),
-                absolute_min: None,
-                absolute_max: None,
+                substeps: if advanced { Some(variants_to_string(dr.variants.0.get())) } else { default_variants.clone() },
+                min: Some(dr.min_rel.0.get()).filter(|_|relative),
+                max: Some(dr.max_rel.0.get()).filter(|_|relative),
+                absolute_min: Some(dr.min_abs.0.get()).filter(|_| !relative),
+                absolute_max: Some(dr.max_abs.0.get()).filter(|_| !relative),
                 step_limit: None,
                 quality: 10000,
                 niss: Some(dr.niss.0.get()),
@@ -295,11 +306,11 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
         } else {
             steps_config.push(StepConfig {
                 kind: StepKind::DR,
-                substeps: Some(variants_to_string(dr.variants.0.get())),
-                min: Some(dr.min_rel.0.get()),
-                max: Some(dr.max_rel.0.get()),
-                absolute_min: None,
-                absolute_max: None,
+                substeps: if advanced { Some(variants_to_string(dr.variants.0.get())) } else { default_variants.clone() },
+                min: Some(dr.min_rel.0.get()).filter(|_|relative),
+                max: Some(dr.max_rel.0.get()).filter(|_|relative),
+                absolute_min: Some(dr.min_abs.0.get()).filter(|_| !relative),
+                absolute_max: Some(dr.max_abs.0.get()).filter(|_| !relative),
                 step_limit: None,
                 quality: 10000,
                 niss: Some(dr.niss.0.get()),
@@ -310,11 +321,11 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
     if htr.enabled.0.get() {
         steps_config.push(StepConfig {
             kind: StepKind::HTR,
-            substeps: Some(variants_to_string(htr.variants.0.get())),
-            min: Some(htr.min_rel.0.get()),
-            max: Some(htr.max_rel.0.get()),
-            absolute_min: None,
-            absolute_max: None,
+            substeps: if advanced { Some(variants_to_string(htr.variants.0.get())) } else { default_variants.clone() },
+            min: Some(htr.min_rel.0.get()).filter(|_|relative),
+            max: Some(htr.max_rel.0.get()).filter(|_|relative),
+            absolute_min: Some(htr.min_abs.0.get()).filter(|_| !relative),
+            absolute_max: Some(htr.max_abs.0.get()).filter(|_| !relative),
             step_limit: None,
             quality: 10000,
             niss: Some(htr.niss.0.get()),
@@ -328,11 +339,11 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
             } else {
                 StepKind::FR
             },
-            substeps: Some(variants_to_string(fr.variants.0.get())),
-            min: Some(fr.min_rel.0.get()),
-            max: Some(fr.max_rel.0.get()),
-            absolute_min: None,
-            absolute_max: None,
+            substeps: if advanced { Some(variants_to_string(fr.variants.0.get())) } else { default_variants.clone() },
+            min: Some(fr.min_rel.0.get()).filter(|_|relative),
+            max: Some(fr.max_rel.0.get()).filter(|_|relative),
+            absolute_min: Some(fr.min_abs.0.get()).filter(|_| !relative),
+            absolute_max: Some(fr.max_abs.0.get()).filter(|_| !relative),
             step_limit: None,
             quality: 10000,
             niss: Some(fr.niss.0.get()),
@@ -343,10 +354,10 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
         steps_config.push(StepConfig {
             kind: StepKind::FIN,
             substeps: Some(vec!["ud".to_string(), "fb".to_string(), "lr".to_string()]),
-            min: Some(fin.min_rel.0.get()),
-            max: Some(fin.max_rel.0.get()),
-            absolute_min: None,
-            absolute_max: None,
+            min: Some(fin.min_rel.0.get()).filter(|_|relative),
+            max: Some(fin.max_rel.0.get()).filter(|_|relative),
+            absolute_min: Some(fin.min_abs.0.get()).filter(|_| !relative),
+            absolute_max: Some(fin.max_abs.0.get()).filter(|_| !relative),
             step_limit: None,
             quality: 10000,
             niss: Some(NissSwitchType::Never),

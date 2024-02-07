@@ -1,16 +1,14 @@
-use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
 use cubelib::defs::NissSwitchType;
 use cubelib::puzzles::cube::CubeAxis;
 use leptonic::prelude::*;
 use leptos::*;
-use leptos_icons::IoIcon;
+
 use crate::SettingsState;
 use crate::util::{RwSignalTup, use_local_storage};
 
-
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct EOConfig {
     pub enabled: (Signal<bool>, Callback<bool>),
     pub min_abs: RwSignalTup<u8>,
@@ -19,7 +17,7 @@ pub struct EOConfig {
     pub variants: RwSignalTup<Vec<CubeAxis>>
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct RZPConfig {
     pub min_abs: RwSignalTup<u8>,
     pub max_abs: RwSignalTup<u8>,
@@ -28,7 +26,7 @@ pub struct RZPConfig {
     pub niss: RwSignalTup<NissSwitchType>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct DRConfig {
     pub enabled: (Signal<bool>, Callback<bool>),
     pub min_abs: RwSignalTup<u8>,
@@ -40,7 +38,7 @@ pub struct DRConfig {
     pub triggers: RwSignalTup<Vec<String>>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct  HTRConfig {
     pub enabled: (Signal<bool>, Callback<bool>),
     pub min_abs: RwSignalTup<u8>,
@@ -51,7 +49,7 @@ pub struct  HTRConfig {
     pub variants: RwSignalTup<Vec<CubeAxis>>
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct  FRConfig {
     pub enabled: (Signal<bool>, Callback<bool>),
     pub min_abs: RwSignalTup<u8>,
@@ -62,7 +60,7 @@ pub struct  FRConfig {
     pub variants: RwSignalTup<Vec<CubeAxis>>
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct FinishConfig {
     pub enabled: (Signal<bool>, Callback<bool>),
     pub min_abs: RwSignalTup<u8>,
@@ -70,6 +68,144 @@ pub struct FinishConfig {
     pub min_rel: RwSignalTup<u8>,
     pub max_rel: RwSignalTup<u8>,
     pub leave_slice: RwSignalTup<bool>,
+}
+
+impl EOConfig {
+    pub fn from_local_storage(enabled: (Signal<bool>, Callback<bool>)) -> Self {
+        Self {
+            enabled,
+            min_abs: use_local_storage("eo-min-abs", 0),
+            max_abs: use_local_storage("eo-max-abs", 5),
+            niss: use_local_storage("eo-niss", NissSwitchType::Always),
+            variants: use_local_storage("eo-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
+        }
+    }
+
+    pub fn reset(&self) {
+        self.min_abs.1.set(0);
+        self.max_abs.1.set(5);
+        self.niss.1.set(NissSwitchType::Always);
+        self.variants.1.set(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]);
+        self.min_abs.2();
+        self.max_abs.2();
+        self.niss.2();
+        self.variants.2();
+    }
+}
+
+impl DRConfig {
+    pub fn from_local_storage(enabled: (Signal<bool>, Callback<bool>)) -> Self {
+        Self {
+            enabled,
+            min_rel: use_local_storage("dr-min-rel", 0),
+            max_rel: use_local_storage("dr-max-rel", 12),
+            min_abs: use_local_storage("dr-min-abs", 0),
+            max_abs: use_local_storage("dr-max-abs", 14),
+            niss: use_local_storage("dr-niss", NissSwitchType::Before),
+            variants: use_local_storage("dr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
+            triggers: use_local_storage("dr-triggers", vec!["R".to_string(), "R U2 R".to_string(), "R F2 R".to_string(), "R U R".to_string(), "R U' R".to_string()]),
+        }
+    }
+
+    pub fn reset(&self) {
+        self.min_rel.1.set(0);
+        self.max_rel.1.set(12);
+        self.min_abs.1.set(0);
+        self.max_abs.1.set(14);
+        self.niss.1.set(NissSwitchType::Before);
+        self.variants.1.set(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]);
+        self.triggers.1.set(vec!["R".to_string(), "R U2 R".to_string(), "R F2 R".to_string(), "R U R".to_string(), "R U' R".to_string()]);
+        self.min_abs.2();
+        self.max_abs.2();
+        self.min_rel.2();
+        self.max_rel.2();
+        self.niss.2();
+        self.variants.2();
+        self.triggers.2();
+    }
+}
+
+impl RZPConfig {
+    pub fn from_local_storage() -> Self {
+        Self {
+            min_rel: use_local_storage("rzp-min-rel", 0),
+            max_rel: use_local_storage("rzp-max-rel", 3),
+            min_abs: use_local_storage("rzp-min-abs", 0),
+            max_abs: use_local_storage("rzp-max-abs", 6),
+            niss: use_local_storage("rzp-niss", NissSwitchType::Never),
+        }
+    }
+
+    pub fn reset(&self) {
+        self.min_rel.1.set(0);
+        self.max_rel.1.set(3);
+        self.min_abs.1.set(0);
+        self.max_abs.1.set(6);
+        self.niss.1.set(NissSwitchType::Never);
+        self.min_abs.2();
+        self.max_abs.2();
+        self.min_rel.2();
+        self.max_rel.2();
+        self.niss.2();
+    }
+}
+
+impl HTRConfig {
+    pub fn from_local_storage(enabled: (Signal<bool>, Callback<bool>)) -> Self {
+        Self {
+            enabled,
+            min_rel: use_local_storage("htr-min-rel", 0),
+            max_rel: use_local_storage("htr-max-rel", 12),
+            min_abs: use_local_storage("htr-min-abs", 0),
+            max_abs: use_local_storage("htr-max-abs", 20),
+            niss: use_local_storage("htr-niss", NissSwitchType::Before),
+            variants: use_local_storage("htr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
+        }
+    }
+
+    pub fn reset(&self) {
+        self.min_rel.1.set(0);
+        self.max_rel.1.set(12);
+        self.min_abs.1.set(0);
+        self.max_abs.1.set(20);
+        self.niss.1.set(NissSwitchType::Before);
+        self.variants.1.set(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]);
+        self.min_abs.2();
+        self.max_abs.2();
+        self.min_rel.2();
+        self.max_rel.2();
+        self.niss.2();
+        self.variants.2();
+    }
+}
+
+impl FRConfig {
+    pub fn from_local_storage(enabled: (Signal<bool>, Callback<bool>)) -> Self {
+        Self {
+            enabled,
+            min_rel: use_local_storage("fr-min-rel", 0),
+            max_rel: use_local_storage("fr-max-rel", 10),
+            min_abs: use_local_storage("fin-min-abs", 0),
+            max_abs: use_local_storage("fin-max-abs", 26),
+            niss: use_local_storage("fr-niss", NissSwitchType::Before),
+            variants: use_local_storage("fr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
+        }
+    }
+
+    pub fn reset(&self) {
+        self.min_rel.1.set(0);
+        self.max_rel.1.set(10);
+        self.min_abs.1.set(0);
+        self.max_abs.1.set(26);
+        self.niss.1.set(NissSwitchType::Before);
+        self.variants.1.set(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]);
+        self.min_abs.2();
+        self.max_abs.2();
+        self.min_rel.2();
+        self.max_rel.2();
+        self.niss.2();
+        self.variants.2();
+    }
 }
 
 impl FinishConfig {
@@ -83,72 +219,18 @@ impl FinishConfig {
             leave_slice: use_local_storage("fin-ls", false),
         }
     }
-}
 
-impl DRConfig {
-    pub fn from_local_storage(enabled: (Signal<bool>, Callback<bool>)) -> Self {
-        Self {
-            enabled,
-            min_rel: use_local_storage("dr-min-rel", 0),
-            max_rel: use_local_storage("dr-max-rel", 12),
-            min_abs: use_local_storage("dr-min-abs", 0),
-            max_abs: use_local_storage("dr-max-abs", 16),
-            niss: use_local_storage("dr-niss", NissSwitchType::Before),
-            variants: use_local_storage("dr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
-            triggers: use_local_storage("dr-triggers", vec!["R".to_string(), "R U2 R".to_string(), "R F2 R".to_string(), "R U R".to_string(), "R U' R".to_string()]),
-        }
-    }
-}
-
-impl RZPConfig {
-    pub fn from_local_storage() -> Self {
-        Self {
-            min_rel: use_local_storage("rzp-min-rel", 0),
-            max_rel: use_local_storage("rzp-max-rel", 3),
-            min_abs: use_local_storage("rzp-min-abs", 0),
-            max_abs: use_local_storage("rzp-max-abs", 9),
-            niss: use_local_storage("rzp-niss", NissSwitchType::Never),
-        }
-    }
-}
-
-impl EOConfig {
-    pub fn from_local_storage(enabled: (Signal<bool>, Callback<bool>)) -> Self {
-        Self {
-            enabled,
-            min_abs: use_local_storage("eo-min-abs", 0),
-            max_abs: use_local_storage("eo-max-abs", 5),
-            niss: use_local_storage("eo-niss", NissSwitchType::Always),
-            variants: use_local_storage("eo-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
-        }
-    }
-}
-
-impl HTRConfig {
-    pub fn from_local_storage(enabled: (Signal<bool>, Callback<bool>)) -> Self {
-        Self {
-            enabled,
-            min_rel: use_local_storage("htr-min-rel", 0),
-            max_rel: use_local_storage("htr-max-rel", 12),
-            min_abs: use_local_storage("htr-min-abs", 0),
-            max_abs: use_local_storage("htr-max-abs", 28),
-            niss: use_local_storage("htr-niss", NissSwitchType::Before),
-            variants: use_local_storage("htr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
-        }
-    }
-}
-
-impl FRConfig {
-    pub fn from_local_storage(enabled: (Signal<bool>, Callback<bool>)) -> Self {
-        Self {
-            enabled,
-            min_rel: use_local_storage("fr-min-rel", 0),
-            max_rel: use_local_storage("fr-max-rel", 10),
-            min_abs: use_local_storage("fin-min-abs", 0),
-            max_abs: use_local_storage("fin-max-abs", 30),
-            niss: use_local_storage("fr-niss", NissSwitchType::Before),
-            variants: use_local_storage("fr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
-        }
+    pub fn reset(&self) {
+        self.min_rel.1.set(0);
+        self.max_rel.1.set(10);
+        self.min_abs.1.set(0);
+        self.max_abs.1.set(30);
+        self.leave_slice.1.set(false);
+        self.min_abs.2();
+        self.max_abs.2();
+        self.min_rel.2();
+        self.max_rel.2();
+        self.leave_slice.2();
     }
 }
 
@@ -248,6 +330,30 @@ pub fn EOParameters() -> impl IntoView {
 pub fn DRParameters() -> impl IntoView {
     let dr_config = use_context::<DRConfig>().expect("DR context required");
     let rzp_config = use_context::<RZPConfig>().expect("RZP context required");
+    let settings = use_context::<SettingsState>().expect("Settings context required");
+
+    let default_triggers = vec![
+        "R".to_string(),
+        "R U2 F2 R".to_string(),
+        "R F2 U2 R".to_string(),
+        "R U2 R".to_string(),
+        "R F2 R".to_string(),
+        "R U R".to_string(),
+        "R U' R".to_string(),
+        "R L".to_string(),
+        "R U L".to_string(),
+        "R U' L".to_string(),
+    ];
+
+    let additional_triggers = settings.additional_triggers();
+    let trigger_options = Signal::derive(move|| {
+        let mut triggers = default_triggers.clone();
+        let mut additional = additional_triggers.get();
+        triggers.append(&mut additional);
+        triggers.sort();
+        triggers.dedup();
+        triggers
+    });
 
     view! {
         <DefaultStepParameters
@@ -256,13 +362,13 @@ pub fn DRParameters() -> impl IntoView {
             max_abs=dr_config.max_abs
             min_rel=dr_config.min_rel
             max_rel=dr_config.max_rel
-            total_max=12
-            total_max_rel=16
+            total_max_rel=12
+            total_max=16
             variants=dr_config.variants
         />
         <h4>"Triggers"</h4>
         <Multiselect
-            options=vec!["R".to_string(), "R U2 R".to_string(), "R F2 R".to_string(), "R U R".to_string(), "R U' R".to_string(), "R L".to_string()]
+            options=trigger_options
             search_text_provider=move |o| format!("{o}")
             render_option=move |o| format!("{o}").into_view()
             selected=dr_config.triggers.0
@@ -271,11 +377,25 @@ pub fn DRParameters() -> impl IntoView {
         <div class:grayed-out=move ||dr_config.triggers.0.get().is_empty()>
             <h2>"RZP"</h2>
             <h4>"Step length"</h4>
-            <StepLengthComponent
-                min=rzp_config.min_abs
-                max=rzp_config.max_abs
-                total_max=5
-            />
+            {move || {
+                if settings.is_relative() {
+                    view! {
+                        <StepLengthComponent
+                            min=rzp_config.min_rel.clone()
+                            max=rzp_config.max_rel.clone()
+                            total_max=5
+                        />
+                    }
+                } else {
+                    view! {
+                        <StepLengthComponent
+                            max=rzp_config.max_abs.clone()
+                            min=rzp_config.min_abs.clone()
+                            total_max=9
+                        />
+                    }
+                }
+            }}
             <h4>"NISS"</h4>
             <NissSettingsComponent niss_default=rzp_config.niss/>
         </div>
@@ -294,8 +414,8 @@ pub fn HTRParameters() -> impl IntoView {
             max_abs=htr_config.max_abs
             min_rel=htr_config.min_rel
             max_rel=htr_config.max_rel
-            total_max=14
-            total_max_rel=28
+            total_max_rel=14
+            total_max=28
             variants=htr_config.variants
         />
     }
@@ -312,8 +432,8 @@ pub fn FRParameters() -> impl IntoView {
             max_abs=fr_config.max_abs
             min_rel=fr_config.min_rel
             max_rel=fr_config.max_rel
-            total_max=10
-            total_max_rel=30
+            total_max_rel=10
+            total_max=30
             variants=fr_config.variants
         />
     }
@@ -328,8 +448,8 @@ pub fn FinishParameters() -> impl IntoView {
             max_abs=fin_config.max_abs
             min_rel=fin_config.min_rel
             max_rel=fin_config.max_rel
-            total_max=10
-            total_max_rel=30
+            total_max_rel=10
+            total_max=30
         />
         <div style="display: flex; align-items: center;">
             <label style="margin-right: 10px;">"Leave slice:"</label>
@@ -369,11 +489,7 @@ pub fn StepLengthComponent(
             max={total_max as f64}
             step=1.0
             marks=SliderMarks::Automatic { create_names: true }
-            value_display=move |v| if total_max < 20 || v as u8 % 2 == 0 {
-                format!("{v:.0}")
-            } else {
-                format!("{v:.0}")
-            }
+            value_display=move |v| format!("{v:.0}")
         />
     }
 }
@@ -410,34 +526,37 @@ pub fn DefaultStepParameters(total_max: u8,
                              #[prop(into, optional)] niss_default: Option<RwSignalTup<NissSwitchType>>,
                              #[prop(into, optional)] variants: Option<RwSignalTup<Vec<CubeAxis>>>
 ) -> impl IntoView {
-    let variants = variants.map(|var| view! {
-        <h4>"Variations"</h4>
-        <Multiselect
-            options=vec![SelectableAxis::UD, SelectableAxis::FB, SelectableAxis::LR]
-            search_text_provider=move |o| format!("{o}")
-            render_option=move |o| format!("{o:?}").into_view()
-            selected=Signal::derive(move || var.0.get().iter().cloned().map(|v|Into::<SelectableAxis>::into(v)).collect())
-            set_selected=Callback::new(move |v: Vec<SelectableAxis>| var.1.set(v.iter().cloned().map(|v|Into::<CubeAxis>::into(v)).collect()))
-        />
-    }.into_view()).unwrap_or(view!{}.into_view());
+    let settings = use_context::<SettingsState>().expect("Settings context required");
+
+    let relative = settings.relative();
+
     let niss = niss_default.map(|niss| view! {
         <h4>"NISS"</h4>
         <NissSettingsComponent niss_default=niss/>
     }.into_view()).unwrap_or(view!{}.into_view());
 
-    let settings = use_context::<SettingsState>().expect("Settings context required");
     view! {
         <h4>"Step length"</h4>
-        {move || if settings.is_absolute() || (min_rel.is_none() || max_rel.is_none()) {
+        {move || if !relative.get() || (min_rel.is_none() || max_rel.is_none()) {
             view! {
-                <StepLengthComponent min=min_abs max=max_abs total_max=total_max/>
+                <StepLengthComponent min=min_abs.clone() max=max_abs.clone() total_max=total_max/>
             }
         } else {
             view! {
-                <StepLengthComponent min=min_rel.unwrap() max=max_rel.unwrap() total_max=total_max_rel.unwrap()/>
+                <StepLengthComponent min=min_rel.clone().unwrap() max=max_rel.clone().unwrap() total_max=total_max_rel.unwrap()/>
             }
         }}
-        {variants}
+        {move || variants.clone().map(|var| view! {
+                <h4>"Variations"</h4>
+                <Multiselect
+                    options=vec![SelectableAxis::UD, SelectableAxis::FB, SelectableAxis::LR]
+                    search_text_provider=move |o| format!("{o}")
+                    render_option=move |o| format!("{o:?}").into_view()
+                    selected=Signal::derive(move || var.0.get().iter().cloned().map(|v|Into::<SelectableAxis>::into(v)).collect())
+                    set_selected=Callback::new(move |v: Vec<SelectableAxis>| var.1.set(v.iter().cloned().map(|v|Into::<CubeAxis>::into(v)).collect()))
+                />
+            }.into_view()).filter(|_|settings.is_advanced()).unwrap_or(view!{}.into_view())
+        }
         {niss}
     }
 }

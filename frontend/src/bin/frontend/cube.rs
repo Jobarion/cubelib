@@ -7,12 +7,13 @@ use cubelib::puzzles::puzzle::ApplyAlgorithm;
 use leptos::*;
 use leptonic::prelude::*;
 use leptos::html::Div;
+use crate::util::RwSignalTup;
 
 #[component]
 pub fn ScrambleComponent() -> impl IntoView {
-    let scramble = use_context::<RwSignal<String>>().unwrap();
+    let scramble = use_context::<RwSignalTup<String>>().unwrap();
     let cube = Signal::derive(move ||{
-        Algorithm::from_str(scramble.get().as_str()).ok()
+        Algorithm::from_str(scramble.0.get().as_str()).ok()
             .map(|alg| {
                 let mut cube = Cube333::default();
                 cube.apply_alg(&alg);
@@ -22,7 +23,7 @@ pub fn ScrambleComponent() -> impl IntoView {
 
     view! {
         <div>
-            <TextInput get=scramble set=Callback::new(move|s|scramble.set(s)) placeholder={"R' U' F".to_owned()}/>
+            <TextInput get=scramble.0 set=scramble.1 placeholder={"R' U' F".to_owned()}/>
             <Show
                 when=move || {cube.get().is_some()}
                 fallback=|| view! {<br/><Chip color=ChipColor::Danger>"Invalid scramble"</Chip>}

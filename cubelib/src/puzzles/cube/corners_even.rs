@@ -1,4 +1,8 @@
-use crate::puzzles::cube::{Corner, CubeOuterTurn, CubeTransformation};
+use std::fmt::{Display, Formatter};
+use crate::puzzles::cube::{Corner, CornerPosition, CubeColor, CubeOuterTurn, CubeTransformation};
+use crate::puzzles::cube::CornerPosition::*;
+use crate::puzzles::cube::CubeColor::*;
+use crate::puzzles::cube::CubeFace::*;
 use crate::puzzles::puzzle::{InvertibleMut, TransformableMut, TurnableMut};
 
 //One byte per corner, 3 bits for id, 2 bits free, 3 bits for co (from UD perspective)
@@ -166,6 +170,117 @@ impl Default for CubeCornersEven {
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn default() -> Self {
         wasm32::new_solved()
+    }
+}
+
+impl CubeCornersEven {
+    pub const CORNER_COLORS: [[CubeColor; 3]; 8] = [
+        [White, Orange, Blue],
+        [White, Blue, Red],
+        [White, Red, Green],
+        [White, Green, Orange],
+        [Yellow, Orange, Green],
+        [Yellow, Green, Red],
+        [Yellow, Red, Blue],
+        [Yellow, Blue, Orange],
+    ];
+
+    pub fn get_facelets(&self) -> [[CubeColor; 4]; 6] {
+        let corners = self.get_corners();
+        let mut facelets = [[None; 4]; 6];
+
+        //There has to be a better way
+        let c = |id: CornerPosition, twist: u8| {
+            let corner = corners[id as usize];
+            let twist_id = (3 - corner.orientation + twist) % 3;
+            Self::CORNER_COLORS[corner.id as usize][twist_id as usize]
+        };
+
+        facelets[Up][0] = c(UBL, 0);
+        facelets[Up][1] = c(UBR, 0);
+        facelets[Up][2] = c(UFL, 0);
+        facelets[Up][3] = c(UFR, 0);
+
+        facelets[Down][0] = c(DFL, 0);
+        facelets[Down][1] = c(DFR, 0);
+        facelets[Down][2] = c(DBL, 0);
+        facelets[Down][3] = c(DBR, 0);
+
+        facelets[Front][0] = c(UFL, 1);
+        facelets[Front][1] = c(UFR, 2);
+        facelets[Front][2] = c(DFL, 2);
+        facelets[Front][3] = c(DFR, 1);
+
+        facelets[Back][0] = c(UBR, 1);
+        facelets[Back][1] = c(UBL, 2);
+        facelets[Back][2] = c(DBR, 2);
+        facelets[Back][3] = c(DBL, 1);
+
+        facelets[Left][0] = c(UBL, 1);
+        facelets[Left][1] = c(UFL, 2);
+        facelets[Left][2] = c(DBL, 2);
+        facelets[Left][3] = c(DFL, 1);
+
+        facelets[Right][0] = c(UFR, 1);
+        facelets[Right][1] = c(UBR, 2);
+        facelets[Right][2] = c(DFR, 2);
+        facelets[Right][3] = c(DBR, 1);
+
+        facelets
+    }
+}
+
+impl Display for CubeCornersEven {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let facelets = self.get_facelets();
+        let block_width = "   ";
+        let block_spacing = " ";
+        let size: usize = 2;
+        for x in (0..size).rev() {
+            write!(f, "{}{}", block_width.repeat(size), block_spacing.repeat(size))?;
+            for y in (0..size).rev() {
+                write!(f, "{}{}", facelets[Back][x * size + y], block_spacing)?;
+            }
+            writeln!(f)?;
+        }
+        for x in 0..size {
+            let x_rev = (size - 1) - x;
+            for y in (0..2).rev() {
+                write!(f, "{}{}", facelets[Left][x + y * size], block_spacing)?;
+            }
+            write!(f, "{}", block_spacing)?;
+            for y in 0..size {
+                write!(f, "{}{}", facelets[Up][x * size + y], block_spacing)?;
+            }
+            write!(f, "{}", block_spacing)?;
+            for y in 0..size {
+                write!(
+                    f,
+                    "{}{}",
+                    facelets[Right][x_rev + y * size],
+                    block_spacing
+                )?;
+            }
+            write!(f, "{}", block_spacing)?;
+            for y in (0..size).rev() {
+                write!(
+                    f,
+                    "{}{}",
+                    facelets[Down][x_rev * size + y],
+                    block_spacing
+                )?;
+            }
+            writeln!(f)?;
+        }
+
+        for x in 0..size {
+            write!(f, "{}{}", block_width.repeat(size), block_spacing.repeat(size))?;
+            for y in 0..size {
+                write!(f, "{}{}", facelets[Front][x * size + y], block_spacing)?;
+            }
+            writeln!(f)?;
+        }
+        Ok(())
     }
 }
 
@@ -435,7 +550,7 @@ mod wasm32 {
         u8x16(1, 2, 3, 1, 1, 2, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0), //R
     ];
 
-    const TRANS_CO_CHANGE: [v128; 6] = [
+    const TRANS_CO_CHANGE: [v128; 3] = [
         u8x16(3, 2, 3, 2, 3, 2, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0), //x
         u8x16(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0), //y
         u8x16(2, 3, 2, 3, 2, 3, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0), //z

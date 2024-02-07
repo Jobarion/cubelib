@@ -9,73 +9,36 @@ use crate::algs::Algorithm;
 use crate::co::COCountUD;
 use crate::puzzles::c333::steps::eo::eo_config::EOCount;
 use crate::defs::*;
-use crate::defs::StepKind::RZP;
 use crate::solver::moveset::TransitionTable333;
 use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
 use crate::puzzles::c333::steps::{MoveSet333, Step333};
 use crate::puzzles::c333::steps::dr::coords::DRUDEOFBCoord;
-use crate::puzzles::c333::steps::dr::dr_config::{DR_UD_EO_FB_MOVESET, DRPruningTable, HTR_DR_UD_MOVESET};
+use crate::puzzles::c333::steps::dr::dr_config::{DR_UD_EO_FB_MOVES, DR_UD_EO_FB_MOVESET, DR_UD_EO_FB_STATE_CHANGE_MOVES, DRPruningTable, HTR_DR_UD_MOVESET};
 use crate::puzzles::c333::steps::eo::coords::EOCoordFB;
 use crate::puzzles::cube::CubeAxis;
+use crate::puzzles::cube::CubeFace::Left;
 use crate::puzzles::cube::Direction::{Clockwise, Half};
 use crate::puzzles::puzzle::{TransformableMut, TurnableMut};
 use crate::steps::coord::Coord;
 use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
 use crate::steps::step::StepConfig;
 
+
+pub const DR_UD_EO_FB_TRIGGER_START_MOVESET: MoveSet333 = MoveSet333 {
+    st_moves: DR_UD_EO_FB_STATE_CHANGE_MOVES,
+    aux_moves: DR_UD_EO_FB_MOVES,
+    transitions: &TransitionTable333::unordered_all(),
+};
+
 pub struct DRTriggerStepTable<'a> {
     pre_trigger_move_set: &'a MoveSet333,
     trigger_move_set: &'a MoveSet333,
+    trigger_start_move_set: &'a MoveSet333,
     pre_trans: Vec<Transformation333>,
     table: &'a DRPruningTable,
     trigger_types: HashMap<(u8, u8), u8>,
     trigger_variants: Vec<Vec<Turn333>>,
     name: &'a str,
-}
-
-struct RZPState(u8, u8); //Corners, Edges
-
-impl FromStr for RZPState {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut chars = s.chars();
-        let num = u8::try_from(chars.next().ok_or("Empty string is not valid".to_string())?).map_err(|x|x.to_string())?;
-        let ec1 = chars.next().ok_or("Expected format 'xexc'".to_string())?.to_ascii_lowercase();
-        let mut rzp_state = RZPState(-1, -1);
-
-        if ec1 == 'c' {
-            rzp_state.0 = num;
-        } else if ec1 == 'e' {
-            rzp_state.1 = num;
-        } else {
-            return Err("Unexpected character".to_string());
-        }
-
-        let num = chars.next().map(|c|u8::try_from().map_err(|x|x.to_string()));
-        if let Some(num) = num {
-            let num = num?;
-            let ec2 = chars.next().ok_or("Expected format 'xexc'".to_string())?.to_ascii_lowercase();
-            if ec2 == ec1 {
-                return Err("Edges or corners set twice".to_string());
-            }
-            else if ec2 == 'c' {
-                rzp_state.0 = num;
-            } else if ec2 == 'e' {
-                rzp_state.1 = num;
-            } else {
-                return Err("Unexpected character".to_string());
-            }
-        }
-
-        if rzp_state.0 > 8 {
-            return Err("Cubes only have 8 corners".to_lowercase())
-        }
-        if rzp_state.1 % 2 != 0 {
-            return Err("Edge count cannot be odd".to_lowercase())
-        }
-        Ok(rzp_state)
-    }
 }
 
 pub fn from_step_config(table: &DRPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
@@ -84,12 +47,13 @@ pub fn from_step_config(table: &DRPruningTable, config: StepConfig) -> Result<(S
         .iter()
         .flat_map(move |trig|trig.split(","))
         .filter_map(move |trig|{
-            match RZPState::from_str(trig) {
+            let alg = Algorithm::from_str(trig.to_uppercase().as_str());
+            match alg {
                 Err(_) => {
                     error!("Unable to parse trigger {trig}.");
                     None
                 },
-                Ok(trigger) => Some(trigger)
+                Ok(alg) => Some(alg)
             }
         })
         .collect_vec();
@@ -152,7 +116,7 @@ fn dr_step_variants<'a>(
     table: &'a DRPruningTable,
     eo_axis: Vec<CubeAxis>,
     dr_axis: Vec<CubeAxis>,
-    triggers: Vec<RZPState>,
+    triggers: Vec<Algorithm<Turn333>>,
 ) -> Vec<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> + 'a>> {
     eo_axis
         .into_iter()
@@ -174,7 +138,7 @@ fn dr_step_variants<'a>(
 
 impl<'a> DRTriggerStepTable<'a> {
 
-    fn new(pre_trans: Vec<Transformation333>, table: &'a DRPruningTable, triggers: Vec<RZPState>, name: &'a str) -> Self {
+    fn new(pre_trans: Vec<Transformation333>, table: &'a DRPruningTable, triggers: Vec<Algorithm<Turn333>>, name: &'a str) -> Self {
         let mut trigger_variants = vec![];
         let mut trigger_types: HashMap<(u8, u8), u8> = HashMap::new();
         for trigger in triggers.into_iter() {
@@ -197,6 +161,7 @@ impl<'a> DRTriggerStepTable<'a> {
         DRTriggerStepTable {
             pre_trigger_move_set: &HTR_DR_UD_MOVESET,
             trigger_move_set: &DR_UD_EO_FB_MOVESET,
+            trigger_start_move_set: &DR_UD_EO_FB_TRIGGER_START_MOVESET,
             pre_trans,
             table,
             trigger_types,
@@ -206,10 +171,10 @@ impl<'a> DRTriggerStepTable<'a> {
     }
 }
 
-fn calc_rzp_state(cube: &Cube333) -> RZPState {
+fn calc_rzp_state(cube: &Cube333) -> (u8, u8) {
     let eo_count_lr = cube.count_bad_edges().2;
     let co_count_ud = COCountUD::co_count(cube);
-    RZPState(co_count_ud, eo_count_lr)
+    (co_count_ud, eo_count_lr)
 }
 
 impl<'a> PreStepCheck<Turn333, Transformation333, Cube333> for DRTriggerStepTable<'a> {
@@ -232,8 +197,10 @@ impl<'a> StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> fo
     fn move_set(&self, cube: &Cube333, depth_left: u8) -> &'a MoveSet333 {
         let rzp_state = calc_rzp_state(cube);
         if let Some(trigger_length) = self.trigger_types.get(&rzp_state) {
-            if *trigger_length >= depth_left {
+            if *trigger_length > depth_left {
                 self.trigger_move_set
+            } else if *trigger_length == depth_left {
+                self.trigger_start_move_set
             } else {
                 self.pre_trigger_move_set
             }

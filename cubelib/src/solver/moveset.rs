@@ -113,5 +113,18 @@ mod cube_outer_turn {
             }
             transitions
         }
+
+        pub const fn unordered_all() -> [TransitionTableCubeOuterTurn; 18] {
+            let mut transitions = [TransitionTableCubeOuterTurn::new(0, 0); 18];
+            let mut i = 0;
+            while i < CubeFace::ALL.len() {
+                let face_table = Self::new(Self::ANY, Self::ANY);
+                transitions[CubeOuterTurn::new(CubeFace::ALL[i], Clockwise).to_id()] = face_table;
+                transitions[CubeOuterTurn::new(CubeFace::ALL[i], CounterClockwise).to_id()] = face_table;
+                transitions[CubeOuterTurn::new(CubeFace::ALL[i], Half).to_id()] = face_table;
+                i += 1;
+            }
+            transitions
+        }
     }
 }

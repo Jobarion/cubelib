@@ -383,7 +383,6 @@ pub fn NissSettingsComponent(niss_default: RwSignalTup<NissSwitchType>) -> impl 
     let niss_1 = Signal::derive(move || niss_default.0.get() != NissSwitchType::Never);
     let niss_2 = Signal::derive(move || niss_default.0.get() == NissSwitchType::Always);
     view! {
-        
         <div style="display: flex; align-items: center; margin-bottom: 5px;">
             <label style="margin-right: 10px;">"Allow switching before step:"</label>
             <Toggle

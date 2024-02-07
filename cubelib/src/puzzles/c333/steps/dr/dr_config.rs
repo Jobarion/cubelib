@@ -135,6 +135,6 @@ pub fn dr_any(table: &DRPruningTable) -> Step333 {
     dr(table, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR], vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR])
 }
 
-const fn dr_transitions(axis_face: CubeFace) -> [TransitionTable333; 18] {
+pub(crate) const fn dr_transitions(axis_face: CubeFace) -> [TransitionTable333; 18] {
     crate::puzzles::c333::steps::eo::eo_config::eo_transitions(axis_face)
 }

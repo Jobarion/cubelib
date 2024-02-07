@@ -7,6 +7,7 @@ use log::LevelFilter;
 use simple_logger::SimpleLogger;
 
 mod controller;
+mod db;
 
 
 struct AppData {

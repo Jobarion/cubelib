@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use itertools::Itertools;
 
-use crate::puzzles::puzzle::{PuzzleMove, Transformable, TransformableMut, TurnableMut};
+use crate::puzzles::puzzle::{Invertible, PuzzleMove, Transformable, TransformableMut, TurnableMut};
 
 #[derive(PartialEq, Eq, Hash)]
 //This is a pretty bad serialization format. We can do better if Turn is FromStr, but right now that's not enforced.
@@ -45,13 +45,33 @@ impl <Turn: PuzzleMove + Display> Debug for Algorithm<Turn> {
     }
 }
 
-impl <Turn: PuzzleMove>Add for Algorithm<Turn> {
+impl <Turn: PuzzleMove> Add for Algorithm<Turn> {
     type Output = Algorithm<Turn>;
 
     fn add(mut self, mut rhs: Self) -> Self::Output {
         self.normal_moves.append(&mut rhs.normal_moves);
         self.inverse_moves.append(&mut rhs.inverse_moves);
         self
+    }
+}
+
+impl <Turn: PuzzleMove> Invertible for Algorithm<Turn> {
+    fn invert(&self) -> Self {
+        let mut alg = Algorithm {
+            normal_moves: self.normal_moves.clone(),
+            inverse_moves: self.inverse_moves.clone(),
+        };
+        alg.normal_moves = alg.normal_moves
+            .into_iter()
+            .rev()
+            .map(|x|x.invert())
+            .collect_vec();
+        alg.inverse_moves = alg.inverse_moves
+            .into_iter()
+            .rev()
+            .map(|x|x.invert())
+            .collect_vec();
+        alg
     }
 }
 

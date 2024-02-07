@@ -1,9 +1,10 @@
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
 use log::{debug, warn};
+use crate::algs::Algorithm;
 
 use crate::solver::moveset::{MoveSet, TransitionTable};
 use crate::puzzles::puzzle::{Puzzle, PuzzleMove, Transformable};
@@ -67,7 +68,7 @@ impl<const C_SIZE: usize, C: Coord<C_SIZE>> PruningTable<C_SIZE, C> {
 pub fn generate<
     const COORD_SIZE: usize,
     Mapper,
-    Turn: PuzzleMove + Transformable<Transformation>,
+    Turn: PuzzleMove + Transformable<Transformation> + Display,
     Transformation: PuzzleMove,
     PuzzleParam: Puzzle<Turn, Transformation>,
     TransTable: TransitionTable<Turn>,
@@ -91,7 +92,7 @@ where
     let mut table = PruningTable::new();
     for (start_coord, start_cube) in visited {
         table.set(start_coord, 0);
-        to_check.insert(start_coord, start_cube);
+        to_check.insert(start_coord, (start_cube, Algorithm::new()));
     }
     debug!("Found {} variations of the goal state", to_check.len());
     let mut total_checked = 0;
@@ -162,57 +163,10 @@ where
     check_next
 }
 
-pub fn generate_pure<
-    const COORD_SIZE: usize,
-    Mapper,
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation>,
-    TransTable: TransitionTable<Turn>,
-    CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq + Debug,
-    const ST_MOVES: usize,
-    const AUX_MOVES: usize,
->(
-    move_set: &MoveSet<Turn, TransTable>,
-    mapper: &Mapper,
-) -> PruningTable<COORD_SIZE, CoordParam>
-where
-    Mapper: Fn(&PuzzleParam) -> CoordParam,
-{
-    let mut table = PruningTable::new();
-    let mut to_check: HashMap<CoordParam, PuzzleParam> = HashMap::new();
-    let start_cube = PuzzleParam::default();
-    let start_coord = mapper(&start_cube);
-    table.set(start_coord, 0);
-    to_check.insert(start_coord, start_cube);
-    let mut total_checked = 0;
-    for depth in 0..20 {
-        total_checked += to_check.len();
-        debug!(
-            "Checked {:width$}/{} cubes at depth {depth} (new {})",
-            total_checked,
-            CoordParam::size(),
-            to_check.len(),
-            width = CoordParam::size().to_string().len(),
-        );
-        to_check = fill_table(move_set, &mut table, depth, &mapper, to_check);
-        if to_check.is_empty() {
-            break;
-        }
-    }
-    if total_checked < CoordParam::size() - 1 {
-        warn!(
-            "Expected {} cubes in table but got {total_checked}. The coordinate may be malformed",
-            CoordParam::size()
-        );
-    }
-    table
-}
-
 fn fill_table<
     const COORD_SIZE: usize,
     Mapper,
-    Turn: PuzzleMove + Transformable<Transformation>,
+    Turn: PuzzleMove + Transformable<Transformation> + Display,
     Transformation: PuzzleMove,
     PuzzleParam: Puzzle<Turn, Transformation>,
     TransTable: TransitionTable<Turn>,
@@ -222,13 +176,13 @@ fn fill_table<
     table: &mut PruningTable<COORD_SIZE, CoordParam>,
     depth: u8,
     mapper: &Mapper,
-    to_check: HashMap<CoordParam, PuzzleParam>,
-) -> HashMap<CoordParam, PuzzleParam>
+    to_check: HashMap<CoordParam, (PuzzleParam, Algorithm<Turn>)>,
+) -> HashMap<CoordParam, (PuzzleParam, Algorithm<Turn>)>
 where
     Mapper: Fn(&PuzzleParam) -> CoordParam,
 {
-    let mut next_cubes: HashMap<CoordParam, PuzzleParam> = HashMap::new();
-    for (_coord, cube) in to_check.into_iter() {
+    let mut next_cubes: HashMap<CoordParam, (PuzzleParam, Algorithm<Turn>)> = HashMap::new();
+    for (_coord, (cube, mut alg)) in to_check.into_iter() {
         for m in move_set
             .aux_moves
             .into_iter()
@@ -240,8 +194,10 @@ where
             let coord = mapper(&cube);
             let stored = table.get(coord);
             if stored == None {
+                let mut alg = alg.clone();
+                alg.normal_moves.push(m);
                 table.set(coord, depth + 1);
-                next_cubes.insert(coord, cube);
+                next_cubes.insert(coord, (cube, alg));
             }
         }
     }

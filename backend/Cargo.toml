@@ -16,3 +16,6 @@ actix-cors = "0.6.4"
 log = "0.4.20"
 simple_logger = "4.2.0"
 rand = { version = "0.8.5", features = [] }
+r2d2 = "0.8"
+r2d2_sqlite = "0.22"
+rusqlite = { version = "0.29", features = ["bundled"]}

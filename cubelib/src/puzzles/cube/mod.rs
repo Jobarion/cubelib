@@ -6,13 +6,15 @@ mod corners_even;
 mod center_edges;
 #[cfg(feature = "solver")]
 pub mod coords;
+#[cfg(feature = "cubic-odd")]
+pub mod odd;
 
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Index, IndexMut};
 use std::str::FromStr;
 use crate::puzzles::cube::Direction::*;
 use crate::puzzles::cube::CubeFace::*;
-use crate::puzzles::puzzle::{Invertible, PuzzleMove, Transformable};
+use crate::puzzles::puzzle::{Invertible, PuzzleMove, Transformable, TransformableMut};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
@@ -350,6 +352,30 @@ impl<T, const N: usize> Index<CubeAxis> for [T; N] {
 
     fn index(&self, index: CubeAxis) -> &Self::Output {
         &self[index as usize]
+    }
+}
+
+const AXIS_TRANSFORMATION: [[CubeAxis; 3]; 3] = [
+    [CubeAxis::X, CubeAxis::Z, CubeAxis::Y],
+    [CubeAxis::Z, CubeAxis::Y, CubeAxis::X],
+    [CubeAxis::Y, CubeAxis::X, CubeAxis::Z],
+];
+
+impl Transformable<CubeTransformation> for CubeAxis {
+    fn transform(&self, transformation: CubeTransformation) -> Self {
+        if transformation.dir != Direction::Half {
+            AXIS_TRANSFORMATION[self.clone() as usize][transformation.axis as usize]
+        } else {
+            self.clone()
+        }
+    }
+}
+
+impl TransformableMut<CubeTransformation> for CubeAxis {
+    fn transform(&mut self, transformation: CubeTransformation) {
+        if transformation.dir != Direction::Half {
+            *self = AXIS_TRANSFORMATION[self.clone() as usize][transformation.axis as usize];
+        }
     }
 }
 

@@ -74,7 +74,7 @@ pub async fn solve_stream(steps: web::Json<SolverRequest>, app_data: web::Data<A
 
 pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>, tables: Arc<PruningTables333>, cancel_token: CancellationToken) -> impl Iterator<Item = Solution<Turn333>> {
     let mut prev_len: Option<usize> = None;
-    (0..20usize).into_iter()
+    (5..20usize).into_iter()
         .map(|q| 2u32.pow(q as u32) as usize)
         .flat_map(move |quality| {
             let mut steps = steps.clone();

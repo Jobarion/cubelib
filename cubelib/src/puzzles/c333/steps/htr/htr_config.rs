@@ -14,6 +14,7 @@ use crate::steps::step::{AnyPostStepCheck, DefaultPruningTableStep, DefaultStepO
 use crate::steps::step::StepConfig;
 
 pub type HTRPruningTable = PruningTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
+pub type HTRNissPruningTable = PruningTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
 pub type HTRPruningTableStep<'a> = DefaultPruningTableStep<'a, {HTRDRUD_SIZE}, HTRDRUDCoord, {DRUDEOFB_SIZE}, DRUDEOFBCoord, Turn333, Transformation333, Cube333, TransitionTable333, AnyPostStepCheck>;
 
 pub fn from_step_config(table: &HTRPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {

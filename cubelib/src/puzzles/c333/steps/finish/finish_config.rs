@@ -5,9 +5,11 @@ use crate::solver::lookup_table::PruningTable;
 use crate::solver::moveset::TransitionTable333;
 use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
 use crate::puzzles::c333::steps::{fr, MoveSet333, Step333};
-use crate::puzzles::c333::steps::finish::coords::{FR_FINISH_SIZE, FRUDFinishCoord};
+use crate::puzzles::c333::steps::finish::coords::{FR_FINISH_SIZE, FRUDFinishCoord, HTR_FINISH_SIZE, HTRFinishCoord};
 use crate::puzzles::c333::steps::fr::coords::{FRUD_WITH_SLICE_SIZE, FRUDWithSliceCoord};
+use crate::puzzles::c333::steps::htr::coords::{PURE_HTRDRUD_SIZE, PureHTRDRUDCoord};
 use crate::puzzles::cube::{CubeAxis, CubeFace};
+use crate::puzzles::cube::CubeFace::*;
 use crate::puzzles::cube::Direction::*;
 use crate::steps::step::{AnyPostStepCheck, DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
 use crate::steps::step::StepConfig;
@@ -18,8 +20,24 @@ pub const FRUD_FINISH_MOVESET: MoveSet333 = MoveSet333 {
     transitions: &finish_transitions(),
 };
 
+pub const HTR_FINISH_MOVESET: MoveSet333 = MoveSet333 {
+    aux_moves: &[],
+    st_moves: &[
+        Turn333::new(Up, Half),
+        Turn333::new(Down, Half),
+        Turn333::new(Right, Half),
+        Turn333::new(Left, Half),
+        Turn333::new(Front, Half),
+        Turn333::new(Back, Half),
+    ],
+    transitions: &finish_transitions(),
+};
 pub type FRFinishPruningTable = PruningTable<{ FR_FINISH_SIZE }, FRUDFinishCoord>;
 pub type FRFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, Turn333, Transformation333, Cube333, TransitionTable333, AnyPostStepCheck>;
+
+pub type HTRFinishPruningTable = PruningTable<{ HTR_FINISH_SIZE }, HTRFinishCoord>;
+pub type HTRFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { HTR_FINISH_SIZE }, HTRFinishCoord, {PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, Turn333, Transformation333, Cube333, TransitionTable333, AnyPostStepCheck>;
+
 
 pub fn from_step_config_fr(table: &FRFinishPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
     let step = if let Some(substeps) = config.substeps {
@@ -38,7 +56,7 @@ pub fn from_step_config_fr(table: &FRFinishPruningTable, config: StepConfig) -> 
         config.max.unwrap_or(10),
         config.absolute_min,
         config.absolute_max,
-        config.niss.unwrap_or(NissSwitchType::Never),
+        NissSwitchType::Never,
         if config.quality == 0 {
             None
         } else {
@@ -65,7 +83,7 @@ pub fn from_step_config_fr_leave_slice(table: &FRFinishPruningTable, config: Ste
         config.max.unwrap_or(10),
         config.absolute_min,
         config.absolute_max,
-        config.niss.unwrap_or(NissSwitchType::Never),
+        NissSwitchType::Never,
         if config.quality == 0 {
             None
         } else {
@@ -73,6 +91,22 @@ pub fn from_step_config_fr_leave_slice(table: &FRFinishPruningTable, config: Ste
         }
     );
     Ok((step, search_opts))
+}
+
+pub fn from_step_config_htr(table: &HTRFinishPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
+    let search_opts = DefaultStepOptions::new(
+        config.min.unwrap_or(0),
+        config.max.unwrap_or(10),
+        config.absolute_min,
+        config.absolute_max,
+        NissSwitchType::Never,
+        if config.quality == 0 {
+            None
+        } else {
+            config.step_limit.or(Some(config.quality * 1))
+        }
+    );
+    Ok((htr_finish(table), search_opts))
 }
 
 pub fn fr_finish_any(table: &FRFinishPruningTable) -> Step333 {
@@ -92,6 +126,12 @@ pub fn fr_finish<'a>(table: &'a FRFinishPruningTable, fr_axis: Vec<CubeAxis>) ->
         })
         .collect_vec();
     Step::new(step_variants, StepKind::FIN, true)
+}
+
+pub fn htr_finish(table: &HTRFinishPruningTable) -> Step333 {
+    Step::new(vec![
+        Box::new(HTRFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![], table, AnyPostStepCheck, ""))
+    ], StepKind::FIN, true)
 }
 
 

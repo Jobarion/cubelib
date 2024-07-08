@@ -218,7 +218,7 @@ impl StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> for EO
             BAD_EDGE_HEURISTIC[(fb_edges >> 1) as usize]
         } else {
             let coord = EOCoordFB::from(cube);
-            self.table.get(coord).expect("Expected table to be filled")
+            self.table.get(coord).0
         }
     }
 

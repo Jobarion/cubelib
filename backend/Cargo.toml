@@ -8,7 +8,7 @@ actix-rt = "2.9.0"
 actix-web = "4.4.0"
 actix-web-lab = "0.20.1" #ndjson
 futures = "0.3.29"
-cubelib = { path = "../cubelib", features = ["serde_support", "333finish"] }
+cubelib = { path = "../cubelib", features = ["serde_support", "333finish", "fs"] }
 cubelib-interface = { path = "../interface" }
 serde = { version = "1.0.190", features = ["derive"] }
 serde_json = "1.0.108"

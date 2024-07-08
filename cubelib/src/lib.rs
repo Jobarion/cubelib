@@ -1,5 +1,8 @@
 extern crate core;
 
+#[macro_use]
+extern crate num_derive;
+
 pub mod algs;
 mod alignment;
 pub mod defs;

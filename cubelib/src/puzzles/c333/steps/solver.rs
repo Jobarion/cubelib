@@ -25,6 +25,8 @@ pub fn gen_tables(steps: &Vec<StepConfig>, tables: &mut PruningTables333) {
             (_, StepKind::FRLS) => tables.gen_fr_leave_slice(),
             #[cfg(feature = "333finish")]
             (Some(StepKind::FR), StepKind::FIN) | (Some(StepKind::FRLS), StepKind::FIN) => tables.gen_fr_finish(),
+            #[cfg(feature = "333finish")]
+            (Some(StepKind::HTR), StepKind::FIN) => tables.gen_htr_finish(),
             _ => ()
         }
     }
@@ -68,6 +70,8 @@ pub fn build_steps(steps: Vec<StepConfig>, tables: &PruningTables333) -> Result<
             (Some(StepKind::HTR), StepKind::FR)   => vec![steps::fr::fr_config::from_step_config(tables.fr().expect("FR table required"), config.clone())].into_iter(),
             #[cfg(feature = "333fr")]
             (Some(StepKind::HTR), StepKind::FRLS)  => vec![steps::fr::fr_config::from_step_config_no_slice(tables.fr_leave_slice().expect("FRLeaveSlice table required"), config.clone())].into_iter(),
+            #[cfg(feature = "333finish")]
+            (Some(StepKind::HTR), StepKind::FIN)   => vec![steps::finish::finish_config::from_step_config_htr(tables.htr_finish().expect("HTRFinish table required"), config.clone())].into_iter(),
             #[cfg(feature = "333finish")]
             (Some(StepKind::FR), StepKind::FIN)   => vec![steps::finish::finish_config::from_step_config_fr(tables.fr_finish().expect("FRFinish table required"), config.clone())].into_iter(),
             #[cfg(feature = "333finish")]

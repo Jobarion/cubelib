@@ -35,6 +35,7 @@ async fn main() -> std::io::Result<()> {
     pruning_tables.gen_fr();
     pruning_tables.gen_fr_leave_slice();
     pruning_tables.gen_fr_finish();
+    pruning_tables.gen_htr_finish();
 
     let pruning_tables = Arc::new(pruning_tables);
 

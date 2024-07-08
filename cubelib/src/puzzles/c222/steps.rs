@@ -36,6 +36,7 @@ pub mod tables {
     #[cfg(feature = "222finish")]
     use crate::puzzles::c222::steps::finish::{DIRECT_FINISH_MOVESET, DirectFinishPruningTable};
     use crate::solver::lookup_table;
+    use crate::solver::lookup_table::TableType;
 
     pub struct PruningTables222 {
         #[cfg(feature = "222finish")]
@@ -53,12 +54,13 @@ pub mod tables {
             }
         }
 
-        pub fn load(&mut self, key: &str, data: Vec<u8>) {
+        pub fn load(&mut self, key: &str, data: Box<Vec<u8>>) -> Result<(), String> {
             match key {
                 #[cfg(feature = "222finish")]
-                "fin" => self.direct_finish = Some(DirectFinishPruningTable::load(data)),
+                "fin" => self.direct_finish = Some(DirectFinishPruningTable::load(data)?),
                 _ => {}
             }
+            Ok(())
         }
 
         #[cfg(feature = "222finish")]
@@ -79,8 +81,8 @@ pub mod tables {
     fn gen_direct_finish() -> DirectFinishPruningTable {
         info!("Generating direct finish pruning table...");
         #[cfg(not(target_arch = "wasm32"))]
-            let time = Instant::now();
-        let table = lookup_table::generate(&DIRECT_FINISH_MOVESET, &|c: &crate::puzzles::c222::Cube222| CornerCoord::from(c));
+        let time = Instant::now();
+        let table = lookup_table::generate(&DIRECT_FINISH_MOVESET, &|c: &crate::puzzles::c222::Cube222| CornerCoord::from(c), TableType::Uncompressed);
         #[cfg(not(target_arch = "wasm32"))]
         debug!("Took {}ms", time.elapsed().as_millis());
         table

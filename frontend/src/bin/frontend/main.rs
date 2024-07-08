@@ -9,9 +9,8 @@ use crate::cube::ScrambleComponent;
 use crate::solution::SolutionComponent;
 use crate::settings::{SettingsComponent, SettingsState};
 use crate::step::*;
-use crate::util::{build_toggle_chain, RwSignalTup};
+use crate::util::{build_toggle_chain};
 use leptos_icons::IoIcon;
-use leptos_use::storage::use_local_storage;
 
 mod cube;
 mod step;
@@ -36,15 +35,30 @@ fn FMCAppContainer() -> impl IntoView {
     let scramble = util::use_local_storage("scramble", "".to_string());
     provide_context(scramble.clone());
 
-    let enabled_states = build_toggle_chain::<4>("enabled");
+    let enabled_states = build_toggle_chain::<3>("enabled");
 
     let eo_enabled = create_rw_signal(true);
     let eo = EOConfig::from_local_storage((Signal::derive(move||eo_enabled.get()), Callback::new(move|e|eo_enabled.set(e))));
     let rzp = RZPConfig::from_local_storage();
     let dr = DRConfig::from_local_storage(enabled_states[0]);
     let htr = HTRConfig::from_local_storage(enabled_states[1]);
-    let fr = FRConfig::from_local_storage(enabled_states[2]);
-    let fin = FinishConfig::from_local_storage(enabled_states[3]);
+
+    let fin = FinishConfig::from_local_storage(enabled_states[2]);
+
+    let fr_signal = util::use_local_storage("enabled-fr", true);
+
+    let enabled_states_1 = enabled_states[1].clone();
+    let fr_signal = (Signal::derive(move || fr_signal.0.get() && enabled_states_1.0.get()), Callback::new(move |state| {
+        if state {
+            enabled_states[0].1.call(true);
+            enabled_states[1].1.call(true);
+            fr_signal.1.set(true);
+        } else {
+            fr_signal.1.set(false);
+        }
+    }));
+
+    let fr = FRConfig::from_local_storage(fr_signal);
 
     provide_context(eo.clone());
     provide_context(rzp.clone());

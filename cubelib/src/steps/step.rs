@@ -149,9 +149,9 @@ impl <
     TransTable: TransitionTable<Turn>,
     PSC: PostStepCheck<Turn, Transformation, PuzzleParam>>
 StepVariant<Turn, Transformation, PuzzleParam, TransTable> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable, PSC>
-    where
-        HC: for<'x> From<&'x PuzzleParam>,
-        PC: for<'x> From<&'x PuzzleParam>, {
+where
+    HC: for<'x> From<&'x PuzzleParam>,
+    PC: for<'x> From<&'x PuzzleParam>, {
 
     fn move_set(&self, _: &PuzzleParam, _: u8) -> &'_ MoveSet<Turn, TransTable> {
         self.move_set
@@ -163,9 +163,9 @@ StepVariant<Turn, Transformation, PuzzleParam, TransTable> for DefaultPruningTab
 
     fn heuristic(&self, cube: &PuzzleParam, _: u8, can_niss: bool) -> u8 {
         let coord = HC::from(cube);
-        let val = self.table.get(coord).expect("Expected table to be filled");
+        let (val, niss) = self.table.get(coord);
         if can_niss && val != 0 {
-            1
+            niss
         } else {
             val
         }
@@ -181,8 +181,8 @@ impl <
     const HC_SIZE: usize,
     HC: Coord<HC_SIZE>,
     const PC_SIZE: usize,
-    PC: Coord<PC_SIZE>, PSC:
-    PostStepCheck<Turn, Transformation, PuzzleParam>,
+    PC: Coord<PC_SIZE>,
+    PSC: PostStepCheck<Turn, Transformation, PuzzleParam>,
     Turn: PuzzleMove + Transformable<Transformation>,
     Transformation: PuzzleMove,
     PuzzleParam: Puzzle<Turn, Transformation>,

@@ -123,6 +123,7 @@ pub mod tables {
     use crate::puzzles::pyraminx::steps::finish::{NO_TIPS_MOVESET, NoTipsFinishPruningTable};
     #[cfg(feature = "pyraminxfinish")]
     use crate::solver::lookup_table;
+    use crate::solver::lookup_table::TableType;
 
     pub struct PruningTablesPyraminx {
         #[cfg(feature = "pyraminxfinish")]
@@ -140,12 +141,13 @@ pub mod tables {
             }
         }
 
-        pub fn load(&mut self, key: &str, data: Vec<u8>) {
+        pub fn load(&mut self, key: &str, data: Box<Vec<u8>>) -> Result<(), String> {
             match key {
                 #[cfg(feature = "pyraminxfinish")]
-                "fin" => self.direct_finish = Some(NoTipsFinishPruningTable::load(data)),
+                "fin" => self.direct_finish = Some(NoTipsFinishPruningTable::load(data)?),
                 _ => {}
             }
+            Ok(())
         }
 
         #[cfg(feature = "pyraminxfinish")]
@@ -167,7 +169,7 @@ pub mod tables {
         info!("Generating direct finish pruning table...");
         #[cfg(not(target_arch = "wasm32"))]
             let time = Instant::now();
-        let table = lookup_table::generate(&NO_TIPS_MOVESET, &|c: &crate::puzzles::pyraminx::Pyraminx| NoTipsCoord::from(c));
+        let table = lookup_table::generate(&NO_TIPS_MOVESET, &|c: &crate::puzzles::pyraminx::Pyraminx| NoTipsCoord::from(c), TableType::Uncompressed);
         #[cfg(not(target_arch = "wasm32"))]
         debug!("Took {}ms", time.elapsed().as_millis());
         table

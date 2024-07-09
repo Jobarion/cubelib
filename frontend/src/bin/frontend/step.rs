@@ -180,6 +180,7 @@ impl HTRConfig {
         self.max_rel.2();
         self.niss.2();
         self.variants.2();
+        self.subsets.2();
     }
 }
 

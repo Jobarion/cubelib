@@ -42,33 +42,25 @@ pub fn Cube(cube: Signal<Cube333>) -> impl IntoView {
         let facelets = cube.get().get_facelets();
 
         let mut colors: Vec<CubeColor> = vec![];
-        for x in (0..3).rev() {
+        for x in (0..3) {
             colors.append(&mut vec![CubeColor::None; 3]);
-            for y in (0..3).rev() {
-                colors.push(facelets[CubeFace::Back][x * 3 + y]);
+            for y in (0..3) {
+                colors.push(facelets[CubeFace::Up][x * 3 + y]);
             }
             colors.append(&mut vec![CubeColor::None; 6]);
         }
         for x in 0..3 {
-            let x_rev = 2 - x;
-            for y in (0..3).rev() {
-                colors.push(facelets[CubeFace::Left][x + y * 3]);
-            }
-            for y in 0..3 {
-                colors.push(facelets[CubeFace::Up][x * 3 + y]);
-            }
-            for y in 0..3 {
-                colors.push(facelets[CubeFace::Right][x_rev + y * 3]);
-            }
-            for y in (0..3).rev() {
-                colors.push(facelets[CubeFace::Down][x_rev * 3 + y]);
+            for face in vec![CubeFace::Left, CubeFace::Front, CubeFace::Right, CubeFace::Back] {
+                for y in 0..3 {
+                    colors.push(facelets[face][x * 3 + y]);
+                }
             }
         }
 
         for x in 0..3 {
             colors.append(&mut vec![CubeColor::None; 3]);
             for y in 0..3 {
-                colors.push(facelets[CubeFace::Front][x * 3 + y]);
+                colors.push(facelets[CubeFace::Down][x * 3 + y]);
             }
             colors.append(&mut vec![CubeColor::None; 6]);
         }

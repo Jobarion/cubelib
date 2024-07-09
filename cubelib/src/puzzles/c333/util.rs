@@ -32,7 +32,7 @@ impl Subset {
 
 impl Display for Subset {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}{} {}e", self.corners, self.discriminator.unwrap_or("c"), self.qt, self.edges)
+        write!(f, "{}{}{} {}e", self.corners, self.discriminator.unwrap_or("c"), self.qt_corners, self.edges)
     }
 }
 
@@ -96,7 +96,7 @@ pub fn expand_subset_name(name: &str) -> Vec<(Subset, u8)> {
                 x.to_string().starts_with(name)
             } else if name.len() == 1 {
                 if let Ok(qt) = u8::from_str(name) {
-                    x.qt == qt
+                    x.qt_corners == qt
                 } else {
                     false
                 }

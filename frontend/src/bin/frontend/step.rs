@@ -1,8 +1,9 @@
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use cubelib::algs::Algorithm;
 use cubelib::defs::NissSwitchType;
 use cubelib::puzzles::c333::Turn333;
-use cubelib::puzzles::c333::util::{expand_subset_name, Subset};
+use cubelib::puzzles::c333::util::{expand_subset_name, HTR_SUBSETS, Subset};
 use cubelib::puzzles::cube::CubeAxis;
 use leptonic::prelude::*;
 use leptos::*;
@@ -410,7 +411,6 @@ pub fn DRParameters() -> impl IntoView {
 #[component]
 pub fn HTRParameters() -> impl IntoView {
     let htr_config = use_context::<HTRConfig>().expect("HTR context required");
-    let settings = use_context::<SettingsState>().expect("Settings context required");
 
     view! {
 
@@ -424,20 +424,13 @@ pub fn HTRParameters() -> impl IntoView {
             total_max=28
             variants=htr_config.variants
         />
-
-        {move || if settings.is_advanced() {
-            view!{
-                <h4>"Subsets"</h4>
-                <HTRSubsetSelection />
-            }.into_view()
-        } else {
-            view!{}.into_view()
-        }}
+        <HTRSubsetSelection />
     }
 }
 
 #[component]
 pub fn HTRSubsetSelection() -> impl IntoView {
+    let settings = use_context::<SettingsState>().expect("Settings context required");
     let htr_config = use_context::<HTRConfig>().expect("HTR context required");
     let (cur_subset, cur_subset_set) = create_signal("".to_string());
     let (subsets, subsets_set, _) = htr_config.subsets;
@@ -464,13 +457,28 @@ pub fn HTRSubsetSelection() -> impl IntoView {
                     .filter(|x|!subsets.contains(x))
                     .collect()
             })
-            on_click=move|s|{
-                let mut subsets = subsets.get();
-                if !subsets.contains(&s) {
-                    subsets.push(s);
-                    subsets_set.set(subsets);
+            on_click=move|s: String|{
+                if s.len() == 3 {
+                    for subset in HTR_SUBSETS {
+                        let subset = subset.to_string();
+                        if !subset.starts_with(&s) {
+                            continue;
+                        }
+                        let mut subsets = subsets.get();
+                        if !subsets.contains(&subset) {
+                            subsets.push(subset);
+                            subsets_set.set(subsets);
+                        }
+                    }
+                } else {
+                    let mut subsets = subsets.get();
+                    if !subsets.contains(&s) {
+                        subsets.push(s);
+                        subsets_set.set(subsets);
+                    }
                 }
             }
+            advanced=settings.advanced()
         />
         <button
             enabled=move||false
@@ -492,29 +500,38 @@ pub fn HTRSubsetSelection() -> impl IntoView {
             style:font-size="30px">
             <Icon icon=IoIcon::IoAddOutline/>
         </button>
-        <h5>{move||if subsets.get().is_empty() { "No active subsets" } else { "Active subsets"}}</h5>
-        <SubsetList subsets=subsets subsets_set=subsets_set />
+        <h5>{move||if subsets.get().is_empty() { "All subsets enabled" } else { "Enabled subsets"}}</h5>
+        <SubsetList subsets=subsets subsets_set=subsets_set advanced=settings.advanced() />
     }
 }
 
 #[component]
 fn SubsetList(
     #[prop(into)] subsets: Signal<Vec<String>>,
-    #[prop(into)] subsets_set: Out<Vec<String>>
+    #[prop(into)] subsets_set: Out<Vec<String>>,
+    advanced: Signal<bool>
 ) -> impl IntoView {
     view! {
         <div style:width="500px">
         {move || {
-            subsets.get()
+            let advanced = advanced.get();
+            let all_subsets: HashSet<String> = subsets.get()
                 .iter()
-                .map(|subset| subset.to_string())
+                .cloned()
+                .map(|subset| if advanced {
+                    subset
+                } else {
+                    subset.split_once(" ").unwrap().0.to_string()
+                })
+                .collect();
+            all_subsets.into_iter()
                 .map(|subset| {
                     let subset_c = subset.clone();
                     view! {
                         <Chip color=ChipColor::Secondary dismissible=move |_| {
                             subsets_set.set(subsets.get()
                                 .into_iter()
-                                .filter(|x|!subset_c.eq(x))
+                                .filter(|x|!x.starts_with(&subset_c))
                                 .collect());
                         }>
                             {subset}
@@ -531,13 +548,23 @@ fn SubsetList(
 fn SubsetPreview(
     #[prop(into)] subsets: Signal<Vec<String>>,
     #[prop(into)] on_click: Callback<String>,
+    advanced: Signal<bool>
 ) -> impl IntoView {
     view! {
         <div style:width="500px">
         {move || {
-            subsets.get()
+            let advanced = advanced.get();
+            let all_subsets: HashSet<String> = subsets.get()
                 .iter()
                 .cloned()
+                .map(|subset| if advanced {
+                    subset
+                } else {
+                    subset.split_once(" ").unwrap().0.to_string()
+                })
+                .collect();
+            all_subsets
+                .into_iter()
                 .map(|subset| {
                     let subset_c = subset.clone();
                     view! {

@@ -329,9 +329,7 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
             step_limit: None,
             quality: 10000,
             niss: Some(htr.niss.0.get()),
-            params: if !settings.is_advanced() {
-                Default::default()
-            } else {
+            params: {
                 let mut params = HashMap::new();
                 if !htr.subsets.0.get().is_empty() {
                     params.insert("subsets".to_string(), htr.subsets.0.get().join(","));

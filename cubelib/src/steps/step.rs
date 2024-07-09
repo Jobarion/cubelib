@@ -7,7 +7,7 @@ use crate::algs::Algorithm;
 use crate::defs::*;
 use crate::puzzles::puzzle::{ApplyAlgorithm, Puzzle, PuzzleMove, Transformable};
 use crate::solver::df_search::dfs_iter;
-use crate::solver::lookup_table::PruningTable;
+use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::{MoveSet, TransitionTable};
 use crate::solver::solution::{Solution, SolutionStep};
 use crate::solver::stream;
@@ -109,7 +109,7 @@ pub struct DefaultPruningTableStep<
 {
     move_set: &'a MoveSet<Turn, TransTable>,
     pre_trans: Vec<Transformation>,
-    table: &'a PruningTable<HC_SIZE, HC>,
+    table: &'a LookupTable<HC_SIZE, HC>,
     name: &'a str,
     post_step_checker: PSC,
     _pc: PhantomData<PC>,
@@ -162,12 +162,11 @@ where
     }
 
     fn heuristic(&self, cube: &PuzzleParam, _: u8, can_niss: bool) -> u8 {
-        let coord = HC::from(cube);
-        let (val, niss) = self.table.get(coord);
-        if can_niss && val != 0 {
-            niss
+        if can_niss {
+            1
         } else {
-            val
+            let coord = HC::from(cube);
+            self.table.get(coord)
         }
     }
 
@@ -195,7 +194,7 @@ DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, Puzz
 
     pub fn new(move_set: &'a MoveSet<Turn, TransTable>,
                pre_trans: Vec<Transformation>,
-               table: &'a PruningTable<HC_SIZE, HC>,
+               table: &'a LookupTable<HC_SIZE, HC>,
                post_step_checker: PSC,
                name: &'a str) -> Self {
         DefaultPruningTableStep {

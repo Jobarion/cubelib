@@ -45,7 +45,7 @@ fn FMCAppContainer() -> impl IntoView {
 
     let fin = FinishConfig::from_local_storage(enabled_states[2]);
 
-    let fr_signal = util::use_local_storage("enabled-fr", true);
+    let fr_signal = util::use_local_storage("enabled-fr", false);
 
     let enabled_states_1 = enabled_states[1].clone();
     let fr_signal = (Signal::derive(move || fr_signal.0.get() && enabled_states_1.0.get()), Callback::new(move |state| {

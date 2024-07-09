@@ -56,7 +56,7 @@ impl From<&EdgeCube333> for EOCoordAll {
 
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn from(value: &EdgeCubieCube) -> Self {
+    fn from(value: &EdgeCube333) -> Self {
         wasm32::from_eocoord_all(value)
     }
 }
@@ -70,7 +70,7 @@ impl From<&EdgeCube333> for EOCoordUD {
 
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn from(value: &EdgeCubieCube) -> Self {
+    fn from(value: &EdgeCube333) -> Self {
         wasm32::from_eocoord_ud(value)
     }
 }
@@ -90,7 +90,7 @@ impl From<&EdgeCube333> for EOCoordFB {
 
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn from(value: &EdgeCubieCube) -> Self {
+    fn from(value: &EdgeCube333) -> Self {
         wasm32::from_eocoord_fb(value)
     }
 }
@@ -110,7 +110,7 @@ impl From<&EdgeCube333> for EOCoordLR {
 
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn from(value: &EdgeCubieCube) -> Self {
+    fn from(value: &EdgeCube333) -> Self {
         wasm32::from_eocoord_lr(value)
     }
 }

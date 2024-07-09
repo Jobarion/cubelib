@@ -22,15 +22,15 @@ pub mod finish {
     use crate::puzzles::pyraminx::coords::{NO_TIPS_COORD_SIZE, NoTipsCoord};
     use crate::puzzles::pyraminx::PyraminxTip::{Back, Left, Right, Up};
     use crate::puzzles::pyraminx::steps::{MoveSetPyraminx, StepPyraminx, TransitionTablePyraminx};
-    use crate::solver::lookup_table::PruningTable;
+    use crate::solver::lookup_table::LookupTable;
     use crate::solver::moveset::MoveSet;
     use crate::steps::coord::ZeroCoord;
     use crate::steps::step::{AnyPostStepCheck, DefaultPruningTableStep, PostStepCheck, PreStepCheck, StepVariant};
 
     pub type NoTipsFinishStep<'a> = DefaultPruningTableStep::<'a, { NO_TIPS_COORD_SIZE }, NoTipsCoord, 0, ZeroCoord, PyraminxTurn, PyraminxTransformation, Pyraminx, TransitionTablePyraminx, AnyPostStepCheck>;
-    pub type NoTipsFinishPruningTable = PruningTable<{ NO_TIPS_COORD_SIZE }, NoTipsCoord>;
+    pub type NoTipsFinishPruningTable = LookupTable<{ NO_TIPS_COORD_SIZE }, NoTipsCoord>;
     pub type TipsFinishStep<'a> = DefaultPruningTableStep::<'a, { NO_TIPS_COORD_SIZE }, NoTipsCoord, 0, ZeroCoord, PyraminxTurn, PyraminxTransformation, Pyraminx, TransitionTablePyraminx, AnyPostStepCheck>;
-    pub type TipsFinishPruningTable = PruningTable<{ NO_TIPS_COORD_SIZE }, NoTipsCoord>;
+    pub type TipsFinishPruningTable = LookupTable<{ NO_TIPS_COORD_SIZE }, NoTipsCoord>;
 
     pub const NO_TIPS_MOVESET: MoveSetPyraminx = MoveSetPyraminx {
         st_moves: &PyraminxTurn::NO_TIPS,

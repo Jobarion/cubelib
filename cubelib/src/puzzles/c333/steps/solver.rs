@@ -65,7 +65,7 @@ pub fn build_steps(steps: Vec<StepConfig>, tables: &PruningTables333) -> Result<
                 }
             }
             #[cfg(feature = "333htr")]
-            (Some(StepKind::DR), StepKind::HTR)   => vec![steps::htr::htr_config::from_step_config(tables.htr().expect("HTR table required"), config.clone())].into_iter(),
+            (Some(StepKind::DR), StepKind::HTR)   => vec![steps::htr::htr_config::from_step_config(tables.htr().expect("HTR table required"), tables.htr_subset().expect("HTR subset table required"), config.clone())].into_iter(),
             #[cfg(feature = "333fr")]
             (Some(StepKind::HTR), StepKind::FR)   => vec![steps::fr::fr_config::from_step_config(tables.fr().expect("FR table required"), config.clone())].into_iter(),
             #[cfg(feature = "333fr")]

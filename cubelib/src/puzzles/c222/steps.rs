@@ -7,13 +7,13 @@ pub mod finish {
     use crate::puzzles::c222::{Cube222, Transformation222, Turn222};
     use crate::puzzles::c222::coords::{CORNER_COORD_SIZE, CornerCoord};
     use crate::puzzles::c222::steps::{MoveSet222, Step222};
-    use crate::solver::lookup_table::PruningTable;
+    use crate::solver::lookup_table::LookupTable;
     use crate::solver::moveset::TransitionTable222;
     use crate::steps::coord::ZeroCoord;
     use crate::steps::step::{AnyPostStepCheck, DefaultPruningTableStep, StepVariant};
 
     pub type DirectFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, {CORNER_COORD_SIZE}, CornerCoord, 0, ZeroCoord, Turn222, Transformation222, Cube222, TransitionTable222, AnyPostStepCheck>;
-    pub type DirectFinishPruningTable = PruningTable<{CORNER_COORD_SIZE}, CornerCoord>;
+    pub type DirectFinishPruningTable = LookupTable<{CORNER_COORD_SIZE}, CornerCoord>;
     pub const DIRECT_FINISH_MOVESET: MoveSet222 = MoveSet222 {
         st_moves: &Turn222::ALL,
         aux_moves: &[],

@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::algs::Algorithm;
 use crate::defs::*;
-use crate::solver::lookup_table::PruningTable;
+use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::TransitionTable333;
 use crate::puzzles::c333::{Cube333, EdgeCube333, Transformation333, Turn333};
 use crate::puzzles::c333::steps::{MoveSet333, Step333};
@@ -107,7 +107,7 @@ pub const EO_UD_PRE_TRANS: [Transformation333; 1] = [Transformation333::new(Cube
 pub const EO_LR_PRE_TRANS: [Transformation333; 1] = [Transformation333::new(CubeAxis::Y, Clockwise)];
 const BAD_EDGE_HEURISTIC: [u8; 7] = [0, 2, 1, 2, 2, 3, 3];
 
-pub type EOPruningTable = PruningTable<2048, EOCoordFB>;
+pub type EOPruningTable = LookupTable<2048, EOCoordFB>;
 
 pub struct EOStepTable<'a> {
     move_set: &'a MoveSet333,
@@ -218,7 +218,7 @@ impl StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> for EO
             BAD_EDGE_HEURISTIC[(fb_edges >> 1) as usize]
         } else {
             let coord = EOCoordFB::from(cube);
-            self.table.get(coord).0
+            self.table.get(coord)
         }
     }
 

@@ -1,10 +1,12 @@
 use std::fmt::{Display, Formatter};
-
+use cubelib::algs::Algorithm;
 use cubelib::defs::NissSwitchType;
+use cubelib::puzzles::c333::Turn333;
+use cubelib::puzzles::c333::util::{expand_subset_name, Subset};
 use cubelib::puzzles::cube::CubeAxis;
 use leptonic::prelude::*;
 use leptos::*;
-
+use leptos_icons::IoIcon;
 use crate::SettingsState;
 use crate::util::{RwSignalTup, use_local_storage};
 
@@ -39,18 +41,19 @@ pub struct DRConfig {
 }
 
 #[derive(Clone)]
-pub struct  HTRConfig {
+pub struct HTRConfig {
     pub enabled: (Signal<bool>, Callback<bool>),
     pub min_abs: RwSignalTup<u8>,
     pub max_abs: RwSignalTup<u8>,
     pub min_rel: RwSignalTup<u8>,
     pub max_rel: RwSignalTup<u8>,
     pub niss: RwSignalTup<NissSwitchType>,
-    pub variants: RwSignalTup<Vec<CubeAxis>>
+    pub variants: RwSignalTup<Vec<CubeAxis>>,
+    pub subsets: RwSignalTup<Vec<String>>
 }
 
 #[derive(Clone)]
-pub struct  FRConfig {
+pub struct FRConfig {
     pub enabled: (Signal<bool>, Callback<bool>),
     pub min_abs: RwSignalTup<u8>,
     pub max_abs: RwSignalTup<u8>,
@@ -160,6 +163,7 @@ impl HTRConfig {
             max_abs: use_local_storage("htr-max-abs", 20),
             niss: use_local_storage("htr-niss", NissSwitchType::Before),
             variants: use_local_storage("htr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
+            subsets: use_local_storage("htr-subsets", vec![]),
         }
     }
 
@@ -405,6 +409,7 @@ pub fn DRParameters() -> impl IntoView {
 #[component]
 pub fn HTRParameters() -> impl IntoView {
     let htr_config = use_context::<HTRConfig>().expect("HTR context required");
+    let settings = use_context::<SettingsState>().expect("Settings context required");
 
     view! {
 
@@ -418,6 +423,133 @@ pub fn HTRParameters() -> impl IntoView {
             total_max=28
             variants=htr_config.variants
         />
+
+        {move || if settings.is_advanced() {
+            view!{
+                <h4>"Subsets"</h4>
+                <HTRSubsetSelection />
+            }.into_view()
+        } else {
+            view!{}.into_view()
+        }}
+    }
+}
+
+#[component]
+pub fn HTRSubsetSelection() -> impl IntoView {
+    let htr_config = use_context::<HTRConfig>().expect("HTR context required");
+    let (cur_subset, cur_subset_set) = create_signal("".to_string());
+    let (subsets, subsets_set, _) = htr_config.subsets;
+
+    let expanded_subset: Signal<Vec<String>> = Signal::derive(move|| expand_subset_name(cur_subset.get().as_str())
+        .into_iter()
+        .map(|(s, _)|s.to_string())
+        .collect()
+    );
+
+    view! {
+        <h4>"Subsets"</h4>
+        <TextInput
+            get=cur_subset
+            set=cur_subset_set placeholder="2c3 e6"
+            style="width: 150px"
+            class=move|| if cur_subset.get().is_empty() || !expanded_subset.get().is_empty() { "" } else { "leptonic-input-invalid" }
+        />
+        <SubsetPreview
+            subsets=Signal::derive(move||{
+                let subsets = subsets.get();
+                expanded_subset.get()
+                    .into_iter()
+                    .filter(|x|!subsets.contains(x))
+                    .collect()
+            })
+            on_click=move|s|{
+                let mut subsets = subsets.get();
+                if !subsets.contains(&s) {
+                    subsets.push(s);
+                    subsets_set.set(subsets);
+                }
+            }
+        />
+        <button
+            enabled=move||false
+            on:click=move|_|{
+                if !expanded_subset.get().is_empty()  {
+                    let mut subsets = subsets.get();
+                    for subset in expanded_subset.get() {
+                        if !subsets.contains(&subset) {
+                            subsets.push(subset);
+                        }
+                    }
+                    subsets_set.set(subsets);
+                    cur_subset_set.set("".to_string());
+                }
+            }
+            class="icon-button"
+            style:cursor=move||if !expanded_subset.get().is_empty() { "pointer" } else { "default" }
+            style:opacity="60%"
+            style:font-size="30px">
+            <Icon icon=IoIcon::IoAddOutline/>
+        </button>
+        <h5>{move||if subsets.get().is_empty() { "No active subsets" } else { "Active subsets"}}</h5>
+        <SubsetList subsets=subsets subsets_set=subsets_set />
+    }
+}
+
+#[component]
+fn SubsetList(
+    #[prop(into)] subsets: Signal<Vec<String>>,
+    #[prop(into)] subsets_set: Out<Vec<String>>
+) -> impl IntoView {
+    view! {
+        <div style:width="500px">
+        {move || {
+            subsets.get()
+                .iter()
+                .map(|subset| subset.to_string())
+                .map(|subset| {
+                    let subset_c = subset.clone();
+                    view! {
+                        <Chip color=ChipColor::Secondary dismissible=move |_| {
+                            subsets_set.set(subsets.get()
+                                .into_iter()
+                                .filter(|x|!subset_c.eq(x))
+                                .collect());
+                        }>
+                            {subset}
+                        </Chip>
+                    }.into_view()
+                })
+                .collect_view()
+        }}
+        </div>
+    }
+}
+
+#[component]
+fn SubsetPreview(
+    #[prop(into)] subsets: Signal<Vec<String>>,
+    #[prop(into)] on_click: Callback<String>,
+) -> impl IntoView {
+    view! {
+        <div style:width="500px">
+        {move || {
+            subsets.get()
+                .iter()
+                .cloned()
+                .map(|subset| {
+                    let subset_c = subset.clone();
+                    view! {
+                        <Chip color=ChipColor::Primary on:click=move |_| {
+                            on_click.call(subset_c.clone())
+                        }>
+                            {subset}
+                        </Chip>
+                    }.into_view()
+                })
+                .collect_view()
+        }}
+        </div>
     }
 }
 

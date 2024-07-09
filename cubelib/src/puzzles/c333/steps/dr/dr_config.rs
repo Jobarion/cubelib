@@ -3,7 +3,7 @@ use std::vec;
 use itertools::Itertools;
 
 use crate::defs::*;
-use crate::solver::lookup_table::PruningTable;
+use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::TransitionTable333;
 use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
 use crate::puzzles::c333::steps::{MoveSet333, Step333};
@@ -63,7 +63,7 @@ pub const DR_UD_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
     transitions: &dr_transitions(Left),
 };
 
-pub type DRPruningTable = PruningTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
+pub type DRPruningTable = LookupTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
 pub type DRPruningTableStep<'a> = DefaultPruningTableStep<'a, {DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, Turn333, Transformation333, Cube333, TransitionTable333, AnyPostStepCheck>;
 
 pub fn from_step_config(table: &DRPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {

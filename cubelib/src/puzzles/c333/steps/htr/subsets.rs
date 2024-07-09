@@ -2,76 +2,38 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::str::FromStr;
 use itertools::Itertools;
-use log::debug;
+use log::{debug, trace};
 use crate::algs::Algorithm;
 use crate::puzzles::c333::{Cube333, Turn333};
 use crate::puzzles::c333::steps::htr::coords::HTRDRUDCoord;
-use crate::puzzles::c333::steps::htr::htr_config::{HTR_DR_UD_MOVESET, HTRPruningTable};
+use crate::puzzles::c333::steps::htr::htr_config::{HTR_DR_UD_MOVESET, HTRPruningTable, HTRSubsetTable};
 use crate::puzzles::cube::Direction;
 use crate::puzzles::puzzle::{ApplyAlgorithm, InvertibleMut, TurnableMut};
+use crate::steps::coord::Coord;
 
-const SUBSET_GENERATORS: [&str; 48] = [
-    "",
-    "U R2 F2 R2 U",
-    "U R2 L2 D",
-    "U R2 L2 F2 R2 F2 D",
-    "U R2 L2 F2 B2 U",
-    "U R2 L2 U F2 B2 D",
-    "U R2 L2 U R2 U",
-    "U",
-    "U R2 F2 R2 F2 U",
-    "U R2 U",
-    "U R2 F2 U",
-    "U R2 U R2 B2 R2 U' R2 U",
-    "D B2 D' F2 B2 D' F2 D",
-    "U R2 U2 F2 U",
-    "U F2 U2 R2 B2 U' L2 B2 D",
-    "U R2 U R2 U",
-    "U L2 U F2 U",
-    "U L2 D R2 F2 B2 U",
-    "U B2 L2 U B2 L2 U2 B2 D",
-    "U R2 F2 U R2 U2 F2 U",
-    "U B2 U R2 U2 F2 D",
-    "U B2 U' L2 U2 B2 D",
-    "U R2 U2 F2 U' R2 U2 R2 F2 U",
-    "U R2 U2 F2 U R2 U2 F2 U",
-    "U R2 U2 F2 U R2 U2 R2 B2 D",
-    "U L2 U2 F2 U B2 U2 R2 U",
-    "U R2 U2 F2 U' L2 U2 R2 F2 D",
-    "U L2 D' R2 D L2 U",
-    "U R2 U' R2 U R2 U",
-    "U R2 U' L2 D R2 D",
-    "U' B2 D' L2 B2 U' R2 U",
-    "U R2 L2 B2 U R2 U' F2 U",
-    "U R2 U R2 U2 B2 U B2 U",
-    "U L2 U B2 U2 R2 U L2 U",
-    "U B2 U F2 U2 R2 U R2 D",
-    "U' R2 U L2 U2 L2 B2 U' B2 D",
-    "U' R2 U R2 U2 B2 U F2 R2 L2 U",
-    "U R2 U B2 U2 R2 F2 B2 U' B2 U",
-    "U' F2 U F2 U2 R2 U' R2 U",
-    "U' B2 U F2 U2 R2 U' R2 U",
-    "U L2 U L2 U' L2 B2 U' B2 U",
-    "U L2 U R2 U' R2 U R2 U",
-    "D R2 U L2 D' R2 D L2 U",
-    "U L2 U F2 U' R2 U B2 U",
-    "U R2 U L2 F2 U B2 U' L2 U",
-    "U' L2 U L2 U' R2 U R2 U",
-    "U' R2 U F2 U' F2 U B2 D",
-    "U' R2 U F2 U' F2 U F2 U"
-];
+pub type Subset = crate::puzzles::c333::util::Subset;
+pub const HTR_SUBSETS: [Subset; 48] = crate::puzzles::c333::util::HTR_SUBSETS;
 
-pub fn gen_niss_table(htr_table: &mut HTRPruningTable) {
-    let cube = Cube333::default();
-    for (alg_str, id) in SUBSET_GENERATORS.iter().zip(1..) {
-        let alg = Algorithm::from_str(alg_str).unwrap();
-        let mut c = cube.clone();
-        let min_moves = min_niss_moves(&alg);
-        debug!("Generating NISS table for subgroup: {id} ({alg}), min moves: {min_moves}");
+pub fn gen_subset_tables(htr_table: &mut HTRPruningTable) -> HTRSubsetTable {
+    let mut subset_table = HTRSubsetTable::new(false);
 
-        c.apply_alg(&alg);
-        fill_table(htr_table, alg, min_moves);
+    let table_size = HTRDRUDCoord::size();
+    let mut total_checked = 0;
+
+    for (subset, id) in HTR_SUBSETS.iter().zip(1..) {
+        debug!("Generating NISS table for subset: {id}. {subset:?}");
+        let generator = Algorithm::from_str(subset.generator).unwrap();
+        let checked = fill_table(htr_table, &mut subset_table, &generator, id - 1);
+        total_checked += checked;
+        debug!(
+            "Checked {:width$}/{} cubes (new {})",
+            total_checked,
+            table_size,
+            checked,
+            width = table_size.to_string().len(),
+        );
     }
+    subset_table
 }
 
 fn min_niss_moves(alg: &Algorithm<Turn333>) -> u8 {
@@ -118,10 +80,9 @@ fn gen_coset_0() -> Vec<Cube333> {
     checked.values().cloned().collect_vec()
 }
 
-fn fill_table(htr_table: &mut HTRPruningTable, alg: Algorithm<Turn333>, niss_bound: u8) {
-    if niss_bound == 0 {
-        return;
-    }
+fn fill_table(htr_table: &mut HTRPruningTable, subset_table: &mut HTRSubsetTable, generator: &Algorithm<Turn333>, subset_id: u8) -> usize {
+    let mut total_checked = 0;
+    let niss_bound = min_niss_moves(generator);
     let mut to_check: Vec<Cube333> = gen_coset_0()
         .into_iter()
         .flat_map(|c|{
@@ -133,14 +94,14 @@ fn fill_table(htr_table: &mut HTRPruningTable, alg: Algorithm<Turn333>, niss_bou
                     vec![a, b].into_iter()
                 })
                 .map(|mut c|{
-                    c.apply_alg(&alg);
+                    c.apply_alg(generator);
                     c
                 })
         })
         .collect_vec();
     let mut check_next: Vec<Cube333> = vec![];
     loop {
-        debug!("To check: {}", to_check.len());
+        trace!("To check: {}", to_check.len());
         for cube in to_check.iter().cloned().flat_map(|mut a|{
             let b = a.clone();
             a.invert();
@@ -153,17 +114,19 @@ fn fill_table(htr_table: &mut HTRPruningTable, alg: Algorithm<Turn333>, niss_bou
                     cube
                 }) {
                 let coord = HTRDRUDCoord::from(&cube);
-                let (normal, niss) = htr_table.get(coord);
-                if niss != 0 {
+                let (_, niss) = htr_table.get(coord);
+                if niss != htr_table.empty_val() {
                     continue;
                 }
-                htr_table.set(coord, normal | (niss_bound << 4));
+                htr_table.set_niss(coord, niss_bound);
+                subset_table.set(coord, subset_id);
                 check_next.push(cube);
             }
         }
         if check_next.is_empty() {
-            break;
+            break total_checked;
         }
+        total_checked += check_next.len();
         to_check = check_next;
         check_next = vec![];
     }

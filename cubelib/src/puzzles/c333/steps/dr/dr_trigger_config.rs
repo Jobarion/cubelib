@@ -206,7 +206,7 @@ impl<'a> StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> fo
             1
         } else {
             let coord = DRUDEOFBCoord::from(cube);
-            self.table.get(coord).0
+            self.table.get(coord)
         }
     }
 

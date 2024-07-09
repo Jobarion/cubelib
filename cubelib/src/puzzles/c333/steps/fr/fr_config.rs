@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::defs::*;
-use crate::solver::lookup_table::PruningTable;
+use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::TransitionTable333;
 use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
 use crate::puzzles::c333::steps::{MoveSet333, Step333};
@@ -31,8 +31,8 @@ pub const FR_UD_MOVESET: MoveSet333 = MoveSet333 {
     transitions: &fr_transitions(Up),
 };
 
-pub type FRLeaveSlicePruningTable = PruningTable<{ FRUD_NO_SLICE_SIZE }, FRUDNoSliceCoord>;
-pub type FRPruningTable = PruningTable<{ FRUD_WITH_SLICE_SIZE }, FRUDWithSliceCoord>;
+pub type FRLeaveSlicePruningTable = LookupTable<{ FRUD_NO_SLICE_SIZE }, FRUDNoSliceCoord>;
+pub type FRPruningTable = LookupTable<{ FRUD_WITH_SLICE_SIZE }, FRUDWithSliceCoord>;
 pub type FRLeaveSlicePruningTableStep<'a> = DefaultPruningTableStep::<'a, {FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, Turn333, Transformation333, Cube333, TransitionTable333, AnyPostStepCheck>;
 pub type FRPruningTableStep<'a> = DefaultPruningTableStep::<'a, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, Turn333, Transformation333, Cube333, TransitionTable333, AnyPostStepCheck>;
 

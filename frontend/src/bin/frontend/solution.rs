@@ -122,7 +122,7 @@ pub mod backend {
         let current_bytes = RefCell::<Vec<u8>>::new(vec![]);
 
         let body = serde_json::to_vec(&request).unwrap();
-        let mut req = Request::post("https://joba.me/cubeapi/solve_stream", body);
+        let mut req = Request::post("http://localhost:8049/solve_stream", body);
         req.headers.insert("content-type".to_string(), "application/json".to_string());
 
         ehttp::streaming::fetch(req, move |res: ehttp::Result<ehttp::streaming::Part>| {
@@ -329,7 +329,13 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
             step_limit: None,
             quality: 10000,
             niss: Some(htr.niss.0.get()),
-            params: Default::default(),
+            params: if !settings.is_advanced() {
+                Default::default()
+            } else {
+                let mut subsets = HashMap::new();
+                subsets.insert("subsets".to_string(), htr.subsets.0.get().join(","));
+                subsets
+            },
         });
     }
     if fr.enabled.0.get() {

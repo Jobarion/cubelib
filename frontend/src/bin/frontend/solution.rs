@@ -11,8 +11,8 @@ use leptos::*;
 pub use backend::SolutionComponent;
 #[cfg(feature = "wasm_solver")]
 pub use wasm_solver::SolutionComponent;
-use crate::settings::SettingsState;
 
+use crate::settings::SettingsState;
 use crate::step::{DRConfig, EOConfig, FinishConfig, FRConfig, HTRConfig, RZPConfig, SelectableAxis};
 
 #[cfg(feature = "backend")]
@@ -27,9 +27,9 @@ pub mod backend {
     use ehttp::Request;
     use leptonic::prelude::*;
     use leptos::*;
-    use leptos_use::{watch_debounced, watch_debounced_with_options, WatchDebouncedOptions};
-    use crate::settings::SettingsState;
+    use leptos_use::{watch_debounced_with_options, WatchDebouncedOptions};
 
+    use crate::settings::SettingsState;
     use crate::solution::get_step_configs;
     use crate::step::{DRConfig, EOConfig, FinishConfig, FRConfig, HTRConfig, RZPConfig};
     use crate::util::RwSignalTup;
@@ -332,9 +332,11 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
             params: if !settings.is_advanced() {
                 Default::default()
             } else {
-                let mut subsets = HashMap::new();
-                subsets.insert("subsets".to_string(), htr.subsets.0.get().join(","));
-                subsets
+                let mut params = HashMap::new();
+                if !htr.subsets.0.get().is_empty() {
+                    params.insert("subsets".to_string(), htr.subsets.0.get().join(","));
+                }
+                params
             },
         });
     }

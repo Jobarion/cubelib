@@ -122,7 +122,7 @@ pub mod backend {
         let current_bytes = RefCell::<Vec<u8>>::new(vec![]);
 
         let body = serde_json::to_vec(&request).unwrap();
-        let mut req = Request::post("http://localhost:8049/solve_stream", body);
+        let mut req = Request::post("https://joba.me/cubeapi/solve_stream", body);
         req.headers.insert("content-type".to_string(), "application/json".to_string());
 
         ehttp::streaming::fetch(req, move |res: ehttp::Result<ehttp::streaming::Part>| {

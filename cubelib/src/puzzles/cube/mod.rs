@@ -42,6 +42,10 @@ impl PuzzleMove for CubeOuterTurn {
     fn all() -> &'static [Self] {
         &Self::ALL
     }
+
+    fn is_same_type(&self, other: &Self) -> bool {
+        self.face == other.face
+    }
 }
 
 impl Transformable<CubeTransformation> for CubeOuterTurn {
@@ -77,6 +81,10 @@ const TRANSFORMATIONS: [CubeTransformation; 9] = [
 impl PuzzleMove for CubeTransformation {
     fn all() -> &'static [Self] {
         &Self::ALL
+    }
+
+    fn is_same_type(&self, other: &Self) -> bool {
+        self == other
     }
 }
 

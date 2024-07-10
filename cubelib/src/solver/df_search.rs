@@ -70,6 +70,7 @@ pub fn dfs_iter<
                                 depth,
                                 false,
                                 false,
+                                true,
                                 previous_normal,
                                 previous_inverse,
                                 cancel_token.clone()
@@ -87,6 +88,7 @@ pub fn dfs_iter<
                                 depth,
                                 false,
                                 false,
+                                true,
                                 previous_normal,
                                 previous_inverse,
                                 cancel_token.clone(),
@@ -108,6 +110,7 @@ pub fn dfs_iter<
                             depth,
                             true,
                             true,
+                            true,
                             previous_normal,
                             previous_inverse,
                             cancel_token.clone(),
@@ -121,6 +124,7 @@ pub fn dfs_iter<
                             depth,
                             true,
                             false,
+                            true,
                             previous_normal,
                             previous_inverse,
                             cancel_token.clone(),
@@ -134,6 +138,7 @@ pub fn dfs_iter<
                             depth,
                             true,
                             false,
+                            true,
                             previous_inverse,
                             previous_normal,
                             cancel_token.clone(),
@@ -171,12 +176,13 @@ fn next_dfs_level<
     depth_left: u8,
     can_invert: bool,
     invert_allowed: bool,
+    first_move_on_side: bool,
     previous_normal: Option<Turn>,
     previous_inverse: Option<Turn>,
     cancel_token: CancellationToken,
 ) -> Box<dyn Iterator<Item = Algorithm<Turn>> + 'a> {
     let lower_bound = step.heuristic(&cube, depth_left, invert_allowed);
-    trace!("{}DFS depth {depth_left}, lower bound {lower_bound}, invert {invert_allowed}, {previous_normal:?}", " ".repeat(10 - depth_left as usize));
+    trace!("[{}]{}DFS depth {depth_left}, lower bound {lower_bound}, invert {invert_allowed}, {previous_normal:?}", step.name(), " ".repeat(10 - depth_left as usize));
     let mut inverse = cube.clone();
     let cancel_token_inverse = cancel_token.clone();
     let normal_solutions: Box<dyn Iterator<Item = Algorithm<Turn>>> = if depth_left == 0 && lower_bound == 0 {
@@ -197,9 +203,13 @@ fn next_dfs_level<
                         .map_or(Transition::any(), |pm| step.move_set(&cube, depth_left).transitions[Into::<usize>::into(pm)].check_move(m))
                 )
             })
-            .map(move |m|{trace!("{}Considering {}", " ".repeat(11 - depth_left as usize), m.0);m})
-            .filter(move |(_m, transition_type)| transition_type.allowed && (depth_left != 1 || transition_type.can_end))
-            .map(move |m|{trace!("{}Trying {}", " ".repeat(11 - depth_left as usize), m.0);m})
+            .map(move |m|{trace!("[{}]{}Considering {}", step.name(), " ".repeat(11 - depth_left as usize), m.0);m})
+            .filter(move |(m, transition_type)| if first_move_on_side {
+                previous_normal.map(|pm|!pm.is_same_type(m)).unwrap_or(transition_type.allowed)
+            } else {
+                transition_type.allowed
+            })
+            .map(move |m|{trace!("[{}]{}Trying {} {} (st)", step.name(), " ".repeat(11 - depth_left as usize), m.0, m.1.can_end);m})
             .flat_map(move |(m, t)| {
                 cube.turn(m);
                 let result = next_dfs_level(
@@ -208,6 +218,7 @@ fn next_dfs_level<
                     depth_left - 1,
                     t.can_end,
                     invert_allowed,
+                    false,
                     Some(m),
                     previous_inverse,
                     cancel_token.clone(),
@@ -219,40 +230,49 @@ fn next_dfs_level<
                 })
             });
         let cancel_token = cancel_token_aux;
-        let aux_moves = step
-            .move_set(&cube, depth_left)
-            .aux_moves
-            .into_iter()
-            .cloned()
-            .map(move |m| {
-                (
-                    m,
-                    previous_normal
-                        .map_or(Transition::any(), |pm| step.move_set(&cube, depth_left).transitions[Into::<usize>::into(pm)].check_move(m))
-                )
-            })
-            .map(move |m|{trace!("{}Considering {}", " ".repeat(11 - depth_left as usize), m.0);m})
-            .filter(move |(_m, transition_type)| transition_type.allowed && (depth_left != 1 || transition_type.can_end))
-            .map(move |m|{trace!("{}Trying {}", " ".repeat(11 - depth_left as usize), m.0);m})
-            .flat_map(move |(m, _)| {
-                cube.turn(m);
-                let result = next_dfs_level(
-                    step,
-                    cube,
-                    depth_left - 1,
-                    false,
-                    invert_allowed,
-                    Some(m),
-                    previous_inverse,
-                    cancel_token.clone(),
-                );
-                cube.turn(m.invert());
-                result.map(move |mut alg| {
-                    alg.normal_moves.push(m);
-                    alg
+        if depth_left > 1 {
+            let aux_moves = step
+                .move_set(&cube, depth_left)
+                .aux_moves
+                .into_iter()
+                .cloned()
+                .map(move |m| {
+                    (
+                        m,
+                        previous_normal
+                            .map_or(Transition::any(), |pm| step.move_set(&cube, depth_left).transitions[Into::<usize>::into(pm)].check_move(m))
+                    )
                 })
-            });
-        Box::new(state_change_moves.chain(aux_moves))
+                .map(move |m|{trace!("[{}]{}Considering {}", step.name(), " ".repeat(11 - depth_left as usize), m.0);m})
+                .filter(move |(m, transition_type)| if first_move_on_side {
+                    previous_normal.map(|pm|!pm.is_same_type(m)).unwrap_or(transition_type.allowed)
+                } else {
+                    transition_type.allowed
+                })
+                .map(move |m|{trace!("[{}]{}Trying {} {} (aux)", step.name(), " ".repeat(11 - depth_left as usize), m.0, m.1.can_end);m})
+                .flat_map(move |(m, _)| {
+                    cube.turn(m);
+                    let result = next_dfs_level(
+                        step,
+                        cube,
+                        depth_left - 1,
+                        false,
+                        invert_allowed,
+                        false,
+                        Some(m),
+                        previous_inverse,
+                        cancel_token.clone(),
+                    );
+                    cube.turn(m.invert());
+                    result.map(move |mut alg| {
+                        alg.normal_moves.push(m);
+                        alg
+                    })
+                });
+            Box::new(state_change_moves.chain(aux_moves))
+        } else {
+            Box::new(state_change_moves)
+        }
     };
     if depth_left > 0 && can_invert && invert_allowed {
         inverse.invert();
@@ -262,6 +282,7 @@ fn next_dfs_level<
             depth_left,
             false,
             false,
+            true,
             previous_inverse,
             previous_normal,
             cancel_token_inverse.clone()

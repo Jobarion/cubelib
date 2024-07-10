@@ -45,10 +45,12 @@ pub struct RZPStep<'a> {
     move_set: &'a MoveSet333,
     pre_trans: Vec<Transformation333>,
     name: &'a str,
+    is_any: bool,
 }
 
 pub fn from_step_config<'a>(config: StepConfig) -> Result<(Step333<'a>, DefaultStepOptions), String> {
-    let step = rzp_any();
+    // let step = rzp_any();
+    let step = rzp(vec![CubeAxis::X, CubeAxis::Y, CubeAxis::Z]);
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(3),
@@ -93,6 +95,7 @@ impl<'a> RZPStep<'a> {
             move_set: &RZP_ANY,
             pre_trans: vec![],
             name: "",
+            is_any: true,
         }
     }
 
@@ -101,6 +104,7 @@ impl<'a> RZPStep<'a> {
             move_set: &RZP_EO_FB_MOVESET,
             pre_trans: vec![Transformation333::X],
             name: "ud",
+            is_any: false,
         }
     }
 
@@ -109,6 +113,7 @@ impl<'a> RZPStep<'a> {
             move_set: &RZP_EO_FB_MOVESET,
             pre_trans: vec![],
             name: "fb",
+            is_any: false,
         }
     }
 
@@ -117,15 +122,19 @@ impl<'a> RZPStep<'a> {
             move_set: &RZP_EO_FB_MOVESET,
             pre_trans: vec![Transformation333::Y],
             name: "lr",
+            is_any: false,
         }
     }
 }
 
-impl<'a> PreStepCheck<Turn333, Transformation333, Cube333> for RZPStep<'a>
-{
+impl<'a> PreStepCheck<Turn333, Transformation333, Cube333> for RZPStep<'a> {
     fn is_cube_ready(&self, cube: &Cube333) -> bool {
         let (ud, fb, lr) = cube.count_bad_edges();
-        ud == 0 || fb == 0 || lr == 0
+        if self.is_any {
+            ud == 0 || fb == 0 || lr == 0
+        } else {
+            fb == 0
+        }
     }
 }
 
@@ -135,8 +144,7 @@ impl<'a> PostStepCheck<Turn333, Transformation333, Cube333> for RZPStep<'a> {
     }
 }
 
-impl<'a> StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> for RZPStep<'a>
-{
+impl<'a> StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> for RZPStep<'a> {
     fn move_set(&self, _: &Cube333, _: u8) -> &'a MoveSet333 {
         self.move_set
     }

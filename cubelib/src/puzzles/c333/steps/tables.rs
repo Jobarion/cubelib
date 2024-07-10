@@ -263,6 +263,11 @@ impl PruningTables333 {
                 } else {
                     info!("Saved htr-subset table to disk");
                 }
+                if let Err(e) = self.save("htr") {
+                    error!("Error saving htr table to disk: {e}");
+                } else {
+                    info!("Saved htr table to disk");
+                }
             }
         }
     }

@@ -1,4 +1,5 @@
-use std::cmp::min;
+use std::fmt::Display;
+use log::trace;
 use tokio_util::sync::CancellationToken;
 
 use crate::algs::Algorithm;
@@ -24,7 +25,7 @@ pub fn dfs_iter<
     'a,
     Turn: PuzzleMove + Transformable<Transformation>,
     Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation> + 'a,
+    PuzzleParam: Puzzle<Turn, Transformation> + Display + 'a,
     TransTable: TransitionTable<Turn>,
     S: StepVariant<Turn, Transformation, PuzzleParam, TransTable> + ?Sized,
 >(
@@ -67,7 +68,7 @@ pub fn dfs_iter<
                                 step,
                                 cube.clone(),
                                 depth,
-                                true,
+                                false,
                                 false,
                                 previous_normal,
                                 previous_inverse,
@@ -84,7 +85,7 @@ pub fn dfs_iter<
                                 step,
                                 inv_cube,
                                 depth,
-                                true,
+                                false,
                                 false,
                                 previous_normal,
                                 previous_inverse,
@@ -150,7 +151,7 @@ pub fn dfs_iter<
             .filter(move |alg| step.is_solution_admissible(&cube, alg))
             .map(|mut alg| {
                 for t in step.pre_step_trans().iter().cloned().rev() {
-                    alg.transform(t);
+                    alg.transform(t.invert());
                 }
                 alg
             }),
@@ -161,7 +162,7 @@ fn next_dfs_level<
     'a,
     Turn: PuzzleMove + Transformable<Transformation>,
     Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation> + 'a,
+    PuzzleParam: Puzzle<Turn, Transformation> + Display + 'a,
     TransTable: TransitionTable<Turn>,
     S: StepVariant<Turn, Transformation, PuzzleParam, TransTable> + ?Sized,
 >(
@@ -174,11 +175,8 @@ fn next_dfs_level<
     previous_inverse: Option<Turn>,
     cancel_token: CancellationToken,
 ) -> Box<dyn Iterator<Item = Algorithm<Turn>> + 'a> {
-    let lower_bound = if invert_allowed {
-        min(1, step.heuristic(&cube, depth_left, invert_allowed))
-    } else {
-        step.heuristic(&cube, depth_left, invert_allowed)
-    };
+    let lower_bound = step.heuristic(&cube, depth_left, invert_allowed);
+    trace!("{}DFS depth {depth_left}, lower bound {lower_bound}, invert {invert_allowed}, {previous_normal:?}", " ".repeat(10 - depth_left as usize));
     let mut inverse = cube.clone();
     let cancel_token_inverse = cancel_token.clone();
     let normal_solutions: Box<dyn Iterator<Item = Algorithm<Turn>>> = if depth_left == 0 && lower_bound == 0 {
@@ -199,7 +197,9 @@ fn next_dfs_level<
                         .map_or(Transition::any(), |pm| step.move_set(&cube, depth_left).transitions[Into::<usize>::into(pm)].check_move(m))
                 )
             })
+            .map(move |m|{trace!("{}Considering {}", " ".repeat(11 - depth_left as usize), m.0);m})
             .filter(move |(_m, transition_type)| transition_type.allowed && (depth_left != 1 || transition_type.can_end))
+            .map(move |m|{trace!("{}Trying {}", " ".repeat(11 - depth_left as usize), m.0);m})
             .flat_map(move |(m, t)| {
                 cube.turn(m);
                 let result = next_dfs_level(
@@ -231,7 +231,9 @@ fn next_dfs_level<
                         .map_or(Transition::any(), |pm| step.move_set(&cube, depth_left).transitions[Into::<usize>::into(pm)].check_move(m))
                 )
             })
+            .map(move |m|{trace!("{}Considering {}", " ".repeat(11 - depth_left as usize), m.0);m})
             .filter(move |(_m, transition_type)| transition_type.allowed && (depth_left != 1 || transition_type.can_end))
+            .map(move |m|{trace!("{}Trying {}", " ".repeat(11 - depth_left as usize), m.0);m})
             .flat_map(move |(m, _)| {
                 cube.turn(m);
                 let result = next_dfs_level(

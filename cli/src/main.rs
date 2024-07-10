@@ -21,7 +21,7 @@ fn main() {
     let cli: Cli = Cli::parse();
     SimpleLogger::new()
         .with_level(if cli.verbose {
-            LevelFilter::Debug
+            LevelFilter::Trace
         } else if cli.quiet {
             LevelFilter::Error
         } else {

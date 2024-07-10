@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use crate::algs::Algorithm;
 
@@ -16,7 +17,7 @@ impl<Turn: PuzzleMove, Transformation: PuzzleMove, P: Copy + Clone + Default> Pu
 
 }
 
-pub trait PuzzleMove: Sized + Copy + Clone + Hash + Eq + PartialEq + From<usize> + Into<usize> + Invertible + 'static {
+pub trait PuzzleMove: Sized + Copy + Clone + Hash + Eq + PartialEq + Debug + Display + From<usize> + Into<usize> + Invertible + 'static {
     fn all() -> &'static [Self];
 }
 

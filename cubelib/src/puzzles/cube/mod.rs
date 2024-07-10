@@ -138,12 +138,12 @@ impl CubeFace {
     pub const ALL: [CubeFace; 6] = [Up, Down, Front, Back, Left, Right];
 
     const TRANSFORMATIONS: [[[CubeFace; 3]; 3]; 6] = [
-        [[Front, Down, Back], [Up, Up, Up], [Left, Down, Right]],
-        [[Back, Up, Front], [Down, Down, Down], [Right, Up, Left]],
-        [[Down, Back, Up], [Right, Back, Left], [Front, Front, Front]],
-        [[Up, Front, Down], [Left, Front, Right], [Back, Back, Back]],
-        [[Left, Left, Left], [Front, Right, Back], [Down, Right, Up]],
-        [[Right, Right, Right], [Back, Left, Front], [Up, Left, Down]],
+        [[Back, Down, Front], [Up, Up, Up], [Right, Down, Left]],
+        [[Front, Up, Back], [Down, Down, Down], [Left, Up, Right]],
+        [[Up, Back, Down], [Left, Back, Right], [Front, Front, Front]],
+        [[Down, Front, Up], [Right, Front, Left], [Back, Back, Back]],
+        [[Left, Left, Left], [Back, Right, Front], [Up, Right, Down]],
+        [[Right, Right, Right], [Front, Left, Back], [Down, Left, Up]],
     ];
 
     pub const fn opposite(self) -> Self {
@@ -196,6 +196,29 @@ impl Into<char> for CubeFace {
             Back => 'B',
             Left => 'L',
             Right => 'R',
+        }
+    }
+}
+
+impl TryFrom<char> for CubeAxis {
+    type Error = ();
+
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value.to_ascii_uppercase() {
+            'X' => Ok(CubeAxis::X),
+            'Y' => Ok(CubeAxis::Y),
+            'Z' => Ok(CubeAxis::Z),
+            _ => Err(()),
+        }
+    }
+}
+
+impl Into<char> for CubeAxis {
+    fn into(self) -> char {
+        match self {
+            CubeAxis::X => 'X',
+            CubeAxis::Y => 'Y',
+            CubeAxis::Z => 'Z',
         }
     }
 }
@@ -290,6 +313,24 @@ impl CubeOuterTurn {
 
     pub const fn to_id(&self) -> usize {
         self.face as usize * 3 + self.dir as usize
+    }
+}
+
+impl Display for CubeTransformation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let face: String = String::from(<CubeAxis as Into<char>>::into(self.axis));
+        let turn = match self.dir {
+            Clockwise => "",
+            CounterClockwise => "'",
+            Half => "2",
+        };
+        write!(f, "{face}{turn}")
+    }
+}
+
+impl Debug for CubeTransformation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 

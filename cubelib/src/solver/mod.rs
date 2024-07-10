@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::vec;
 use log::debug;
 use crate::puzzles::puzzle::{Puzzle, PuzzleMove, Transformable};
@@ -14,7 +15,7 @@ pub mod df_search;
 pub mod moveset;
 pub use tokio_util::sync::CancellationToken;
 
-pub fn solve_steps<'a, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>, TransTable: TransitionTable<Turn>>(puzzle: PuzzleParam, steps: &'a Vec<(Step<'a, Turn, Transformation, PuzzleParam, TransTable>, DefaultStepOptions)>, cancel_token: CancellationToken) -> impl Iterator<Item = Solution<Turn>> + 'a {
+pub fn solve_steps<'a, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation> + Display, TransTable: TransitionTable<Turn>>(puzzle: PuzzleParam, steps: &'a Vec<(Step<'a, Turn, Transformation, PuzzleParam, TransTable>, DefaultStepOptions)>, cancel_token: CancellationToken) -> impl Iterator<Item = Solution<Turn>> + 'a {
     let first_step: Box<dyn Iterator<Item = Solution<Turn>>> = Box::new(vec![Solution::new()].into_iter());
 
     let solutions: Box<dyn Iterator<Item=Solution<Turn>>> = steps.iter()

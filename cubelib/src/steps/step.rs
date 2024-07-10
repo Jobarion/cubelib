@@ -1,6 +1,7 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::marker::PhantomData;
-
+use log::trace;
 use tokio_util::sync::CancellationToken;
 
 use crate::algs::Algorithm;
@@ -235,7 +236,7 @@ pub fn first_step<
     'b,
     Turn: PuzzleMove + Transformable<Transformation>,
     Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation>,
+    PuzzleParam: Puzzle<Turn, Transformation> + Display,
     TransTable: TransitionTable<Turn> + 'static,
 >(
     step: &'a Step<'b, Turn, Transformation, PuzzleParam, TransTable>,
@@ -254,7 +255,7 @@ pub fn next_step<
     IN: Iterator<Item = Solution<Turn>> + 'a,
     Turn: PuzzleMove + Transformable<Transformation>,
     Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation>,
+    PuzzleParam: Puzzle<Turn, Transformation> + Display,
     TransTable: TransitionTable<Turn>,
 >(
     algs: IN,
@@ -280,6 +281,7 @@ pub fn next_step<
                 let previous_normal = alg.normal_moves.last().cloned();
                 let previous_inverse = alg.inverse_moves.last().cloned();
 
+                trace!("Current solution step {}, depth {depth}, {alg}, normal {}, {previous_normal:?}, {previous_inverse:?}", step.kind, solution.ends_on_normal);
                 //Only allow the first variant to use the empty solution, otherwise we get lots of duplicates
                 let values = step
                     .step_variants

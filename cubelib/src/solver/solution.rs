@@ -29,14 +29,12 @@ impl <Turn: PuzzleMove> Solution<Turn> {
     }
 
     pub fn add_step(&mut self, step: SolutionStep<Turn>) {
-        if step.alg.normal_moves.is_empty() {
-            self.ends_on_normal = false;
-        }
-        else if step.alg.inverse_moves.is_empty() {
-            self.ends_on_normal = true;
-        } else {
-            self.ends_on_normal = !self.ends_on_normal;
-        }
+        self.ends_on_normal = match (step.alg.normal_moves.is_empty(), step.alg.inverse_moves.is_empty()) {
+            (true, true) => self.ends_on_normal,
+            (false, false) => !self.ends_on_normal,
+            (true, false) => false,
+            (false, true) => true,
+        };
         self.steps.push(step);
     }
 

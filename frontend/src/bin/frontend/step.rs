@@ -441,11 +441,15 @@ pub fn HTRSubsetSelection() -> impl IntoView {
         .collect()
     );
 
+    let advanced = settings.advanced();
+
+    let placeholder = Signal::derive(move||if advanced.get() { "2c3 e6" } else { "2c3" }.to_string());
+
     view! {
         <h4>"Subsets"</h4>
         <TextInput
             get=cur_subset
-            set=cur_subset_set placeholder="2c3 e6"
+            set=cur_subset_set placeholder=placeholder
             style="width: 150px"
             class=move|| if cur_subset.get().is_empty() || !expanded_subset.get().is_empty() { "" } else { "leptonic-input-invalid" }
         />

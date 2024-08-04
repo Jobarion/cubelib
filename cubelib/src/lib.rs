@@ -1,6 +1,7 @@
 extern crate core;
 
 #[macro_use]
+#[cfg(feature = "solver")]
 extern crate num_derive;
 
 pub mod algs;

@@ -17,7 +17,7 @@ pub struct CPOrbitTwistCoord(pub(crate) u8);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct ParityCoord(pub(crate) bool);
 
-//Assuming we already have UD-DR, represents the combination of ParityCoord, CPOrbitUnsortedCoord, CPOrbitTwistCoord and FBSliceUnsortedCoord
+//Assuming we already have UD-DR, represents the combination of CPOrbitUnsortedCoord, CPOrbitTwistCoord and FBSliceUnsortedCoord
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct PureHTRDRUDCoord(pub(crate) u16);
 
@@ -49,7 +49,7 @@ impl Into<usize> for CPOrbitUnsortedCoord {
     }
 }
 
-impl Coord<3> for CPOrbitTwistCoord {
+impl Coord<6> for CPOrbitTwistCoord {
     fn val(&self) -> usize {
         self.0 as usize
     }
@@ -101,8 +101,8 @@ impl Into<usize> for ImpureHTRDRUDCoord {
     }
 }
 
-pub type HTRDRUDCoord = ImpureHTRDRUDCoord;
-pub const HTRDRUD_SIZE: usize = IMPURE_HTRDRUD_SIZE;
+pub type HTRDRUDCoord = PureHTRDRUDCoord;
+pub const HTRDRUD_SIZE: usize = PURE_HTRDRUD_SIZE;
 
 impl From<&EdgeCube333> for FBSliceUnsortedCoord {
     #[inline]
@@ -165,15 +165,10 @@ impl From<&Cube333> for PureHTRDRUDCoord {
         let ep_fbslice_coord = FBSliceUnsortedCoord::from(&value.edges).val();
         let cp_orbit_coord = CPOrbitUnsortedCoord::from(&value.corners).val();
         let cp_orbit_twist = CPOrbitTwistCoord::from(&value.corners).val();
-        let parity = ParityCoord::from(&value.corners).val();
 
-        let val = parity
-            + cp_orbit_twist * ParityCoord::size()
-            + cp_orbit_coord * ParityCoord::size() * CPOrbitTwistCoord::size()
-            + ep_fbslice_coord
-            * ParityCoord::size()
-            * CPOrbitTwistCoord::size()
-            * CPOrbitUnsortedCoord::size();
+        let val = cp_orbit_twist
+            + cp_orbit_coord * CPOrbitTwistCoord::size()
+            + ep_fbslice_coord * CPOrbitTwistCoord::size() * CPOrbitUnsortedCoord::size();
         Self(val as u16)
     }
 }
@@ -190,7 +185,7 @@ impl From<&Cube333> for ImpureHTRDRUDCoord {
 
 #[cfg(target_feature = "avx2")]
 mod avx2 {
-    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_castps_si128, _mm_castsi128_ps, _mm_cmpeq_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi32, _mm_movemask_epi8, _mm_or_si128, _mm_permute_ps, _mm_sad_epu8, _mm_set1_epi8, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_slli_epi32, _mm_srli_epi32, _mm_sub_epi8, _mm_xor_si128};
+    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_castps_si128, _mm_castsi128_ps, _mm_cmpeq_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi16, _mm_hadd_epi32, _mm_movemask_epi8, _mm_or_si128, _mm_permute_ps, _mm_sad_epu8, _mm_set1_epi8, _mm_set_epi16, _mm_setr_epi16, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_sll_epi16, _mm_slli_epi16, _mm_slli_epi32, _mm_sra_epi16, _mm_sra_epi32, _mm_srli_epi32, _mm_srli_epi64, _mm_sub_epi8, _mm_xor_si128};
 
     use crate::alignment::avx2::C;
     use crate::puzzles::c333::{CornerCube333, EdgeCube333};
@@ -393,38 +388,45 @@ mod avx2 {
         _mm_extract_epi16::<0>(sum) as u8
     }
 
+    const CP_ORBIT_TWO_SWAP: [__m128i; 4] = [
+        unsafe { C { a_u8: [3, 2, 1, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F, 0x0F, 0x0F, 0x0F, 0xFF, 0xFF, 0xFF, 0xFF] }.a },
+        unsafe { C { a_u8: [2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F, 0x0F, 0x0F, 0x0F, 0xFF, 0xFF, 0xFF, 0xFF] }.a },
+        unsafe { C { a_u8: [1, 0, 3, 2, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F, 0x0F, 0x0F, 0x0F, 0xFF, 0xFF, 0xFF, 0xFF] }.a },
+        unsafe { C { a_u8: [0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F, 0x0F, 0x0F, 0x0F, 0xFF, 0xFF, 0xFF, 0xFF] }.a },
+    ];
+
+    const ORBIT_TYPES: [u8; 10] = [0xFF, 1, 2, 0xFF, 0, 0xFF, 5, 0xFF, 3, 4];
+    const CORNER_ID_ACUWVXBD_TRACING_MAP: __m128i = unsafe { C { a_u8: [0, 2, 4, 6, 5, 7, 1, 3, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] }.a };
+    const CORNER_ID_ACUWVXBD_NUMBERING_MAP: __m128i = unsafe { C { a_u8: [0, 2, 1, 3, 2, 0, 3, 1, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] }.a };
+
     #[target_feature(enable = "avx2")]
     #[inline]
     pub unsafe fn unsafe_from_cp_orbit_twist_parity_coord(
         cube: &CornerCube333,
     ) -> CPOrbitTwistCoord {
-        // println!("{:?}", cube.0);
-        let orbit_corners = arrange_orbit_corners(cube.0);
-        let relevant_corners = _mm_shuffle_epi8(
-            orbit_corners,
-            _mm_setr_epi8( 0, 1, 2, 4, 5, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1,-1),
-        );
+        // We need a point symmetrical tracing order for this to work
+        let acuwvxbd = _mm_shuffle_epi8(cube.0, CORNER_ID_ACUWVXBD_TRACING_MAP);
+        let orbit_corners = _mm_srli_epi64::<5>(arrange_orbit_corners(acuwvxbd));
+        let orbit_corner_ids = _mm_shuffle_epi8(CORNER_ID_ACUWVXBD_NUMBERING_MAP, orbit_corners);
 
-        // let orbit_corners = cube.0;
-        // let relevant_corners = _mm_shuffle_epi8(orbit_corners, _mm_setr_epi8( 0, 2, 4, 1, 3, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1,-1));
+        let orbit_b = _mm_shuffle_epi8(orbit_corner_ids, _mm_setr_epi8(4, 5, 6, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 ,-1 ,-1));
+        let mut inverse_b = orbit_b;
 
-        // println!("{:?}", orbit_corners);
+        for _ in 0..10 {
+            inverse_b = _mm_shuffle_epi8(inverse_b, orbit_b);
+        }
 
-        let ud = _mm_movemask_epi8(relevant_corners);
-        // let fb = _mm_movemask_epi8(_mm_add_epi8(relevant_corners, _mm_set1_epi8(0b01000000)));
-        // let lr = _mm_movemask_epi8(_mm_slli_epi32::<1>(_mm_add_epi8(relevant_corners, _mm_set1_epi8(0b00100000))));
+        let perm_c = _mm_shuffle_epi8(inverse_b, orbit_corner_ids);
+        let two_swap_mask = _mm_movemask_epi8(_mm_cmpeq_epi8(perm_c, _mm_set1_epi8(3)));
+        let perm_c = _mm_shuffle_epi8(perm_c, CP_ORBIT_TWO_SWAP[(two_swap_mask.trailing_zeros() & 0b11) as usize]);
 
-        // println!("{ud}");
+        let values = _mm_slli_epi16::<2>(perm_c);
+        let values = _mm_srli_epi32::<8>(_mm_and_si128(values, _mm_setr_epi8(0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)));
+        let values = _mm_or_si128(values, perm_c);
 
-        let ud_twist = ORBIT_STATE_LUT[ud as usize];
-        // let fb_twist = ORBIT_STATE_LUT[fb as usize];
-        // let lr_twist = ORBIT_STATE_LUT[lr as usize];
+        let orbit_type = ORBIT_TYPES[_mm_extract_epi16::<0>(values) as usize & 0b1111];
 
-        // println!("{:?}", ud_twist);
-        // println!("{:?}", fb_twist);
-        // println!("{:?}", lr_twist);
-
-        CPOrbitTwistCoord(ud_twist)
+        CPOrbitTwistCoord(orbit_type)
     }
 
     #[target_feature(enable = "avx2")]

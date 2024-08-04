@@ -51,7 +51,7 @@ pub struct PruningTables333 {
 
 impl PruningTables333 {
 
-    pub const VERSION: u32 = 1;
+    pub const VERSION: u32 = 2;
 
     pub fn new() -> PruningTables333 {
         PruningTables333 {
@@ -307,7 +307,7 @@ impl PruningTables333 {
         self.frls.as_ref()
     }
 
-    #[cfg(feature = "333fr")]
+    #[cfg(all(feature = "333fr", feature = "fs"))]
     pub fn gen_fr(&mut self) {
         self.load_and_save_normal("fr", &|x|&mut x.fr, &gen_fr, &|| FRPruningTable::load_from_disk("333", "fr"));
     }

@@ -54,7 +54,7 @@ mod cube_outer_turn {
     impl TransitionTableCubeOuterTurn {
         pub const ANY: u32 = 0x3FFFF;
         pub const NONE: u32 = 0;
-        pub const DEFAULT_ALL: [TransitionTableCubeOuterTurn; 18] = Self::default_all();
+        pub const DEFAULT_ALL: [TransitionTableCubeOuterTurn; 18] = Self::all_ordered();
 
         //This enforces an order between [UFL] and [DBR] moves to avoid duplicates. U D is allowed, D U is not.
         pub const DEFAULT_ALLOWED_AFTER: [u32; 6] = [
@@ -64,6 +64,15 @@ mod cube_outer_turn {
             Self::except_faces_to_mask([CubeFace::Front, CubeFace::Back]), //B
             Self::except_faces_to_mask([CubeFace::Left]), //L
             Self::except_faces_to_mask([CubeFace::Left, CubeFace::Right]), //R
+        ];
+
+        pub const DEFAULT_ALLOWED_AFTER_UNORDERED: [u32; 6] = [
+            Self::except_faces_to_mask([CubeFace::Up]), //U
+            Self::except_faces_to_mask([CubeFace::Down]), //D
+            Self::except_faces_to_mask([CubeFace::Front]), //F
+            Self::except_faces_to_mask([CubeFace::Back]), //B
+            Self::except_faces_to_mask([CubeFace::Left]), //L
+            Self::except_faces_to_mask([CubeFace::Right]), //R
         ];
 
         pub const fn moves_to_mask<const L: usize>(moves: [CubeOuterTurn; L]) -> u32 {
@@ -101,11 +110,24 @@ mod cube_outer_turn {
             Self { allowed, can_end }
         }
 
-        pub const fn default_all() -> [TransitionTableCubeOuterTurn; 18] {
+        pub const fn all_ordered() -> [TransitionTableCubeOuterTurn; 18] {
             let mut transitions = [TransitionTableCubeOuterTurn::new(0, 0); 18];
             let mut i = 0;
             while i < CubeFace::ALL.len() {
                 let face_table = Self::new(Self::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize], Self::ANY);
+                transitions[CubeOuterTurn::new(CubeFace::ALL[i], Clockwise).to_id()] = face_table;
+                transitions[CubeOuterTurn::new(CubeFace::ALL[i], CounterClockwise).to_id()] = face_table;
+                transitions[CubeOuterTurn::new(CubeFace::ALL[i], Half).to_id()] = face_table;
+                i += 1;
+            }
+            transitions
+        }
+
+        pub const fn all_unordered() -> [TransitionTableCubeOuterTurn; 18] {
+            let mut transitions = [TransitionTableCubeOuterTurn::new(0, 0); 18];
+            let mut i = 0;
+            while i < CubeFace::ALL.len() {
+                let face_table = Self::new(Self::DEFAULT_ALLOWED_AFTER_UNORDERED[CubeFace::ALL[i] as usize], Self::ANY);
                 transitions[CubeOuterTurn::new(CubeFace::ALL[i], Clockwise).to_id()] = face_table;
                 transitions[CubeOuterTurn::new(CubeFace::ALL[i], CounterClockwise).to_id()] = face_table;
                 transitions[CubeOuterTurn::new(CubeFace::ALL[i], Half).to_id()] = face_table;

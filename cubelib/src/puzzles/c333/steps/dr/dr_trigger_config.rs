@@ -7,20 +7,27 @@ use log::{debug, error};
 
 use crate::algs::Algorithm;
 use crate::co::COCountUD;
-use crate::puzzles::c333::steps::eo::eo_config::EOCount;
 use crate::defs::*;
-use crate::solver::moveset::TransitionTable333;
 use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
 use crate::puzzles::c333::steps::{MoveSet333, Step333};
 use crate::puzzles::c333::steps::dr::coords::DRUDEOFBCoord;
-use crate::puzzles::c333::steps::dr::dr_config::{DR_UD_EO_FB_MOVESET, DRPruningTable, HTR_DR_UD_MOVESET};
+use crate::puzzles::c333::steps::dr::dr_config::{DR_UD_EO_FB_MOVES, DR_UD_EO_FB_MOVESET, DR_UD_EO_FB_STATE_CHANGE_MOVES, DRPruningTable, HTR_DR_UD_MOVESET};
 use crate::puzzles::c333::steps::eo::coords::EOCoordFB;
+use crate::puzzles::c333::steps::eo::eo_config::EOCount;
 use crate::puzzles::cube::CubeAxis;
+use crate::puzzles::cube::CubeFace::Left;
 use crate::puzzles::cube::Direction::{Clockwise, Half};
 use crate::puzzles::puzzle::{TransformableMut, TurnableMut};
+use crate::solver::moveset::TransitionTable333;
 use crate::steps::coord::Coord;
 use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
 use crate::steps::step::StepConfig;
+
+pub const DR_UD_EO_FB_TRIGGER_MOVESET: MoveSet333 = MoveSet333 {
+    st_moves: DR_UD_EO_FB_STATE_CHANGE_MOVES,
+    aux_moves: DR_UD_EO_FB_MOVES,
+    transitions: &TransitionTable333::all_unordered(),
+};
 
 pub struct DRTriggerStepTable<'a> {
     pre_trigger_move_set: &'a MoveSet333,
@@ -151,7 +158,7 @@ impl<'a> DRTriggerStepTable<'a> {
 
         DRTriggerStepTable {
             pre_trigger_move_set: &HTR_DR_UD_MOVESET,
-            trigger_move_set: &DR_UD_EO_FB_MOVESET,
+            trigger_move_set: &DR_UD_EO_FB_TRIGGER_MOVESET,
             pre_trans,
             table,
             trigger_types,

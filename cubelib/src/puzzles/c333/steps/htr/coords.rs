@@ -185,7 +185,7 @@ impl From<&Cube333> for ImpureHTRDRUDCoord {
 
 #[cfg(target_feature = "avx2")]
 mod avx2 {
-    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_castps_si128, _mm_castsi128_ps, _mm_cmpeq_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi16, _mm_hadd_epi32, _mm_movemask_epi8, _mm_or_si128, _mm_permute_ps, _mm_sad_epu8, _mm_set1_epi8, _mm_set_epi16, _mm_setr_epi16, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_sll_epi16, _mm_slli_epi16, _mm_slli_epi32, _mm_sra_epi16, _mm_sra_epi32, _mm_srli_epi32, _mm_srli_epi64, _mm_sub_epi8, _mm_xor_si128};
+    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_castps_si128, _mm_castsi128_ps, _mm_cmpeq_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi32, _mm_movemask_epi8, _mm_or_si128, _mm_permute_ps, _mm_sad_epu8, _mm_set1_epi8, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_slli_epi16, _mm_slli_epi32, _mm_srli_epi32, _mm_srli_epi64, _mm_sub_epi8, _mm_xor_si128};
 
     use crate::alignment::avx2::C;
     use crate::puzzles::c333::{CornerCube333, EdgeCube333};
@@ -210,20 +210,6 @@ mod avx2 {
     const UD_SLICE_BINOM_1: __m128i = unsafe {
         C { a_u8: UD_SLICE_BINOM_1_ARR, }.a
     };
-
-    const ORBIT_STATE_LUT: [u8; 56] = [
-        //  x, F, L, U, U, L, F, x
-        3, 3, 3, 3, 3, 3, 3, 3, //x
-        3, 0, 2, 1, 1, 2, 0, 3, //F
-        3, 1, 0, 2, 2, 0, 1, 3, //L
-        3, 2, 1, 0, 0, 1, 2, 3, //U
-        3, 2, 1, 0, 0, 1, 2, 3, //U
-        3, 1, 0, 2, 2, 0, 1, 3, //L
-        3, 0, 2, 1, 1, 2, 0, 3, //F
-        // 3, 3, 3, 3, 3, 3, 3, 3,  //x
-    ];
-
-
 
     const CP_ORBIT_SHUFFLE_BLOCK_0: [__m128i; 16] = [
         unsafe { C { a_u8: [0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F, 0x0F, 0x0F, 0x0F, 0xFF, 0xFF, 0xFF, 0xFF] }.a },//0000

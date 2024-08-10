@@ -1,5 +1,5 @@
 use itertools::Itertools;
-
+use log::trace;
 use crate::algs::Algorithm;
 use crate::defs::*;
 use crate::solver::moveset::{TransitionTable333};
@@ -27,11 +27,29 @@ const QT_MOVES: [Turn333; 12] = [
     Turn333::new(Right, CounterClockwise),
 ];
 
+pub const RZP_EO_FB_STATE_CHANGE_MOVES: &[Turn333] = &[
+    Turn333::new(Up, Clockwise),
+    Turn333::new(Up, CounterClockwise),
+    Turn333::new(Down, Clockwise),
+    Turn333::new(Down, CounterClockwise),
+    Turn333::new(Right, Clockwise),
+    Turn333::new(Right, CounterClockwise),
+    Turn333::new(Left, Clockwise),
+    Turn333::new(Left, CounterClockwise),
+];
 
-//Exactly the same as DR
+pub const RZP_EO_FB_AUX_MOVES: &[Turn333] = &[
+    Turn333::new(Up, Half),
+    Turn333::new(Down, Half),
+    Turn333::new(Right, Half),
+    Turn333::new(Left, Half),
+    Turn333::new(Front, Half),
+    Turn333::new(Back, Half),
+];
+
 pub const RZP_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
-    st_moves: dr::dr_config::DR_UD_EO_FB_STATE_CHANGE_MOVES,
-    aux_moves: dr::dr_config::DR_UD_EO_FB_MOVES,
+    st_moves: RZP_EO_FB_STATE_CHANGE_MOVES,
+    aux_moves: RZP_EO_FB_AUX_MOVES,
     transitions: &rzp_transitions(Left),
 };
 
@@ -163,7 +181,41 @@ impl<'a> StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> fo
 }
 
 const fn rzp_transitions(axis_face: CubeFace) -> [TransitionTable333; 18] {
-    eo::eo_config::eo_transitions(axis_face)
+    let mut transitions = [TransitionTable333::new(0, 0); 18];
+    let mut i = 0;
+
+    let can_end_mask = TransitionTable333::moves_to_mask([
+        Turn333::U, Turn333::Ui,
+        Turn333::D, Turn333::Di,
+        Turn333::F, Turn333::Fi,
+        Turn333::B, Turn333::Bi,
+        Turn333::L, Turn333::Li,
+        Turn333::R, Turn333::Ri]);
+
+    while i < CubeFace::ALL.len() {
+        transitions[Turn333::new(CubeFace::ALL[i], Clockwise).to_id()] = TransitionTable333::new(
+            TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
+            can_end_mask,
+        );
+        transitions[Turn333::new(CubeFace::ALL[i], Half).to_id()] = TransitionTable333::new(
+            TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
+            can_end_mask,
+        );
+        transitions[Turn333::new(CubeFace::ALL[i], CounterClockwise).to_id()] = TransitionTable333::new(
+            TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
+            can_end_mask,
+        );
+        i += 1;
+    }
+    transitions[Turn333::new(axis_face, Half).to_id()] = TransitionTable333::new(
+        TransitionTable333::DEFAULT_ALLOWED_AFTER[axis_face as usize],
+        TransitionTable333::NONE,
+    );
+    transitions[Turn333::new(axis_face.opposite(), Half).to_id()] = TransitionTable333::new(
+        TransitionTable333::DEFAULT_ALLOWED_AFTER[axis_face.opposite() as usize],
+        TransitionTable333::NONE,
+    );
+    transitions
 }
 
 const fn rzp_transitions_any() -> [TransitionTable333; 18] {

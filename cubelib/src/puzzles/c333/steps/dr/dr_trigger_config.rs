@@ -179,6 +179,9 @@ impl<'a> PreStepCheck<Turn333, Transformation333, Cube333> for DRTriggerStepTabl
         if EOCoordFB::from(c).val() != 0 {
             return false;
         }
+        if DRUDEOFBCoord::from(c).val() == 0 {
+            return true;
+        }
         let trigger_state = calc_rzp_state(c);
         self.trigger_types.contains_key(&trigger_state)
     }
@@ -186,7 +189,7 @@ impl<'a> PreStepCheck<Turn333, Transformation333, Cube333> for DRTriggerStepTabl
 
 impl <'a> PostStepCheck<Turn333, Transformation333, Cube333> for DRTriggerStepTable<'a> {
     fn is_solution_admissible(&self, _: &Cube333, alg: &Algorithm<Turn333>) -> bool {
-        filter_dr_trigger(alg, &self.trigger_variants)
+        alg.len() == 0 || filter_dr_trigger(alg, &self.trigger_variants)
     }
 }
 

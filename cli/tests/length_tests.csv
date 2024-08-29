@@ -2,3 +2,5 @@ scramble|config|length|timeout_millis
 R' U' F L U2 F2 U2 R2 D2 B' F' R2 F R2 U2 L2 U' B R B' L U B' R' U' F|EO[max=4;niss=always]|4|10
 R' U' F U2 L2 R2 U' L2 D' U R2 B U2 R B' L' F2 U2 L D R F' U2 R' U' F (R' D' F U) (L F) (R2 F2 R B)|EO[max=0]>DR[max=0]|0|10
 R' U' F U2 L2 R2 U' L2 D' U R2 B U2 R B' L' F2 U2 L D R F' U2 R' U' F (R' D' F U) (L F) (R2 F2 R B)|EO[max=0]>DR[max=0;triggers=R]|0|10
+R U|EO[max=0]>DR[max=0;triggers=R]|-1|10
+U R2 F B R B2 R U2 L B2 R U' D'  R2 F R' L B2 U2 F2 D F U R D (L' F2 D U2 B' L)|EO[max=0]>DR[max=0;triggers=R;niss=always]|0|10

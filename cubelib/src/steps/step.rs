@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::marker::PhantomData;
@@ -163,11 +164,13 @@ where
     }
 
     fn heuristic(&self, cube: &PuzzleParam, _: u8, can_niss: bool) -> u8 {
+
+        let coord = HC::from(cube);
+        let heuristic = self.table.get(coord);
         if can_niss {
-            1
+            min(1, heuristic)
         } else {
-            let coord = HC::from(cube);
-            self.table.get(coord)
+            heuristic
         }
     }
 

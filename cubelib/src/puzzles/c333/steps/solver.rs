@@ -49,6 +49,8 @@ pub fn build_steps(steps: Vec<StepConfig>, tables: &PruningTables333) -> Result<
                     log::info!("Found explicitly defined DR triggers without RZP. Adding RZP step with default settings.");
                     let mut rzp_config = StepConfig::new(StepKind::RZP);
                     rzp_config.quality = config.quality;
+                    rzp_config.max = config.max;
+                    rzp_config.absolute_max = config.absolute_max;
                     vec![steps::dr::rzp_config::from_step_config(rzp_config), steps::dr::dr_trigger_config::from_step_config(dr_table, config.clone())].into_iter()
                 } else {
                     vec![steps::dr::dr_config::from_step_config(dr_table, config.clone())].into_iter()

@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::vec;
@@ -212,11 +213,12 @@ impl<'a> StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> fo
     }
 
     fn heuristic(&self, cube: &Cube333, _: u8, can_niss: bool) -> u8 {
+        let coord = DRUDEOFBCoord::from(cube);
+        let heuristic = self.table.get(coord);
         if can_niss {
-            1
+            min(1, heuristic)
         } else {
-            let coord = DRUDEOFBCoord::from(cube);
-            self.table.get(coord)
+            heuristic
         }
     }
 

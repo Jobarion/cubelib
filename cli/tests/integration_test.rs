@@ -9,7 +9,7 @@ use serde::Deserialize;
 struct LengthTestCase {
     scramble: String,
     config: String,
-    length: usize,
+    length: isize,
     timeout_millis: u32
 }
 
@@ -46,10 +46,12 @@ fn run_length_test(test: &LengthTestCase) {
         let reported_length = usize::from_str(&length[0..(length.len() - 1)]).expect("Expected length number");
         let alg = Algorithm::<Turn333>::from_str(alg_string).expect("Expected valid algorithm");
         assert_eq!(reported_length, alg.len());
-        assert_eq!(test.length, alg.len());
-        println!("Okay")
+        assert_eq!(test.length, alg.len() as isize);
     } else {
-        assert!(false, "No solution found")
+        if test.length != -1 {
+            assert!(false, "No solution found")
+        }
     }
-    println!()
+    println!("Okay");
+    println!();
 }

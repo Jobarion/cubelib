@@ -33,10 +33,10 @@ pub const HTR_FINISH_MOVESET: MoveSet333 = MoveSet333 {
     transitions: &finish_transitions(),
 };
 pub type FRFinishPruningTable = LookupTable<{ FR_FINISH_SIZE }, FRUDFinishCoord>;
-pub type FRFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, Turn333, Transformation333, Cube333, TransitionTable333, AnyPostStepCheck>;
+pub type FRFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, Turn333, Transformation333, Cube333, TransitionTable333>;
 
 pub type HTRFinishPruningTable = LookupTable<{ HTR_FINISH_SIZE }, HTRFinishCoord>;
-pub type HTRFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { HTR_FINISH_SIZE }, HTRFinishCoord, {PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, Turn333, Transformation333, Cube333, TransitionTable333, AnyPostStepCheck>;
+pub type HTRFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { HTR_FINISH_SIZE }, HTRFinishCoord, {PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, Turn333, Transformation333, Cube333, TransitionTable333>;
 
 
 pub fn from_step_config_fr(table: &FRFinishPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
@@ -118,9 +118,9 @@ pub fn fr_finish<'a>(table: &'a FRFinishPruningTable, fr_axis: Vec<CubeAxis>) ->
         .into_iter()
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> + 'a>> = match x {
-                CubeAxis::UD => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![], table, AnyPostStepCheck, ""))),
-                CubeAxis::FB => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, AnyPostStepCheck, ""))),
-                CubeAxis::LR => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, AnyPostStepCheck, ""))),
+                CubeAxis::UD => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![], table, vec![Box::new(AnyPostStepCheck)], ""))),
+                CubeAxis::FB => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, vec![Box::new(AnyPostStepCheck)], ""))),
+                CubeAxis::LR => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, vec![Box::new(AnyPostStepCheck)], ""))),
             };
             x
         })
@@ -130,7 +130,7 @@ pub fn fr_finish<'a>(table: &'a FRFinishPruningTable, fr_axis: Vec<CubeAxis>) ->
 
 pub fn htr_finish(table: &HTRFinishPruningTable) -> Step333 {
     Step::new(vec![
-        Box::new(HTRFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![], table, AnyPostStepCheck, ""))
+        Box::new(HTRFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![], table, vec![Box::new(AnyPostStepCheck)], ""))
     ], StepKind::FIN, true)
 }
 
@@ -144,9 +144,9 @@ pub fn fr_finish_leave_slice<'a>(table: &'a FRFinishPruningTable, fr_axis: Vec<C
         .into_iter()
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> + 'a>> = match x {
-                CubeAxis::UD => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![], table, AnyPostStepCheck, "ud"))),
-                CubeAxis::FB => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, AnyPostStepCheck, "fb"))),
-                CubeAxis::LR => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, AnyPostStepCheck, "lr"))),
+                CubeAxis::UD => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![], table, vec![Box::new(AnyPostStepCheck)], "ud"))),
+                CubeAxis::FB => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, vec![Box::new(AnyPostStepCheck)], "fb"))),
+                CubeAxis::LR => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, vec![Box::new(AnyPostStepCheck)], "lr"))),
             };
             x
         })

@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use crate::puzzles::cube::{CubeOuterTurn, CubeTransformation, Edge};
 use crate::puzzles::puzzle::{InvertibleMut, TransformableMut, TurnableMut};
 
@@ -9,6 +10,28 @@ pub struct CenterEdgeCube(
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     pub core::arch::wasm32::v128,
 );
+
+impl Hash for CenterEdgeCube {
+    #[cfg(target_feature = "avx2")]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let parts = self.get_edges_raw();
+        state.write_u64(parts[0]);
+        state.write_u64(parts[1]);
+    }
+}
+
+impl PartialEq for CenterEdgeCube {
+
+    fn eq(&self, other: &Self) -> bool {
+        let a = self.get_edges_raw();
+        let b = other.get_edges_raw();
+        a.eq(&b)
+    }
+}
+
+impl Eq for CenterEdgeCube {
+
+}
 
 impl TurnableMut<CubeOuterTurn> for CenterEdgeCube {
     #[inline]
@@ -138,15 +161,6 @@ impl<'de> serde::Deserialize<'de> for CenterEdgeCube {
             D: serde::Deserializer<'de>,
     {
         deserializer.deserialize_bytes(EdgeCubieCubeVisitor)
-    }
-}
-
-impl PartialEq for CenterEdgeCube {
-
-    fn eq(&self, other: &Self) -> bool {
-        let a = self.get_edges_raw();
-        let b = other.get_edges_raw();
-        a.eq(&b)
     }
 }
 

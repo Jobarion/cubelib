@@ -64,7 +64,7 @@ pub const DR_UD_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
 };
 
 pub type DRPruningTable = LookupTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
-pub type DRPruningTableStep<'a> = DefaultPruningTableStep<'a, {DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, Turn333, Transformation333, Cube333, TransitionTable333, AnyPostStepCheck>;
+pub type DRPruningTableStep<'a> = DefaultPruningTableStep<'a, {DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, Turn333, Transformation333, Cube333, TransitionTable333>;
 
 pub fn from_step_config(table: &DRPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
     let step = if let Some(substeps) = config.substeps {
@@ -113,12 +113,12 @@ fn dr_step_variants<'a>(table: &'a DRPruningTable, eo_axis: Vec<CubeAxis>, dr_ax
         .flat_map(|eo| dr_axis.clone().into_iter().map(move |dr| (eo, dr)))
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333>>> = match x {
-                (CubeAxis::UD, CubeAxis::FB) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::X], table, AnyPostStepCheck, "fb-eoud"))),
-                (CubeAxis::UD, CubeAxis::LR) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::X, Transformation333::Z], table, AnyPostStepCheck, "lr-eoud"))),
-                (CubeAxis::FB, CubeAxis::UD) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![], table, AnyPostStepCheck, "ud-eofb"))),
-                (CubeAxis::FB, CubeAxis::LR) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::Z], table, AnyPostStepCheck, "lr-eofb"))),
-                (CubeAxis::LR, CubeAxis::UD) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::Y], table, AnyPostStepCheck, "ud-eolr"))),
-                (CubeAxis::LR, CubeAxis::FB) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::Y, Transformation333::Z], table, AnyPostStepCheck, "fb-eolr"))),
+                (CubeAxis::UD, CubeAxis::FB) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::X], table, vec![Box::new(AnyPostStepCheck)], "fb-eoud"))),
+                (CubeAxis::UD, CubeAxis::LR) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::X, Transformation333::Z], table, vec![Box::new(AnyPostStepCheck)], "lr-eoud"))),
+                (CubeAxis::FB, CubeAxis::UD) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![], table, vec![Box::new(AnyPostStepCheck)], "ud-eofb"))),
+                (CubeAxis::FB, CubeAxis::LR) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::Z], table, vec![Box::new(AnyPostStepCheck)], "lr-eofb"))),
+                (CubeAxis::LR, CubeAxis::UD) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::Y], table, vec![Box::new(AnyPostStepCheck)], "ud-eolr"))),
+                (CubeAxis::LR, CubeAxis::FB) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::Y, Transformation333::Z], table, vec![Box::new(AnyPostStepCheck)], "fb-eolr"))),
                 (_eo, _dr) => None,
             };
             x

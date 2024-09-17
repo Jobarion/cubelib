@@ -1,16 +1,16 @@
 use itertools::Itertools;
-use log::trace;
+
 use crate::algs::Algorithm;
 use crate::defs::*;
-use crate::solver::moveset::{TransitionTable333};
 use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
-use crate::puzzles::c333::steps::{dr, eo, MoveSet333, Step333};
+use crate::puzzles::c333::steps::{dr, MoveSet333, Step333};
+use crate::puzzles::c333::steps::eo::eo_config::EOCount;
 use crate::puzzles::cube::{CubeAxis, CubeFace};
 use crate::puzzles::cube::CubeFace::*;
 use crate::puzzles::cube::Direction::*;
+use crate::solver::moveset::TransitionTable333;
 use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
 use crate::steps::step::StepConfig;
-use crate::puzzles::c333::steps::eo::eo_config::EOCount;
 
 const QT_MOVES: [Turn333; 12] = [
     Turn333::new(Up, Clockwise),

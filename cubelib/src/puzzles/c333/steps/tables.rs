@@ -1,7 +1,9 @@
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
-use log::{debug, error, info};
+use log::{debug, info};
+#[cfg(feature = "fs")]
+use log::error;
 
 #[cfg(feature = "333dr")]
 use crate::puzzles::c333::steps::dr::coords::DRUDEOFBCoord;
@@ -25,8 +27,8 @@ use crate::puzzles::c333::steps::htr::coords::HTRDRUDCoord;
 use crate::puzzles::c333::steps::htr::htr_config::{HTR_DR_UD_MOVESET, HTRPruningTable, HTRSubsetTable};
 use crate::solver::lookup_table;
 #[cfg(feature = "fs")]
-use crate::solver::lookup_table::{LoadFromDisk, SaveToDisk};
-use crate::solver::lookup_table::{LookupTable, NissLookupTable};
+use crate::solver::lookup_table::{LoadFromDisk, SaveToDisk, LookupTable, NissLookupTable};
+#[cfg(feature = "fs")]
 use crate::steps::coord::Coord;
 
 #[derive(Clone)]
@@ -399,6 +401,7 @@ fn gen_htr() -> HTRPruningTable {
 }
 
 #[cfg(feature = "333htr")]
+#[cfg(feature = "fs")]
 fn gen_htr_subsets(htr_table: &mut HTRPruningTable) -> HTRSubsetTable {
     info!("Generating HTR subset table...");
     #[cfg(not(target_arch = "wasm32"))]

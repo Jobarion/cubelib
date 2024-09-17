@@ -10,7 +10,7 @@ pub trait Puzzle<Turn: PuzzleMove, Transformation: PuzzleMove>:
 
 }
 
-impl<Turn: PuzzleMove, Transformation: PuzzleMove, P: Copy + Clone + Default> Puzzle<Turn, Transformation> for P
+impl<Turn: PuzzleMove, Transformation: PuzzleMove, P: Copy + Clone + Default + Hash> Puzzle<Turn, Transformation> for P
     where P: TurnableMut<Turn> + TransformableMut<Transformation> + InvertibleMut,
           Turn: Transformable<Transformation>
 {

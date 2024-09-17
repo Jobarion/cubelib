@@ -11,7 +11,9 @@ use std::marker::PhantomData;
 #[cfg(feature = "fs")]
 use home::home_dir;
 use log::{debug, warn};
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::{ToPrimitive};
+#[cfg(feature = "fs")]
+use num_traits::{FromPrimitive};
 use crate::solver::moveset::{MoveSet, TransitionTable};
 use crate::puzzles::puzzle::{Puzzle, PuzzleMove, Transformable};
 use crate::steps::coord::Coord;

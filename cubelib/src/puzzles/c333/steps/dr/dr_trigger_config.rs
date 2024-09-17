@@ -16,7 +16,6 @@ use crate::puzzles::c333::steps::dr::dr_config::{DR_UD_EO_FB_MOVES, DR_UD_EO_FB_
 use crate::puzzles::c333::steps::eo::coords::EOCoordFB;
 use crate::puzzles::c333::steps::eo::eo_config::EOCount;
 use crate::puzzles::cube::CubeAxis;
-use crate::puzzles::cube::CubeFace::Left;
 use crate::puzzles::cube::Direction::{Clockwise, Half};
 use crate::puzzles::puzzle::{TransformableMut, TurnableMut};
 use crate::solver::moveset::TransitionTable333;

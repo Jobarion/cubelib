@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use crate::puzzles::cube::{Corner, CubeOuterTurn, CubeTransformation};
 use crate::puzzles::puzzle::{InvertibleMut, TransformableMut, TurnableMut};
 
@@ -10,6 +11,23 @@ pub struct CubeCornersOdd(
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     pub core::arch::wasm32::v128,
 );
+
+impl Hash for CubeCornersOdd {
+    #[cfg(target_feature = "avx2")]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.get_corners_raw());
+    }
+}
+
+impl PartialEq<Self> for CubeCornersOdd {
+    fn eq(&self, other: &Self) -> bool {
+        self.get_corners_raw() == other.get_corners_raw()
+    }
+}
+
+impl Eq for CubeCornersOdd {
+
+}
 
 impl TurnableMut<CubeOuterTurn> for CubeCornersOdd {
     #[inline]
@@ -143,15 +161,6 @@ impl<'de> serde::Deserialize<'de> for CubeCornersOdd {
             D: serde::Deserializer<'de>,
     {
         deserializer.deserialize_bytes(CornerCubieCubeVisitor)
-    }
-}
-
-impl PartialEq for CubeCornersOdd {
-
-    fn eq(&self, other: &Self) -> bool {
-        let a = self.get_corners_raw();
-        let b = other.get_corners_raw();
-        a.eq(&b)
     }
 }
 

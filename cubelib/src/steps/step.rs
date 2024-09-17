@@ -1,6 +1,7 @@
 use std::cmp::min;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
+use std::hash::Hash;
 use std::marker::PhantomData;
 use log::trace;
 use tokio_util::sync::CancellationToken;
@@ -93,6 +94,15 @@ impl <Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMo
     }
 }
 
+#[derive(Clone)]
+pub struct CubeStateBlockingPostStepCheck<PuzzleParam: Hash + Eq>(HashSet<PuzzleParam>);
+
+impl <Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation> + Hash + Eq> PostStepCheck<Turn, Transformation, PuzzleParam> for CubeStateBlockingPostStepCheck<PuzzleParam> {
+    fn is_solution_admissible(&self, puzzle: &PuzzleParam, _: &Algorithm<Turn>) -> bool {
+        self.0.contains(puzzle)
+    }
+}
+
 pub struct DefaultPruningTableStep<
     'a,
     const HC_SIZE: usize,
@@ -102,8 +112,7 @@ pub struct DefaultPruningTableStep<
     Turn: PuzzleMove + Transformable<Transformation>,
     Transformation: PuzzleMove,
     PuzzleParam: Puzzle<Turn, Transformation>,
-    TransTable: TransitionTable<Turn> + 'static,
-    PSC: PostStepCheck<Turn, Transformation, PuzzleParam>
+    TransTable: TransitionTable<Turn> + 'static
 >
     where
         HC: for<'x> From<&'x PuzzleParam>,
@@ -113,13 +122,13 @@ pub struct DefaultPruningTableStep<
     pre_trans: Vec<Transformation>,
     table: &'a LookupTable<HC_SIZE, HC>,
     name: &'a str,
-    post_step_checker: PSC,
+    post_step_checker: Vec<Box<dyn PostStepCheck<Turn, Transformation, PuzzleParam>>>,
     _pc: PhantomData<PC>,
     _puzzle: PhantomData<PuzzleParam>,
     _turn: PhantomData<Turn>,
 }
 
-impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>, TransTable: TransitionTable<Turn>, PSC: PostStepCheck<Turn, Transformation, PuzzleParam>> PreStepCheck<Turn, Transformation, PuzzleParam> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable, PSC>
+impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>, TransTable: TransitionTable<Turn>> PreStepCheck<Turn, Transformation, PuzzleParam> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable>
     where
         HC: for<'x> From<&'x PuzzleParam>,
         PC: for<'x> From<&'x PuzzleParam>, {
@@ -129,13 +138,14 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Co
     }
 }
 
-impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>, TransTable: TransitionTable<Turn>, PSC: PostStepCheck<Turn, Transformation, PuzzleParam>> PostStepCheck<Turn, Transformation, PuzzleParam> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable, PSC>
+impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>, TransTable: TransitionTable<Turn>> PostStepCheck<Turn, Transformation, PuzzleParam> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable>
     where
         HC: for<'x> From<&'x PuzzleParam>,
         PC: for<'x> From<&'x PuzzleParam>, {
 
     fn is_solution_admissible(&self, cube: &PuzzleParam, alg: &Algorithm<Turn>) -> bool {
-        self.post_step_checker.is_solution_admissible(cube, alg)
+        self.post_step_checker.iter()
+            .all(|psc| psc.is_solution_admissible(cube, alg))
     }
 }
 
@@ -148,9 +158,8 @@ impl <
     Turn: PuzzleMove + Transformable<Transformation>,
     Transformation: PuzzleMove,
     PuzzleParam: Puzzle<Turn, Transformation>,
-    TransTable: TransitionTable<Turn>,
-    PSC: PostStepCheck<Turn, Transformation, PuzzleParam>>
-StepVariant<Turn, Transformation, PuzzleParam, TransTable> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable, PSC>
+    TransTable: TransitionTable<Turn>>
+StepVariant<Turn, Transformation, PuzzleParam, TransTable> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable>
 where
     HC: for<'x> From<&'x PuzzleParam>,
     PC: for<'x> From<&'x PuzzleParam>, {
@@ -185,13 +194,12 @@ impl <
     HC: Coord<HC_SIZE>,
     const PC_SIZE: usize,
     PC: Coord<PC_SIZE>,
-    PSC: PostStepCheck<Turn, Transformation, PuzzleParam>,
     Turn: PuzzleMove + Transformable<Transformation>,
     Transformation: PuzzleMove,
     PuzzleParam: Puzzle<Turn, Transformation>,
     TransTable: TransitionTable<Turn>,
 >
-DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable, PSC>
+DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable>
     where
         HC: for<'x> From<&'x PuzzleParam>,
         PC: for<'x> From<&'x PuzzleParam>, {
@@ -199,7 +207,7 @@ DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, Puzz
     pub fn new(move_set: &'a MoveSet<Turn, TransTable>,
                pre_trans: Vec<Transformation>,
                table: &'a LookupTable<HC_SIZE, HC>,
-               post_step_checker: PSC,
+               post_step_checker: Vec<Box<dyn PostStepCheck<Turn, Transformation, PuzzleParam>>>,
                name: &'a str) -> Self {
         DefaultPruningTableStep {
             move_set,

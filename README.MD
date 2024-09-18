@@ -93,6 +93,10 @@ Reduces the cube into a state that is solvable using only half turns.
 - Variations: `ud`, `fb`, `lr`.
 - Prerequisite: DR
 - Default NISS option: `before`
+- Additional options
+  - HTR can be restricted to certain subsets using the `subset` parameter with a comma separated list of subsets.
+  - `subsets=2c3,4a1` restricts to these two specific HTR subsets
+  - `subsets=1,2,2c3 4e` restricts to all 1 and 2 QT subsets + 2c3 with 4 bad edges.
 
 #### FR
 Performs floppy reduction. This reduces the cube into a state where half moves on only two axis are sufficient. This step can be skipped if a direct solution from HTR to solved is desired.
@@ -110,7 +114,7 @@ Cubelib does not yet support insertions, so these will have to be done manually.
 #### FIN
 Solves the cube.
 - Variations: -
-- Prerequisite: FR or FRLS
+- Prerequisite: FR, FRLS or HTR
 - Default NISS option: `none`
 
 ### Examples

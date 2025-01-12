@@ -89,8 +89,8 @@ pub fn dfs_iter<
                                 false,
                                 false,
                                 true,
-                                previous_normal,
                                 previous_inverse,
+                                previous_normal,
                                 cancel_token.clone(),
                             )
                                 .map(|alg| alg.reverse())
@@ -139,8 +139,8 @@ pub fn dfs_iter<
                             true,
                             false,
                             true,
-                            previous_inverse,
                             previous_normal,
+                            previous_inverse,
                             cancel_token.clone(),
                         )
                         .map(|alg| alg.reverse())

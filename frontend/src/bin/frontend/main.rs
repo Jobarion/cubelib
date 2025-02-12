@@ -1,9 +1,10 @@
+use std::collections::HashMap;
 use std::panic;
 use std::str::FromStr;
 
 use leptonic::prelude::*;
 use leptos::*;
-use log::Level;
+use log::{info, Level};
 
 use crate::cube::ScrambleComponent;
 use crate::solution::SolutionComponent;
@@ -11,12 +12,20 @@ use crate::settings::{SettingsComponent, SettingsState};
 use crate::step::*;
 use crate::util::{build_toggle_chain};
 use leptos_icons::IoIcon;
+use leptos_use::storage::StorageType;
+use serde_json::json;
+use base64::prelude::BASE64_URL_SAFE;
 
 mod cube;
 mod step;
 mod util;
 mod solution;
 mod settings;
+
+#[derive(Clone)]
+struct AppContext {
+    session: bool
+}
 
 #[component]
 fn App() -> impl IntoView {
@@ -30,7 +39,7 @@ fn App() -> impl IntoView {
 
 #[component]
 fn FMCAppContainer() -> impl IntoView {
-
+    load_url_state();
     let (settings_modal, set_settings_modal) = create_signal(false);
     let scramble = util::use_local_storage("scramble", "".to_string());
     provide_context(scramble.clone());
@@ -98,6 +107,14 @@ fn FMCAppContainer() -> impl IntoView {
                         style:font-size="30px">
                         <Icon icon=IoIcon::IoRefreshOutline/>
                     </button>
+                    <button
+                        on:click=move|_|open_shared()
+                        class="icon-button"
+                        style:float="right"
+                        style:font-size="30px">
+                        <Icon icon=IoIcon::IoShareOutline/>
+                    </button>
+
                     <div style:clear="both"></div>
                 </h2>
             </div>
@@ -109,6 +126,61 @@ fn FMCAppContainer() -> impl IntoView {
             <SettingsComponent active=settings_modal set_active=set_settings_modal/>
         </Box>
     }
+}
+
+fn load_url_state() {
+    let current_url = url::Url::parse(leptos::window().location().href().unwrap().as_str()).unwrap();
+    let mut is_local = current_url.query_pairs()
+        .filter(|(k, v)|k == "local")
+        .map(|(k, v)|v)
+        .next()
+        .filter(|v|v == "true")
+        .is_some();
+
+    let settings = current_url.query_pairs()
+        .filter(|(k, v)|k == "settings")
+        .map(|(k, v)|v)
+        .next();
+
+    if let Some(settings) = settings {
+        is_local = true;
+        let decoded = String::from_utf8(base64::decode(settings.to_string()).unwrap()).unwrap();
+        let settings: HashMap<String, String> = serde_json::from_str(&decoded).unwrap();
+
+        let storage = window().session_storage().unwrap().unwrap();
+        let _ = storage.clear();
+
+        for (k, v) in settings.into_iter() {
+            let _ = storage.set_item(&k, &v);
+        }
+    }
+
+    provide_context(AppContext {
+        session: is_local
+    });
+}
+
+fn open_shared() {
+    let app_context = use_context::<AppContext>().expect("App context required");
+    let storage = if app_context.session {
+        window().session_storage().unwrap().unwrap()
+    } else {
+        window().local_storage().unwrap().unwrap()
+    };
+    let mut values = HashMap::new();
+    for i in 0..storage.length().unwrap() {
+        if let Some(key) = storage.key(i).unwrap() {
+            if !key.starts_with("mallard-") {
+                continue
+            }
+            if let Some(value) = storage.get_item(&key).unwrap() {
+                values.insert(key, value);
+            }
+        }
+    }
+    let serialized = serde_json::to_string(&values).unwrap();
+    let encoded = base64::encode(serialized.as_bytes());
+    let _ = window().open_with_url_and_target(&format!("?local=true&settings={encoded}"), "_blank");
 }
 
 fn main() {

@@ -13,7 +13,8 @@ leptos_icons = { version = "0.1.0", features = [
     "IoSettingsOutline",
     "IoCloseOutline",
     "IoAddOutline",
-    "IoRefreshOutline"
+    "IoRefreshOutline",
+    "IoShareOutline"
 ] }
 web-sys = "0.3.64"
 log = "0.4.20"
@@ -37,13 +38,16 @@ serde-wasm-bindgen = { version = "0.6.1", optional = true }
 idb = { version = "0.4.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 tokio-util = { version = "0.7.10", optional = true, features = ["io"] }
+time = "0.3.37"
+url = "2.5.4"
+base64 = "0.22.1"
 
 [build-dependencies]
 leptonic-theme = "0.3.0"
 leptos-tiptap-build = "0.2.3"
 
 [features]
-default = []
+default = ["backend"]
 wasm_solver = [
     "dep:gloo-worker",
     "dep:serde_closure",

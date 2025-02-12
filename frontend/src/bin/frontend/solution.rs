@@ -1,10 +1,7 @@
 use std::collections::HashMap;
-use std::str::FromStr;
-
 use cubelib::defs::*;
 use cubelib::puzzles::cube::CubeAxis;
 use cubelib::steps::step::StepConfig;
-use leptonic::prelude::*;
 use leptos::*;
 
 #[cfg(feature = "backend")]

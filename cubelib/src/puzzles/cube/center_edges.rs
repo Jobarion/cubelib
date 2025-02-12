@@ -11,6 +11,7 @@ pub struct CenterEdgeCube(
     pub core::arch::wasm32::v128,
 );
 
+#[cfg(target_feature = "avx2")]
 impl Hash for CenterEdgeCube {
     #[cfg(target_feature = "avx2")]
     fn hash<H: Hasher>(&self, state: &mut H) {

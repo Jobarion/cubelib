@@ -10,8 +10,9 @@ use crate::puzzles::cube::EdgePosition::*;
 use crate::puzzles::puzzle::{InvertibleMut, TransformableMut, TurnableMut};
 
 //http://kociemba.org/math/cubielevel.htm
-#[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(target_feature = "avx2", derive(Hash))]
 pub struct Cube333 {
     pub edges: EdgeCube333,
     pub corners: CornerCube333,

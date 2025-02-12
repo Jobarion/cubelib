@@ -6,3 +6,6 @@ ignore = [
 ]
 public_url = "/mallard/"
 #release = true
+
+[serve]
+port = 8093

@@ -1,9 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use cubelib::algs::Algorithm;
 use cubelib::defs::NissSwitchType;
-use cubelib::puzzles::c333::Turn333;
-use cubelib::puzzles::c333::util::{expand_subset_name, HTR_SUBSETS, Subset};
+use cubelib::puzzles::c333::util::{expand_subset_name, HTR_SUBSETS};
 use cubelib::puzzles::cube::CubeAxis;
 use leptonic::prelude::*;
 use leptos::*;

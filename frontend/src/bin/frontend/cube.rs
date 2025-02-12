@@ -42,9 +42,9 @@ pub fn Cube(cube: Signal<Cube333>) -> impl IntoView {
         let facelets = cube.get().get_facelets();
 
         let mut colors: Vec<CubeColor> = vec![];
-        for x in (0..3) {
+        for x in 0..3 {
             colors.append(&mut vec![CubeColor::None; 3]);
-            for y in (0..3) {
+            for y in 0..3 {
                 colors.push(facelets[CubeFace::Up][x * 3 + y]);
             }
             colors.append(&mut vec![CubeColor::None; 6]);

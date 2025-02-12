@@ -12,6 +12,7 @@ pub struct CubeCornersOdd(
     pub core::arch::wasm32::v128,
 );
 
+#[cfg(target_feature = "avx2")]
 impl Hash for CubeCornersOdd {
     #[cfg(target_feature = "avx2")]
     fn hash<H: Hasher>(&self, state: &mut H) {

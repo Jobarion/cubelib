@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 use crate::puzzles::c333::{CornerCube333, EdgeCube333, Transformation333, Turn333};
+#[cfg(target_feature = "avx2")]
 use crate::puzzles::c333::steps::eo::eo_config::EOCount;
 use crate::puzzles::cube::{CornerPosition, EdgePosition};
 use crate::puzzles::cube::{CubeColor, CubeOuterTurn};

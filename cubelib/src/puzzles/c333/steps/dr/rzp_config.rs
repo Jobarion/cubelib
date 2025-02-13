@@ -83,8 +83,7 @@ pub fn from_step_config<'a>(config: StepConfig) -> Result<(Step333<'a>, DefaultS
             None
         } else {
             config.step_limit.or(Some(config.quality * 10))
-        },
-        config.max_extension_length,
+        }
     );
     Ok((step, search_opts))
 }

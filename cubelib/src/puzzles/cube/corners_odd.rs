@@ -1,4 +1,3 @@
-use std::hash::{Hash, Hasher};
 use crate::puzzles::cube::{Corner, CubeOuterTurn, CubeTransformation};
 use crate::puzzles::puzzle::{InvertibleMut, TransformableMut, TurnableMut};
 
@@ -13,9 +12,9 @@ pub struct CubeCornersOdd(
 );
 
 #[cfg(target_feature = "avx2")]
-impl Hash for CubeCornersOdd {
+impl std::hash::Hash for CubeCornersOdd {
     #[cfg(target_feature = "avx2")]
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         state.write_u64(self.get_corners_raw());
     }
 }

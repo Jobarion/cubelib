@@ -1,4 +1,3 @@
-use std::hash::{Hash, Hasher};
 use crate::puzzles::cube::{CubeOuterTurn, CubeTransformation, Edge};
 use crate::puzzles::puzzle::{InvertibleMut, TransformableMut, TurnableMut};
 
@@ -12,9 +11,9 @@ pub struct CenterEdgeCube(
 );
 
 #[cfg(target_feature = "avx2")]
-impl Hash for CenterEdgeCube {
+impl std::hash::Hash for CenterEdgeCube {
     #[cfg(target_feature = "avx2")]
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         let parts = self.get_edges_raw();
         state.write_u64(parts[0]);
         state.write_u64(parts[1]);

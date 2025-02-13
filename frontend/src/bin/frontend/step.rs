@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use cubelib::algs::Algorithm;
 use cubelib::defs::NissSwitchType;
-use cubelib::puzzles::c333::util::{expand_subset_name, HTR_SUBSETS};
+use cubelib::puzzles::c333::util::{expand_subset_name, DR_SUBSETS};
 use cubelib::puzzles::cube::CubeAxis;
 use leptonic::prelude::*;
 use leptos::*;
@@ -38,6 +38,7 @@ pub struct DRConfig {
     pub niss: RwSignalTup<NissSwitchType>,
     pub variants: RwSignalTup<Vec<CubeAxis>>,
     pub triggers: RwSignalTup<Vec<String>>,
+    pub subsets: RwSignalTup<Vec<String>>
 }
 
 #[derive(Clone)]
@@ -49,7 +50,6 @@ pub struct HTRConfig {
     pub max_rel: RwSignalTup<u8>,
     pub niss: RwSignalTup<NissSwitchType>,
     pub variants: RwSignalTup<Vec<CubeAxis>>,
-    pub subsets: RwSignalTup<Vec<String>>
 }
 
 #[derive(Clone)]
@@ -107,6 +107,7 @@ impl DRConfig {
             niss: use_local_storage("dr-niss", NissSwitchType::Before),
             variants: use_local_storage("dr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
             triggers: use_local_storage("dr-triggers", vec!["R".to_string(), "R U2 R".to_string(), "R F2 R".to_string(), "R U R".to_string(), "R U' R".to_string()]),
+            subsets: use_local_storage("htr-subsets", vec![]) // Legacy name
         }
     }
 
@@ -125,6 +126,7 @@ impl DRConfig {
         self.niss.2();
         self.variants.2();
         self.triggers.2();
+        self.subsets.2();
     }
 }
 
@@ -163,7 +165,6 @@ impl HTRConfig {
             max_abs: use_local_storage("htr-max-abs", 20),
             niss: use_local_storage("htr-niss", NissSwitchType::Before),
             variants: use_local_storage("htr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
-            subsets: use_local_storage("htr-subsets", vec![]),
         }
     }
 
@@ -180,7 +181,6 @@ impl HTRConfig {
         self.max_rel.2();
         self.niss.2();
         self.variants.2();
-        self.subsets.2();
     }
 }
 
@@ -379,6 +379,7 @@ pub fn DRParameters() -> impl IntoView {
             selected=dr_config.triggers.0
             set_selected=move |v| dr_config.triggers.1.set(v)
         />
+        <DRSubsetSelection />
         <div class:grayed-out=move ||dr_config.triggers.0.get().is_empty()>
             <h2>"RZP"</h2>
             <h4>"Step length"</h4>
@@ -408,31 +409,11 @@ pub fn DRParameters() -> impl IntoView {
 }
 
 #[component]
-pub fn HTRParameters() -> impl IntoView {
-    let htr_config = use_context::<HTRConfig>().expect("HTR context required");
-
-    view! {
-
-        <DefaultStepParameters
-            niss_default=htr_config.niss
-            min_abs=htr_config.min_abs
-            max_abs=htr_config.max_abs
-            min_rel=htr_config.min_rel
-            max_rel=htr_config.max_rel
-            total_max_rel=14
-            total_max=28
-            variants=htr_config.variants
-        />
-        <HTRSubsetSelection />
-    }
-}
-
-#[component]
-pub fn HTRSubsetSelection() -> impl IntoView {
+pub fn DRSubsetSelection() -> impl IntoView {
     let settings = use_context::<SettingsState>().expect("Settings context required");
-    let htr_config = use_context::<HTRConfig>().expect("HTR context required");
+    let dr_config = use_context::<DRConfig>().expect("DR context required");
     let (cur_subset, cur_subset_set) = create_signal("".to_string());
-    let (subsets, subsets_set, _) = htr_config.subsets;
+    let (subsets, subsets_set, _) = dr_config.subsets;
 
     let expanded_subset: Signal<Vec<String>> = Signal::derive(move|| expand_subset_name(cur_subset.get().as_str())
         .into_iter()
@@ -462,7 +443,7 @@ pub fn HTRSubsetSelection() -> impl IntoView {
             })
             on_click=move|s: String|{
                 if s.len() == 3 {
-                    for subset in HTR_SUBSETS {
+                    for subset in DR_SUBSETS {
                         let subset = subset.to_string();
                         if !subset.starts_with(&s) {
                             continue;
@@ -505,6 +486,25 @@ pub fn HTRSubsetSelection() -> impl IntoView {
         </button>
         <h5>{move||if subsets.get().is_empty() { "All subsets enabled" } else { "Enabled subsets"}}</h5>
         <SubsetList subsets=subsets subsets_set=subsets_set advanced=settings.advanced() />
+    }
+}
+
+#[component]
+pub fn HTRParameters() -> impl IntoView {
+    let htr_config = use_context::<HTRConfig>().expect("HTR context required");
+
+    view! {
+
+        <DefaultStepParameters
+            niss_default=htr_config.niss
+            min_abs=htr_config.min_abs
+            max_abs=htr_config.max_abs
+            min_rel=htr_config.min_rel
+            max_rel=htr_config.max_rel
+            total_max_rel=14
+            total_max=28
+            variants=htr_config.variants
+        />
     }
 }
 

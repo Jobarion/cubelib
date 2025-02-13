@@ -67,8 +67,7 @@ pub fn from_step_config_fr(table: &FRFinishPruningTable, config: StepConfig) -> 
             None
         } else {
             config.step_limit.or(Some(config.quality * 1))
-        },
-        config.max_extension_length
+        }
     );
     Ok((step, search_opts))
 }
@@ -100,8 +99,7 @@ pub fn from_step_config_fr_leave_slice(table: &FRFinishPruningTable, config: Ste
             None
         } else {
             config.step_limit.or(Some(config.quality * 1))
-        },
-        config.max_extension_length
+        }
     );
     Ok((step, search_opts))
 }
@@ -117,8 +115,7 @@ pub fn from_step_config_htr(table: &HTRFinishPruningTable, config: StepConfig) -
             None
         } else {
             config.step_limit.or(Some(config.quality * 1))
-        },
-        config.max_extension_length
+        }
     );
     Ok((htr_finish(table), search_opts))
 }

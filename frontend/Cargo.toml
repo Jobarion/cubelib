@@ -36,7 +36,7 @@ serde_closure = { version = "0.3", optional = true }
 serde_bytes = { version = "0.11", optional = true }
 serde-wasm-bindgen = { version = "0.6.1", optional = true }
 idb = { version = "0.4.1", optional = true }
-wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen = { version = "0.2.87", optional = true }
 tokio-util = { version = "0.7.10", optional = true, features = ["io"] }
 time = "0.3.37"
 url = "2.5.4"

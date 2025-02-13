@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use leptonic::prelude::*;
 use leptos::*;
-use log::{info, Level};
+use log::{Level};
 
 use crate::cube::ScrambleComponent;
 use crate::solution::SolutionComponent;
@@ -131,15 +131,15 @@ fn FMCAppContainer() -> impl IntoView {
 fn load_url_state() {
     let current_url = url::Url::parse(leptos::window().location().href().unwrap().as_str()).unwrap();
     let mut is_local = current_url.query_pairs()
-        .filter(|(k, v)|k == "local")
-        .map(|(k, v)|v)
+        .filter(|(k, _)|k == "local")
+        .map(|(_, v)|v)
         .next()
         .filter(|v|v == "true")
         .is_some();
 
     let settings = current_url.query_pairs()
-        .filter(|(k, v)|k == "settings")
-        .map(|(k, v)|v)
+        .filter(|(k, _)|k == "settings")
+        .map(|(_, v)|v)
         .next();
 
     if let Some(settings) = settings {

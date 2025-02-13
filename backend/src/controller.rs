@@ -9,12 +9,17 @@ use actix_web::web::Bytes;
 use actix_web_lab::body;
 use base64::Engine;
 use cubelib::algs::Algorithm;
-use cubelib::puzzles::c333::{Cube333, Turn333};
+use cubelib::defs::StepKind;
+use cubelib::puzzles::c333::{Cube333, Transformation333, Turn333};
+use cubelib::puzzles::c333::steps::dr::coords::DRUDEOFBCoord;
+use cubelib::puzzles::c333::steps::htr::coords::HTRDRUDCoord;
 use cubelib::puzzles::c333::steps::solver;
 use cubelib::puzzles::c333::steps::tables::PruningTables333;
-use cubelib::puzzles::puzzle::ApplyAlgorithm;
+use cubelib::puzzles::c333::util::DR_SUBSETS;
+use cubelib::puzzles::puzzle::{ApplyAlgorithm, TransformableMut};
 use cubelib::solver::CancellationToken;
 use cubelib::solver::solution::Solution;
+use cubelib::steps::coord::Coord;
 use cubelib::steps::step::StepConfig;
 use cubelib_interface::{SolverRequest, SolverResponse};
 use log::{debug, error, info, trace};
@@ -104,6 +109,7 @@ pub async fn solve_stream(req: HttpRequest, steps: web::Json<SolverRequest>, app
 
 pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>, tables: Arc<PruningTables333>, cancel_token: CancellationToken) -> impl Iterator<Item = Solution<Turn333>> {
     let mut prev_len: Option<usize> = None;
+    let t1 = tables.clone();
     (5..20usize).into_iter()
         .map(|q| 2u32.pow(q as u32) as usize)
         .flat_map(move |quality| {
@@ -112,7 +118,7 @@ pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>,
                 x.quality = quality;
                 x.step_limit = None;
             }
-            let tables = tables.as_ref().clone();
+            let tables = t1.as_ref().clone();
             let steps = solver::build_steps(steps, &tables).unwrap();
             let best = cubelib::solver::solve_steps(puzzle, &steps, cancel_token.clone()).next();
             best
@@ -132,5 +138,29 @@ pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>,
                     true
                 }
             }
+        })
+        // Add comments
+        .map(move |mut sol|{
+            let mut cube = puzzle.clone();
+            for mut step in sol.steps.iter_mut() {
+                cube.apply_alg(&step.alg);
+                match step.kind {
+                    StepKind::DR => {
+                        let mut cube = cube.clone();
+                        for _ in 0..3 {
+                            if DRUDEOFBCoord::from(&cube).val() == 0 {
+                                break;
+                            }
+                            cube.transform(Transformation333::X);
+                            cube.transform(Transformation333::Z);
+                        }
+                        let subset_id = tables.as_ref().clone().htr_subset().unwrap().get(HTRDRUDCoord::from(&cube));
+                        let subset = &DR_SUBSETS[subset_id as usize];
+                        step.comment = subset.to_string();
+                    },
+                    _ => {}
+                }
+            }
+            sol
         })
 }

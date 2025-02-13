@@ -46,8 +46,7 @@ pub fn from_step_config(table: &HTRPruningTable, config: StepConfig) -> Result<(
             None
         } else {
             config.step_limit.or(Some(config.quality * 1))
-        },
-        config.max_extension_length
+        }
     );
     Ok((step, search_opts))
 }

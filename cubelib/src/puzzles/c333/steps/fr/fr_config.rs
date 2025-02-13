@@ -65,8 +65,7 @@ pub fn from_step_config(table: &FRPruningTable, config: StepConfig) -> Result<(S
             None
         } else {
             config.step_limit.or(Some(config.quality * 1))
-        },
-        config.max_extension_length
+        }
     );
     Ok((step, search_opts))
 }
@@ -98,8 +97,7 @@ pub fn from_step_config_no_slice(table: &FRLeaveSlicePruningTable, config: StepC
             None
         } else {
             config.step_limit.or(Some(config.quality * 1))
-        },
-        config.max_extension_length
+        }
     );
     Ok((step, search_opts))
 }

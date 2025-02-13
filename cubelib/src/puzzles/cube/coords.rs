@@ -183,11 +183,11 @@ mod avx2 {
 
 #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
 mod wasm32 {
-    use std::arch::wasm32::{i32x4, i8x16, u16x8, u16x8_extract_lane, u16x8_mul, u32x4_shr, u32x4_shuffle, u8x16, u8x16_add, u8x16_eq, u8x16_sub, u8x16_swizzle, v128, v128_and, v128_or};
+    use std::arch::wasm32::{u16x8, u16x8_extract_lane, u16x8_mul, u8x16, u8x16_swizzle, v128, v128_and};
 
-    use crate::puzzles::cube::coords::{COUDCoord, CPCoord};
+    use crate::puzzles::cube::coords::COUDCoord;
     use crate::puzzles::cube::CubeCornersOdd;
-    use crate::wasm_util::{complete_hsum_epi16, hsum_narrow_epi32, hsum_wide_epi32, mm_sad_epu8, u8x16_set1};
+    use crate::wasm_util::{complete_hsum_epi16, u8x16_set1};
 
     const CO_MUL: v128 = u16x8(1, 3, 9, 27, 81, 243, 729, 0);
     const CO_SHUFFLE_8_TO_16: v128 = u8x16(0, 0xFF, 1, 0xFF, 2, 0xFF, 3, 0xFF, 4, 0xFF, 5, 0xFF, 6, 0xFF, 7, 0xFF);

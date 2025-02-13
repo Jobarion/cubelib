@@ -53,10 +53,10 @@ impl Into<String> for StepKind {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub enum NissSwitchType {
-    Never = 0,
+    #[default] Never = 0,
     Before = 1,
     Always = 2,
 }

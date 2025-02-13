@@ -9,7 +9,7 @@ use crate::puzzles::puzzle::{Puzzle, PuzzleMove, Transformable, TransformableMut
 use crate::steps::step::{DefaultStepOptions, StepVariant};
 
 impl DefaultStepOptions {
-    pub fn new(min_moves: u8, max_moves: u8, absolute_min_moves: Option<u8>, absolute_max_moves: Option<u8>, niss_type: NissSwitchType, step_limit: Option<usize>, max_extension_length: Option<usize>) -> Self {
+    pub fn new(min_moves: u8, max_moves: u8, absolute_min_moves: Option<u8>, absolute_max_moves: Option<u8>, niss_type: NissSwitchType, step_limit: Option<usize>) -> Self {
         DefaultStepOptions {
             min_moves,
             max_moves,

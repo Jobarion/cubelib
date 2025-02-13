@@ -36,8 +36,6 @@ pub struct StepConfig {
     pub quality: usize,
     #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
     pub niss: Option<NissSwitchType>,
-    #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
-    pub max_extension_length: Option<usize>,
     pub params: HashMap<String, String>,
 }
 
@@ -65,8 +63,7 @@ pub struct DefaultStepOptions {
     pub max_moves: u8,
     pub absolute_min_moves: Option<u8>,
     pub absolute_max_moves: Option<u8>,
-    pub step_limit: Option<usize>,
-    pub max_extension_length: Option<usize>,
+    pub step_limit: Option<usize>
 }
 
 //Shh, don't look at the types below
@@ -360,7 +357,7 @@ pub fn next_step<
                 let alg: Algorithm<Turn> = solution.clone().into();
                 let ends_on_normal = solution.ends_on_normal();
                 cube.apply_alg(&alg);
-                let stage_opts = DefaultStepOptions::new(depth, depth, None, None, search_opts.niss_type, search_opts.step_limit, search_opts.max_extension_length);
+                let stage_opts = DefaultStepOptions::new(depth, depth, None, None, search_opts.niss_type, search_opts.step_limit);
                 let previous_normal = alg.normal_moves.last().cloned();
                 let previous_inverse = alg.inverse_moves.last().cloned();
 
@@ -388,7 +385,8 @@ pub fn next_step<
                             let sol_step = SolutionStep {
                                 kind: step.kind(),
                                 alg: step_alg,
-                                variant: variant_name.to_string()
+                                variant: variant_name.to_string(),
+                                comment: String::default(),
                             };
                             sol.add_step(sol_step);
                         }

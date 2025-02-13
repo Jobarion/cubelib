@@ -273,6 +273,10 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
         });
     }
     if dr.enabled.0.get() {
+        let mut params = HashMap::new();
+        if !dr.subsets.0.get().is_empty() {
+            params.insert("subsets".to_string(), dr.subsets.0.get().join(","));
+        }
         if dr.triggers.0.get().len() > 0 {
             steps_config.push(StepConfig {
                 kind: StepKind::RZP,
@@ -286,8 +290,7 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
                 niss: Some(rzp.niss.0.get()),
                 params: Default::default(),
             });
-            let mut triggers = HashMap::new();
-            triggers.insert("triggers".to_string(), dr.triggers.0.get().join(","));
+            params.insert("triggers".to_string(), dr.triggers.0.get().join(","));
             steps_config.push(StepConfig {
                 kind: StepKind::DR,
                 substeps: if advanced { Some(variants_to_string(dr.variants.0.get())) } else { default_variants.clone() },
@@ -298,7 +301,7 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
                 step_limit: None,
                 quality: 10000,
                 niss: Some(dr.niss.0.get()),
-                params: triggers,
+                params,
             });
         } else {
             steps_config.push(StepConfig {
@@ -311,7 +314,7 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
                 step_limit: None,
                 quality: 10000,
                 niss: Some(dr.niss.0.get()),
-                params: Default::default(),
+                params,
             });
         }
     }
@@ -326,13 +329,7 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
             step_limit: None,
             quality: 10000,
             niss: Some(htr.niss.0.get()),
-            params: {
-                let mut params = HashMap::new();
-                if !htr.subsets.0.get().is_empty() {
-                    params.insert("subsets".to_string(), htr.subsets.0.get().join(","));
-                }
-                params
-            },
+            params: Default::default(),
         });
     }
     if fr.enabled.0.get() {

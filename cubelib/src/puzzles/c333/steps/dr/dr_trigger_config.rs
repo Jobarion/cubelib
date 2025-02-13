@@ -115,8 +115,7 @@ pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")
             None
         } else {
             config.step_limit.or(Some(config.quality * 1))
-        },
-        config.max_extension_length
+        }
     );
     Ok((step, search_opts))
 }

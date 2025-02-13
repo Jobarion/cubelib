@@ -1,10 +1,9 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::thread::sleep;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
 use actix_cors::Cors;
-use actix_web::{App, get, HttpRequest, HttpResponse, HttpServer, Responder, web};
-use actix_web_lab::body;
+use actix_web::{App, HttpServer, Responder, web};
 use cubelib::puzzles::c333::steps::tables::PruningTables333;
 use log::LevelFilter;
 use moka::sync::Cache;
@@ -64,26 +63,3 @@ async fn main() -> std::io::Result<()> {
         .run()
         .await
 }
-
-
-// #[get("/test")]
-// pub async fn test() -> impl Responder {
-//     let (mut body_tx, body) = body::channel::<std::convert::Infallible>();
-//     let _ = web::block(move || {
-//         loop {
-//             sleep(Duration::from_secs(1));
-//             let result = body_tx.send(web::Bytes::from_static(b"Expensive new message\n"));
-//             println!("Sent message: {result:?}");
-//         }
-//     });
-//     HttpResponse::Ok().body(body)
-// }
-
-
-// #[actix_web::main]
-// async fn main() -> std::io::Result<()> {
-//     HttpServer::new(move || App::new().service(test))
-//         .bind(("127.0.0.1", 8049))?
-//         .run()
-//         .await
-// }

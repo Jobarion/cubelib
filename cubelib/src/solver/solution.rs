@@ -17,6 +17,7 @@ pub struct SolutionStep<Turn: PuzzleMove> {
     pub kind: StepKind,
     pub variant: String,
     pub alg: Algorithm<Turn>,
+    pub comment: String
 }
 
 impl <Turn: PuzzleMove> Solution<Turn> {
@@ -120,7 +121,7 @@ impl <Turn: PuzzleMove + Display> Display for Solution<Turn> {
         let longest_name_length = compact
             .steps
             .iter()
-            .map(|s| s.kind.to_string().len() + 1 + s.variant.to_string().len())
+            .map(|s| s.kind.to_string().len() + if s.comment.is_empty() { 0 } else { s.comment.len() + 1 })
             .max()
             .unwrap_or(0);
 
@@ -129,7 +130,12 @@ impl <Turn: PuzzleMove + Display> Display for Solution<Turn> {
             let name = if step.variant.is_empty() || step.kind == StepKind::FIN {
                 step.kind.to_string()
             } else {
-                format!("{}-{}", step.kind.to_string(), step.variant)
+                let comment = if step.comment.is_empty() {
+                    "".to_string()
+                } else {
+                    format!(" [{}]", step.comment)
+                };
+                format!("{}{comment}", step.kind.to_string())
             };
             total_moves += alg_length;
             writeln!(f, "{:longest_alg_length$}  //{name:longest_name_length$} ({alg_length}/{total_moves})", step.alg.to_string())?;

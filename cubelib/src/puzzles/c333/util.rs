@@ -17,7 +17,7 @@ impl FromStr for Subset {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        HTR_SUBSETS.iter()
+        DR_SUBSETS.iter()
             .find(|x|x.to_string().as_str().eq(s))
             .cloned()
             .ok_or(())
@@ -36,7 +36,7 @@ impl Display for Subset {
     }
 }
 
-pub const HTR_SUBSETS: [Subset; 48] = [
+pub const DR_SUBSETS: [Subset; 48] = [
     Subset::new(None, "", 0, 0, 0, 0),
     Subset::new(None, "U R2 F2 R2 U", 0, 2, 0, 2),
     Subset::new(None, "U R2 L2 D", 0, 4, 0, 2),
@@ -90,7 +90,7 @@ pub const HTR_SUBSETS: [Subset; 48] = [
 
 
 pub fn expand_subset_name(name: &str) -> Vec<(Subset, u8)> {
-    HTR_SUBSETS.iter().cloned().zip(0u8..)
+    DR_SUBSETS.iter().cloned().zip(0u8..)
         .filter(|(x, _)|{
             if name.len() >= 2 {
                 x.to_string().starts_with(name)

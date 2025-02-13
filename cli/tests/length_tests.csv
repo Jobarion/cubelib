@@ -6,3 +6,8 @@ R U|EO[max=0]>DR[max=0;triggers=R]|-1|10
 U R2 F B R B2 R U2 L B2 R U' D'  R2 F R' L B2 U2 F2 D F U R D (L' F2 D U2 B' L)|EO[max=0]>DR[max=0;triggers=R;niss=always]|0|10
 R' U' F D U2 R2 B2 U B2 F2 R2 F' U F2 U2 R' B U L D2 U2 B2 R' U' F|EO[max=3;niss=always]>RZP[max=1;niss=before]>DR[max=3;triggers=R;niss=before]|7|10
 R' U' F R D2 F2 B2 L' U' D2 L2 U R F2 D2 R2 L2 U F2 D2 R' U' F (F' L B' D L B2 U' L2 U' L F2 L D2 R')|EO[niss=always;max=1] > DR[max=0] > HTR[niss=before] > FIN|8|100
+R|EO > DR[triggers=RU2R]|0|10
+R|EO > DR[subsets=0]|1|10
+R|EO > DR[subsets=1]|0|10
+L F2 U2 F2 U2 F|EO[max=1] > DR[ud;triggers=RU2R]|8|10
+L F2 U2 F2 U2 F|EO[max=1] > DR[ud]|6|10

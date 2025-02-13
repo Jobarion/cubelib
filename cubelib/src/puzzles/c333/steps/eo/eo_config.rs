@@ -128,6 +128,11 @@ pub fn from_step_config(table: &EOPruningTable, config: StepConfig) -> Result<(S
     } else {
         eo_any(table)
     };
+
+    if !config.params.is_empty() {
+        return Err(format!("Unreognized parameters: {:?}", config.params.keys()))
+    }
+
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(5),
@@ -138,7 +143,8 @@ pub fn from_step_config(table: &EOPruningTable, config: StepConfig) -> Result<(S
             None
         } else {
             config.step_limit.or(Some(config.quality * 1))
-        }
+        },
+        config.max_extension_length
     );
     Ok((step, search_opts))
 }

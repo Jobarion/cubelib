@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::hash::Hash;
 use std::marker::PhantomData;
+use std::rc::Rc;
 use log::trace;
 use tokio_util::sync::CancellationToken;
 
@@ -10,7 +11,7 @@ use crate::algs::Algorithm;
 use crate::defs::*;
 use crate::puzzles::puzzle::{ApplyAlgorithm, Puzzle, PuzzleMove, Transformable};
 use crate::solver::df_search::dfs_iter;
-use crate::solver::lookup_table::LookupTable;
+use crate::solver::lookup_table::{LookupTable, NissLookupTable};
 use crate::solver::moveset::{MoveSet, TransitionTable};
 use crate::solver::solution::{Solution, SolutionStep};
 use crate::solver::stream;
@@ -35,6 +36,8 @@ pub struct StepConfig {
     pub quality: usize,
     #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
     pub niss: Option<NissSwitchType>,
+    #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
+    pub max_extension_length: Option<usize>,
     pub params: HashMap<String, String>,
 }
 
@@ -63,6 +66,7 @@ pub struct DefaultStepOptions {
     pub absolute_min_moves: Option<u8>,
     pub absolute_max_moves: Option<u8>,
     pub step_limit: Option<usize>,
+    pub max_extension_length: Option<usize>,
 }
 
 //Shh, don't look at the types below
@@ -85,7 +89,6 @@ pub trait PostStepCheck<Turn: PuzzleMove + Transformable<Transformation>, Transf
     fn is_solution_admissible(&self, cube: &PuzzleParam, alg: &Algorithm<Turn>) -> bool;
 }
 
-#[derive(Copy, Clone)]
 pub struct AnyPostStepCheck;
 
 impl <Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>> PostStepCheck<Turn, Transformation, PuzzleParam> for AnyPostStepCheck {
@@ -100,6 +103,62 @@ pub struct CubeStateBlockingPostStepCheck<PuzzleParam: Hash + Eq>(HashSet<Puzzle
 impl <Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation> + Hash + Eq> PostStepCheck<Turn, Transformation, PuzzleParam> for CubeStateBlockingPostStepCheck<PuzzleParam> {
     fn is_solution_admissible(&self, puzzle: &PuzzleParam, _: &Algorithm<Turn>) -> bool {
         self.0.contains(puzzle)
+    }
+}
+
+trait Heuristic<
+    Turn: PuzzleMove + Transformable<Transformation>,
+    Transformation: PuzzleMove,
+    PuzzleParam: Puzzle<Turn, Transformation>> {
+    fn heuristic(&self, cube: &PuzzleParam, can_niss: bool) -> u8;
+}
+
+struct NissPruningTableHeuristic<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>>(&'a NissLookupTable<HC_SIZE, HC>);
+struct PruningTableHeuristic<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>>(&'a LookupTable<HC_SIZE, HC>);
+
+impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>> NissPruningTableHeuristic<'a, HC_SIZE, HC> {
+    fn new(table: &'a NissLookupTable<HC_SIZE, HC>) -> Self {
+        Self(table)
+    }
+}
+
+impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>> PruningTableHeuristic<'a, HC_SIZE, HC> {
+    fn new(table: &'a LookupTable<HC_SIZE, HC>) -> Self {
+        Self(table)
+    }
+}
+
+impl <const HC_SIZE: usize,
+    HC: Coord<HC_SIZE>,
+    Turn: PuzzleMove + Transformable<Transformation>,
+    Transformation: PuzzleMove,
+    PuzzleParam: Puzzle<Turn, Transformation>> Heuristic<Turn, Transformation, PuzzleParam> for PruningTableHeuristic<'_, HC_SIZE, HC> where
+    HC: for<'x> From<&'x PuzzleParam> {
+    fn heuristic(&self, cube: &PuzzleParam, can_niss: bool) -> u8 {
+        let coord = HC::from(cube);
+        let heuristic = self.0.get(coord);
+        if can_niss {
+            min(1, heuristic)
+        } else {
+            heuristic
+        }
+    }
+}
+
+impl <const HC_SIZE: usize,
+    HC: Coord<HC_SIZE>,
+    Turn: PuzzleMove + Transformable<Transformation>,
+    Transformation: PuzzleMove,
+    PuzzleParam: Puzzle<Turn, Transformation>> Heuristic<Turn, Transformation, PuzzleParam> for NissPruningTableHeuristic<'_, HC_SIZE, HC> where
+    HC: for<'x> From<&'x PuzzleParam> {
+    fn heuristic(&self, cube: &PuzzleParam, can_niss: bool) -> u8 {
+        let coord = HC::from(cube);
+        let (val, niss) = self.0.get(coord);
+        if can_niss && val != 0 {
+            niss
+        } else {
+            val
+        }
     }
 }
 
@@ -120,9 +179,10 @@ pub struct DefaultPruningTableStep<
 {
     move_set: &'a MoveSet<Turn, TransTable>,
     pre_trans: Vec<Transformation>,
-    table: &'a LookupTable<HC_SIZE, HC>,
+    heuristic: Box<dyn Heuristic<Turn, Transformation, PuzzleParam> + 'a>,
     name: &'a str,
-    post_step_checker: Vec<Box<dyn PostStepCheck<Turn, Transformation, PuzzleParam>>>,
+    post_step_checks: Rc<Vec<Box<dyn PostStepCheck<Turn, Transformation, PuzzleParam> + 'a>>>,
+    _hc: PhantomData<HC>,
     _pc: PhantomData<PC>,
     _puzzle: PhantomData<PuzzleParam>,
     _turn: PhantomData<Turn>,
@@ -144,7 +204,7 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Co
         PC: for<'x> From<&'x PuzzleParam>, {
 
     fn is_solution_admissible(&self, cube: &PuzzleParam, alg: &Algorithm<Turn>) -> bool {
-        self.post_step_checker.iter()
+        self.post_step_checks.iter()
             .all(|psc| psc.is_solution_admissible(cube, alg))
     }
 }
@@ -162,7 +222,7 @@ impl <
 StepVariant<Turn, Transformation, PuzzleParam, TransTable> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable>
 where
     HC: for<'x> From<&'x PuzzleParam>,
-    PC: for<'x> From<&'x PuzzleParam>, {
+    PC: for<'x> From<&'x PuzzleParam> {
 
     fn move_set(&self, _: &PuzzleParam, _: u8) -> &'_ MoveSet<Turn, TransTable> {
         self.move_set
@@ -173,14 +233,7 @@ where
     }
 
     fn heuristic(&self, cube: &PuzzleParam, _: u8, can_niss: bool) -> u8 {
-
-        let coord = HC::from(cube);
-        let heuristic = self.table.get(coord);
-        if can_niss {
-            min(1, heuristic)
-        } else {
-            heuristic
-        }
+        self.heuristic.heuristic(cube, can_niss)
     }
 
     fn name(&self) -> &str {
@@ -207,15 +260,34 @@ DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, Puzz
     pub fn new(move_set: &'a MoveSet<Turn, TransTable>,
                pre_trans: Vec<Transformation>,
                table: &'a LookupTable<HC_SIZE, HC>,
-               post_step_checker: Vec<Box<dyn PostStepCheck<Turn, Transformation, PuzzleParam>>>,
+               post_step_checker: Rc<Vec<Box<dyn PostStepCheck<Turn, Transformation, PuzzleParam> + 'a>>>,
                name: &'a str) -> Self {
         DefaultPruningTableStep {
             move_set,
             pre_trans,
-            table,
+            heuristic: Box::new(PruningTableHeuristic::new(table)),
             name,
-            post_step_checker,
+            post_step_checks: post_step_checker,
             _puzzle: PhantomData::default(),
+            _hc: PhantomData::default(),
+            _pc: PhantomData::default(),
+            _turn: PhantomData::default(),
+        }
+    }
+
+    pub fn new_niss_table(move_set: &'a MoveSet<Turn, TransTable>,
+               pre_trans: Vec<Transformation>,
+               table: &'a NissLookupTable<HC_SIZE, HC>,
+               post_step_checker: Rc<Vec<Box<dyn PostStepCheck<Turn, Transformation, PuzzleParam> + 'a>>>,
+               name: &'a str) -> Self {
+        DefaultPruningTableStep {
+            move_set,
+            pre_trans,
+            heuristic: Box::new(NissPruningTableHeuristic::new(table)),
+            name,
+            post_step_checks: post_step_checker,
+            _puzzle: PhantomData::default(),
+            _hc: PhantomData::default(),
             _pc: PhantomData::default(),
             _turn: PhantomData::default(),
         }
@@ -288,7 +360,7 @@ pub fn next_step<
                 let alg: Algorithm<Turn> = solution.clone().into();
                 let ends_on_normal = solution.ends_on_normal();
                 cube.apply_alg(&alg);
-                let stage_opts = DefaultStepOptions::new(depth, depth, None, None, search_opts.niss_type, search_opts.step_limit);
+                let stage_opts = DefaultStepOptions::new(depth, depth, None, None, search_opts.niss_type, search_opts.step_limit, search_opts.max_extension_length);
                 let previous_normal = alg.normal_moves.last().cloned();
                 let previous_inverse = alg.inverse_moves.last().cloned();
 

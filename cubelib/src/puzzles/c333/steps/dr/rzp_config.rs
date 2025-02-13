@@ -4,7 +4,6 @@ use crate::algs::Algorithm;
 use crate::defs::*;
 use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
 use crate::puzzles::c333::steps::{dr, MoveSet333, Step333};
-use crate::puzzles::c333::steps::eo::eo_config::EOCount;
 use crate::puzzles::cube::{CubeAxis, CubeFace};
 use crate::puzzles::cube::CubeFace::*;
 use crate::puzzles::cube::Direction::*;
@@ -69,6 +68,11 @@ pub struct RZPStep<'a> {
 pub fn from_step_config<'a>(config: StepConfig) -> Result<(Step333<'a>, DefaultStepOptions), String> {
     // let step = rzp_any();
     let step = rzp(vec![CubeAxis::X, CubeAxis::Y, CubeAxis::Z]);
+
+    if !config.params.is_empty() {
+        return Err(format!("Unreognized parameters: {:?}", config.params.keys()))
+    }
+
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(3),
@@ -79,8 +83,8 @@ pub fn from_step_config<'a>(config: StepConfig) -> Result<(Step333<'a>, DefaultS
             None
         } else {
             config.step_limit.or(Some(config.quality * 10))
-        }
-
+        },
+        config.max_extension_length,
     );
     Ok((step, search_opts))
 }

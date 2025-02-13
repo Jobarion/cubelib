@@ -9,7 +9,7 @@ use crate::puzzles::puzzle::{Puzzle, PuzzleMove, Transformable, TransformableMut
 use crate::steps::step::{DefaultStepOptions, StepVariant};
 
 impl DefaultStepOptions {
-    pub fn new(min_moves: u8, max_moves: u8, absolute_min_moves: Option<u8>, absolute_max_moves: Option<u8>, niss_type: NissSwitchType, step_limit: Option<usize>) -> Self {
+    pub fn new(min_moves: u8, max_moves: u8, absolute_min_moves: Option<u8>, absolute_max_moves: Option<u8>, niss_type: NissSwitchType, step_limit: Option<usize>, max_extension_length: Option<usize>) -> Self {
         DefaultStepOptions {
             min_moves,
             max_moves,
@@ -50,7 +50,7 @@ pub fn dfs_iter<
     //Return immediately if the cube is solved. This avoids the issue where we return two solutions if the NISS type is AtStart.
     if step.heuristic(&cube, search_opts.min_moves, search_opts.niss_type != NissSwitchType::Never) == 0 {
         //Only return a solution if we are allowed to return zero length solutions
-        if search_opts.min_moves == 0 {
+        if search_opts.min_moves == 0 && step.is_solution_admissible(&cube, &Algorithm::new()) {
             return Some(Box::new(vec![Algorithm::new()].into_iter()));
         } else {
             return Some(Box::new(vec![].into_iter()));

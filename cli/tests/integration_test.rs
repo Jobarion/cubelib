@@ -22,7 +22,7 @@ fn run_length_tests() {
         .unwrap();
     for result in reader.deserialize() {
         let record: LengthTestCase = result.expect("A CSV record");
-        println!("Testing {}", record.scramble);
+        println!("Testing {} {} {}", record.scramble, record.config, record.length);
         run_length_test(&record);
     }
 }

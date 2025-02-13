@@ -16,7 +16,11 @@ pub fn gen_tables(steps: &Vec<StepConfig>, tables: &mut PruningTables333) {
             #[cfg(feature = "333eo")]
             (_, StepKind::EO) => tables.gen_eo(),
             #[cfg(feature = "333dr")]
-            (_, StepKind::DR) => tables.gen_dr(),
+            (_, StepKind::DR) => {
+                tables.gen_dr();
+                #[cfg(feature = "333htr")]
+                tables.gen_htr();
+            },
             #[cfg(feature = "333htr")]
             (_, StepKind::HTR) => tables.gen_htr(),
             #[cfg(feature = "333fr")]
@@ -51,9 +55,15 @@ pub fn build_steps(steps: Vec<StepConfig>, tables: &PruningTables333) -> Result<
                     rzp_config.quality = config.quality;
                     rzp_config.max = config.max;
                     rzp_config.absolute_max = config.absolute_max;
-                    vec![steps::dr::rzp_config::from_step_config(rzp_config), steps::dr::dr_trigger_config::from_step_config(dr_table, config.clone())].into_iter()
+                    #[cfg(feature = "333htr")]
+                    { vec![steps::dr::rzp_config::from_step_config(rzp_config), steps::dr::dr_trigger_config::from_step_config(dr_table, tables.htr_subset().expect("HTR Subset table required"), config.clone())].into_iter() }
+                    #[cfg(not(feature = "333htr"))]
+                    { vec![steps::dr::rzp_config::from_step_config(rzp_config), steps::dr::dr_trigger_config::from_step_config(dr_table, config.clone())].into_iter() }
                 } else {
-                    vec![steps::dr::dr_config::from_step_config(dr_table, config.clone())].into_iter()
+                    #[cfg(feature = "333htr")]
+                    { vec![steps::dr::dr_config::from_step_config(dr_table, tables.htr_subset().expect("HTR Subset table required"), config.clone())].into_iter() }
+                    #[cfg(not(feature = "333htr"))]
+                    { vec![steps::dr::dr_config::from_step_config(dr_table, config.clone())].into_iter() }
                 }
             }
             #[cfg(feature = "333dr")]
@@ -61,13 +71,19 @@ pub fn build_steps(steps: Vec<StepConfig>, tables: &PruningTables333) -> Result<
                 let dr_table = tables.dr().expect("DR table required");
                 if !config.params.contains_key("triggers") {
                     log::warn!("RZP without defining triggers is pointless and slower. Consider deleting the RZP step or adding explicit DR triggers.");
-                    vec![steps::dr::dr_config::from_step_config(dr_table, config.clone())].into_iter()
+                    #[cfg(feature = "333htr")]
+                    { vec![steps::dr::dr_config::from_step_config(dr_table, tables.htr_subset().expect("HTR Subset table required"), config.clone())].into_iter() }
+                    #[cfg(not(feature = "333htr"))]
+                    { vec![steps::dr::dr_config::from_step_config(dr_table, config.clone())].into_iter() }
                 } else {
-                    vec![steps::dr::dr_trigger_config::from_step_config(dr_table, config.clone())].into_iter()
+                    #[cfg(feature = "333htr")]
+                    { vec![steps::dr::dr_trigger_config::from_step_config(dr_table, tables.htr_subset().expect("HTR Subset table required"), config.clone())].into_iter() }
+                    #[cfg(not(feature = "333htr"))]
+                    { vec![steps::dr::dr_trigger_config::from_step_config(dr_table, config.clone())].into_iter() }
                 }
             }
             #[cfg(feature = "333htr")]
-            (Some(StepKind::DR), StepKind::HTR)   => vec![steps::htr::htr_config::from_step_config(tables.htr().expect("HTR table required"), tables.htr_subset().expect("HTR subset table required"), config.clone())].into_iter(),
+            (Some(StepKind::DR), StepKind::HTR)   => vec![steps::htr::htr_config::from_step_config(tables.htr().expect("HTR table required"), config.clone())].into_iter(),
             #[cfg(feature = "333fr")]
             (Some(StepKind::HTR), StepKind::FR)   => vec![steps::fr::fr_config::from_step_config(tables.fr().expect("FR table required"), config.clone())].into_iter(),
             #[cfg(feature = "333fr")]

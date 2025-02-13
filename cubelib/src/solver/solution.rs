@@ -121,7 +121,7 @@ impl <Turn: PuzzleMove + Display> Display for Solution<Turn> {
         let longest_name_length = compact
             .steps
             .iter()
-            .map(|s| s.kind.to_string().len() + if s.comment.is_empty() { 0 } else { s.comment.len() + 1 })
+            .map(|s| s.kind.to_string().len() + if s.comment.is_empty() { 0 } else { s.comment.len() + 3 })
             .max()
             .unwrap_or(0);
 

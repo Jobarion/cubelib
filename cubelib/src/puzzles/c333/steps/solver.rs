@@ -28,9 +28,11 @@ pub fn gen_tables(steps: &Vec<StepConfig>, tables: &mut PruningTables333) {
             #[cfg(feature = "333fr")]
             (_, StepKind::FRLS) => tables.gen_fr_leave_slice(),
             #[cfg(feature = "333finish")]
-            (Some(StepKind::FR), StepKind::FIN) | (Some(StepKind::FRLS), StepKind::FIN) => tables.gen_fr_finish(),
+            (Some(StepKind::FR), StepKind::FIN) | (Some(StepKind::FRLS), StepKind::FINLS) => tables.gen_fr_finish(),
             #[cfg(feature = "333finish")]
             (Some(StepKind::HTR), StepKind::FIN) => tables.gen_htr_finish(),
+            #[cfg(feature = "333finish")]
+            (Some(StepKind::HTR), StepKind::FINLS) => tables.gen_htr_leave_slice_finish(),
             _ => ()
         }
     }
@@ -91,9 +93,11 @@ pub fn build_steps(steps: Vec<StepConfig>, tables: &PruningTables333) -> Result<
             #[cfg(feature = "333finish")]
             (Some(StepKind::HTR), StepKind::FIN)   => vec![steps::finish::finish_config::from_step_config_htr(tables.htr_finish().expect("HTRFinish table required"), config.clone())].into_iter(),
             #[cfg(feature = "333finish")]
+            (Some(StepKind::HTR), StepKind::FINLS)   => vec![steps::finish::finish_config::from_step_config_htr_leave_slice(tables.htr_leave_slice_finish().expect("HTRLSFinish table required"), config.clone())].into_iter(),
+            #[cfg(feature = "333finish")]
             (Some(StepKind::FR), StepKind::FIN)   => vec![steps::finish::finish_config::from_step_config_fr(tables.fr_finish().expect("FRFinish table required"), config.clone())].into_iter(),
             #[cfg(feature = "333finish")]
-            (Some(StepKind::FRLS), StepKind::FIN)   => vec![steps::finish::finish_config::from_step_config_fr_leave_slice(tables.fr_finish().expect("FRFinish table required"), config.clone())].into_iter(),
+            (Some(StepKind::FRLS), StepKind::FINLS)   => vec![steps::finish::finish_config::from_step_config_fr_leave_slice(tables.fr_finish().expect("FRFinish table required"), config.clone())].into_iter(),
             (None, x) => vec![Err(format!("{:?} is not supported as a first step", x))].into_iter(),
             (Some(x), y) => vec![Err(format!("Unsupported step order {:?} > {:?}", x, y))].into_iter(),
         })

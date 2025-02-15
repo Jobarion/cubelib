@@ -15,8 +15,10 @@ use crate::puzzles::c333::steps::eo::coords::EOCoordFB;
 use crate::puzzles::c333::steps::eo::eo_config::{EO_FB_MOVESET, EOPruningTable};
 #[cfg(feature = "333finish")]
 use crate::puzzles::c333::steps::finish::coords::{FRUDFinishCoord, HTRFinishCoord};
+use crate::puzzles::c333::steps::finish::coords::HTRLeaveSliceFinishCoord;
 #[cfg(feature = "333finish")]
 use crate::puzzles::c333::steps::finish::finish_config::{FRFinishPruningTable, FRUD_FINISH_MOVESET, HTR_FINISH_MOVESET, HTRFinishPruningTable};
+use crate::puzzles::c333::steps::finish::finish_config::HTRLeaveSliceFinishPruningTable;
 #[cfg(feature = "333fr")]
 use crate::puzzles::c333::steps::fr::coords::{FRUDNoSliceCoord, FRUDWithSliceCoord};
 #[cfg(feature = "333fr")]
@@ -48,7 +50,9 @@ pub struct PruningTables333 {
     #[cfg(feature = "333finish")]
     fr_finish: Option<FRFinishPruningTable>,
     #[cfg(feature = "333finish")]
-    htr_finish: Option<HTRFinishPruningTable>
+    htr_finish: Option<HTRFinishPruningTable>,
+    #[cfg(feature = "333finish")]
+    htr_ls_finish: Option<HTRLeaveSliceFinishPruningTable>
 }
 
 impl PruningTables333 {
@@ -72,7 +76,9 @@ impl PruningTables333 {
             #[cfg(feature = "333finish")]
             fr_finish: None,
             #[cfg(feature = "333finish")]
-            htr_finish: None
+            htr_finish: None,
+            #[cfg(feature = "333finish")]
+            htr_ls_finish: None
         }
     }
 
@@ -109,6 +115,10 @@ impl PruningTables333 {
             },
             #[cfg(feature = "333finish")]
             "htrfin" => if let Some(tbl) = &self.htr_finish {
+                tbl.save_to_disk("333", key)?
+            },
+            #[cfg(feature = "333finish")]
+            "htrlsfin" => if let Some(tbl) = &self.htr_ls_finish {
                 tbl.save_to_disk("333", key)?
             },
             _ => {}
@@ -346,12 +356,27 @@ impl PruningTables333 {
 
     #[cfg(all(feature = "333finish", not(feature = "fs")))]
     pub fn gen_htr_finish(&mut self) {
-        self.htr_finish = Some(crate::puzzles::c333::steps::tables::gen_htr_finish());
+        self.htr_ls_finish = Some(crate::puzzles::c333::steps::tables::gen_htr_no_slice_finish());
     }
 
     #[cfg(feature = "333finish")]
     pub fn htr_finish(&self) -> Option<&HTRFinishPruningTable> {
         self.htr_finish.as_ref()
+    }
+
+    #[cfg(all(feature = "333finish", feature = "fs"))]
+    pub fn gen_htr_leave_slice_finish(&mut self) {
+        self.load_and_save_normal("htrlsfin", &|x|&mut x.htr_ls_finish, &gen_htr_no_slice_finish, &|| HTRLeaveSliceFinishPruningTable::load_from_disk("333", "htrlsfin"));
+    }
+
+    #[cfg(all(feature = "333finish", not(feature = "fs")))]
+    pub fn gen_htr_leave_slice_finish(&mut self) {
+        self.htr_finish = Some(crate::puzzles::c333::steps::tables::gen_htr_finish());
+    }
+
+    #[cfg(feature = "333finish")]
+    pub fn htr_leave_slice_finish(&self) -> Option<&HTRLeaveSliceFinishPruningTable> {
+        self.htr_ls_finish.as_ref()
     }
 }
 
@@ -465,6 +490,21 @@ fn gen_htr_finish() -> HTRFinishPruningTable {
     let table = lookup_table::generate(&HTR_FINISH_MOVESET,
                                        &|c: &crate::puzzles::c333::Cube333| HTRFinishCoord::from(c),
                                        &|| HTRFinishPruningTable::new(false),
+                                       &|table, coord|table.get(coord),
+                                       &|table, coord, val|table.set(coord, val));
+    #[cfg(not(target_arch = "wasm32"))]
+    debug!("Took {}ms", time.elapsed().as_millis());
+    table
+}
+
+#[cfg(feature = "333finish")]
+fn gen_htr_no_slice_finish() -> HTRLeaveSliceFinishPruningTable {
+    info!("Generating HTR leave slice finish pruning table...");
+    #[cfg(not(target_arch = "wasm32"))]
+    let time = Instant::now();
+    let table = lookup_table::generate(&HTR_FINISH_MOVESET,
+                                       &|c: &crate::puzzles::c333::Cube333| HTRLeaveSliceFinishCoord::from(c),
+                                       &|| HTRLeaveSliceFinishPruningTable::new(false),
                                        &|table, coord|table.get(coord),
                                        &|table, coord, val|table.set(coord, val));
     #[cfg(not(target_arch = "wasm32"))]

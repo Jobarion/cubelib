@@ -13,6 +13,12 @@ body {
     flex-direction: column;
 }
 
+#kofi {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
 #app-container {
     max-width: 500px;
     margin-left: auto;

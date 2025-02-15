@@ -352,7 +352,11 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
     }
     if fin.enabled.0.get() {
         steps_config.push(StepConfig {
-            kind: StepKind::FIN,
+            kind: if fin.leave_slice.0.get() {
+                StepKind::FINLS
+            } else {
+                StepKind::FIN
+            },
             substeps: Some(vec!["ud".to_string(), "fb".to_string(), "lr".to_string()]),
             min: Some(fin.min_rel.0.get()).filter(|_|relative),
             max: Some(fin.max_rel.0.get()).filter(|_|relative),

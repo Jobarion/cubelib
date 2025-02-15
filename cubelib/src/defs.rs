@@ -12,6 +12,7 @@ pub enum StepKind {
     FR,
     FRLS,
     FIN,
+    FINLS,
     Other(String)
 }
 
@@ -33,6 +34,7 @@ impl FromStr for StepKind {
             "fr" => Ok(Self::FR),
             "frls" => Ok(Self::FRLS),
             "finish" | "fin" => Ok(Self::FIN),
+            "finls" => Ok(Self::FINLS),
             x=> Ok(Self::Other(x.to_string()))
         }
     }
@@ -48,6 +50,7 @@ impl Into<String> for StepKind {
             StepKind::FR => "fr".to_string(),
             StepKind::FRLS => "frls".to_string(),
             StepKind::FIN => "finish".to_string(),
+            StepKind::FINLS => "finls".to_string(),
             StepKind::Other(x) => x,
         }
     }

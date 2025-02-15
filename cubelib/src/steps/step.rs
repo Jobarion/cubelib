@@ -1,7 +1,6 @@
 use std::cmp::min;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::Display;
-use std::hash::Hash;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use log::trace;
@@ -84,23 +83,6 @@ pub trait PreStepCheck<Turn: PuzzleMove + Transformable<Transformation>, Transfo
 
 pub trait PostStepCheck<Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>> {
     fn is_solution_admissible(&self, cube: &PuzzleParam, alg: &Algorithm<Turn>) -> bool;
-}
-
-pub struct AnyPostStepCheck;
-
-impl <Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>> PostStepCheck<Turn, Transformation, PuzzleParam> for AnyPostStepCheck {
-    fn is_solution_admissible(&self, _: &PuzzleParam, _: &Algorithm<Turn>) -> bool {
-        true
-    }
-}
-
-#[derive(Clone)]
-pub struct CubeStateBlockingPostStepCheck<PuzzleParam: Hash + Eq>(HashSet<PuzzleParam>);
-
-impl <Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation> + Hash + Eq> PostStepCheck<Turn, Transformation, PuzzleParam> for CubeStateBlockingPostStepCheck<PuzzleParam> {
-    fn is_solution_admissible(&self, puzzle: &PuzzleParam, _: &Algorithm<Turn>) -> bool {
-        self.0.contains(puzzle)
-    }
 }
 
 trait Heuristic<

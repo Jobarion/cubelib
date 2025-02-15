@@ -78,6 +78,7 @@ fn FMCAppContainer() -> impl IntoView {
 
     let settings = SettingsState::from_local_storage();
     provide_context(settings);
+    let kofi = "<a id='kofi' href='https://ko-fi.com/O4O31AIZTT' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>";
     view! {
         <Box id="app-container">
             <div>
@@ -124,6 +125,7 @@ fn FMCAppContainer() -> impl IntoView {
             <h2>"Solution"</h2>
             <SolutionComponent/>
             <SettingsComponent active=settings_modal set_active=set_settings_modal/>
+            <div style:height="50px" style:position="relative" inner_html=kofi />
         </Box>
     }
 }

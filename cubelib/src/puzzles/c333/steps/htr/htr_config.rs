@@ -12,7 +12,7 @@ use crate::puzzles::cube::CubeAxis;
 use crate::puzzles::cube::Direction::*;
 use crate::solver::lookup_table::{LookupTable, NissLookupTable};
 use crate::solver::moveset::TransitionTable333;
-use crate::steps::step::{AnyPostStepCheck, DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
+use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
 use crate::steps::step::StepConfig;
 
 pub type HTRPruningTable = NissLookupTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
@@ -60,9 +60,9 @@ pub fn htr<'a>(table: &'a HTRPruningTable, dr_axis: Vec<CubeAxis>) -> Step333<'a
         .into_iter()
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> + 'a>> = match x {
-                CubeAxis::UD => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![], table, Rc::new(vec![Box::new(AnyPostStepCheck)]), "ud"))),
-                CubeAxis::FB => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, Rc::new(vec![Box::new(AnyPostStepCheck)]), "fb"))),
-                CubeAxis::LR => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, Rc::new(vec![Box::new(AnyPostStepCheck)]), "lr"))),
+                CubeAxis::UD => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
+                CubeAxis::FB => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, Rc::new(vec![]), "fb"))),
+                CubeAxis::LR => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, Rc::new(vec![]), "lr"))),
             };
             x
         })

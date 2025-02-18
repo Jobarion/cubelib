@@ -103,20 +103,22 @@ pub fn dfs_iter<
                             ,
                         )
                     },
-                    NissSwitchType::Always => Box::new(
-                        next_dfs_level(
-                            step,
-                            cube.clone(),
-                            depth,
-                            true,
-                            true,
-                            true,
-                            previous_normal,
-                            previous_inverse,
-                            cancel_token.clone(),
+                    NissSwitchType::Always => {
+                        Box::new(
+                            next_dfs_level(
+                                step,
+                                cube.clone(),
+                                depth,
+                                true,
+                                true,
+                                true,
+                                previous_normal,
+                                previous_inverse,
+                                cancel_token.clone(),
+                            )
+                                .map(|alg| alg.reverse()),
                         )
-                            .map(|alg| alg.reverse()),
-                    ),
+                    },
                     NissSwitchType::Before => {
                         let no_niss = next_dfs_level(
                             step,
@@ -139,8 +141,8 @@ pub fn dfs_iter<
                             true,
                             false,
                             true,
-                            previous_normal,
                             previous_inverse,
+                            previous_normal,
                             cancel_token.clone(),
                         )
                         .map(|alg| alg.reverse())
@@ -182,7 +184,7 @@ fn next_dfs_level<
     cancel_token: CancellationToken,
 ) -> Box<dyn Iterator<Item = Algorithm<Turn>> + 'a> {
     let lower_bound = step.heuristic(&cube, depth_left, invert_allowed);
-    trace!("[{}]{}DFS depth {depth_left}, lower bound {lower_bound}, invert {invert_allowed}, {previous_normal:?}", step.name(), " ".repeat(10 - depth_left as usize));
+    trace!("[{}]{}DFS depth {depth_left}, lower bound {lower_bound}, invert {invert_allowed}, {previous_normal:?}, {previous_inverse:?}", step.name(), " ".repeat(10 - depth_left as usize));
     let mut inverse = cube.clone();
     let cancel_token_inverse = cancel_token.clone();
     let normal_solutions: Box<dyn Iterator<Item = Algorithm<Turn>>> = if depth_left == 0 && lower_bound == 0 {

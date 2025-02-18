@@ -277,7 +277,7 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
         if !dr.subsets.0.get().is_empty() {
             params.insert("subsets".to_string(), dr.subsets.0.get().join(","));
         }
-        if dr.triggers.0.get().len() > 0 {
+        if dr.triggers.0.get().len() > 0 && dr.enforce_triggers.0.get() {
             steps_config.push(StepConfig {
                 kind: StepKind::RZP,
                 substeps: None,

@@ -11,3 +11,5 @@ R|EO > DR[subsets=0]|1|10
 R|EO > DR[subsets=1]|0|10
 L F2 U2 F2 U2 F|EO[max=1] > DR[ud;triggers=RU2R]|8|10
 L F2 U2 F2 U2 F|EO[max=1] > DR[ud]|6|10
+R' U' F U2 L U B2 L2 F L' B' U' F D2 B2 R' B2 R2 B2 L' D2 R F2 R' U' F (F2 L2 F)|EO[fb;max=1] > RZP[niss=before;max=2] > DR[lr;niss=before;max=5;triggers=RF2U2R]|8|100
+R' U' F U2 L U B2 L2 F L' B' U' F D2 B2 R' B2 R2 B2 L' D2 R F2 R' U' F|EO[niss=always;fb] > RZP[niss=before;min=2;max=2] > DR[niss=before;triggers=RF2U2R]|11|100

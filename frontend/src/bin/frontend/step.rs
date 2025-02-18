@@ -38,7 +38,8 @@ pub struct DRConfig {
     pub niss: RwSignalTup<NissSwitchType>,
     pub variants: RwSignalTup<Vec<CubeAxis>>,
     pub triggers: RwSignalTup<Vec<String>>,
-    pub subsets: RwSignalTup<Vec<String>>
+    pub subsets: RwSignalTup<Vec<String>>,
+    pub enforce_triggers: RwSignalTup<bool>,
 }
 
 #[derive(Clone)]
@@ -107,7 +108,8 @@ impl DRConfig {
             niss: use_local_storage("dr-niss", NissSwitchType::Before),
             variants: use_local_storage("dr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
             triggers: use_local_storage("dr-triggers", vec!["R".to_string(), "R U2 R".to_string(), "R F2 R".to_string(), "R U R".to_string(), "R U' R".to_string()]),
-            subsets: use_local_storage("htr-subsets", vec![]) // Legacy name
+            subsets: use_local_storage("htr-subsets", vec![]), // Legacy name
+            enforce_triggers: use_local_storage("dr-use-triggers", true)
         }
     }
 
@@ -127,6 +129,7 @@ impl DRConfig {
         self.variants.2();
         self.triggers.2();
         self.subsets.2();
+        self.enforce_triggers.2();
     }
 }
 
@@ -360,6 +363,8 @@ pub fn DRParameters() -> impl IntoView {
         triggers
     });
 
+    let triggers_disabled = Signal::derive(move|| !dr_config.enforce_triggers.0.get() || dr_config.triggers.0.get().is_empty());
+
     view! {
         <DefaultStepParameters
             niss_default=dr_config.niss
@@ -372,15 +377,21 @@ pub fn DRParameters() -> impl IntoView {
             variants=dr_config.variants
         />
         <h4>"Triggers"</h4>
-        <Multiselect
-            options=trigger_options
-            search_text_provider=move |o| format!("{o}")
-            render_option=move |o| format!("{o}").into_view()
-            selected=dr_config.triggers.0
-            set_selected=move |v| dr_config.triggers.1.set(v)
-        />
+        <div style="display: flex; align-items: center;">
+            <label style="margin-right: 10px;">"Use triggers:"</label>
+            <Toggle state=dr_config.enforce_triggers.0 set_state=dr_config.enforce_triggers.1 />
+        </div>
+        <div class:grayed-out=move|| !dr_config.enforce_triggers.0.get()>
+            <Multiselect
+                options=trigger_options
+                search_text_provider=move |o| format!("{o}")
+                render_option=move |o| format!("{o}").into_view()
+                selected=dr_config.triggers.0
+                set_selected=move |v| dr_config.triggers.1.set(v)
+            />
+        </div>
         <DRSubsetSelection />
-        <div class:grayed-out=move ||dr_config.triggers.0.get().is_empty()>
+        <div class:grayed-out=triggers_disabled>
             <h2>"RZP"</h2>
             <h4>"Step length"</h4>
             {move || {

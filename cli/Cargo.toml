@@ -22,3 +22,6 @@ dr = ["eo", "cubelib/333dr"]
 htr = ["dr", "cubelib/333htr"]
 fr = ["htr", "cubelib/333fr"]
 finish = ["fr", "cubelib/333finish"]
+
+[profile.release]
+debug = 1

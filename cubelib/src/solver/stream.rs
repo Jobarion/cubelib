@@ -1,10 +1,9 @@
 use std::collections::HashSet;
 use std::marker::PhantomData;
 
-use tokio_util::sync::CancellationToken;
-
 use crate::algs::Algorithm;
 use crate::puzzles::puzzle::PuzzleMove;
+use crate::solver::df_search::CancelToken;
 use crate::solver::solution::Solution;
 
 pub(crate) fn iterated_dfs<
@@ -15,19 +14,18 @@ pub(crate) fn iterated_dfs<
     F: 'a,
 >(
     current_stage: IN,
-    cancel_token: CancellationToken,
+    cancel_token: &'a CancelToken,
     mapper: F,
 ) -> impl Iterator<Item = Solution<Turn>> + 'a
 where
-    F: Fn(Solution<Turn>, u8, CancellationToken) -> OUT,
+    F: Fn(Solution<Turn>, u8, &'a CancelToken) -> OUT,
 {
-    let ct1 = cancel_token.clone();
     DFSSolutionIter::new(current_stage)
-        .take_while(move |_|!ct1.is_cancelled())
+        .take_while(move |_|!cancel_token.is_cancelled())
         .take_while(|(_, depth)| *depth < 100)
         .flat_map(move |(alg, depth)| {
             let next_stage_depth = depth - alg.len();
-            mapper(alg, next_stage_depth as u8, cancel_token.clone())
+            mapper(alg, next_stage_depth as u8, cancel_token)
         })
 }
 

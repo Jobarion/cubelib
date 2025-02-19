@@ -8,7 +8,8 @@ use cubelib::puzzles::c333::{Cube333, Turn333};
 use cubelib::puzzles::c333::steps::{eo, solver};
 use cubelib::puzzles::c333::steps::tables::PruningTables333;
 use cubelib::puzzles::puzzle::ApplyAlgorithm;
-use cubelib::solver::{CancellationToken, stream};
+use cubelib::solver::stream;
+use cubelib::solver::df_search::CancelToken;
 use cubelib::solver::solution::Solution;
 use log::{debug, error, info, LevelFilter};
 use simple_logger::SimpleLogger;
@@ -19,7 +20,7 @@ mod cli;
 
 fn main() {
     let cli: Cli = Cli::parse();
-    SimpleLogger::new()
+    SimpleLogger::new()it
         .with_level(if cli.verbose {
             LevelFilter::Trace
         } else if cli.quiet {
@@ -58,7 +59,8 @@ fn main() {
     };
 
 
-    let solutions = cubelib::solver::solve_steps(cube, &steps, CancellationToken::new());
+    let cancel_token = CancelToken::default();
+    let solutions = cubelib::solver::solve_steps(cube, &steps, &cancel_token);
 
     info!("Generating solutions\n");
     let time = Instant::now();

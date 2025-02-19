@@ -13,15 +13,15 @@ pub mod stream;
 pub mod solution;
 pub mod df_search;
 pub mod moveset;
-pub use tokio_util::sync::CancellationToken;
+use crate::solver::df_search::CancelToken;
 
-pub fn solve_steps<'a, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation> + Display, TransTable: TransitionTable<Turn>>(puzzle: PuzzleParam, steps: &'a Vec<(Step<'a, Turn, Transformation, PuzzleParam, TransTable>, DefaultStepOptions)>, cancel_token: CancellationToken) -> impl Iterator<Item = Solution<Turn>> + 'a {
+pub fn solve_steps<'a, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation> + Display, TransTable: TransitionTable<Turn>>(puzzle: PuzzleParam, steps: &'a Vec<(Step<'a, Turn, Transformation, PuzzleParam, TransTable>, DefaultStepOptions)>, cancel_token: &'a CancelToken) -> impl Iterator<Item = Solution<Turn>> + 'a {
     let first_step: Box<dyn Iterator<Item = Solution<Turn>>> = Box::new(vec![Solution::new()].into_iter());
 
     let solutions: Box<dyn Iterator<Item=Solution<Turn>>> = steps.iter()
         .fold(first_step, |acc, (step, search_opts)|{
             debug!("Step {} with options {:?}", step.kind(), search_opts);
-            let next = steps::step::next_step(acc, step, search_opts.clone(), puzzle.clone(), cancel_token.clone())
+            let next = steps::step::next_step(acc, step, search_opts.clone(), puzzle.clone(), cancel_token)
                 .zip(0..)
                 .take_while(|(_, count)| search_opts.step_limit.map(|limit| limit > *count).unwrap_or(true))
                 .map(|(sol, _)|sol);

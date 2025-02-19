@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::panic;
 use std::str::FromStr;
-
+use base64::Engine;
 use leptonic::prelude::*;
 use leptos::*;
 use log::{Level};
@@ -146,7 +146,13 @@ fn load_url_state() {
 
     if let Some(settings) = settings {
         is_local = true;
-        let decoded = String::from_utf8(base64::decode(settings.to_string()).unwrap()).unwrap();
+        let decoded = BASE64_URL_SAFE.decode(settings.to_string()).unwrap();
+        let decoded = if decoded.len() > 0 && decoded[0] == b'{' {
+            String::from_utf8(decoded).unwrap()
+        } else {
+            let decompressed = miniz_oxide::inflate::decompress_to_vec(&decoded).unwrap();
+            String::from_utf8(decompressed).unwrap()
+        };
         let settings: HashMap<String, String> = serde_json::from_str(&decoded).unwrap();
 
         let storage = window().session_storage().unwrap().unwrap();
@@ -181,7 +187,8 @@ fn open_shared() {
         }
     }
     let serialized = serde_json::to_string(&values).unwrap();
-    let encoded = base64::encode(serialized.as_bytes());
+    let compressed = miniz_oxide::deflate::compress_to_vec(serialized.as_bytes(), 10);
+    let encoded = BASE64_URL_SAFE.encode(compressed);
     let _ = window().open_with_url_and_target(&format!("?local=true&settings={encoded}"), "_blank");
 }
 

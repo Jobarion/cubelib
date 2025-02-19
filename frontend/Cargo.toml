@@ -41,6 +41,7 @@ tokio-util = { version = "0.7.10", optional = true, features = ["io"] }
 time = "0.3.37"
 url = "2.5.4"
 base64 = "0.22.1"
+miniz_oxide = "0.8.4"
 
 [build-dependencies]
 leptonic-theme = "0.3.0"

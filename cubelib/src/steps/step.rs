@@ -4,12 +4,11 @@ use std::fmt::Display;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use log::trace;
-use tokio_util::sync::CancellationToken;
 
 use crate::algs::Algorithm;
 use crate::defs::*;
 use crate::puzzles::puzzle::{ApplyAlgorithm, Puzzle, PuzzleMove, Transformable};
-use crate::solver::df_search::dfs_iter;
+use crate::solver::df_search::{CancelToken, dfs_iter};
 use crate::solver::lookup_table::{LookupTable, NissLookupTable};
 use crate::solver::moveset::{MoveSet, TransitionTable};
 use crate::solver::solution::{Solution, SolutionStep};
@@ -304,7 +303,7 @@ pub fn first_step<
     step: &'a Step<'b, Turn, Transformation, PuzzleParam, TransTable>,
     search_opts: DefaultStepOptions,
     cube: PuzzleParam,
-    cancel_token: CancellationToken
+    cancel_token: &'a CancelToken
 ) -> impl Iterator<Item = Solution<Turn>> + 'a {
     next_step(vec![Solution::new()].into_iter(), step, search_opts, cube, cancel_token)
 }
@@ -324,7 +323,7 @@ pub fn next_step<
     step: &'a Step<'b, Turn, Transformation, PuzzleParam, TransTable>,
     search_opts: DefaultStepOptions,
     cube: PuzzleParam,
-    cancel_token: CancellationToken,
+    cancel_token: &'a CancelToken,
 ) -> impl Iterator<Item = Solution<Turn>> + 'a {
     stream::iterated_dfs(algs, cancel_token, move |solution, depth, cancel_token| {
         let absolute_target_length = solution.len() as u8 + depth;
@@ -356,7 +355,7 @@ pub fn next_step<
                             previous_normal,
                             previous_inverse,
                             ends_on_normal,
-                            cancel_token.clone(),
+                            cancel_token,
                         )
                         .map(|alg| (step_variant.name(), alg))
                     })

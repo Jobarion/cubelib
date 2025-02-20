@@ -3,11 +3,9 @@ use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::thread::sleep;
-use std::time::{Duration, Instant};
-use actix_web::{HttpResponse, post, get, Responder, web, HttpRequest};
-use actix_web::web::Bytes;
+use std::time::Duration;
+use actix_web::{HttpResponse, post, Responder, web, HttpRequest};
 use actix_web_lab::body;
-use base64::Engine;
 use cubelib::algs::Algorithm;
 use cubelib::defs::StepKind;
 use cubelib::puzzles::c333::{Cube333, Transformation333, Turn333};
@@ -17,7 +15,7 @@ use cubelib::puzzles::c333::steps::solver;
 use cubelib::puzzles::c333::steps::tables::PruningTables333;
 use cubelib::puzzles::c333::util::DR_SUBSETS;
 use cubelib::puzzles::puzzle::{ApplyAlgorithm, TransformableMut};
-use cubelib::solver::CancellationToken;
+use cubelib::solver::df_search::CancelToken;
 use cubelib::solver::solution::Solution;
 use cubelib::steps::coord::Coord;
 use cubelib::steps::step::StepConfig;
@@ -60,24 +58,24 @@ pub async fn solve_stream(req: HttpRequest, steps: web::Json<SolverRequest>, app
     let mut cube = Cube333::default();
     cube.apply_alg(&scramble);
 
-    let cancel_token = CancellationToken::new();
-    let cancel_token_1 = cancel_token.clone();
-    let mut solutions = solve_steps_quality_doubling(cube, steps.clone(), app_data.pruning_tables.clone(), cancel_token.clone())
+    let cancel_token = Arc::new(CancelToken::default());
+    let solutions = solve_steps_quality_doubling(cube, steps.clone(), app_data.pruning_tables.clone(), cancel_token.clone())
         .map(|s| Some(SolverResponse { solution: Some(s), done: false }));
 
 
     let (mut body_tx, body) = body::channel::<std::convert::Infallible>();
 
+    let ct1 = cancel_token.clone();
     let _ = web::block(move || {
         let mut keepalive_tx = body_tx.clone();
-        let cancel_token_1 = cancel_token.clone();
+        let cancel_token = ct1.clone();
         let _ = web::block(move || {
-            while !cancel_token_1.is_cancelled() {
+            while !ct1.is_cancelled() {
                 sleep(Duration::from_secs(1));
                 trace!("Sending keepalive");
                 if let Err(_) = keepalive_tx.send(web::Bytes::from_static(b" ")) {
                     info!("Stream closed, cancelling");
-                    cancel_token_1.cancel();
+                    ct1.cancel();
                 }
             }
         });
@@ -101,13 +99,13 @@ pub async fn solve_stream(req: HttpRequest, steps: web::Json<SolverRequest>, app
 
     actix_rt::spawn(async move {
         actix_rt::time::sleep(Duration::from_secs(60)).await;
-        cancel_token_1.cancel();
+        cancel_token.as_ref().cancel();
     });
 
     HttpResponse::Ok().body(body)
 }
 
-pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>, tables: Arc<PruningTables333>, cancel_token: CancellationToken) -> impl Iterator<Item = Solution<Turn333>> {
+pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>, tables: Arc<PruningTables333>, cancel_token: Arc<CancelToken>) -> impl Iterator<Item = Solution<Turn333>> {
     let mut prev_len: Option<usize> = None;
     let t1 = tables.clone();
     (5..20usize).into_iter()
@@ -120,7 +118,7 @@ pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>,
             }
             let tables = t1.as_ref().clone();
             let steps = solver::build_steps(steps, &tables).unwrap();
-            let best = cubelib::solver::solve_steps(puzzle, &steps, cancel_token.clone()).next();
+            let best = cubelib::solver::solve_steps(puzzle, &steps, cancel_token.as_ref()).next();
             best
         })
         .filter(move |sol| {
@@ -142,7 +140,7 @@ pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>,
         // Add comments
         .map(move |mut sol|{
             let mut cube = puzzle.clone();
-            for mut step in sol.steps.iter_mut() {
+            for step in sol.steps.iter_mut() {
                 cube.apply_alg(&step.alg);
                 match step.kind {
                     StepKind::DR => {

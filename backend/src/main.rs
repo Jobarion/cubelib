@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use actix_cors::Cors;
-use actix_web::{App, HttpServer, Responder, web};
+use actix_web::{App, HttpServer, web};
 use cubelib::puzzles::c333::steps::tables::PruningTables333;
 use log::LevelFilter;
 use moka::sync::Cache;

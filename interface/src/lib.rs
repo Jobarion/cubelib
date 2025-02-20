@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use cubelib::puzzles::c333::Turn333;
 use cubelib::solver::solution::Solution;
 use cubelib::steps::step::StepConfig;

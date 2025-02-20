@@ -13,7 +13,7 @@ pub struct CancelToken {
 }
 
 impl CancelToken {
-    pub fn cancel(&mut self) {
+    pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::Relaxed)
     }
 

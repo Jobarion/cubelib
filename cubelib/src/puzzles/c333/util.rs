@@ -47,7 +47,7 @@ pub const DR_SUBSETS: [Subset; 48] = [
     Subset::new(Some("a"), "U", 4, 4, 1, 1),
     Subset::new(Some("b"), "U R2 F2 R2 F2 U", 4, 0, 2, 2),
     Subset::new(Some("b"), "U R2 U", 4, 2, 2, 2),
-    Subset::new(Some("a"), "U R2 F2 U", 4, 4, 2, 2),
+    Subset::new(Some("b"), "U R2 F2 U", 4, 4, 2, 2),
     Subset::new(Some("a"), "U R2 U R2 B2 R2 U' R2 U", 4, 0, 2, 2),
     Subset::new(Some("a"), "D B2 D' F2 B2 D' F2 D", 4, 2, 2, 2),
     Subset::new(Some("a"), "U R2 U2 F2 U", 4, 4, 2, 2),

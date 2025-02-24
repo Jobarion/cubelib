@@ -1,7 +1,4 @@
 [build]
-#rustflags = "-C target-feature=+avx2"
-#target = "wasm32-unknown-unknown"
-
 rustflags = "-C target-feature=+avx2"
 
 [target.aarch64-apple-darwin]

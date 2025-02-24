@@ -164,8 +164,8 @@ mod neon {
     #[inline]
     unsafe fn unsafe_get_bad_edges<const SHL: i8, const SH_MASK: u8, const LAST_EDGE: u8>(value: &EdgeCube333) -> u16 {
         let data = vandq_u8(value.0, vdupq_n_u8(SH_MASK));
-        let data = vshlq_u8(data, C16 { a_i8: [-2 + SHL, -1 + SHL, SHL, 1 + SHL, 2 + SHL, 3 + SHL,
-            4 + SHL, 5 + SHL, 6 + SHL, 7 + SHL, 8 + SHL, 9 + SHL, 10 + SHL, 11 + SHL, 12 + SHL, 13 + SHL]}.a_i);
+        let data = vshlq_u8(data, C16 { a_i8: [-2 + SHL, -1 + SHL, SHL, 1 + SHL, 2 + SHL, 3 + SHL, 4 + SHL, 5 + SHL,
+                                               -2 + SHL, -1 + SHL, SHL, 1 + SHL, 2 + SHL, 3 + SHL, 4 + SHL, 5 + SHL]}.a_i);
 
         let low = vaddv_u8(vget_low_u8(data)) as u16;
         let high = (vaddv_u8(vget_high_u8(data)) & LAST_EDGE) as u16;

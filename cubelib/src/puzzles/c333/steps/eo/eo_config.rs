@@ -156,7 +156,7 @@ pub fn eo(table: &EOPruningTable, eo_axis: Vec<CubeAxis>) -> Step333 {
     let step_variants = eo_axis
         .into_iter()
         .map(move |x| {
-            let x: Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333>> = match x {
+            let x: Box<dyn StepVariant> = match x {
                 CubeAxis::UD => Box::new(EOStepTable::new_ud(&table)),
                 CubeAxis::FB => Box::new(EOStepTable::new_fb(&table)),
                 CubeAxis::LR => Box::new(EOStepTable::new_lr(&table)),
@@ -196,19 +196,19 @@ impl<'a> EOStepTable<'a> {
     }
 }
 
-impl PreStepCheck<Turn333, Transformation333, Cube333> for EOStepTable<'_> {
+impl PreStepCheck for EOStepTable<'_> {
     fn is_cube_ready(&self, _: &Cube333) -> bool {
         true
     }
 }
 
-impl PostStepCheck<Turn333, Transformation333, Cube333> for EOStepTable<'_> {
-    fn is_solution_admissible(&self, _: &Cube333, _: &Algorithm<Turn333>) -> bool {
+impl PostStepCheck for EOStepTable<'_> {
+    fn is_solution_admissible(&self, _: &Cube333, _: &Algorithm) -> bool {
         true
     }
 }
 
-impl StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> for EOStepTable<'_> {
+impl StepVariant for EOStepTable<'_> {
     fn move_set(&self, _: &Cube333, _: u8) -> &MoveSet333 {
         self.move_set
     }
@@ -232,7 +232,7 @@ impl StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> for EO
     }
 }
 
-pub fn filter_eo_last_moves_pure(alg: &Algorithm<Turn333>) -> bool {
+pub fn filter_eo_last_moves_pure(alg: &Algorithm) -> bool {
     filter_last_moves_pure(&alg.normal_moves) && filter_last_moves_pure(&alg.inverse_moves)
 }
 

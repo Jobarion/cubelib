@@ -99,7 +99,7 @@ pub fn rzp<'a>(eo_axis: Vec<CubeAxis>) -> Step333<'a> {
     let step_variants = eo_axis
         .into_iter()
         .map(move |x| {
-            let x: Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333>> = match x {
+            let x: Box<dyn StepVariant> = match x {
                 CubeAxis::UD => Box::new(RZPStep::new_ud()),
                 CubeAxis::FB => Box::new(RZPStep::new_fb()),
                 CubeAxis::LR => Box::new(RZPStep::new_lr()),
@@ -148,7 +148,7 @@ impl<'a> RZPStep<'a> {
     }
 }
 
-impl<'a> PreStepCheck<Turn333, Transformation333, Cube333> for RZPStep<'a> {
+impl<'a> PreStepCheck for RZPStep<'a> {
     fn is_cube_ready(&self, cube: &Cube333) -> bool {
         let (ud, fb, lr) = cube.count_bad_edges();
         if self.is_any {
@@ -159,13 +159,13 @@ impl<'a> PreStepCheck<Turn333, Transformation333, Cube333> for RZPStep<'a> {
     }
 }
 
-impl<'a> PostStepCheck<Turn333, Transformation333, Cube333> for RZPStep<'a> {
-    fn is_solution_admissible(&self, _: &Cube333, _: &Algorithm<Turn333>) -> bool {
+impl<'a> PostStepCheck for RZPStep<'a> {
+    fn is_solution_admissible(&self, _: &Cube333, _: &Algorithm) -> bool {
         true
     }
 }
 
-impl<'a> StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> for RZPStep<'a> {
+impl<'a> StepVariant for RZPStep<'a> {
     fn move_set(&self, _: &Cube333, _: u8) -> &'a MoveSet333 {
         self.move_set
     }

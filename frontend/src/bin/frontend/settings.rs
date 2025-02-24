@@ -11,7 +11,7 @@ use crate::util::use_local_storage;
 pub struct SettingsState {
     advanced: RwSignalTup<bool>,
     relative_step_length: RwSignalTup<bool>,
-    additional_triggers: RwSignalTup<Vec<Algorithm<Turn333>>>
+    additional_triggers: RwSignalTup<Vec<Algorithm>>
 }
 
 impl SettingsState {
@@ -45,7 +45,7 @@ impl SettingsState {
     pub fn from_local_storage() -> Self {
         let advanced = use_local_storage("settings-advanced", false);
         let rel_step_len = use_local_storage("settings-rel-step-len", true);
-        let additional_triggers = use_local_storage("settings-additional-triggers", Vec::<Algorithm<Turn333>>::new());
+        let additional_triggers = use_local_storage("settings-additional-triggers", Vec::<Algorithm>::new());
         Self {
             advanced,
             relative_step_length: rel_step_len,
@@ -60,7 +60,7 @@ pub fn SettingsComponent(active: ReadSignal<bool>, set_active: WriteSignal<bool>
     let (cur_trig, cur_trig_set) = create_signal("".to_string());
 
     let is_trigger_valid = Signal::derive(move|| {
-        if let Ok(alg) = Algorithm::<Turn333>::from_str(cur_trig.get().as_str()) {
+        if let Ok(alg) = Algorithm::from_str(cur_trig.get().as_str()) {
             if !alg.inverse_moves.is_empty() {
                 return false;
             }
@@ -175,7 +175,7 @@ pub fn SettingsOptionSmall(
 
 
 #[component]
-fn TriggerList(triggers: Signal<Vec<Algorithm<Turn333>>>, triggers_set: WriteSignal<Vec<Algorithm<Turn333>>>) -> impl IntoView {
+fn TriggerList(triggers: Signal<Vec<Algorithm>>, triggers_set: WriteSignal<Vec<Algorithm>>) -> impl IntoView {
     view! {
         <div style:width="500px">
         {move || {

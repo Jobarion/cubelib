@@ -41,17 +41,17 @@ pub struct DRTriggerStepTable<'a> {
     table: &'a DRPruningTable,
     trigger_types: HashMap<(u8, u8), u8>,
     trigger_variants: Vec<Vec<Turn333>>,
-    post_step_checks: Rc<Vec<Box<dyn PostStepCheck<Turn333, Transformation333, Cube333> + 'a>>>,
+    post_step_checks: Rc<Vec<Box<dyn PostStepCheck + 'a>>>,
     name: &'a str,
 }
 
 pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")] subset_table: &'a HTRSubsetTable, mut config: StepConfig) -> Result<(Step333<'a>, DefaultStepOptions), String> {
     #[cfg(feature = "333htr")]
-    let post_step_filters: Vec<Box<dyn PostStepCheck<Turn333, Transformation333, Cube333>>> = config.params.remove("subsets")
+    let post_step_filters: Vec<Box<dyn PostStepCheck>> = config.params.remove("subsets")
         .map(|x|x.split(",").map(|x|x.to_string()).collect_vec())
         .and_then(|subsets|dr_subset_filter(subset_table, &subsets))
         .map(|filter|{
-            let b: Box<dyn PostStepCheck<Turn333, Transformation333, Cube333> + 'a> = Box::new(filter);
+            let b: Box<dyn PostStepCheck + 'a> = Box::new(filter);
             vec![b]
         })
         .unwrap_or(vec![]);
@@ -77,7 +77,7 @@ pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")
         .collect_vec();
 
     let step = if let Some(substeps) = config.substeps {
-        let variants: Result<Vec<Vec<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333>>>>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
+        let variants: Result<Vec<Vec<Box<dyn StepVariant>>>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
             "ud" | "drud" => Ok(dr_step_variants(table, vec![CubeAxis::FB, CubeAxis::LR], vec![CubeAxis::UD], triggers.clone(), psc.clone())),
             "fb" | "drfb" => Ok(dr_step_variants(table, vec![CubeAxis::UD, CubeAxis::LR], vec![CubeAxis::FB], triggers.clone(), psc.clone())),
             "lr" | "drlr" => Ok(dr_step_variants(table, vec![CubeAxis::UD, CubeAxis::FB], vec![CubeAxis::LR], triggers.clone(), psc.clone())),
@@ -124,14 +124,14 @@ pub fn dr<'a>(
     table: &'a DRPruningTable,
     eo_axis: Vec<CubeAxis>,
     dr_axis: Vec<CubeAxis>,
-    triggers: Vec<Algorithm<Turn333>>,
-    psc: Rc<Vec<Box<dyn PostStepCheck<Turn333, Transformation333, Cube333> + 'a>>>)
+    triggers: Vec<Algorithm>,
+    psc: Rc<Vec<Box<dyn PostStepCheck + 'a>>>)
 -> Step333<'a> {
     let step_variants = dr_step_variants(table, eo_axis, dr_axis, triggers, psc);
     Step::new(step_variants, StepKind::DR, true)
 }
 
-pub fn dr_any<'a>(table: &'a DRPruningTable, triggers: Vec<Algorithm<Turn333>>, psc: Rc<Vec<Box<dyn PostStepCheck<Turn333, Transformation333, Cube333> + 'a>>>) -> Step333<'a> {
+pub fn dr_any<'a>(table: &'a DRPruningTable, triggers: Vec<Algorithm>, psc: Rc<Vec<Box<dyn PostStepCheck + 'a>>>) -> Step333<'a> {
     dr(table, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR], vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR], triggers, psc)
 }
 
@@ -139,14 +139,14 @@ fn dr_step_variants<'a>(
     table: &'a DRPruningTable,
     eo_axis: Vec<CubeAxis>,
     dr_axis: Vec<CubeAxis>,
-    triggers: Vec<Algorithm<Turn333>>,
-    psc: Rc<Vec<Box<dyn PostStepCheck<Turn333, Transformation333, Cube333> + 'a>>>
-) -> Vec<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> + 'a>> {
+    triggers: Vec<Algorithm>,
+    psc: Rc<Vec<Box<dyn PostStepCheck + 'a>>>
+) -> Vec<Box<dyn StepVariant + 'a>> {
     eo_axis
         .into_iter()
         .flat_map(|eo| dr_axis.clone().into_iter().map(move |dr| (eo, dr)))
         .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333>>> = match x {
+            let x: Option<Box<dyn StepVariant>> = match x {
                 (CubeAxis::UD, CubeAxis::FB) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation333::X], table, triggers.clone(), psc.clone(), "fb-eoud"))),
                 (CubeAxis::UD, CubeAxis::LR) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation333::X, Transformation333::Z], table, triggers.clone(), psc.clone(), "lr-eoud"))),
                 (CubeAxis::FB, CubeAxis::UD) => Some(Box::new(DRTriggerStepTable::new(vec![], table, triggers.clone(), psc.clone(), "ud-eofb"))),
@@ -162,7 +162,7 @@ fn dr_step_variants<'a>(
 
 impl<'a> DRTriggerStepTable<'a> {
 
-    fn new(pre_trans: Vec<Transformation333>, table: &'a DRPruningTable, triggers: Vec<Algorithm<Turn333>>, post_step_checks: Rc<Vec<Box<dyn PostStepCheck<Turn333, Transformation333, Cube333> + 'a>>>, name: &'a str) -> Self {
+    fn new(pre_trans: Vec<Transformation333>, table: &'a DRPruningTable, triggers: Vec<Algorithm>, post_step_checks: Rc<Vec<Box<dyn PostStepCheck + 'a>>>, name: &'a str) -> Self {
         let mut trigger_variants = vec![];
         let mut trigger_types: HashMap<(u8, u8), u8> = HashMap::new();
         for trigger in triggers.into_iter() {
@@ -197,7 +197,7 @@ fn calc_rzp_state(cube: &Cube333) -> (u8, u8) {
     (co_count_ud, eo_count_lr)
 }
 
-impl<'a> PreStepCheck<Turn333, Transformation333, Cube333> for DRTriggerStepTable<'a> {
+impl<'a> PreStepCheck for DRTriggerStepTable<'a> {
     fn is_cube_ready(&self, c: &Cube333) -> bool {
         if EOCoordFB::from(c).val() != 0 {
             return false;
@@ -210,8 +210,8 @@ impl<'a> PreStepCheck<Turn333, Transformation333, Cube333> for DRTriggerStepTabl
     }
 }
 
-impl <'a> PostStepCheck<Turn333, Transformation333, Cube333> for DRTriggerStepTable<'a> {
-    fn is_solution_admissible(&self, cube: &Cube333, alg: &Algorithm<Turn333>) -> bool {
+impl <'a> PostStepCheck for DRTriggerStepTable<'a> {
+    fn is_solution_admissible(&self, cube: &Cube333, alg: &Algorithm) -> bool {
         if alg.len() > 0 && !filter_dr_trigger(alg, &self.trigger_variants) {
             false
         } else {
@@ -221,7 +221,7 @@ impl <'a> PostStepCheck<Turn333, Transformation333, Cube333> for DRTriggerStepTa
     }
 }
 
-impl<'a> StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> for DRTriggerStepTable<'a> {
+impl<'a> StepVariant for DRTriggerStepTable<'a> {
     fn move_set(&self, cube: &Cube333, depth_left: u8) -> &'a MoveSet333 {
         let rzp_state = calc_rzp_state(cube);
         if let Some(trigger_length) = self.trigger_types.get(&rzp_state) {
@@ -254,7 +254,7 @@ impl<'a> StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> fo
     }
 }
 
-fn generate_trigger_variations(mut trigger: Algorithm<Turn333>) -> Vec<Vec<Turn333>> {
+fn generate_trigger_variations(mut trigger: Algorithm) -> Vec<Vec<Turn333>> {
     if !trigger.inverse_moves.is_empty() {
         error!("Triggers with inverse components are not supported");
         return vec![];
@@ -295,7 +295,7 @@ fn generate_trigger_variations(mut trigger: Algorithm<Turn333>) -> Vec<Vec<Turn3
         .unique()
         .collect_vec()
 }
-pub fn filter_dr_trigger(alg: &Algorithm<Turn333>, triggers: &Vec<Vec<Turn333>>) -> bool {
+pub fn filter_dr_trigger(alg: &Algorithm, triggers: &Vec<Vec<Turn333>>) -> bool {
     if alg.len() == 0 {
         return true;
     }

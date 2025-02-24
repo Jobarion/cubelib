@@ -5,7 +5,7 @@ use itertools::Itertools;
 use log::{debug, trace, warn};
 use tinyset::Set64;
 use crate::algs::Algorithm;
-use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
+use crate::puzzles::c333::{Cube333, Turn333};
 use crate::puzzles::c333::steps::dr::coords::DRUDEOFBCoord;
 use crate::puzzles::c333::steps::htr::coords::HTRDRUDCoord;
 use crate::puzzles::c333::steps::htr::htr_config::{HTR_DR_UD_MOVESET, HTRPruningTable, HTRSubsetTable};
@@ -65,14 +65,14 @@ pub fn dr_subset_filter<'a>(subset_table: &'a HTRSubsetTable, subsets: &Vec<Stri
     }
 }
 
-impl PreStepCheck<Turn333, Transformation333, Cube333> for DRSubsetFilter<'_> {
+impl PreStepCheck for DRSubsetFilter<'_> {
     fn is_cube_ready(&self, cube: &Cube333) -> bool {
         self.matches_subset(cube)
     }
 }
 
-impl PostStepCheck<Turn333, Transformation333, Cube333> for DRSubsetFilter<'_> {
-    fn is_solution_admissible(&self, cube: &Cube333, alg: &Algorithm<Turn333>) -> bool {
+impl PostStepCheck for DRSubsetFilter<'_> {
+    fn is_solution_admissible(&self, cube: &Cube333, alg: &Algorithm) -> bool {
         let mut cube = cube.clone();
         cube.apply_alg(alg);
         self.matches_subset(&cube)
@@ -101,7 +101,7 @@ pub fn gen_subset_tables(htr_table: &mut HTRPruningTable) -> HTRSubsetTable {
     subset_table
 }
 
-fn min_niss_moves(alg: &Algorithm<Turn333>) -> u8 {
+fn min_niss_moves(alg: &Algorithm) -> u8 {
     let mut max_half_turns = 0;
     let mut current_half_turns = 0;
     for turn in alg.normal_moves.iter() {
@@ -145,7 +145,7 @@ fn gen_coset_0() -> Vec<Cube333> {
     checked.values().cloned().collect_vec()
 }
 
-fn fill_table(htr_table: &mut HTRPruningTable, subset_table: &mut HTRSubsetTable, generator: &Algorithm<Turn333>, subset_id: u8) -> usize {
+fn fill_table(htr_table: &mut HTRPruningTable, subset_table: &mut HTRSubsetTable, generator: &Algorithm, subset_id: u8) -> usize {
     let mut total_checked = 0;
     let niss_bound = min_niss_moves(generator);
     let mut to_check: Vec<Cube333> = gen_coset_0()

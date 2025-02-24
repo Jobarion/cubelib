@@ -4,21 +4,46 @@ use crate::puzzles::puzzle::{InvertibleMut, TransformableMut, TurnableMut};
 //One byte per corner, 3 bits for id, 2 bits free, 3 bits for co (from UD perspective)
 //UBL UBR UFR UFL DFL DFR DBR DBL
 #[derive(Debug, Clone, Copy)]
-pub struct CubeCornersEven(
+pub struct CubeCornersOdd(
     #[cfg(target_feature = "avx2")]
     pub core::arch::x86_64::__m128i,
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     pub core::arch::wasm32::v128,
+    #[cfg(target_feature = "neon")]
+    pub core::arch::aarch64::uint8x8_t,
 );
 
-impl TurnableMut<CubeOuterTurn> for CubeCornersEven {
+#[cfg(target_feature = "avx2")]
+impl std::hash::Hash for CubeCornersOdd {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        state.write_u64(self.get_corners_raw());
+    }
+}
+
+
+#[cfg(target_feature = "neon")]
+impl std::hash::Hash for CubeCornersOdd {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        state.write_u64(self.get_corners_raw());
+    }
+}
+
+impl PartialEq<Self> for CubeCornersOdd {
+    fn eq(&self, other: &Self) -> bool {
+        self.get_corners_raw() == other.get_corners_raw()
+    }
+}
+
+impl Eq for CubeCornersOdd {
+
+}
+
+impl TurnableMut for CubeCornersOdd {
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn turn(&mut self, m: CubeOuterTurn) {
         let CubeOuterTurn{face, dir} = m;
-        unsafe {
-            avx2::unsafe_turn(self, face, dir);
-        }
+        unsafe { avx2::unsafe_turn(self, face, dir) }
     }
 
     #[inline]
@@ -27,9 +52,16 @@ impl TurnableMut<CubeOuterTurn> for CubeCornersEven {
         let CubeOuterTurn{face, dir} = m;
         wasm32::turn(self, face, dir)
     }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn turn(&mut self, m: CubeOuterTurn) {
+        let CubeOuterTurn{face, dir} = m;
+        unsafe { neon::unsafe_turn(self, face, dir) }
+    }
 }
 
-impl TransformableMut<CubeTransformation> for CubeCornersEven {
+impl TransformableMut for CubeCornersOdd {
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn transform(&mut self, t: CubeTransformation) {
@@ -45,9 +77,18 @@ impl TransformableMut<CubeTransformation> for CubeCornersEven {
         let CubeTransformation{axis, dir} = t;
         wasm32::transform(self, axis, dir)
     }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn transform(&mut self, t: CubeTransformation) {
+        let CubeTransformation{axis, dir} = t;
+        unsafe {
+            neon::unsafe_transform(self, axis, dir);
+        }
+    }
 }
 
-impl InvertibleMut for CubeCornersEven {
+impl InvertibleMut for CubeCornersOdd {
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn invert(&mut self) {
@@ -61,12 +102,18 @@ impl InvertibleMut for CubeCornersEven {
     fn invert(&mut self) {
         wasm32::invert(self)
     }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn invert(&mut self) {
+        unsafe { neon::unsafe_invert(self) }
+    }
 }
 
-impl CubeCornersEven {
+impl CubeCornersOdd {
     #[cfg(target_feature = "avx2")]
-    pub fn new(state: std::arch::x86_64::__m128i) -> CubeCornersEven {
-        CubeCornersEven(state)
+    pub fn new(state: std::arch::x86_64::__m128i) -> CubeCornersOdd {
+        CubeCornersOdd(state)
     }
 
     #[inline]
@@ -76,8 +123,14 @@ impl CubeCornersEven {
     }
 
     #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    pub fn get_corners(&self) -> [Corner; 8] {
+        unsafe { neon::unsafe_get_corners(self) }
+    }
+
+    #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn get_corners(&self) -> [Corner; 8] {
+    pub fn get_corners(&self) -> [Corner; 8] {
         wasm32::get_corners(self)
     }
 
@@ -92,10 +145,16 @@ impl CubeCornersEven {
     pub fn get_corners_raw(&self) -> u64 {
         wasm32::get_corners_raw(self)
     }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    pub fn get_corners_raw(&self) -> u64 {
+        unsafe { neon::unsafe_get_corners_raw(self) }
+    }
 }
 
 #[cfg(feature = "serde_support")]
-impl serde::Serialize for CubeCornersEven {
+impl serde::Serialize for CubeCornersOdd {
 
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
         let bytes = [0_u8; 16];
@@ -114,7 +173,7 @@ struct CornerCubieCubeVisitor;
 
 #[cfg(feature = "serde_support")]
 impl<'de> serde::de::Visitor<'de> for CornerCubieCubeVisitor {
-    type Value = CubeCornersEven;
+    type Value = CubeCornersOdd;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("a byte array of length 16")
@@ -131,14 +190,14 @@ impl<'de> serde::de::Visitor<'de> for CornerCubieCubeVisitor {
                     let val = std::arch::x86_64::_mm_load_si128(v.as_ptr() as *const std::arch::x86_64::__m128i);
                 val
             };
-            Ok(CubeCornersEven(val))
+            Ok(CubeCornersOdd(val))
         }
     }
 }
 
 #[cfg(feature = "serde_support")]
-impl<'de> serde::Deserialize<'de> for CubeCornersEven {
-    fn deserialize<D>(deserializer: D) -> Result<CubeCornersEven, D::Error>
+impl<'de> serde::Deserialize<'de> for CubeCornersOdd {
+    fn deserialize<D>(deserializer: D) -> Result<CubeCornersOdd, D::Error>
         where
             D: serde::Deserializer<'de>,
     {
@@ -146,16 +205,7 @@ impl<'de> serde::Deserialize<'de> for CubeCornersEven {
     }
 }
 
-impl PartialEq for CubeCornersEven {
-
-    fn eq(&self, other: &Self) -> bool {
-        let a = self.get_corners_raw();
-        let b = other.get_corners_raw();
-        a.eq(&b)
-    }
-}
-
-impl Default for CubeCornersEven {
+impl Default for CubeCornersOdd {
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn default() -> Self {
@@ -167,6 +217,12 @@ impl Default for CubeCornersEven {
     fn default() -> Self {
         wasm32::new_solved()
     }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn default() -> Self {
+        unsafe { neon::unsafe_new_solved() }
+    }
 }
 
 #[cfg(target_feature = "avx2")]
@@ -174,15 +230,14 @@ mod avx2 {
     use std::arch::x86_64::{
         __m128i, _mm_add_epi8, _mm_and_si128, _mm_andnot_si128, _mm_extract_epi64,
         _mm_loadl_epi64, _mm_or_si128, _mm_set1_epi8, _mm_setr_epi8,
-        _mm_shuffle_epi8, _mm_slli_epi64, _mm_srli_epi16, _mm_srli_epi32,
+        _mm_shuffle_epi8, _mm_slli_epi32, _mm_slli_epi64, _mm_srli_epi16, _mm_srli_epi32,
         _mm_sub_epi8, _mm_xor_si128,
     };
 
-    use crate::alignment::avx2::C;
-    use crate::puzzles::cube::{Corner, CubeAxis, CubeFace, Direction};
-    use crate::puzzles::cube::corners_even::CubeCornersEven;
+    use crate::simd_util::avx2::C;
+    use crate::puzzles::cube::{Corner, CubeAxis, CubeCornersOdd, CubeFace, Direction};
 
-    const TURN_CP_SHUFFLE: [[__m128i; 3]; 6] = [
+    const TURN_CORNER_SHUFFLE: [[__m128i; 3]; 6] = [
         [
             unsafe { C { a_u8: [3, 0, 1, 2, 4, 5, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ], }.a }, //U
             unsafe { C { a_u8: [2, 3, 0, 1, 4, 5, 6, 7, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ], }.a }, //U2
@@ -227,10 +282,19 @@ mod avx2 {
             unsafe { C { a_u8: [1, 2, 3, 0, 7, 4, 5, 6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ], }.a }, //y'
         ],
         [
-            unsafe { C { a_u8: [7, 0, 3, 4, 5, 2, 1, 6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ], }.a }, //z
-            unsafe { C { a_u8: [6, 7, 4, 5, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ], }.a }, //z2
-            unsafe { C { a_u8: [1, 6, 5, 2, 3, 4, 7, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ], }.a }, //z'
+            unsafe { C { a_u8: [7, 0, 3, 4, 5, 2, 1, 6, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ], }.a }, //F
+            unsafe { C { a_u8: [6, 7, 4, 5, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ], }.a }, //F2
+            unsafe { C { a_u8: [1, 6, 5, 2, 3, 4, 7, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ], }.a }, //F'
         ],
+    ];
+
+    //CPOO
+    // const CO_MAP: __m128i = unsafe { C { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b01, 0b00, 0b10, 0xFF, 0b10, 0b01, 0b00, 0xFF, 0b00, 0b01, 0b10, 0xFF] }.a }; //z
+
+    const TRANSFORMATION_CO_MAP: [__m128i; 3] = [
+        unsafe { C { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b00, 0b01, 0b10, 0xFF, ], }.a }, //z
+        unsafe { C { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, ], }.a }, //y
+        unsafe { C { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b00, 0b01, 0b10, 0xFF, ], }.a }, //x
     ];
 
     const CO_OVERFLOW_MASK: __m128i = unsafe { C { a_u8: [0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0, 0, 0, 0, 0, 0, 0, 0, ], }.a };
@@ -244,29 +308,23 @@ mod avx2 {
         unsafe { C { a_u8: [1, 2, 3, 1, 1, 2, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0], }.a }, //R
     ];
 
-    const TRANS_CO_CHANGE: [__m128i; 3] = [
-        unsafe { C { a_u8: [3, 2, 3, 2, 3, 2, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0], }.a }, //x
-        unsafe { C { a_u8: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0], }.a }, //y
-        unsafe { C { a_u8: [2, 3, 2, 3, 2, 3, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0], }.a }, //z
-    ];
-
     #[target_feature(enable = "avx2")]
     #[inline]
-    pub(crate) unsafe fn unsafe_new_solved() -> CubeCornersEven {
-        CubeCornersEven(unsafe {
+    pub(crate) unsafe fn unsafe_new_solved() -> CubeCornersOdd {
+        CubeCornersOdd(unsafe {
             _mm_slli_epi64::<5>(_mm_setr_epi8( 0, 1, 2, 3, 4, 5, 6, 7, 0, 0, 0, 0, 0, 0, 0,0))
         })
     }
 
     #[target_feature(enable = "avx2")]
     #[inline]
-    pub(crate) unsafe fn unsafe_get_corners_raw(cube: &CubeCornersEven) -> u64 {
+    pub(crate) unsafe fn unsafe_get_corners_raw(cube: &CubeCornersOdd) -> u64 {
         _mm_extract_epi64::<0>(cube.0) as u64
     }
 
     #[target_feature(enable = "avx2")]
     #[inline]
-    pub(crate) unsafe fn unsafe_get_corners(cube: &CubeCornersEven) -> [Corner; 8] {
+    pub(crate) unsafe fn unsafe_get_corners(cube: &CubeCornersOdd) -> [Corner; 8] {
         let mut corner_bits = _mm_extract_epi64::<0>(cube.0) as u64;
         let mut corner_arr = [Corner {
             id: 0,
@@ -283,35 +341,17 @@ mod avx2 {
         corner_arr
     }
 
+    #[target_feature(enable = "avx2")]
     #[inline]
-    pub(crate) unsafe fn unsafe_turn(cube: &mut CubeCornersEven, face: CubeFace, dir: Direction) {
-        if dir == Direction::Half {
-            turn_trans(cube, TURN_CP_SHUFFLE[face as usize][dir as usize], None);
-        } else {
-            turn_trans(cube, TURN_CP_SHUFFLE[face as usize][dir as usize], Some(TURN_CO_CHANGE[face as usize]));
-        }
-    }
-
-    #[inline]
-    pub(crate) unsafe fn unsafe_transform(
-        cube: &mut CubeCornersEven,
-        axis: CubeAxis,
-        dir: Direction,
-    ) {
-        if dir == Direction::Half {
-            turn_trans(cube, TRANSFORMATION_CP_SHUFFLE[axis as usize][dir as usize], None);
-        } else {
-            turn_trans(cube, TRANSFORMATION_CP_SHUFFLE[axis as usize][dir as usize], Some(TRANS_CO_CHANGE[axis as usize]));
-        }
-    }
-
-    unsafe fn turn_trans(cube: &mut CubeCornersEven, cp_shuffle: __m128i, co_change: Option<__m128i>) {
+    pub(crate) unsafe fn unsafe_turn(cube: &mut CubeCornersOdd, face: CubeFace, dir: Direction) {
         cube.0 = _mm_shuffle_epi8(
             cube.0,
-            cp_shuffle,
+            TURN_CORNER_SHUFFLE[face as usize][dir as usize],
         );
-        if let Some(co_change) = co_change {
-            let corners_tmp = _mm_add_epi8(cube.0, co_change);
+        if dir != Direction::Half {
+            //Valid COs are 00, 01, 10. When we move, we don't add 0, 1, 2 (no change, clockwise, counter-clockwise), but we add 1, 2, 3 to force overflowing into the next bit.
+            //This code either subtracts 1 if there is no overflow (because we added 1 too much before), or 4, because this gives us the original addition mod 3.
+            let corners_tmp = _mm_add_epi8(cube.0, TURN_CO_CHANGE[face as usize]);
             let overflow_bits = _mm_and_si128(corners_tmp, CO_OVERFLOW_MASK);
             let not_overflow =
                 _mm_srli_epi16::<2>(_mm_andnot_si128(corners_tmp, CO_OVERFLOW_MASK));
@@ -322,7 +362,44 @@ mod avx2 {
 
     #[target_feature(enable = "avx2")]
     #[inline]
-    pub(crate) unsafe fn unsafe_invert(cube: &mut CubeCornersEven) {
+    pub(crate) unsafe fn unsafe_transform(
+        cube: &mut CubeCornersOdd,
+        axis: CubeAxis,
+        dir: Direction,
+    ) {
+        let corners_translated = _mm_shuffle_epi8(
+            cube.0,
+            TRANSFORMATION_CP_SHUFFLE[axis as usize][dir as usize],
+        );
+        let cp = _mm_srli_epi32::<5>(_mm_and_si128(
+            corners_translated,
+            _mm_set1_epi8(0b11100000_u8 as i8),
+        ));
+        let co = _mm_and_si128(corners_translated, _mm_set1_epi8(0b00000011));
+        let cp_translated = _mm_slli_epi32::<5>(_mm_shuffle_epi8(
+            TRANSFORMATION_CP_SHUFFLE[axis as usize][dir.invert() as usize],
+            cp,
+        ));
+        let co = if dir != Direction::Half {
+            let corner_orbit_id = _mm_and_si128(cp_translated, _mm_set1_epi8(0b00100000));
+            //We want 4 bits. The lowest two are for the corner CO, the third tells us which orbit the corner belongs to, and the fourth is which orbit the corner is in.
+            //Changing the CO only depends on the axis, corner orbit and previous UD-CO, so we can just use a lookup table to do this in a simple way
+            let co_id = _mm_or_si128(_mm_srli_epi32::<3>(corner_orbit_id), co);
+            let co_id = _mm_or_si128(
+                co_id,
+                _mm_setr_epi8( 0, 0b1000, 0, 0b1000, 0, 0b1000, 0, 0b1000, 0, 0, 0, 0, 0, 0, 0,
+                               0),
+            );
+            _mm_shuffle_epi8(TRANSFORMATION_CO_MAP[axis], co_id)
+        } else {
+            co
+        };
+        cube.0 = _mm_or_si128(cp_translated, co);
+    }
+
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    pub(crate) unsafe fn unsafe_invert(cube: &mut CubeCornersOdd) {
         let corner_ids = unsafe {
             (_mm_extract_epi64::<0>(_mm_srli_epi32::<5>(_mm_and_si128(
                 cube.0,
@@ -361,6 +438,199 @@ mod avx2 {
     }
 }
 
+#[cfg(target_feature = "neon")]
+mod neon {
+    use std::arch::aarch64::{uint8x16_t, uint8x8_t, vadd_u8, vand_u8, vdup_n_u8, veor_u8, vget_lane_u64, vld1_u8, vmvn_u8, vorr_u8, vqtbl1_u8, vreinterpret_u64_u8, vshl_n_u8, vshr_n_u8, vsub_u8, vtbl1_u8};
+
+    use crate::simd_util::neon::{C16, C8};
+    use crate::puzzles::cube::{Corner, CubeAxis, CubeCornersOdd, CubeFace, Direction};
+
+    const TURN_CORNER_SHUFFLE: [[uint8x8_t; 3]; 6] = [
+        [
+            unsafe { C8 { a_u8: [3, 0, 1, 2, 4, 5, 6, 7], }.a }, //U
+            unsafe { C8 { a_u8: [2, 3, 0, 1, 4, 5, 6, 7], }.a }, //U2
+            unsafe { C8 { a_u8: [1, 2, 3, 0, 4, 5, 6, 7], }.a }, //U'
+        ],
+        [
+            unsafe { C8 { a_u8: [0, 1, 2, 3, 7, 4, 5, 6], }.a }, //D
+            unsafe { C8 { a_u8: [0, 1, 2, 3, 6, 7, 4, 5], }.a }, //D2
+            unsafe { C8 { a_u8: [0, 1, 2, 3, 5, 6, 7, 4], }.a }, //D'
+        ],
+        [
+            unsafe { C8 { a_u8: [0, 1, 3, 4, 5, 2, 6, 7], }.a }, //F
+            unsafe { C8 { a_u8: [0, 1, 4, 5, 2, 3, 6, 7], }.a }, //F2
+            unsafe { C8 { a_u8: [0, 1, 5, 2, 3, 4, 6, 7], }.a }, //F'
+        ],
+        [
+            unsafe { C8 { a_u8: [1, 6, 2, 3, 4, 5, 7, 0], }.a }, //B
+            unsafe { C8 { a_u8: [6, 7, 2, 3, 4, 5, 0, 1], }.a }, //B2
+            unsafe { C8 { a_u8: [7, 0, 2, 3, 4, 5, 1, 6], }.a }, //B'
+        ],
+        [
+            unsafe { C8 { a_u8: [7, 1, 2, 0, 3, 5, 6, 4], }.a }, //L
+            unsafe { C8 { a_u8: [4, 1, 2, 7, 0, 5, 6, 3], }.a }, //L2
+            unsafe { C8 { a_u8: [3, 1, 2, 4, 7, 5, 6, 0], }.a }, //L'
+        ],
+        [
+            unsafe { C8 { a_u8: [0, 2, 5, 3, 4, 6, 1, 7], }.a }, //R
+            unsafe { C8 { a_u8: [0, 5, 6, 3, 4, 1, 2, 7], }.a }, //R2
+            unsafe { C8 { a_u8: [0, 6, 1, 3, 4, 2, 5, 7], }.a }, //R'
+        ],
+    ];
+
+    pub(crate) const TRANSFORMATION_CP_SHUFFLE: [[uint8x8_t; 3]; 3] = [
+        [
+            unsafe { C8 { a_u8: [3, 2, 5, 4, 7, 6, 1, 0], }.a }, //x
+            unsafe { C8 { a_u8: [4, 5, 6, 7, 0, 1, 2, 3], }.a }, //x2
+            unsafe { C8 { a_u8: [7, 6, 1, 0, 3, 2, 5, 4], }.a }, //x'
+        ],
+        [
+            unsafe { C8 { a_u8: [3, 0, 1, 2, 5, 6, 7, 4], }.a }, //y
+            unsafe { C8 { a_u8: [2, 3, 0, 1, 6, 7, 4, 5], }.a }, //y2
+            unsafe { C8 { a_u8: [1, 2, 3, 0, 7, 4, 5, 6], }.a }, //y'
+        ],
+        [
+            unsafe { C8 { a_u8: [7, 0, 3, 4, 5, 2, 1, 6], }.a }, //F
+            unsafe { C8 { a_u8: [6, 7, 4, 5, 2, 3, 0, 1], }.a }, //F2
+            unsafe { C8 { a_u8: [1, 6, 5, 2, 3, 4, 7, 0], }.a }, //F'
+        ],
+    ];
+
+    //CPOO
+    // const CO_MAP: __m128i = unsafe { C { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b01, 0b00, 0b10, 0xFF, 0b10, 0b01, 0b00, 0xFF, 0b00, 0b01, 0b10, 0xFF] }.a }; //z
+
+    const TRANSFORMATION_CO_MAP: [uint8x16_t; 3] = [
+        unsafe { C16 { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b00, 0b01, 0b10, 0xFF, ], }.a }, //z
+        unsafe { C16 { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, ], }.a }, //y
+        unsafe { C16 { a_u8: [0b00, 0b01, 0b10, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b00, 0b01, 0b10, 0xFF, ], }.a }, //x
+    ];
+
+    const CO_OVERFLOW_MASK: uint8x8_t = unsafe { C8 { a_u8: [0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100], }.a };
+
+    const TURN_CO_CHANGE: [uint8x8_t; 6] = [
+        unsafe { C8 { a_u8: [1, 1, 1, 1, 1, 1, 1, 1], }.a }, //U
+        unsafe { C8 { a_u8: [1, 1, 1, 1, 1, 1, 1, 1], }.a }, //D
+        unsafe { C8 { a_u8: [1, 1, 2, 3, 2, 3, 1, 1], }.a }, //F
+        unsafe { C8 { a_u8: [2, 3, 1, 1, 1, 1, 2, 3], }.a }, //B
+        unsafe { C8 { a_u8: [3, 1, 1, 2, 3, 1, 1, 2], }.a }, //L
+        unsafe { C8 { a_u8: [1, 2, 3, 1, 1, 2, 3, 1], }.a }, //R
+    ];
+
+    #[inline]
+    pub(crate) unsafe fn unsafe_new_solved() -> CubeCornersOdd {
+        CubeCornersOdd(vshl_n_u8::<5>(C8 { a_u8: [ 0, 1, 2, 3, 4, 5, 6, 7], }.a))
+    }
+
+    #[inline]
+    pub(crate) unsafe fn unsafe_get_corners_raw(cube: &CubeCornersOdd) -> u64 {
+        vget_lane_u64::<0>(vreinterpret_u64_u8(cube.0))
+    }
+
+    #[inline]
+    pub(crate) unsafe fn unsafe_get_corners(cube: &CubeCornersOdd) -> [Corner; 8] {
+        let mut corner_bits = unsafe_get_corners_raw(cube);
+        let mut corner_arr = [Corner {
+            id: 0,
+            orientation: 0,
+        }; 8];
+        for cid in 0..8 {
+            let corner = (corner_bits & 0xFF) as u8;
+            corner_bits >>= 8;
+            corner_arr[cid] = Corner {
+                id: corner >> 5,
+                orientation: corner & 0x7,
+            };
+        }
+        corner_arr
+    }
+
+    #[inline]
+    pub(crate) unsafe fn unsafe_turn(cube: &mut CubeCornersOdd, face: CubeFace, dir: Direction) {
+        cube.0 = vtbl1_u8(cube.0, TURN_CORNER_SHUFFLE[face as usize][dir as usize]);
+        if dir != Direction::Half {
+            //Valid COs are 00, 01, 10. When we move, we don't add 0, 1, 2 (no change, clockwise, counter-clockwise), but we add 1, 2, 3 to force overflowing into the next bit.
+            //This code either subtracts 1 if there is no overflow (because we added 1 too much before), or 4, because this gives us the original addition mod 3.
+            let corners_tmp = vadd_u8(cube.0, TURN_CO_CHANGE[face as usize]);
+            let overflow_bits = vand_u8(corners_tmp, CO_OVERFLOW_MASK);
+
+            let not_overflow = vshr_n_u8::<2>(vand_u8(vmvn_u8(corners_tmp), CO_OVERFLOW_MASK));
+            let overflow_sub = vorr_u8(overflow_bits, not_overflow);
+            cube.0 = vsub_u8(corners_tmp, overflow_sub);
+        }
+    }
+
+    pub(crate) unsafe fn unsafe_transform(
+        cube: &mut CubeCornersOdd,
+        axis: CubeAxis,
+        dir: Direction,
+    ) {
+        let corners_translated = vtbl1_u8(
+            cube.0,
+            TRANSFORMATION_CP_SHUFFLE[axis as usize][dir as usize],
+        );
+        let cp = vshr_n_u8::<5>(vand_u8(
+            corners_translated,
+            vdup_n_u8(0b11100000_u8),
+        ));
+        let co = vand_u8(corners_translated, vdup_n_u8(0b00000011));
+        let cp_translated = vshl_n_u8::<5>(vtbl1_u8(
+            TRANSFORMATION_CP_SHUFFLE[axis as usize][dir.invert() as usize],
+            cp,
+        ));
+        let co = if dir != Direction::Half {
+            let corner_orbit_id = vand_u8(cp_translated, vdup_n_u8(0b00100000));
+            //We want 4 bits. The lowest two are for the corner CO, the third tells us which orbit the corner belongs to, and the fourth is which orbit the corner is in.
+            //Changing the CO only depends on the axis, corner orbit and previous UD-CO, so we can just use a lookup table to do this in a simple way
+            let co_id = vorr_u8(vshr_n_u8::<3>(corner_orbit_id), co);
+            let co_id = vorr_u8(
+                co_id,
+                C8{ a_u8: [0, 0b1000, 0, 0b1000, 0, 0b1000, 0, 0b1000]}.a,
+            );
+            vqtbl1_u8(TRANSFORMATION_CO_MAP[axis], co_id)
+        } else {
+            co
+        };
+        cube.0 = vorr_u8(cp_translated, co);
+    }
+
+    pub(crate) unsafe fn unsafe_invert(cube: &mut CubeCornersOdd) {
+        let corner_ids = unsafe {
+            vget_lane_u64::<0>(vreinterpret_u64_u8(vshr_n_u8::<5>(vand_u8(
+                cube.0,
+                vdup_n_u8(0xE0_u8),
+            )))).to_le_bytes()
+        };
+
+        let mut corner_shuffle = corner_ids.clone();
+        for i in 0..8 {
+            corner_shuffle[corner_ids[i] as usize] = i as u8;
+        }
+        let corner_shuffle_mask = vld1_u8(corner_shuffle.as_ptr());
+
+        //Splice together the corner permutation, and the CO of the corners on the inverse (see niss prediction to see how this works)
+        //Also switch CO 1 <-> 2,  CO 0 stays the same
+        let cp = vand_u8(
+            vtbl1_u8(
+                vtbl1_u8(cube.0, corner_shuffle_mask),
+                corner_shuffle_mask,
+            ),
+            vdup_n_u8(0b11100000_u8),
+        );
+        let co_shuffle = vtbl1_u8(cube.0, vshr_n_u8::<5>(cp));
+        let tmp = vand_u8(
+            vadd_u8(
+                co_shuffle,
+                vdup_n_u8(1),
+            ),
+            vdup_n_u8(2),
+        );
+        let co_flip_mask = vorr_u8(tmp, vshr_n_u8::<1>(tmp));
+        let co = vand_u8(veor_u8(co_shuffle, co_flip_mask), vdup_n_u8(7));
+
+        cube.0 = vorr_u8(cp, co);
+    }
+}
+
 #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
 mod wasm32 {
     use std::arch::wasm32::{
@@ -369,8 +639,7 @@ mod wasm32 {
         v128_or, v128_xor,
     };
 
-    use crate::puzzles::cube::{Corner, CubeAxis, CubeFace, Direction};
-    use crate::puzzles::cube::corners_even::CubeCornersEven;
+    use crate::puzzles::cube::{Corner, CubeAxis, CubeCornersOdd, CubeFace, Direction};
     use crate::wasm_util::u8x16_set1;
 
     const TURN_CORNER_SHUFFLE: [[v128; 3]; 6] = [
@@ -423,6 +692,11 @@ mod wasm32 {
             u8x16(1, 6, 5, 2, 3, 4, 7, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, ), //F'
         ],
     ];
+    const TRANSFORMATION_CO_MAP: [v128; 3] = [
+        u8x16(0b00, 0b01, 0b10, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b00, 0b01, 0b10, 0xFF, ), //z
+        u8x16(0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, 0b00, 0b01, 0b10, 0xFF, ), //y
+        u8x16(0b00, 0b01, 0b10, 0xFF, 0b10, 0b00, 0b01, 0xFF, 0b01, 0b10, 0b00, 0xFF, 0b00, 0b01, 0b10, 0xFF, ), //x
+    ];
 
     const CO_OVERFLOW_MASK: v128 = u8x16(0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0b00000100, 0, 0, 0, 0, 0, 0, 0, 0, );
 
@@ -435,27 +709,21 @@ mod wasm32 {
         u8x16(1, 2, 3, 1, 1, 2, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0), //R
     ];
 
-    const TRANS_CO_CHANGE: [v128; 6] = [
-        u8x16(3, 2, 3, 2, 3, 2, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0), //x
-        u8x16(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0), //y
-        u8x16(2, 3, 2, 3, 2, 3, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0), //z
-    ];
-
     #[inline]
-    pub(crate) fn new_solved() -> CubeCornersEven {
-        CubeCornersEven(u8x16_shl(
+    pub(crate) fn new_solved() -> CubeCornersOdd {
+        CubeCornersOdd(u8x16_shl(
             u8x16(0, 1, 2, 3, 4, 5, 6, 7, 0, 0, 0, 0, 0, 0, 0, 0),
             5,
         ))
     }
 
     #[inline]
-    pub(crate) fn get_corners_raw(cube: &CubeCornersEven) -> u64 {
+    pub(crate) fn get_corners_raw(cube: &CubeCornersOdd) -> u64 {
         u64x2_extract_lane::<0>(cube.0)
     }
 
     #[inline]
-    pub(crate) fn get_corners(cube: &CubeCornersEven) -> [Corner; 8] {
+    pub(crate) fn get_corners(cube: &CubeCornersOdd) -> [Corner; 8] {
         let mut corner_bits = get_corners_raw(cube);
         let mut corner_arr = [Corner {
             id: 0,
@@ -473,7 +741,7 @@ mod wasm32 {
     }
 
     #[inline]
-    pub(crate) fn turn(cube: &mut CubeCornersEven, face: CubeFace, turn_type: Direction) {
+    pub(crate) fn turn(cube: &mut CubeCornersOdd, face: CubeFace, turn_type: Direction) {
         cube.0 = u8x16_swizzle(
             cube.0,
             TURN_CORNER_SHUFFLE[face as usize][turn_type as usize],
@@ -490,24 +758,40 @@ mod wasm32 {
     }
 
     #[inline]
-    pub(crate) fn transform(cube: &mut CubeCornersEven, axis: CubeAxis, turn_type: Direction) {
-        cube.0 = u8x16_swizzle(
+    pub(crate) fn transform(cube: &mut CubeCornersOdd, axis: CubeAxis, turn_type: Direction) {
+        let corners_translated = u8x16_swizzle(
             cube.0,
             TRANSFORMATION_CP_SHUFFLE[axis as usize][turn_type as usize],
         );
-        if turn_type != Direction::Half {
-            //Valid COs are 00, 01, 10. When we move, we don't add 0, 1, 2 (no change, clockwise, counter-clockwise), but we add 1, 2, 3 to force overflowing into the next bit.
-            //This code either subtracts 1 if there is no overflow (because we added 1 too much before), or 4, because this gives us the original addition mod 3.
-            let corners_tmp = u8x16_add(cube.0, TRANS_CO_CHANGE[axis as usize]);
-            let overflow_bits = v128_and(corners_tmp, CO_OVERFLOW_MASK);
-            let not_overflow = u16x8_shr(v128_andnot(CO_OVERFLOW_MASK, corners_tmp), 2);
-            let overflow_sub = v128_or(overflow_bits, not_overflow);
-            cube.0 = u8x16_sub(corners_tmp, overflow_sub);
-        }
+        let cp = u32x4_shr(v128_and(corners_translated, u8x16_set1(0b11100000)), 5);
+        let co = v128_and(corners_translated, u8x16_set1(0b00000011));
+        let cp_translated = u32x4_shl(
+            u8x16_swizzle(
+                TRANSFORMATION_CP_SHUFFLE[axis as usize][turn_type.invert() as usize],
+                cp,
+            ),
+            5,
+        );
+        let co = if turn_type != Direction::Half {
+            let corner_orbit_id = v128_and(cp_translated, u8x16_set1(0b00100000));
+            //We want 4 bits. The lowest two are for the corner CO, the third tells us which orbit the corner belongs to, and the fourth is which orbit the corner is in.
+            //Changing the CO only depends on the axis, corner orbit and previous UD-CO, so we can just use a lookup table to do this in a simple way
+            let co_id = v128_or(u32x4_shr(corner_orbit_id, 3), co);
+            let co_id = v128_or(
+                co_id,
+                u8x16(
+                    0, 0, 0, 0, 0, 0, 0, 0, 0b1000, 0, 0b1000, 0, 0b1000, 0, 0b1000, 0,
+                ),
+            );
+            u8x16_swizzle(TRANSFORMATION_CO_MAP[axis], co_id)
+        } else {
+            co
+        };
+        cube.0 = v128_or(cp_translated, co);
     }
 
     #[inline]
-    pub(crate) fn invert(cube: &mut CubeCornersEven) {
+    pub(crate) fn invert(cube: &mut CubeCornersOdd) {
         let corner_ids =
             (u64x2_extract_lane::<0>(u32x4_shr(v128_and(cube.0, u8x16_set1(0xE0)), 5)))
                 .to_le_bytes();

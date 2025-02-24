@@ -1,5 +1,4 @@
 use crate::puzzles::c333::{CornerCube333, Cube333, EdgeCube333};
-use crate::puzzles::cube::coords::CPCoord;
 use crate::steps::coord::Coord;
 
 //Coordinate representing the position of edges that belong into the FB slice, assuming the UD slice is already correct.
@@ -19,11 +18,7 @@ pub struct ParityCoord(pub(crate) bool);
 
 //Assuming we already have UD-DR, represents the combination of CPOrbitUnsortedCoord, CPOrbitTwistCoord and FBSliceUnsortedCoord
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct PureHTRDRUDCoord(pub(crate) u16);
-
-//Assuming we already have UD-DR, represents the combination of CPCoord and FBSliceUnsortedCoord
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct ImpureHTRDRUDCoord(pub(crate) u32);
+pub struct HTRDRUDCoord(pub(crate) u16);
 
 impl Coord<70> for FBSliceUnsortedCoord {
     fn val(&self) -> usize {
@@ -73,36 +68,18 @@ impl Into<usize> for ParityCoord {
     }
 }
 
-//TODO this should use 'impl const' once it's stable
-pub const PURE_HTRDRUD_SIZE: usize = 70 * 70 * 6;
-impl Coord<PURE_HTRDRUD_SIZE> for PureHTRDRUDCoord {
+pub const HTRDRUD_SIZE: usize = 70 * 70 * 6;
+impl Coord<HTRDRUD_SIZE> for HTRDRUDCoord {
     fn val(&self) -> usize {
         self.0 as usize
     }
 }
 
-impl Into<usize> for PureHTRDRUDCoord {
+impl Into<usize> for HTRDRUDCoord {
     fn into(self) -> usize {
         self.val()
     }
 }
-
-//TODO this should use 'impl const' once it's stable
-pub const IMPURE_HTRDRUD_SIZE: usize = 70 * 40320;
-impl Coord<{ IMPURE_HTRDRUD_SIZE }> for ImpureHTRDRUDCoord {
-    fn val(&self) -> usize {
-        self.0 as usize
-    }
-}
-
-impl Into<usize> for ImpureHTRDRUDCoord {
-    fn into(self) -> usize {
-        self.val()
-    }
-}
-
-pub type HTRDRUDCoord = PureHTRDRUDCoord;
-pub const HTRDRUD_SIZE: usize = PURE_HTRDRUD_SIZE;
 
 impl From<&EdgeCube333> for FBSliceUnsortedCoord {
     #[inline]
@@ -160,7 +137,7 @@ impl From<&CornerCube333> for ParityCoord {
     }
 }
 
-impl From<&Cube333> for PureHTRDRUDCoord {
+impl From<&Cube333> for HTRDRUDCoord {
     fn from(value: &Cube333) -> Self {
         let ep_fbslice_coord = FBSliceUnsortedCoord::from(&value.edges).val();
         let cp_orbit_coord = CPOrbitUnsortedCoord::from(&value.corners).val();
@@ -173,21 +150,11 @@ impl From<&Cube333> for PureHTRDRUDCoord {
     }
 }
 
-impl From<&Cube333> for ImpureHTRDRUDCoord {
-    fn from(value: &Cube333) -> Self {
-        let ep_fbslice_coord = FBSliceUnsortedCoord::from(&value.edges).val();
-        let cp = CPCoord::from(&value.corners).val();
-
-        let val = cp + ep_fbslice_coord * CPCoord::size();
-        Self(val as u32)
-    }
-}
-
 #[cfg(target_feature = "avx2")]
 mod avx2 {
     use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_castps_si128, _mm_castsi128_ps, _mm_cmpeq_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi32, _mm_movemask_epi8, _mm_or_si128, _mm_permute_ps, _mm_sad_epu8, _mm_set1_epi8, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_slli_epi16, _mm_slli_epi32, _mm_srli_epi32, _mm_srli_epi64, _mm_sub_epi8, _mm_xor_si128};
 
-    use crate::alignment::avx2::C;
+    use crate::simd_util::avx2::C;
     use crate::puzzles::c333::{CornerCube333, EdgeCube333};
     use crate::puzzles::c333::steps::htr::coords::{CPOrbitTwistCoord, CPOrbitUnsortedCoord, FBSliceUnsortedCoord, ParityCoord};
 

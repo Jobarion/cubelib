@@ -1,8 +1,6 @@
-use std::fmt::Display;
 use std::vec;
 use log::debug;
-use crate::puzzles::puzzle::{Puzzle, PuzzleMove, Transformable};
-use crate::solver::moveset::TransitionTable;
+use crate::puzzles::c333::Cube333;
 use crate::solver::solution::Solution;
 
 use crate::steps;
@@ -15,10 +13,10 @@ pub mod df_search;
 pub mod moveset;
 use crate::solver::df_search::CancelToken;
 
-pub fn solve_steps<'a, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation> + Display, TransTable: TransitionTable<Turn>>(puzzle: PuzzleParam, steps: &'a Vec<(Step<'a, Turn, Transformation, PuzzleParam, TransTable>, DefaultStepOptions)>, cancel_token: &'a CancelToken) -> impl Iterator<Item = Solution<Turn>> + 'a {
-    let first_step: Box<dyn Iterator<Item = Solution<Turn>>> = Box::new(vec![Solution::new()].into_iter());
+pub fn solve_steps<'a>(puzzle: Cube333, steps: &'a Vec<(Step<'a>, DefaultStepOptions)>, cancel_token: &'a CancelToken) -> impl Iterator<Item = Solution> + 'a {
+    let first_step: Box<dyn Iterator<Item = Solution>> = Box::new(vec![Solution::new()].into_iter());
 
-    let solutions: Box<dyn Iterator<Item=Solution<Turn>>> = steps.iter()
+    let solutions: Box<dyn Iterator<Item=Solution>> = steps.iter()
         .fold(first_step, |acc, (step, search_opts)|{
             debug!("Step {} with options {:?}", step.kind(), search_opts);
             let next = steps::step::next_step(acc, step, search_opts.clone(), puzzle.clone(), cancel_token)
@@ -31,14 +29,14 @@ pub fn solve_steps<'a, Turn: PuzzleMove + Transformable<Transformation>, Transfo
     solutions
 }
 
-pub struct SolutionIterator<'a, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>, TransTable: TransitionTable<Turn>> {
+pub struct SolutionIterator<'a> {
     #[allow(unused)]
-    steps: Vec<(Step<'a, Turn, Transformation, PuzzleParam, TransTable>, DefaultStepOptions)>,
-    solutions: Box<dyn Iterator<Item=Solution<Turn>>>,
+    steps: Vec<(Step<'a>, DefaultStepOptions)>,
+    solutions: Box<dyn Iterator<Item=Solution>>,
 }
 
-impl <Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>, TransTable: TransitionTable<Turn>> Iterator for SolutionIterator<'_, Turn, Transformation, PuzzleParam, TransTable> {
-    type Item = Solution<Turn>;
+impl Iterator for SolutionIterator<'_> {
+    type Item = Solution;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.solutions.next()

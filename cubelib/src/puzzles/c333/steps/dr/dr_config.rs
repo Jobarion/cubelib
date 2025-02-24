@@ -4,7 +4,7 @@ use std::vec;
 use itertools::Itertools;
 
 use crate::defs::*;
-use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
+use crate::puzzles::c333::{Transformation333, Turn333};
 use crate::puzzles::c333::steps::{MoveSet333, Step333};
 use crate::puzzles::c333::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
 use crate::puzzles::c333::steps::eo::coords::EOCoordFB;
@@ -69,15 +69,15 @@ pub const DR_UD_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
 };
 
 pub type DRPruningTable = LookupTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
-pub type DRPruningTableStep<'a> = DefaultPruningTableStep<'a, {DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB, Turn333, Transformation333, Cube333, TransitionTable333>;
+pub type DRPruningTableStep<'a> = DefaultPruningTableStep<'a, {DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB>;
 
 pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")] subset_table: &'a HTRSubsetTable, mut config: StepConfig) -> Result<(Step333<'a>, DefaultStepOptions), String> {
     #[cfg(feature = "333htr")]
-    let post_step_filters: Vec<Box<dyn PostStepCheck<Turn333, Transformation333, Cube333>>> = config.params.remove("subsets")
+    let post_step_filters: Vec<Box<dyn PostStepCheck>> = config.params.remove("subsets")
         .map(|x|x.split(",").map(|x|x.to_string()).collect_vec())
         .and_then(|subsets|dr_subset_filter(subset_table, &subsets))
         .map(|filter|{
-            let b: Box<dyn PostStepCheck<Turn333, Transformation333, Cube333>> = Box::new(filter);
+            let b: Box<dyn PostStepCheck> = Box::new(filter);
             vec![b]
         })
         .unwrap_or(vec![]);
@@ -87,7 +87,7 @@ pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")
     let psc = Rc::new(post_step_filters);
 
     let step = if let Some(substeps) = config.substeps {
-        let variants: Result<Vec<Vec<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333>>>>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
+        let variants: Result<Vec<Vec<Box<dyn StepVariant>>>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
             "ud" | "drud" => Ok(dr_step_variants(table, vec![CubeAxis::FB, CubeAxis::LR], vec![CubeAxis::UD], psc.clone())),
             "fb" | "drfb" => Ok(dr_step_variants(table, vec![CubeAxis::UD, CubeAxis::LR], vec![CubeAxis::FB], psc.clone())),
             "lr" | "drlr" => Ok(dr_step_variants(table, vec![CubeAxis::UD, CubeAxis::FB], vec![CubeAxis::LR], psc.clone())),
@@ -130,12 +130,12 @@ pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")
     Ok((step, search_opts))
 }
 
-fn dr_step_variants<'a>(table: &'a DRPruningTable, eo_axis: Vec<CubeAxis>, dr_axis: Vec<CubeAxis>, psc: Rc<Vec<Box<dyn PostStepCheck<Turn333, Transformation333, Cube333> + 'a>>>) -> Vec<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> + 'a>> {
+fn dr_step_variants<'a>(table: &'a DRPruningTable, eo_axis: Vec<CubeAxis>, dr_axis: Vec<CubeAxis>, psc: Rc<Vec<Box<dyn PostStepCheck + 'a>>>) -> Vec<Box<dyn StepVariant + 'a>> {
     eo_axis
         .into_iter()
         .flat_map(|eo| dr_axis.clone().into_iter().map(move |dr| (eo, dr)))
         .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333>>> = match x {
+            let x: Option<Box<dyn StepVariant>> = match x {
                 (CubeAxis::UD, CubeAxis::FB) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::X], table, psc.clone(), "fb-eoud"))),
                 (CubeAxis::UD, CubeAxis::LR) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::X, Transformation333::Z], table, psc.clone(), "lr-eoud"))),
                 (CubeAxis::FB, CubeAxis::UD) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![], table, psc.clone(), "ud-eofb"))),
@@ -149,12 +149,12 @@ fn dr_step_variants<'a>(table: &'a DRPruningTable, eo_axis: Vec<CubeAxis>, dr_ax
         .collect_vec()
 }
 
-pub fn dr<'a>(table: &'a DRPruningTable, eo_axis: Vec<CubeAxis>, dr_axis: Vec<CubeAxis>, post_step_checks: Rc<Vec<Box<dyn PostStepCheck<Turn333, Transformation333, Cube333> + 'a>>>) -> Step333<'a> {
+pub fn dr<'a>(table: &'a DRPruningTable, eo_axis: Vec<CubeAxis>, dr_axis: Vec<CubeAxis>, post_step_checks: Rc<Vec<Box<dyn PostStepCheck + 'a>>>) -> Step333<'a> {
     let step_variants = dr_step_variants(table, eo_axis, dr_axis, post_step_checks);
     Step::new(step_variants, StepKind::DR, true)
 }
 
-pub fn dr_any<'a>(table: &'a DRPruningTable, post_step_checks: Rc<Vec<Box<dyn PostStepCheck<Turn333, Transformation333, Cube333> + 'a>>>) -> Step333<'a> {
+pub fn dr_any<'a>(table: &'a DRPruningTable, post_step_checks: Rc<Vec<Box<dyn PostStepCheck + 'a>>>) -> Step333<'a> {
     dr(table, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR], vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR], post_step_checks)
 }
 

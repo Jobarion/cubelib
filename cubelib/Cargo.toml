@@ -21,11 +21,7 @@ crate-type = ["cdylib", "rlib"]
 default = []
 solver = []
 cubic = []
-cubic-even = ["cubic"]
 cubic-odd = ["cubic"]
-
-222 = ["cubic-even"]
-222finish = ["222", "solver"]
 
 333 = ["cubic-odd"]
 333eo = ["333", "solver"]
@@ -33,9 +29,6 @@ cubic-odd = ["cubic"]
 333htr = ["333dr"]
 333fr = ["333htr"]
 333finish = ["333fr"]
-
-pyraminx = []
-pyraminxfinish = []
 
 serde_support = ["dep:serde"]
 fs = ["dep:home"]

@@ -1,17 +1,18 @@
 use std::rc::Rc;
 use std::vec;
+
 use itertools::Itertools;
 
 use crate::defs::*;
-use crate::solver::lookup_table::LookupTable;
-use crate::solver::moveset::TransitionTable333;
-use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
+use crate::puzzles::c333::{Transformation333, Turn333};
 use crate::puzzles::c333::steps::{MoveSet333, Step333};
 use crate::puzzles::c333::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
-use crate::puzzles::c333::steps::htr::coords::{PURE_HTRDRUD_SIZE, PureHTRDRUDCoord};
+use crate::puzzles::c333::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
 use crate::puzzles::cube::{CubeAxis, CubeFace};
 use crate::puzzles::cube::CubeFace::*;
 use crate::puzzles::cube::Direction::*;
+use crate::solver::lookup_table::LookupTable;
+use crate::solver::moveset::TransitionTable333;
 use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
 use crate::steps::step::StepConfig;
 
@@ -35,8 +36,8 @@ pub const FR_UD_MOVESET: MoveSet333 = MoveSet333 {
 
 pub type FRLeaveSlicePruningTable = LookupTable<{ FRUD_NO_SLICE_SIZE }, FRUDNoSliceCoord>;
 pub type FRPruningTable = LookupTable<{ FRUD_WITH_SLICE_SIZE }, FRUDWithSliceCoord>;
-pub type FRLeaveSlicePruningTableStep<'a> = DefaultPruningTableStep::<'a, {FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, {PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, Turn333, Transformation333, Cube333, TransitionTable333>;
-pub type FRPruningTableStep<'a> = DefaultPruningTableStep::<'a, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, {PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, Turn333, Transformation333, Cube333, TransitionTable333>;
+pub type FRLeaveSlicePruningTableStep<'a> = DefaultPruningTableStep::<'a, {FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, { HTRDRUD_SIZE }, HTRDRUDCoord>;
+pub type FRPruningTableStep<'a> = DefaultPruningTableStep::<'a, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, { HTRDRUD_SIZE }, HTRDRUDCoord>;
 
 pub fn from_step_config(table: &FRPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
     let step = if let Some(substeps) = config.substeps {
@@ -114,7 +115,7 @@ pub fn fr_no_slice<'a>(table: &'a FRLeaveSlicePruningTable, fr_axis: Vec<CubeAxi
     let step_variants = fr_axis
         .into_iter()
         .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> + 'a>> = match x {
+            let x: Option<Box<dyn StepVariant + 'a>> = match x {
                 CubeAxis::UD => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
                 CubeAxis::FB => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, Rc::new(vec![]), "fb"))),
                 CubeAxis::LR => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, Rc::new(vec![]), "lr"))),
@@ -129,7 +130,7 @@ pub fn fr<'a>(table: &'a FRPruningTable, fr_axis: Vec<CubeAxis>) -> Step333<'a> 
     let step_variants = fr_axis
         .into_iter()
         .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> + 'a>> = match x {
+            let x: Option<Box<dyn StepVariant + 'a>> = match x {
                 CubeAxis::UD => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
                 CubeAxis::FB => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, Rc::new(vec![]), "fb"))),
                 CubeAxis::LR => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, Rc::new(vec![]), "lr"))),

@@ -1,5 +1,3 @@
-#[cfg(feature = "cubic-even")]
-use crate::puzzles::cube::CubeCornersEven;
 #[cfg(feature = "cubic-odd")]
 use crate::puzzles::cube::CubeCornersOdd;
 use crate::steps::coord::Coord;
@@ -7,9 +5,6 @@ use crate::steps::coord::Coord;
 //UD corner orientation
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct COUDCoord(pub(crate) u16);
-//Corner permutation
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct CPCoord(pub(crate) u16);
 
 impl Coord<2187> for COUDCoord {
     fn val(&self) -> usize {
@@ -18,18 +13,6 @@ impl Coord<2187> for COUDCoord {
 }
 
 impl Into<usize> for COUDCoord {
-    fn into(self) -> usize {
-        self.0 as usize
-    }
-}
-
-impl Coord<40320> for CPCoord {
-    fn val(&self) -> usize {
-        self.0 as usize
-    }
-}
-
-impl Into<usize> for CPCoord {
     fn into(self) -> usize {
         self.0 as usize
     }
@@ -50,52 +33,12 @@ impl From<&CubeCornersOdd> for COUDCoord {
     }
 }
 
-#[cfg(feature = "cubic-even")]
-impl From<&CubeCornersEven> for COUDCoord {
-    #[inline]
-    #[cfg(target_feature = "avx2")]
-    fn from(value: &CubeCornersEven) -> Self {
-        unsafe { avx2::unsafe_from_cocoord(value.0) }
-    }
-
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn from(value: &CubeCornersEven) -> Self {
-        wasm32::from_cocoord(value)
-    }
-}
-
-#[cfg(target_feature = "avx2")] //Unsupported in WASM right now
-#[cfg(feature = "cubic-odd")]
-impl From<&CubeCornersOdd> for CPCoord {
-    #[inline]
-    #[cfg(target_feature = "avx2")]
-    fn from(value: &CubeCornersOdd) -> Self {
-        unsafe { avx2::unsafe_from_cpcoord(value.0) }
-    }
-}
-
-#[cfg(feature = "cubic-even")]
-impl From<&CubeCornersEven> for CPCoord {
-    #[inline]
-    #[cfg(target_feature = "avx2")]
-    fn from(value: &CubeCornersEven) -> Self {
-        unsafe { avx2::unsafe_from_cpcoord(value.0) }
-    }
-
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn from(value: &CubeCornersEven) -> Self {
-        wasm32::from_cpcoord(value)
-    }
-}
-
 #[cfg(target_feature = "avx2")]
 mod avx2 {
-    use std::arch::x86_64::{__m128i, _mm_and_si128, _mm_cmplt_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_mullo_epi16, _mm_set1_epi8, _mm_set_epi64x, _mm_setr_epi16, _mm_setr_epi8, _mm_shuffle_epi8, _mm_srli_epi32};
+    use std::arch::x86_64::{__m128i, _mm_and_si128, _mm_extract_epi16, _mm_hadd_epi16, _mm_mullo_epi16, _mm_set1_epi8, _mm_shuffle_epi8};
 
-    use crate::alignment::avx2::C;
-    use crate::puzzles::cube::coords::{COUDCoord, CPCoord};
+    use crate::simd_util::avx2::C;
+    use crate::puzzles::cube::coords::COUDCoord;
 
     const CO_MUL: __m128i = unsafe { C { a_u16: [1, 3, 9, 27, 81, 243, 729, 0] }.a };
     const CO_SHUFFLE_8_TO_16: __m128i = unsafe { C { a_u8: [0, 0xFF, 1, 0xFF, 2, 0xFF, 3, 0xFF, 4, 0xFF, 5, 0xFF, 6, 0xFF, 7, 0xFF] }.a };
@@ -112,64 +55,6 @@ mod avx2 {
         //Horizontal sum
         let coord = hsum_epi16_sse3(coord_values);
         COUDCoord(coord)
-    }
-
-    #[target_feature(enable = "avx2")]
-    #[inline]
-    pub(crate) unsafe fn unsafe_from_cpcoord(value: __m128i) -> CPCoord {
-        let cp_values = _mm_and_si128(_mm_srli_epi32::<5>(value), _mm_set1_epi8(0b111));
-
-        //We interleave the values to make using hadd_epi_<16/32> easier when we combine them
-        let values_67 = _mm_shuffle_epi8(
-            cp_values,
-            _mm_setr_epi8( 6, 7, 6, 7, 6, 7, 6, 7, 6, 7, 6, 7, -1, 7, -1,-1),
-        );
-        let values_2345 = _mm_shuffle_epi8(
-            cp_values,
-            _mm_setr_epi8( 2, 3, 4, 5, 2, 3, 4, 5, -1, 3, 4, 5, -1, -1, 4,5),
-        );
-        let values_15 = _mm_shuffle_epi8(cp_values, _mm_set_epi64x(5, 1));
-
-        let higher_left_67 = _mm_and_si128(
-            _mm_cmplt_epi8(
-                values_67,
-                _mm_shuffle_epi8(
-                    cp_values,
-                    _mm_setr_epi8( 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, -1, 6, -1,-1),
-                ),
-            ),
-            _mm_set1_epi8(1),
-        );
-        let higher_left_2345 = _mm_and_si128(
-            _mm_cmplt_epi8(
-                values_2345,
-                _mm_shuffle_epi8(
-                    cp_values,
-                    _mm_setr_epi8( 0, 0, 0, 0, 1, 1, 1, 1, -1, 2, 2, 2, -1, -1, 3,3),
-                ),
-            ),
-            _mm_set1_epi8(1),
-        );
-        let higher_left_15 = _mm_and_si128(
-            _mm_cmplt_epi8(values_15, _mm_shuffle_epi8(cp_values, _mm_set_epi64x(4, 0))),
-            _mm_set1_epi8(1),
-        );
-
-        let hsum = _mm_hadd_epi32(higher_left_2345, higher_left_67);
-        let hsum = _mm_hadd_epi32(hsum, higher_left_15);
-        let hsum = _mm_shuffle_epi8(
-            hsum,
-            _mm_setr_epi8( 8, 0, -1, -1, 1, 2, -1, -1, 3, 4, 12, 6, 5, -1, 7,-1),
-        );
-        let hsum = _mm_hadd_epi16(hsum, _mm_set1_epi8(0));
-        let hsum = _mm_shuffle_epi8(
-            hsum,
-            _mm_setr_epi8( 0, -1, 1, -1, 2, -1, 3, -1, 4, -1, 5, -1, 6, -1, -1,-1),
-        );
-        let factorials = _mm_setr_epi16( 1, 2, 6, 24, 120, 720, 5040,0);
-        let prod = _mm_mullo_epi16(hsum, factorials);
-
-        CPCoord(hsum_epi16_sse3(prod))
     }
 
     #[inline]

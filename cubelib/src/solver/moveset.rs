@@ -1,13 +1,13 @@
-use crate::puzzles::puzzle::PuzzleMove;
+use crate::puzzles::c333::Turn333;
 
-pub struct MoveSet<Turn: PuzzleMove, Table: TransitionTable<Turn>> {
-    pub st_moves: &'static [Turn],
-    pub aux_moves: &'static [Turn],
-    pub transitions: &'static [Table],
+pub struct MoveSet {
+    pub st_moves: &'static [Turn333],
+    pub aux_moves: &'static [Turn333],
+    pub transitions: &'static [TransitionTable333],
 }
 
-pub trait TransitionTable<Turn: PuzzleMove>: 'static {
-    fn check_move(&self, m: Turn) -> Transition;
+pub trait TransitionTable: 'static {
+    fn check_move(&self, m: Turn333) -> Transition;
 }
 
 #[derive(Debug)]
@@ -25,8 +25,6 @@ impl Transition {
     }
 }
 
-#[cfg(feature = "222")]
-pub type TransitionTable222 = cube_outer_turn::TransitionTableCubeOuterTurn;
 #[cfg(feature = "333")]
 pub type TransitionTable333 = cube_outer_turn::TransitionTableCubeOuterTurn;
 
@@ -42,7 +40,7 @@ mod cube_outer_turn {
         pub can_end: u32,
     }
 
-    impl TransitionTable<CubeOuterTurn> for TransitionTableCubeOuterTurn {
+    impl TransitionTable for TransitionTableCubeOuterTurn {
         fn check_move(&self, m: CubeOuterTurn) -> Transition {
             let mid = Into::<usize>::into(m) as u32;
             let allowed = self.allowed & (1 << mid) != 0;

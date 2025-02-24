@@ -1,11 +1,11 @@
-use std::fmt::Display;
 use std::sync::atomic::{AtomicBool, Ordering};
 use log::trace;
-
 use crate::algs::Algorithm;
+
 use crate::defs::NissSwitchType;
+use crate::puzzles::c333::{Cube333, Turn333};
 use crate::solver::moveset::{Transition, TransitionTable};
-use crate::puzzles::puzzle::{Puzzle, PuzzleMove, Transformable, TransformableMut};
+use crate::puzzles::puzzle::{Invertible, InvertibleMut, Transformable, TransformableMut, TurnableMut};
 use crate::steps::step::{DefaultStepOptions, StepVariant};
 
 pub struct CancelToken {
@@ -43,22 +43,15 @@ impl DefaultStepOptions {
     }
 }
 
-pub fn dfs_iter<
-    'a,
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation> + Display + 'a,
-    TransTable: TransitionTable<Turn>,
-    S: StepVariant<Turn, Transformation, PuzzleParam, TransTable> + ?Sized,
->(
+pub fn dfs_iter<'a, S: StepVariant + ?Sized>(
     step: &'a S,
-    mut cube: PuzzleParam,
+    mut cube: Cube333,
     search_opts: DefaultStepOptions,
-    mut previous_normal: Option<Turn>,
-    mut previous_inverse: Option<Turn>,
+    mut previous_normal: Option<Turn333>,
+    mut previous_inverse: Option<Turn333>,
     starts_on_normal: bool,
     cancel_token: &'a CancelToken,
-) -> Option<Box<dyn Iterator<Item = Algorithm<Turn>> + 'a>> {
+) -> Option<Box<dyn Iterator<Item = Algorithm> + 'a>> {
     for t in step.pre_step_trans().iter().cloned() {
         cube.transform(t);
         previous_normal = previous_normal.map(|m|m.transform(t));
@@ -83,7 +76,7 @@ pub fn dfs_iter<
         (search_opts.min_moves..=search_opts.max_moves)
             .into_iter()
             .flat_map(move |depth| {
-                let b: Box<dyn Iterator<Item = Algorithm<Turn>>> = match search_opts.niss_type {
+                let b: Box<dyn Iterator<Item = Algorithm>> = match search_opts.niss_type {
                     NissSwitchType::Never if starts_on_normal => {
                         Box::new(
                             next_dfs_level(
@@ -187,28 +180,21 @@ pub fn dfs_iter<
     ))
 }
 
-fn next_dfs_level<
-    'a,
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation> + Display + 'a,
-    TransTable: TransitionTable<Turn>,
-    S: StepVariant<Turn, Transformation, PuzzleParam, TransTable> + ?Sized,
->(
+fn next_dfs_level<'a, S: StepVariant + ?Sized>(
     step: &'a S,
-    mut cube: PuzzleParam,
+    mut cube: Cube333,
     depth_left: u8,
     can_invert: bool,
     invert_allowed: bool,
     first_move_on_side: bool,
-    previous_normal: Option<Turn>,
-    previous_inverse: Option<Turn>,
+    previous_normal: Option<Turn333>,
+    previous_inverse: Option<Turn333>,
     cancel_token: &'a CancelToken,
-) -> Box<dyn Iterator<Item = Algorithm<Turn>> + 'a> {
+) -> Box<dyn Iterator<Item = Algorithm> + 'a> {
     let lower_bound = step.heuristic(&cube, depth_left, invert_allowed);
     trace!("[{}]{}DFS depth {depth_left}, lower bound {lower_bound}, invert {invert_allowed}, {previous_normal:?}, {previous_inverse:?}", step.name(), " ".repeat(10 - depth_left as usize));
     let mut inverse = cube.clone();
-    let normal_solutions: Box<dyn Iterator<Item = Algorithm<Turn>>> = if depth_left == 0 && lower_bound == 0 {
+    let normal_solutions: Box<dyn Iterator<Item = Algorithm>> = if depth_left == 0 && lower_bound == 0 {
         Box::new(vec![Algorithm::new()].into_iter())
     } else if lower_bound == 0 || lower_bound > depth_left {
         Box::new(vec![].into_iter())

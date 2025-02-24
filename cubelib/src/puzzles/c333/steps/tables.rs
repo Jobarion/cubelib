@@ -386,7 +386,7 @@ fn gen_eo() -> EOPruningTable {
     #[cfg(not(target_arch = "wasm32"))]
     let time = Instant::now();
     let table = lookup_table::generate(&EO_FB_MOVESET,
-                                       &|c: &crate::puzzles::c333::EdgeCube333| EOCoordFB::from(c),
+                                       &|c: &crate::puzzles::c333::Cube333| EOCoordFB::from(c),
                                        &|| EOPruningTable::new(false),
                                        &|table, coord|table.get(coord),
                                        &|table, coord, val|table.set(coord, val));

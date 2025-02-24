@@ -8,11 +8,21 @@ pub struct CenterEdgeCube(
     #[cfg(target_feature = "avx2")] pub core::arch::x86_64::__m128i,
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     pub core::arch::wasm32::v128,
+    #[cfg(all(target_feature = "neon"))]
+    pub core::arch::aarch64::uint8x16_t,
 );
 
 #[cfg(target_feature = "avx2")]
 impl std::hash::Hash for CenterEdgeCube {
-    #[cfg(target_feature = "avx2")]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let parts = self.get_edges_raw();
+        state.write_u64(parts[0]);
+        state.write_u64(parts[1]);
+    }
+}
+
+#[cfg(target_feature = "neon")]
+impl std::hash::Hash for CenterEdgeCube {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         let parts = self.get_edges_raw();
         state.write_u64(parts[0]);
@@ -33,14 +43,12 @@ impl Eq for CenterEdgeCube {
 
 }
 
-impl TurnableMut<CubeOuterTurn> for CenterEdgeCube {
+impl TurnableMut for CenterEdgeCube {
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn turn(&mut self, m: CubeOuterTurn) {
         let CubeOuterTurn{face, dir} = m;
-        unsafe {
-            avx2::unsafe_turn(self, face, dir);
-        }
+        unsafe { avx2::unsafe_turn(self, face, dir) }
     }
 
     #[inline]
@@ -49,9 +57,16 @@ impl TurnableMut<CubeOuterTurn> for CenterEdgeCube {
         let CubeOuterTurn{face, dir} = m;
         wasm32::turn(self, face, dir)
     }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn turn(&mut self, m: CubeOuterTurn) {
+        let CubeOuterTurn{face, dir} = m;
+        unsafe { neon::unsafe_turn(self, face, dir) }
+    }
 }
 
-impl TransformableMut<CubeTransformation> for CenterEdgeCube {
+impl TransformableMut for CenterEdgeCube {
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn transform(&mut self, t: CubeTransformation) {
@@ -66,6 +81,13 @@ impl TransformableMut<CubeTransformation> for CenterEdgeCube {
     fn transform(&mut self, t: CubeTransformation) {
         let CubeTransformation{axis, dir} = t;
         wasm32::transform(self, axis, dir)
+    }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn transform(&mut self, t: CubeTransformation) {
+        let CubeTransformation{axis, dir} = t;
+        unsafe { neon::unsafe_transform(self, axis, dir) }
     }
 }
 
@@ -82,6 +104,12 @@ impl InvertibleMut for CenterEdgeCube {
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn invert(&mut self) {
         wasm32::invert(self)
+    }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn invert(&mut self) {
+        unsafe { neon::unsafe_invert(self) }
     }
 }
 
@@ -101,6 +129,11 @@ impl CenterEdgeCube {
         wasm32::get_edges(self)
     }
 
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    pub fn get_edges(&self) -> [Edge; 12] {
+        unsafe { neon::unsafe_get_edges(self) }
+    }
+
     #[cfg(target_feature = "avx2")]
     pub fn get_edges_raw(&self) -> [u64; 2] {
         unsafe { avx2::unsafe_get_edges_raw(self) }
@@ -110,18 +143,25 @@ impl CenterEdgeCube {
     pub fn get_edges_raw(&self) -> [u64; 2] {
         wasm32::get_edges_raw(self)
     }
+
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    pub fn get_edges_raw(&self) -> [u64; 2] {
+        unsafe { neon::unsafe_get_edges_raw(self) }
+    }
 }
 
 #[cfg(feature = "serde_support")]
 impl serde::Serialize for CenterEdgeCube {
 
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
-        let bytes = [0_u8; 16];
+        let mut bytes = [0_u8; 16];
         unsafe {
             #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-            std::arch::wasm32::v128_store(bytes.as_ptr() as *mut std::arch::wasm32::v128, self.0);
+            std::arch::wasm32::v128_store(bytes.as_mut_ptr() as *mut std::arch::wasm32::v128, self.0);
+            #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+            std::arch::aarch64::vst1q_u8(bytes.as_mut_ptr(), self.0);
             #[cfg(target_feature = "avx2")]
-            std::arch::x86_64::_mm_store_si128(bytes.as_ptr() as *mut std::arch::x86_64::__m128i, self.0);
+            std::arch::x86_64::_mm_store_si128(bytes.as_mut_ptr() as *mut std::arch::x86_64::__m128i, self.0);
         }
         serializer.serialize_bytes(&bytes)
     }
@@ -144,9 +184,11 @@ impl<'de> serde::de::Visitor<'de> for EdgeCubieCubeVisitor {
         } else {
             let val = unsafe {
                 #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-                    let val = std::arch::wasm32::v128_load(v.as_ptr() as *const std::arch::wasm32::v128);
+                let val = std::arch::wasm32::v128_load(v.as_ptr() as *const std::arch::wasm32::v128);
+                #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+                let val = std::arch::aarch64::vld1q_u8(v.as_ptr());
                 #[cfg(target_feature = "avx2")]
-                    let val = std::arch::x86_64::_mm_load_si128(v.as_ptr() as *const std::arch::x86_64::__m128i);
+                let val = std::arch::x86_64::_mm_load_si128(v.as_ptr() as *const std::arch::x86_64::__m128i);
                 val
             };
             Ok(CenterEdgeCube(val))
@@ -176,6 +218,12 @@ impl Default for CenterEdgeCube {
     fn default() -> Self {
         wasm32::new_solved()
     }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn default() -> Self {
+        unsafe { neon::unsafe_new_solved() }
+    }
 }
 
 #[cfg(target_feature = "avx2")]
@@ -187,9 +235,9 @@ mod avx2 {
         _mm_store_si128, _mm_xor_si128,
     };
 
-    use crate::alignment::{AlignedU64, AlignedU8};
-    use crate::alignment::avx2::C;
     use crate::puzzles::cube::{CenterEdgeCube, CubeAxis, CubeFace, Direction, Edge};
+    use crate::simd_util::{AlignedU64, AlignedU8};
+    use crate::simd_util::avx2::C;
 
     const VALID_EDGE_MASK_HI: u64 = 0x00000000FFFFFFFF;
 
@@ -353,7 +401,7 @@ mod avx2 {
     //__m256(normal, inverse) and just swapped the hi and lo parts.
     //Applying turns should be just as quick as before and would just require other masks
     //Right now unsafe_invert runs at about 70m ops/s so that's probably never going to be
-    // a bottleneck anyways.
+    // a bottleneck anyway.
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_invert(cube: &mut CenterEdgeCube) {
         let edge_ids = unsafe {
@@ -384,6 +432,195 @@ mod avx2 {
         let eo = _mm_and_si128(eo_shuffle, _mm_set1_epi8(0b1110));
 
         cube.0 = _mm_or_si128(ep, eo);
+    }
+}
+
+
+#[cfg(target_feature = "neon")]
+mod neon {
+    use std::arch::aarch64::{uint8x16_t, vandq_u8, vdupq_n_u8, veorq_u8, vld1q_u8, vorrq_u8, vqtbl1q_u8, vreinterpretq_u64_u8, vshlq_n_u8, vshrq_n_u8, vst1q_u64, vst1q_u8};
+
+    use crate::puzzles::cube::{CenterEdgeCube, CubeAxis, CubeFace, Direction, Edge};
+    use crate::simd_util::{AlignedU64, AlignedU8};
+    use crate::simd_util::neon::C16;
+
+    const VALID_EDGE_MASK_HI: u64 = 0x00000000FFFFFFFF;
+
+    //UB UR UF UL FR FL BR BL DF DR DB DL
+    // 0  1  2  3  4  5  6  7  8  9 10 11
+    const TURN_EDGE_SHUFFLE: [[uint8x16_t; 3]; 6] = [
+        [
+            unsafe { C16 { a_u8: [3, 0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //U
+            unsafe { C16 { a_u8: [2, 3, 0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //U2
+            unsafe { C16 { a_u8: [1, 2, 3, 0, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //U'
+        ],
+        [
+            unsafe { C16 { a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //D
+            unsafe { C16 { a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //D2
+            unsafe { C16 { a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //D'
+        ],
+        [
+            unsafe { C16 { a_u8: [0, 1, 5, 3, 2, 8, 6, 7, 4, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //F
+            unsafe { C16 { a_u8: [0, 1, 8, 3, 5, 4, 6, 7, 2, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //F2
+            unsafe { C16 { a_u8: [0, 1, 4, 3, 8, 2, 6, 7, 5, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //F'
+        ],
+        [
+            unsafe { C16 { a_u8: [6, 1, 2, 3, 4, 5, 10, 0, 8, 9, 7, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //B
+            unsafe { C16 { a_u8: [10, 1, 2, 3, 4, 5, 7, 6, 8, 9, 0, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //B2
+            unsafe { C16 { a_u8: [7, 1, 2, 3, 4, 5, 0, 10, 8, 9, 6, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //B'
+        ],
+        [
+            unsafe { C16 { a_u8: [0, 1, 2, 7, 4, 3, 6, 11, 8, 9, 10, 5, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //L
+            unsafe { C16 { a_u8: [0, 1, 2, 11, 4, 7, 6, 5, 8, 9, 10, 3, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //L2
+            unsafe { C16 { a_u8: [0, 1, 2, 5, 4, 11, 6, 3, 8, 9, 10, 7, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //L'
+        ],
+        [
+            unsafe { C16 { a_u8: [0, 4, 2, 3, 9, 5, 1, 7, 8, 6, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //R
+            unsafe { C16 { a_u8: [0, 9, 2, 3, 6, 5, 4, 7, 8, 1, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //R2
+            unsafe { C16 { a_u8: [0, 6, 2, 3, 1, 5, 9, 7, 8, 4, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //R'
+        ],
+    ];
+
+    const TURN_EO_FLIP: [uint8x16_t; 6] = [
+        unsafe { C16 { a_u8: [0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ], }.a }, //U
+        unsafe { C16 { a_u8: [0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, ], }.a }, //D
+        unsafe { C16 { a_u8: [0, 0, 0b00000100, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, 0, 0, ], }.a }, //F
+        unsafe { C16 { a_u8: [0b00000100, 0, 0, 0, 0, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, ], }.a }, //B
+        unsafe { C16 { a_u8: [0, 0, 0, 0b00000010, 0, 0b00000010, 0, 0b00000010, 0, 0, 0, 0b00000010, 0, 0, 0, 0, ], }.a }, //L
+        unsafe { C16 { a_u8: [0, 0b00000010, 0, 0, 0b00000010, 0, 0b00000010, 0, 0, 0b00000010, 0, 0, 0, 0, 0, 0, ], }.a }, //R
+    ];
+
+    const TRANSFORMATION_EP_SHUFFLE: [[uint8x16_t; 3]; 3] = [
+        [
+            unsafe { C16 { a_u8: [2, 4, 8, 5, 9, 11, 1, 3, 10, 6, 0, 7, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //x
+            unsafe { C16 { a_u8: [8, 9, 10, 11, 6, 7, 4, 5, 0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //x2
+            unsafe { C16 { a_u8: [10, 6, 0, 7, 1, 3, 9, 11, 2, 4, 8, 5, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //x'
+        ],
+        [
+            unsafe { C16 { a_u8: [3, 0, 1, 2, 6, 4, 7, 5, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //y
+            unsafe { C16 { a_u8: [2, 3, 0, 1, 7, 6, 5, 4, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //y2
+            unsafe { C16 { a_u8: [1, 2, 3, 0, 5, 7, 4, 6, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //y'
+        ],
+        [
+            unsafe { C16 { a_u8: [7, 3, 5, 11, 2, 8, 0, 10, 4, 1, 6, 9, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //z
+            unsafe { C16 { a_u8: [10, 11, 8, 9, 5, 4, 7, 6, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //z2
+            unsafe { C16 { a_u8: [6, 9, 4, 1, 8, 2, 10, 0, 5, 11, 7, 3, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //z'
+        ],
+    ];
+
+    const TRANSFORMATION_EO_MAP: [uint8x16_t; 3] = [
+        unsafe { C16 { a_u8: [0b0000, 0xFF, 0b0010, 0xFF, 0b1000, 0xFF, 0b1010, 0xFF, 0b0100, 0xFF, 0b0110, 0xFF, 0b1100, 0xFF, 0b1110, 0xFF, ], }.a }, //X
+        unsafe { C16 { a_u8: [0b0000, 0xFF, 0b0100, 0xFF, 0b0010, 0xFF, 0b0110, 0xFF, 0b1000, 0xFF, 0b1100, 0xFF, 0b1010, 0xFF, 0b1110, 0xFF, ], }.a }, //X
+        unsafe { C16 { a_u8: [0b0000, 0xFF, 0b1000, 0xFF, 0b0100, 0xFF, 0b1100, 0xFF, 0b0010, 0xFF, 0b1010, 0xFF, 0b0110, 0xFF, 0b1110, 0xFF, ], }.a }, //X
+    ];
+
+    pub(crate) unsafe fn unsafe_get_edges_raw(cube: &CenterEdgeCube) -> [u64; 2] {
+        let mut a_arr = AlignedU64([0u64; 2]).0;
+        vst1q_u64(a_arr.as_mut_ptr(), vreinterpretq_u64_u8(cube.0));
+        a_arr[1] &= VALID_EDGE_MASK_HI;
+        a_arr
+    }
+
+    pub(crate) unsafe fn unsafe_new_solved() -> CenterEdgeCube {
+        CenterEdgeCube(unsafe {
+            vshlq_n_u8::<4>(C16 { a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 0, 0, 0]}.a)
+        })
+    }
+
+    pub unsafe fn unsafe_get_edges(cube: &CenterEdgeCube) -> [Edge; 12] {
+        let mut edges = unsafe_get_edges_raw(cube);
+        let mut edge_arr = [Edge {
+            id: 0,
+            oriented_ud: true,
+            oriented_fb: true,
+            oriented_rl: true,
+        }; 12];
+
+        for eid in 0..12 {
+            let arr_id = eid / 8;
+            let edge = (edges[arr_id] & 0xFF) as u8;
+            edges[arr_id] >>= 8;
+
+            let rl = edge & 0b0010 == 0;
+            let fb = edge & 0b0100 == 0;
+            let ud = edge & 0b1000 == 0;
+
+            edge_arr[eid] = Edge {
+                id: edge >> 4,
+                oriented_ud: ud,
+                oriented_fb: fb,
+                oriented_rl: rl,
+            };
+        }
+
+        edge_arr
+    }
+
+    pub(crate) unsafe fn unsafe_turn(cube: &mut CenterEdgeCube, face: CubeFace, dir: Direction) {
+        cube.0 = vqtbl1q_u8(
+            cube.0,
+            TURN_EDGE_SHUFFLE[face as usize][dir as usize],
+        );
+        if dir != Direction::Half {
+            cube.0 = veorq_u8(cube.0, TURN_EO_FLIP[face as usize]);
+        }
+    }
+
+    pub(crate) unsafe fn unsafe_transform(
+        cube: &mut CenterEdgeCube,
+        axis: CubeAxis,
+        dir: Direction,
+    ) {
+        let edges_translated = vqtbl1q_u8(
+            cube.0,
+            TRANSFORMATION_EP_SHUFFLE[axis as usize][dir as usize],
+        );
+        let ep = vshrq_n_u8::<4>(vandq_u8(
+            edges_translated,
+            vdupq_n_u8(0xF0_u8),
+        ));
+        let eo = vandq_u8(edges_translated, vdupq_n_u8(0b00001110));
+        let ep_translated = vshlq_n_u8::<4>(vqtbl1q_u8(
+            TRANSFORMATION_EP_SHUFFLE[axis as usize][dir.invert() as usize],
+            ep,
+        ));
+        let eo = if dir != Direction::Half {
+            vqtbl1q_u8(TRANSFORMATION_EO_MAP[axis], eo)
+        } else {
+            eo
+        };
+        cube.0 = vorrq_u8(ep_translated, eo);
+    }
+
+    pub(crate) unsafe fn unsafe_invert(cube: &mut CenterEdgeCube) {
+        let edge_ids = unsafe {
+            let mut a_arr = AlignedU8([0u8; 16]);
+            vst1q_u8(
+                a_arr.0.as_mut_ptr(),
+                vshrq_n_u8::<4>(vandq_u8(cube.0, vdupq_n_u8(0xF0_u8))),
+            );
+            a_arr
+        };
+        //This essentially calculates the inverse of _mm_shuffle_epi8(solved_cube.edges, self.edges), same for corners
+        let mut edge_shuffle = AlignedU8([0u8; 16]);
+        let edges = edge_ids.0;
+        for i in 0..12 {
+            edge_shuffle.0[edges[i] as usize] = i as u8;
+        }
+        let edge_shuffle_mask = vld1q_u8(edge_shuffle.0.as_ptr());
+
+        //Splice together the edge permutation, and the EO of the edges on the inverse (see niss prediction to see how this works)
+        let ep = vandq_u8(
+            vqtbl1q_u8(
+                vqtbl1q_u8(cube.0, edge_shuffle_mask),
+                edge_shuffle_mask,
+            ),
+            vdupq_n_u8(0xF0_u8),
+        );
+        let eo_shuffle = vqtbl1q_u8(cube.0, vshrq_n_u8::<4>(ep));
+        let eo = vandq_u8(eo_shuffle, vdupq_n_u8(0b1110));
+
+        cube.0 = vorrq_u8(ep, eo);
     }
 }
 

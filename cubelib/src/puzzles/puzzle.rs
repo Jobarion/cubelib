@@ -1,37 +1,16 @@
-use std::fmt::{Debug, Display};
-use std::hash::Hash;
 use crate::algs::Algorithm;
+use crate::puzzles::c333::{Transformation333, Turn333};
 
-pub trait Puzzle<Turn: PuzzleMove, Transformation: PuzzleMove>:
-    Copy + Clone + Default + TurnableMut<Turn> + TransformableMut<Transformation> + InvertibleMut
-    where
-        Turn: Transformable<Transformation>,
-{
-
+pub trait TransformableMut {
+    fn transform(&mut self, transformation: Transformation333);
 }
 
-impl<Turn: PuzzleMove, Transformation: PuzzleMove, P: Copy + Clone + Default + Hash> Puzzle<Turn, Transformation> for P
-    where P: TurnableMut<Turn> + TransformableMut<Transformation> + InvertibleMut,
-          Turn: Transformable<Transformation>
-{
-
+pub trait Transformable {
+    fn transform(&self, transformation: Transformation333) -> Self;
 }
 
-pub trait PuzzleMove: Sized + Copy + Clone + Hash + Eq + PartialEq + Debug + Display + From<usize> + Into<usize> + Invertible + 'static {
-    fn all() -> &'static [Self];
-    fn is_same_type(&self, other: &Self) -> bool;
-}
-
-pub trait TransformableMut<Transformation: PuzzleMove> {
-    fn transform(&mut self, transformation: Transformation);
-}
-
-pub trait Transformable<Transformation: PuzzleMove> {
-    fn transform(&self, transformation: Transformation) -> Self;
-}
-
-pub trait TurnableMut<Turn: PuzzleMove> {
-    fn turn(&mut self, turn: Turn);
+pub trait TurnableMut {
+    fn turn(&mut self, turn: Turn333);
 }
 
 pub trait InvertibleMut {
@@ -42,12 +21,12 @@ pub trait Invertible {
     fn invert(&self) -> Self;
 }
 
-pub trait ApplyAlgorithm<Turn: PuzzleMove> {
-    fn apply_alg(&mut self, alg: &Algorithm<Turn>);
+pub trait ApplyAlgorithm {
+    fn apply_alg(&mut self, alg: &Algorithm);
 }
 
-impl<Turn: PuzzleMove, C: TurnableMut<Turn> + InvertibleMut> ApplyAlgorithm<Turn> for C {
-    fn apply_alg(&mut self, alg: &Algorithm<Turn>) {
+impl<C: TurnableMut + InvertibleMut> ApplyAlgorithm for C {
+    fn apply_alg(&mut self, alg: &Algorithm) {
         for m in &alg.normal_moves {
             self.turn(*m);
         }

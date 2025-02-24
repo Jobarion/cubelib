@@ -3,21 +3,20 @@ use std::rc::Rc;
 use itertools::Itertools;
 
 use crate::defs::*;
-use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
 use crate::puzzles::c333::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
 pub use crate::puzzles::c333::steps::dr::dr_config::HTR_DR_UD_MOVESET;
 use crate::puzzles::c333::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
 use crate::puzzles::c333::steps::Step333;
+use crate::puzzles::c333::Transformation333;
 use crate::puzzles::cube::CubeAxis;
 use crate::puzzles::cube::Direction::*;
 use crate::solver::lookup_table::{LookupTable, NissLookupTable};
-use crate::solver::moveset::TransitionTable333;
 use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
 use crate::steps::step::StepConfig;
 
 pub type HTRPruningTable = NissLookupTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
 pub type HTRSubsetTable = LookupTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
-pub type HTRPruningTableStep<'a> = DefaultPruningTableStep<'a, {HTRDRUD_SIZE}, HTRDRUDCoord, {DRUDEOFB_SIZE}, DRUDEOFBCoord, Turn333, Transformation333, Cube333, TransitionTable333>;
+pub type HTRPruningTableStep<'a> = DefaultPruningTableStep<'a, {HTRDRUD_SIZE}, HTRDRUDCoord, {DRUDEOFB_SIZE}, DRUDEOFBCoord>;
 
 pub fn from_step_config(table: &HTRPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
     let step = if let Some(substeps) = config.substeps {
@@ -59,7 +58,7 @@ pub fn htr<'a>(table: &'a HTRPruningTable, dr_axis: Vec<CubeAxis>) -> Step333<'a
     let step_variants = dr_axis
         .into_iter()
         .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> + 'a>> = match x {
+            let x: Option<Box<dyn StepVariant + 'a>> = match x {
                 CubeAxis::UD => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
                 CubeAxis::FB => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, Rc::new(vec![]), "fb"))),
                 CubeAxis::LR => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, Rc::new(vec![]), "lr"))),

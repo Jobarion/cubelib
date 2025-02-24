@@ -1,9 +1,7 @@
 #[cfg(feature = "cubic-odd")]
-mod corners_odd;
-#[cfg(feature = "cubic-even")]
-mod corners_even;
+mod cube_corners;
 #[cfg(feature = "cubic-odd")]
-mod center_edges;
+mod cube_edges;
 #[cfg(feature = "solver")]
 pub mod coords;
 
@@ -12,7 +10,7 @@ use std::ops::{Index, IndexMut};
 use std::str::FromStr;
 use crate::puzzles::cube::Direction::*;
 use crate::puzzles::cube::CubeFace::*;
-use crate::puzzles::puzzle::{Invertible, PuzzleMove, Transformable};
+use crate::puzzles::puzzle::{Invertible, Transformable};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
@@ -22,12 +20,30 @@ pub struct CubeOuterTurn {
     pub dir: Direction,
 }
 
-#[cfg(feature = "cubic-even")]
-pub use corners_even::CubeCornersEven;
 #[cfg(feature = "cubic-odd")]
-pub use corners_odd::CubeCornersOdd;
+pub use cube_corners::CubeCornersOdd;
 #[cfg(feature = "cubic-odd")]
-pub use center_edges::CenterEdgeCube;
+pub use cube_edges::CenterEdgeCube;
+
+impl CubeOuterTurn {
+    pub fn all() -> &'static [Self] {
+        &Self::ALL
+    }
+
+    pub fn is_same_type(&self, other: &Self) -> bool {
+        self.face == other.face
+    }
+}
+
+impl CubeTransformation {
+    pub fn all() -> &'static [Self] {
+        &Self::ALL
+    }
+
+    pub fn is_same_type(&self, other: &Self) -> bool {
+        self.axis == other.axis
+    }
+}
 
 impl Invertible for CubeOuterTurn {
     fn invert(&self) -> CubeOuterTurn {
@@ -38,17 +54,7 @@ impl Invertible for CubeOuterTurn {
     }
 }
 
-impl PuzzleMove for CubeOuterTurn {
-    fn all() -> &'static [Self] {
-        &Self::ALL
-    }
-
-    fn is_same_type(&self, other: &Self) -> bool {
-        self.face == other.face
-    }
-}
-
-impl Transformable<CubeTransformation> for CubeOuterTurn {
+impl Transformable for CubeOuterTurn {
     fn transform(&self, transformation: CubeTransformation) -> Self {
         Self::new(self.face.transform(transformation), self.dir)
     }
@@ -77,16 +83,6 @@ const TRANSFORMATIONS: [CubeTransformation; 9] = [
     CubeTransformation::Y, CubeTransformation::Yi, CubeTransformation::Y2,
     CubeTransformation::Z, CubeTransformation::Zi, CubeTransformation::Z2,
 ];
-
-impl PuzzleMove for CubeTransformation {
-    fn all() -> &'static [Self] {
-        &Self::ALL
-    }
-
-    fn is_same_type(&self, other: &Self) -> bool {
-        self == other
-    }
-}
 
 impl Invertible for CubeTransformation {
     fn invert(&self) -> Self {

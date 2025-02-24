@@ -4,7 +4,7 @@ use crate::puzzles::c333::{CornerCube333, EdgeCube333, Transformation333, Turn33
 #[cfg(target_feature = "avx2")]
 use crate::puzzles::c333::steps::eo::eo_config::EOCount;
 use crate::puzzles::cube::{CornerPosition, EdgePosition};
-use crate::puzzles::cube::{CubeColor, CubeOuterTurn};
+use crate::puzzles::cube::{CubeColor};
 use crate::puzzles::cube::CornerPosition::*;
 use crate::puzzles::cube::CubeColor::*;
 use crate::puzzles::cube::CubeFace::*;
@@ -96,14 +96,14 @@ impl Display for Cube333 {
     }
 }
 
-impl TurnableMut<CubeOuterTurn> for Cube333 {
+impl TurnableMut for Cube333 {
     fn turn(&mut self, m: Turn333) {
         self.edges.turn(m);
         self.corners.turn(m);
     }
 }
 
-impl TransformableMut<Transformation333> for Cube333 {
+impl TransformableMut for Cube333 {
     fn transform(&mut self, t: Transformation333) {
         self.edges.transform(t);
         self.corners.transform(t);

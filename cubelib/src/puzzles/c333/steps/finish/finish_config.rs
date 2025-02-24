@@ -1,17 +1,18 @@
 use std::rc::Rc;
+
 use itertools::Itertools;
 
 use crate::defs::*;
-use crate::solver::lookup_table::LookupTable;
-use crate::solver::moveset::TransitionTable333;
-use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
+use crate::puzzles::c333::{Transformation333, Turn333};
 use crate::puzzles::c333::steps::{fr, MoveSet333, Step333};
 use crate::puzzles::c333::steps::finish::coords::{FR_FINISH_SIZE, FRUDFinishCoord, HTR_FINISH_SIZE, HTR_LEAVE_SLICE_FINISH_SIZE, HTRFinishCoord, HTRLeaveSliceFinishCoord};
 use crate::puzzles::c333::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
-use crate::puzzles::c333::steps::htr::coords::{PURE_HTRDRUD_SIZE, PureHTRDRUDCoord};
+use crate::puzzles::c333::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
 use crate::puzzles::cube::{CubeAxis, CubeFace};
 use crate::puzzles::cube::CubeFace::*;
 use crate::puzzles::cube::Direction::*;
+use crate::solver::lookup_table::LookupTable;
+use crate::solver::moveset::TransitionTable333;
 use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
 use crate::steps::step::StepConfig;
 
@@ -34,15 +35,15 @@ pub const HTR_FINISH_MOVESET: MoveSet333 = MoveSet333 {
     transitions: &finish_transitions(),
 };
 pub type FRFinishPruningTable = LookupTable<{ FR_FINISH_SIZE }, FRUDFinishCoord>;
-pub type FRFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, Turn333, Transformation333, Cube333, TransitionTable333>;
+pub type FRFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord>;
 
-pub type FRFinishLeaveSlicePruningTableStep<'a> = DefaultPruningTableStep::<'a, { FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, Turn333, Transformation333, Cube333, TransitionTable333>;
+pub type FRFinishLeaveSlicePruningTableStep<'a> = DefaultPruningTableStep::<'a, { FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord>;
 
 pub type HTRFinishPruningTable = LookupTable<{ HTR_FINISH_SIZE }, HTRFinishCoord>;
-pub type HTRFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { HTR_FINISH_SIZE }, HTRFinishCoord, {PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, Turn333, Transformation333, Cube333, TransitionTable333>;
+pub type HTRFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { HTR_FINISH_SIZE }, HTRFinishCoord, { HTRDRUD_SIZE }, HTRDRUDCoord>;
 
 pub type HTRLeaveSliceFinishPruningTable = LookupTable<{ HTR_LEAVE_SLICE_FINISH_SIZE }, HTRLeaveSliceFinishCoord>;
-pub type HTRLeaveSliceFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { HTR_LEAVE_SLICE_FINISH_SIZE }, HTRLeaveSliceFinishCoord, {PURE_HTRDRUD_SIZE}, PureHTRDRUDCoord, Turn333, Transformation333, Cube333, TransitionTable333>;
+pub type HTRLeaveSliceFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { HTR_LEAVE_SLICE_FINISH_SIZE }, HTRLeaveSliceFinishCoord, { HTRDRUD_SIZE }, HTRDRUDCoord>;
 
 pub fn from_step_config_fr(table: &FRFinishPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
     let step = if let Some(substeps) = config.substeps {
@@ -164,7 +165,7 @@ pub fn fr_finish<'a>(table: &'a FRFinishPruningTable, fr_axis: Vec<CubeAxis>) ->
     let step_variants = fr_axis
         .into_iter()
         .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> + 'a>> = match x {
+            let x: Option<Box<dyn StepVariant + 'a>> = match x {
                 CubeAxis::UD => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![], table, Rc::new(vec![]), ""))),
                 CubeAxis::FB => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, Rc::new(vec![]), ""))),
                 CubeAxis::LR => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, Rc::new(vec![]), ""))),
@@ -189,7 +190,7 @@ pub fn htr_finish_leave_slice<'a>(table: &'a HTRLeaveSliceFinishPruningTable, sl
     let step_variants = slice_axis
         .into_iter()
         .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> + 'a>> = match x {
+            let x: Option<Box<dyn StepVariant + 'a>> = match x {
                 CubeAxis::UD => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
                 CubeAxis::FB => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, Rc::new(vec![]), "fb"))),
                 CubeAxis::LR => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, Rc::new(vec![]), "lr"))),
@@ -209,7 +210,7 @@ pub fn fr_finish_leave_slice<'a>(table: &'a FRFinishPruningTable, fr_axis: Vec<C
     let step_variants = fr_axis
         .into_iter()
         .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant<Turn333, Transformation333, Cube333, TransitionTable333> + 'a>> = match x {
+            let x: Option<Box<dyn StepVariant + 'a>> = match x {
                 CubeAxis::UD => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
                 CubeAxis::FB => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, Rc::new(vec![]), "fb"))),
                 CubeAxis::LR => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, Rc::new(vec![]), "lr"))),

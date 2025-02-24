@@ -11,7 +11,6 @@ pub struct UDSliceUnsortedCoord(pub(crate) u16);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DRUDEOFBCoord(pub(crate) u32);
 
-
 impl Coord<495> for UDSliceUnsortedCoord {
     fn val(&self) -> usize {
         self.0 as usize
@@ -66,7 +65,7 @@ impl From<&Cube333> for DRUDEOFBCoord {
 mod avx2 {
     use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_extract_epi16, _mm_hadd_epi32, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_slli_si128, _mm_srli_epi32, _mm_sub_epi8};
 
-    use crate::alignment::avx2::C;
+    use crate::simd_util::avx2::C;
     use crate::puzzles::c333::EdgeCube333;
     use crate::puzzles::c333::steps::dr::coords::UDSliceUnsortedCoord;
 

@@ -5,7 +5,7 @@ extern crate core;
 extern crate num_derive;
 
 pub mod algs;
-mod alignment;
+mod simd_util;
 pub mod defs;
 #[cfg(feature = "333")]
 pub mod co;

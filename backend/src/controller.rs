@@ -8,7 +8,7 @@ use actix_web::{HttpResponse, post, Responder, web, HttpRequest};
 use actix_web_lab::body;
 use cubelib::algs::Algorithm;
 use cubelib::defs::StepKind;
-use cubelib::puzzles::c333::{Cube333, Transformation333, Turn333};
+use cubelib::puzzles::c333::{Cube333, Transformation333};
 use cubelib::puzzles::c333::steps::dr::coords::DRUDEOFBCoord;
 use cubelib::puzzles::c333::steps::htr::coords::HTRDRUDCoord;
 use cubelib::puzzles::c333::steps::solver;
@@ -105,7 +105,7 @@ pub async fn solve_stream(req: HttpRequest, steps: web::Json<SolverRequest>, app
     HttpResponse::Ok().body(body)
 }
 
-pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>, tables: Arc<PruningTables333>, cancel_token: Arc<CancelToken>) -> impl Iterator<Item = Solution<Turn333>> {
+pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>, tables: Arc<PruningTables333>, cancel_token: Arc<CancelToken>) -> impl Iterator<Item = Solution> {
     let mut prev_len: Option<usize> = None;
     let t1 = tables.clone();
     (5..20usize).into_iter()

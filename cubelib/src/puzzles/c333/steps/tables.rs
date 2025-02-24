@@ -14,11 +14,9 @@ use crate::puzzles::c333::steps::eo::coords::EOCoordFB;
 #[cfg(feature = "333eo")]
 use crate::puzzles::c333::steps::eo::eo_config::{EO_FB_MOVESET, EOPruningTable};
 #[cfg(feature = "333finish")]
-use crate::puzzles::c333::steps::finish::coords::{FRUDFinishCoord, HTRFinishCoord};
-use crate::puzzles::c333::steps::finish::coords::HTRLeaveSliceFinishCoord;
+use crate::puzzles::c333::steps::finish::coords::{FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord};
 #[cfg(feature = "333finish")]
-use crate::puzzles::c333::steps::finish::finish_config::{FRFinishPruningTable, FRUD_FINISH_MOVESET, HTR_FINISH_MOVESET, HTRFinishPruningTable};
-use crate::puzzles::c333::steps::finish::finish_config::HTRLeaveSliceFinishPruningTable;
+use crate::puzzles::c333::steps::finish::finish_config::{FRFinishPruningTable, FRUD_FINISH_MOVESET, HTR_FINISH_MOVESET, HTRFinishPruningTable, HTRLeaveSliceFinishPruningTable};
 #[cfg(feature = "333fr")]
 use crate::puzzles::c333::steps::fr::coords::{FRUDNoSliceCoord, FRUDWithSliceCoord};
 #[cfg(feature = "333fr")]

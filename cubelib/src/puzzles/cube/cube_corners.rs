@@ -157,12 +157,14 @@ impl CubeCornersOdd {
 impl serde::Serialize for CubeCornersOdd {
 
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
-        let bytes = [0_u8; 16];
+        let mut bytes = [0_u8; 16];
         unsafe {
             #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-            std::arch::wasm32::v128_store(bytes.as_ptr() as *mut std::arch::wasm32::v128, self.0);
+            std::arch::wasm32::v128_store(bytes.as_mut_ptr() as *mut std::arch::wasm32::v128, self.0);
             #[cfg(target_feature = "avx2")]
-            std::arch::x86_64::_mm_store_si128(bytes.as_ptr() as *mut std::arch::x86_64::__m128i, self.0);
+            std::arch::x86_64::_mm_store_si128(bytes.as_mut_ptr() as *mut std::arch::x86_64::__m128i, self.0);
+            #[cfg(target_feature = "neon")]
+            std::arch::aarch64::vst1_u8(bytes.as_mut_ptr(), self.0);
         }
         serializer.serialize_bytes(&bytes)
     }
@@ -187,7 +189,9 @@ impl<'de> serde::de::Visitor<'de> for CornerCubieCubeVisitor {
                 #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
                     let val = std::arch::wasm32::v128_load(v.as_ptr() as *const std::arch::wasm32::v128);
                 #[cfg(target_feature = "avx2")]
-                    let val = std::arch::x86_64::_mm_load_si128(v.as_ptr() as *const std::arch::x86_64::__m128i);
+                let val = std::arch::x86_64::_mm_load_si128(v.as_ptr() as *const std::arch::x86_64::__m128i);
+                #[cfg(target_feature = "neon")]
+                let val = std::arch::aarch64::vld1_u8(v.as_ptr());
                 val
             };
             Ok(CubeCornersOdd(val))
@@ -234,8 +238,8 @@ mod avx2 {
         _mm_sub_epi8, _mm_xor_si128,
     };
 
-    use crate::simd_util::avx2::C;
     use crate::puzzles::cube::{Corner, CubeAxis, CubeCornersOdd, CubeFace, Direction};
+    use crate::simd_util::avx2::C;
 
     const TURN_CORNER_SHUFFLE: [[__m128i; 3]; 6] = [
         [
@@ -442,8 +446,8 @@ mod avx2 {
 mod neon {
     use std::arch::aarch64::{uint8x16_t, uint8x8_t, vadd_u8, vand_u8, vdup_n_u8, veor_u8, vget_lane_u64, vld1_u8, vmvn_u8, vorr_u8, vqtbl1_u8, vreinterpret_u64_u8, vshl_n_u8, vshr_n_u8, vsub_u8, vtbl1_u8};
 
-    use crate::simd_util::neon::{C16, C8};
     use crate::puzzles::cube::{Corner, CubeAxis, CubeCornersOdd, CubeFace, Direction};
+    use crate::simd_util::neon::{C16, C8};
 
     const TURN_CORNER_SHUFFLE: [[uint8x8_t; 3]; 6] = [
         [

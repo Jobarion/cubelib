@@ -2,8 +2,6 @@
 mod cube_corners;
 #[cfg(feature = "cubic-odd")]
 mod cube_edges;
-#[cfg(feature = "solver")]
-pub mod coords;
 
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Index, IndexMut};

@@ -14,7 +14,7 @@ use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
 use crate::puzzles::c333::steps::{MoveSet333, Step333};
 use crate::puzzles::c333::steps::dr::coords::DRUDEOFBCoord;
 use crate::puzzles::c333::steps::dr::dr_config::{DR_UD_EO_FB_MOVES, DR_UD_EO_FB_MOVESET, DR_UD_EO_FB_STATE_CHANGE_MOVES, DRPruningTable, HTR_DR_UD_MOVESET};
-use crate::puzzles::c333::steps::eo::coords::EOCoordFB;
+use crate::puzzles::c333::steps::eo::coords::{BadEdgeCount, EOCoordFB};
 
 #[cfg(feature = "333htr")]
 use crate::puzzles::c333::steps::htr::htr_config::HTRSubsetTable;
@@ -56,7 +56,7 @@ pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")
         })
         .unwrap_or(vec![]);
     #[cfg(not(feature = "333htr"))]
-    let post_step_filters: Vec<Box<dyn PostStepCheck<Turn333, Transformation333, Cube333>>> = vec![];
+    let post_step_filters: Vec<Box<dyn PostStepCheck>> = vec![];
 
     let psc = Rc::new(post_step_filters);
 
@@ -192,9 +192,9 @@ impl<'a> DRTriggerStepTable<'a> {
 }
 
 fn calc_rzp_state(cube: &Cube333) -> (u8, u8) {
-    let eo_count_lr = cube.count_bad_edges().2;
+    let eo_count_lr = cube.edges.count_bad_edges_lr();
     let co_count_ud = COCountUD::co_count(cube);
-    (co_count_ud, eo_count_lr)
+    (co_count_ud, eo_count_lr as u8)
 }
 
 impl<'a> PreStepCheck for DRTriggerStepTable<'a> {

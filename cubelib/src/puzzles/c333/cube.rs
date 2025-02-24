@@ -1,8 +1,6 @@
 use std::fmt::{Display, Formatter};
-
+use std::ops::Deref;
 use crate::puzzles::c333::{CornerCube333, EdgeCube333, Transformation333, Turn333};
-#[cfg(all(target_feature = "solver", target_feature = "avx2"))]
-use crate::puzzles::c333::steps::eo::eo_config::EOCount;
 use crate::puzzles::cube::{CornerPosition, EdgePosition};
 use crate::puzzles::cube::{CubeColor};
 use crate::puzzles::cube::CornerPosition::*;
@@ -36,10 +34,13 @@ impl Cube333 {
     pub fn new(edges: EdgeCube333, corners: CornerCube333) -> Cube333 {
         Cube333 { edges, corners }
     }
+}
 
-    #[cfg(all(target_feature = "solver", target_feature = "avx2"))]
-    pub fn count_bad_edges(&self) -> (u8, u8, u8) {
-        self.edges.count_bad_edges()
+impl Deref for Cube333 {
+    type Target = EdgeCube333;
+
+    fn deref(&self) -> &Self::Target {
+        &self.edges
     }
 }
 

@@ -4,6 +4,7 @@ use crate::algs::Algorithm;
 use crate::defs::*;
 use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
 use crate::puzzles::c333::steps::{dr, MoveSet333, Step333};
+use crate::puzzles::c333::steps::eo::coords::BadEdgeCount;
 use crate::puzzles::cube::{CubeAxis, CubeFace};
 use crate::puzzles::cube::CubeFace::*;
 use crate::puzzles::cube::Direction::*;
@@ -150,11 +151,10 @@ impl<'a> RZPStep<'a> {
 
 impl<'a> PreStepCheck for RZPStep<'a> {
     fn is_cube_ready(&self, cube: &Cube333) -> bool {
-        let (ud, fb, lr) = cube.count_bad_edges();
         if self.is_any {
-            ud == 0 || fb == 0 || lr == 0
+            cube.edges.count_bad_edges_ud() == 0 || cube.edges.count_bad_edges_fb() == 0 || cube.edges.count_bad_edges_lr() == 0
         } else {
-            fb == 0
+            cube.edges.count_bad_edges_fb() == 0
         }
     }
 }

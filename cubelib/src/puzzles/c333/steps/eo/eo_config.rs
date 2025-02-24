@@ -4,7 +4,7 @@ use crate::algs::Algorithm;
 use crate::defs::*;
 use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::TransitionTable333;
-use crate::puzzles::c333::{Cube333, EdgeCube333, Transformation333, Turn333};
+use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
 use crate::puzzles::c333::steps::{MoveSet333, Step333};
 use crate::puzzles::c333::steps::eo::coords::EOCoordFB;
 use crate::puzzles::cube::{CubeAxis, CubeFace, CubeOuterTurn};
@@ -12,30 +12,6 @@ use crate::puzzles::cube::CubeFace::*;
 use crate::puzzles::cube::Direction::*;
 use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
 use crate::steps::step::StepConfig;
-
-pub const UD_EO_STATE_CHANGE_MOVES: &[CubeOuterTurn] = &[
-    Turn333::new(Up, Clockwise),
-    Turn333::new(Up, CounterClockwise),
-    Turn333::new(Down, Clockwise),
-    Turn333::new(Down, CounterClockwise),
-];
-
-pub const UD_EO_MOVES: &[CubeOuterTurn] = &[
-    Turn333::new(Up, Half),
-    Turn333::new(Down, Half),
-    Turn333::new(Front, Clockwise),
-    Turn333::new(Front, CounterClockwise),
-    Turn333::new(Front, Half),
-    Turn333::new(Back, Clockwise),
-    Turn333::new(Back, CounterClockwise),
-    Turn333::new(Back, Half),
-    Turn333::new(Left, Clockwise),
-    Turn333::new(Left, CounterClockwise),
-    Turn333::new(Left, Half),
-    Turn333::new(Right, Clockwise),
-    Turn333::new(Right, CounterClockwise),
-    Turn333::new(Right, Half),
-];
 
 pub const FB_EO_STATE_CHANGE_MOVES: &[CubeOuterTurn] = &[
     Turn333::new(Front, Clockwise),
@@ -61,51 +37,14 @@ pub const FB_EO_MOVES: &[CubeOuterTurn] = &[
     Turn333::new(Right, Half),
 ];
 
-pub const RL_EO_STATE_CHANGE_MOVES: &[CubeOuterTurn] = &[
-    Turn333::new(Right, Clockwise),
-    Turn333::new(Left, CounterClockwise),
-    Turn333::new(Right, Clockwise),
-    Turn333::new(Left, CounterClockwise),
-];
-
-pub const RL_EO_MOVES: &[CubeOuterTurn] = &[
-    Turn333::new(Up, Clockwise),
-    Turn333::new(Up, CounterClockwise),
-    Turn333::new(Up, Half),
-    Turn333::new(Down, Clockwise),
-    Turn333::new(Down, CounterClockwise),
-    Turn333::new(Down, Half),
-    Turn333::new(Front, Clockwise),
-    Turn333::new(Front, CounterClockwise),
-    Turn333::new(Front, Half),
-    Turn333::new(Back, Clockwise),
-    Turn333::new(Back, CounterClockwise),
-    Turn333::new(Back, Half),
-    Turn333::new(Left, Half),
-    Turn333::new(Right, Half),
-];
-
-pub const EO_UD_MOVESET: MoveSet333 = MoveSet333 {
-    st_moves: UD_EO_STATE_CHANGE_MOVES,
-    aux_moves: UD_EO_MOVES,
-    transitions: &eo_transitions(Up),
-};
-
 pub const EO_FB_MOVESET: MoveSet333 = MoveSet333 {
     st_moves: FB_EO_STATE_CHANGE_MOVES,
     aux_moves: FB_EO_MOVES,
     transitions: &eo_transitions(Front),
 };
 
-pub const EO_LR_MOVESET: MoveSet333 = MoveSet333 {
-    st_moves: RL_EO_STATE_CHANGE_MOVES,
-    aux_moves: RL_EO_MOVES,
-    transitions: &eo_transitions(Left),
-};
-
 pub const EO_UD_PRE_TRANS: [Transformation333; 1] = [Transformation333::new(CubeAxis::X, Clockwise)];
 pub const EO_LR_PRE_TRANS: [Transformation333; 1] = [Transformation333::new(CubeAxis::Y, Clockwise)];
-const BAD_EDGE_HEURISTIC: [u8; 7] = [0, 2, 1, 2, 2, 3, 3];
 
 pub type EOPruningTable = LookupTable<2048, EOCoordFB>;
 
@@ -219,8 +158,7 @@ impl StepVariant for EOStepTable<'_> {
 
     fn heuristic(&self, cube: &Cube333, _: u8, can_niss: bool) -> u8 {
         if can_niss {
-            let fb_edges = cube.count_bad_edges().1;
-            BAD_EDGE_HEURISTIC[(fb_edges >> 1) as usize]
+            1
         } else {
             let coord = EOCoordFB::from(cube);
             self.table.get(coord)
@@ -251,33 +189,6 @@ fn filter_last_moves_pure(vec: &Vec<Turn333>) -> bool {
                 }
             }
         }
-    }
-}
-
-pub trait EOCount {
-    fn count_bad_edges(&self) -> (u8, u8, u8);
-}
-
-impl EOCount for Cube333 {
-    fn count_bad_edges(&self) -> (u8, u8, u8) {
-        self.edges.count_bad_edges()
-    }
-}
-
-const BAD_EDGE_MASK_UD: u64 = 0x0808080808080808;
-const BAD_EDGE_MASK_FB: u64 = 0x0404040404040404;
-const BAD_EDGE_MASK_RL: u64 = 0x0202020202020202;
-
-impl EOCount for EdgeCube333 {
-    fn count_bad_edges(&self) -> (u8, u8, u8) {
-        let edges = self.get_edges_raw();
-        let ud = (edges[0] & BAD_EDGE_MASK_UD).count_ones()
-            + (edges[1] & BAD_EDGE_MASK_UD).count_ones();
-        let fb = (edges[0] & BAD_EDGE_MASK_FB).count_ones()
-            + (edges[1] & BAD_EDGE_MASK_FB).count_ones();
-        let rl = (edges[0] & BAD_EDGE_MASK_RL).count_ones()
-            + (edges[1] & BAD_EDGE_MASK_RL).count_ones();
-        (ud as u8, fb as u8, rl as u8)
     }
 }
 

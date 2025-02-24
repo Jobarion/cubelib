@@ -82,7 +82,7 @@ pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")
         })
         .unwrap_or(vec![]);
     #[cfg(not(feature = "333htr"))]
-    let post_step_filters: Vec<Box<dyn PostStepCheck<Turn333, Transformation333, Cube333>>> = vec![];
+    let post_step_filters: Vec<Box<dyn PostStepCheck>> = vec![];
 
     let psc = Rc::new(post_step_filters);
 

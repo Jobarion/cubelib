@@ -22,12 +22,14 @@ pub mod avx2 {
 #[cfg(target_feature = "neon")]
 #[allow(dead_code)]
 pub mod neon {
-    use std::arch::aarch64::{uint8x16_t, uint8x8_t, vaddv_u8, vand_u8, vdup_n_u8, vreinterpret_s8_u8, vshl_u8};
+    use std::arch::aarch64::{int8x16_t, uint8x16_t, uint8x8_t};
 
     //For loading const uint8x16_t values
     pub union C16 {
         pub a: uint8x16_t,
+        pub a_i: int8x16_t,
         pub a_u8: [u8; 16],
+        pub a_i8: [i8; 16],
         pub a_u16: [u16; 8],
     }
 
@@ -35,11 +37,6 @@ pub mod neon {
     pub union C8 {
         pub a: uint8x8_t,
         pub a_u8: [u8; 8],
-    }
-
-    pub unsafe fn _mm_movemask_epi8_u8(data: uint8x8_t) -> u8 {
-        let data = vand_u8(data, vdup_n_u8(1));
-        let data = vshl_u8(data, vreinterpret_s8_u8(C8 { a_u8: [0, 1, 2, 3, 4, 5, 6, 7]}.a));
-        vaddv_u8(data)
+        pub a_i8: [i8; 8],
     }
 }

@@ -70,7 +70,7 @@ impl From<&CubeCornersOdd> for COUDCoord {
     #[inline]
     #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
     fn from(value: &CubeCornersOdd) -> Self {
-        neon::unsafe_from_cocoord(value)
+        unsafe { neon::unsafe_from_cocoord(value) }
     }
 }
 
@@ -85,6 +85,12 @@ impl From<&EdgeCube333> for UDSliceUnsortedCoord {
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn from(value: &EdgeCube333) -> Self {
         wasm32::from_udslice_unsorted_coord(value)
+    }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn from(value: &EdgeCube333) -> Self {
+        unsafe { neon::unsafe_from_udslice_unsorted_coord(value) }
     }
 }
 
@@ -240,6 +246,152 @@ mod avx2 {
             let hsum = _mm_hadd_epi32(_mm_shuffle_epi32::<0b11111000>(hsum_u16), _mm_set1_epi32(0));
 
             _mm_extract_epi16::<0>(hsum) as u16
+        };
+        UDSliceUnsortedCoord(coord)
+    }
+
+    const FACTORIAL: [u32; 12] = [
+        1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800,
+    ];
+
+    const fn b(n: u8, k: u8) -> u8 {
+        if n == 0 || n < k {
+            return 0;
+        }
+        (FACTORIAL[n as usize] / FACTORIAL[k as usize] / FACTORIAL[(n - k) as usize]) as u8
+    }
+}
+
+
+#[cfg(target_feature = "neon")]
+mod neon {
+    use std::arch::aarch64::{uint16x8_t, uint8x16_t, vaddq_u8, vaddvq_u16, vand_u8, vandq_u8, vceqq_u8, vcombine_u8, vdup_n_u8, vdupq_n_u8, vmulq_u16, vorrq_u8, vqtbl1q_u8, vreinterpretq_u16_u8, vshrq_n_u8, vsubq_u8, vzip1q_u8, vzip2q_u8};
+
+    use crate::puzzles::c333::EdgeCube333;
+    use crate::puzzles::c333::steps::dr::coords::{COUDCoord, UDSliceUnsortedCoord};
+    use crate::puzzles::cube::CubeCornersOdd;
+    use crate::simd_util::neon::C16;
+
+    const UD_SLICE_BINOM_0_ARR: [u8; 16] = [
+        b(0, 0), b(0, 1), b(0, 2), b(0, 3),
+        b(1, 0), b(1, 1), b(1, 2), b(1, 3),
+        b(2, 0), b(2, 1), b(2, 2), b(2, 3),
+        b(3, 0), b(3, 1), b(3, 2), b(3, 3),
+    ];
+    const UD_SLICE_BINOM_1_ARR: [u8; 16] = [
+        b(4, 0), b(4, 1), b(4, 2), b(4, 3),
+        b(5, 0), b(5, 1), b(5, 2), b(5, 3),
+        b(6, 0), b(6, 1), b(6, 2), b(6, 3),
+        b(7, 0), b(7, 1), b(7, 2), b(7, 3),
+    ];
+    const UD_SLICE_BINOM_2_ARR: [u8; 16] = [
+        b(8, 0), b(8, 1), b(8, 2), b(8, 3),
+        b(9, 0), b(9, 1), b(9, 2), b(9, 3),
+        b(10, 0), b(10, 1), b(10, 2), b(10, 3),
+        b(11, 0), b(11, 1), b(11, 2), b(11, 3),
+    ];
+
+    const UD_SLICE_BINOM_0: uint8x16_t = unsafe { C16 { a_u8: UD_SLICE_BINOM_0_ARR, }.a };
+    const UD_SLICE_BINOM_1: uint8x16_t = unsafe { C16 { a_u8: UD_SLICE_BINOM_1_ARR, }.a };
+    const UD_SLICE_BINOM_2: uint8x16_t = unsafe { C16 { a_u8: UD_SLICE_BINOM_2_ARR, }.a };
+
+    const CO_MUL: uint16x8_t = unsafe { C16 { a_u16: [1, 3, 9, 27, 81, 243, 729, 0] }.a_16 };
+
+    pub(crate) unsafe fn unsafe_from_cocoord(value: &CubeCornersOdd) -> COUDCoord {
+        //Spread co data out into 16bit values to avoid overflow later
+        let co = vand_u8(value.0, vdup_n_u8(0b11));
+        let co = vreinterpretq_u16_u8(vzip1q_u8(vcombine_u8(co, co), vdupq_n_u8(0)));
+        //Multiply with 3^0, 3^1, etc.
+        let coord_values = vmulq_u16(co, CO_MUL);
+        //Horizontal sum
+        let coord = vaddvq_u16(coord_values);
+        COUDCoord(coord)
+    }
+
+    pub(crate) unsafe fn unsafe_from_udslice_unsorted_coord(
+        value: &EdgeCube333,
+    ) -> UDSliceUnsortedCoord {
+        let coord = unsafe {
+            let slice_edges =
+                vshrq_n_u8::<6>(vandq_u8(value.0, vdupq_n_u8(0b01000000)));
+            //Our edge order is
+            // UB UR UF UL FR FL BR BL DF DR DB DL
+
+            //Kociemba uses
+            // UR UF UL UB DR DF DL DB FR FL BL BR
+
+            //We map to Kociemba's order here to make things simpler for us, but this could be optimized out if we just adjust the later shuffle masks
+            let slice_edges = vqtbl1q_u8(
+                slice_edges,
+                C16 { a_i8: [1, 2, 3, 0, 9, 8, 11, 10, 4, 5, 7, 6, -1, -1, -1,-1] }.a,
+            );
+
+            let non_slice_edge_mask = vceqq_u8(slice_edges, vdupq_n_u8(0));
+
+            // This is what we do
+
+            // 0 1 2 3 4 5 6 7 8 9 10 11 X X X X    +
+            // X 0 1 2 X 4 5 6 X 8 9 10 X X X X      =
+
+            // 0 0-1 1-2 2-3 4 4-5 5-6 6-7 8 8-9 9-10 10-11 X X X X    +
+            // X   X   0 0-1 X   X   4 4-5 X   X    8   8-9 X X X X    =
+
+            // 0 0-1 0-2 0-3   4 4-5 4-6 4-7 8 8-9 8-10  8-11 X X X X    +
+            // X   X   X   X 0-3 0-3 0-3 0-3 X   X    X     X X X X X    =
+
+            // 0 0-1 0-2 0-3 0-4 0-5 0-6 0-7   8 8-9 8-10 8-11 X X X X    +
+            // X   X   X   X   X   X   X   X 0-7 0-7  0-7  0-7 X X X X    =
+
+            // 0 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 X X X X
+
+            let edge_sums = vaddq_u8(slice_edges, vqtbl1q_u8(
+                slice_edges,
+                C16 { a_i8: [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1, -1, -1 ,-1] }.a,
+            ));
+
+            let edge_sums = vaddq_u8(edge_sums, vqtbl1q_u8(
+                slice_edges,
+                C16 { a_i8: [-1, -1, 0, 1, -1, -1, 4, 5, -1, -1, 8, 9, -1, -1, -1, -1] }.a,
+            ));
+
+            let edge_sums = vaddq_u8(edge_sums, vqtbl1q_u8(
+                slice_edges,
+                C16 { a_i8: [-1, -1, -1, -1, 3 , 3, 3, 3, -1, -1, -1, -1, -1, -1, -1, -1] }.a,
+            ));
+
+            let edge_sums = vaddq_u8(edge_sums, vqtbl1q_u8(
+                slice_edges,
+                C16 { a_i8: [-1, -1, -1, -1, -1, -1, -1, -1, 7, 7, 7, 7, -1, -1, -1, -1] }.a,
+            ));
+
+            let non_slice_edge_sums = vandq_u8(edge_sums, non_slice_edge_mask);
+
+            let lut_index = vandq_u8(vsubq_u8(non_slice_edge_sums, vdupq_n_u8(1)), vdupq_n_u8(0b10001111_u8));
+
+            let lut_index = vaddq_u8(
+                lut_index,
+                C16 { a_u8: [0, 4, 8, 12, 0, 4, 8, 12, 0, 4, 8, 12, 0, 0, 0, 0]}.a,
+            );
+
+            let binom0123 = vandq_u8(
+                vqtbl1q_u8(UD_SLICE_BINOM_0, lut_index),
+                C16 { a_i32: [-1, 0, 0, 0]}.a,
+            );
+            let binom4567 = vandq_u8(
+                vqtbl1q_u8(UD_SLICE_BINOM_1, lut_index),
+                C16 { a_i32: [0, -1, 0, 0]}.a,
+            );
+            let binom891011 = vandq_u8(
+                vqtbl1q_u8(UD_SLICE_BINOM_2, lut_index),
+                C16 { a_i32: [0, 0, -1, 0]}.a,
+            );
+
+            let hsum_lower = vorrq_u8(binom0123, binom4567);
+
+            let hsum_lower = vaddvq_u16(vreinterpretq_u16_u8(vzip1q_u8(hsum_lower, vdupq_n_u8(0))));
+            let hsum_upper = vaddvq_u16(vreinterpretq_u16_u8(vzip2q_u8(binom891011, vdupq_n_u8(0))));
+
+            hsum_lower + hsum_upper
         };
         UDSliceUnsortedCoord(coord)
     }

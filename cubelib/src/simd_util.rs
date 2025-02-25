@@ -22,15 +22,17 @@ pub mod avx2 {
 #[cfg(target_feature = "neon")]
 #[allow(dead_code)]
 pub mod neon {
-    use std::arch::aarch64::{int8x16_t, uint8x16_t, uint8x8_t};
+    use std::arch::aarch64::{int8x16_t, uint16x8_t, uint8x16_t, uint8x8_t};
 
     //For loading const uint8x16_t values
     pub union C16 {
         pub a: uint8x16_t,
+        pub a_16: uint16x8_t,
         pub a_i: int8x16_t,
         pub a_u8: [u8; 16],
         pub a_i8: [i8; 16],
         pub a_u16: [u16; 8],
+        pub a_i32: [i32; 4],
     }
 
     //For loading const uint8x16_t values

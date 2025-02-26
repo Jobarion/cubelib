@@ -323,7 +323,7 @@ mod neon {
         let cmp_edges = vqtbl1_u8(cube.edges.0, C8 { a_i8: [4, 4, 5, 4, 5, 6, -1,-1]}.a);
 
         let cmp0 = vcombine_u8(orbit_corners, slice_edges);
-        let cmp1 = vcombine_u8(cmp_edges, cmp_corners);
+        let cmp1 = vcombine_u8(cmp_corners, cmp_edges);
         let higher_left = vandq_u8(
             vceqq_u8(cmp0, cmp1),
             vdupq_n_u8(1),

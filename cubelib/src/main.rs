@@ -1,12 +1,13 @@
 use std::str::FromStr;
+
 use cubelib::algs::Algorithm;
 use cubelib::puzzles::c333::Cube333;
-use cubelib::puzzles::c333::steps::dr::coords::DRUDEOFBCoord;
+use cubelib::puzzles::c333::steps::fr::coords::{FRUDNoSliceCoord, FRUDWithSliceCoord};
 use cubelib::puzzles::puzzle::ApplyAlgorithm;
 
 pub fn main() {
     let mut cube = Cube333::default();
-    let alg = Algorithm::from_str("U2 R2 F2 R F2 U R D L U2 B2 R").unwrap();
+    let alg = Algorithm::from_str("U2").unwrap();
     cube.apply_alg(&alg);
-    println!("{:?}", DRUDEOFBCoord::from(&cube));
+    println!("{:?}", FRUDNoSliceCoord::from(&cube));
 }

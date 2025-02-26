@@ -4,15 +4,15 @@ version = "1.4.0"
 edition = "2021"
 
 [dependencies]
-itertools = "0.11.0"
+itertools = "0.14.0"
 log = { version = "0.4.20", features = ["max_level_trace", "release_max_level_debug"] }
-simple_logger = "4.2.0"
+simple_logger = "5.0.0"
 serde = { version = "^1.0.188", optional = true, features = ["derive"] }
 rand = "0.9.0-alpha.1"
 num-traits = "0.2"
 num-derive = "0.4"
 home = { version = "0.5.9", optional = true }
-tinyset = "0.4.15"
+tinyset = "0.5.1"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

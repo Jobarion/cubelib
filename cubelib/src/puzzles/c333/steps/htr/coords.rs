@@ -540,7 +540,7 @@ mod neon {
 
         let sum = vadd_u8(marked, vtbl1_u8(
             marked,
-            C8 { a_i8: [-1, 0, 1, 2, 3, 4, 5, 6] }.a,
+            C8 { a_i8: [-1, 0, 1, 2, -1, 4, 5, 6] }.a,
         ));
 
         let sum = vadd_u8(sum, vtbl1_u8(

@@ -6,7 +6,7 @@ use cubelib::puzzles::puzzle::ApplyAlgorithm;
 
 pub fn main() {
     let mut cube = Cube333::default();
-    let alg = Algorithm::from_str("U2 R2 F2 R").unwrap();
+    let alg = Algorithm::from_str("U2 R2 F2 R F2 U R D L U2 B2 R").unwrap();
     cube.apply_alg(&alg);
     println!("{:?}", DRUDEOFBCoord::from(&cube));
 }

@@ -275,7 +275,7 @@ mod avx2 {
 
 #[cfg(target_feature = "neon")]
 mod neon {
-    use std::arch::aarch64::{vaddv_u8, vaddvq_u8, vand_u8, vandq_u8, vceq_u8, vcgtq_s8, vcgtq_u8, vcombine_u8, vdup_lane_u8, vdup_n_u8, vdupq_n_u8, veor_u8, vget_low_u8, vorr_u8, vqtbl1_u8, vreinterpret_s8_u8, vreinterpret_u8_s8, vreinterpretq_s8_u8, vreinterpretq_u8_s8, vshr_n_u8, vtbl1_u8};
+    use std::arch::aarch64::{vaddv_u8, vaddvq_u8, vand_u8, vandq_u8, vceq_u8, vcgtq_s8, vcombine_u8, vdup_lane_u8, vdup_n_u8, vdupq_n_u8, veor_u8, vget_low_u8, vorr_u8, vqtbl1_u8, vreinterpretq_s8_u8, vshr_n_u8, vtbl1_u8};
 
     use crate::puzzles::c333::{CornerCube333, Cube333, EdgeCube333};
     use crate::puzzles::c333::steps::fr::coords::{FRCPOrbitCoord, FREdgesCoord, FROrbitParityCoord, FRSliceEdgesCoord};

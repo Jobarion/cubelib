@@ -328,7 +328,7 @@ mod neon {
             vcgtq_s8(vreinterpretq_s8_u8(cmp0), vreinterpretq_s8_u8(cmp1)),
             vdupq_n_u8(1),
         );
-        let parity = vaddvq_u8(higher_left) & 0;
+        let parity = vaddvq_u8(higher_left) & 1;
         FROrbitParityCoord(parity == 1)
     }
 }

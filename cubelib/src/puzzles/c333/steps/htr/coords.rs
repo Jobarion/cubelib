@@ -555,7 +555,7 @@ mod neon {
 
         let sum = vand_u8(sum, unmarked);
 
-        let lut_index = vadd_u8(
+        let lut_index = vand_u8(
             vsub_u8(sum, vdup_n_u8(1)),
             vdup_n_u8(0b10001111_u8),
         );

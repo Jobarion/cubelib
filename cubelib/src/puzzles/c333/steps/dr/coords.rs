@@ -181,6 +181,7 @@ mod avx2 {
             );
 
             let non_slice_edge_mask = _mm_cmpeq_epi8(slice_edges, _mm_set1_epi8(0));
+            println!("{slice_edges:?}");
 
             let e0123 = _mm_shuffle_epi8(
                 slice_edges,
@@ -196,6 +197,7 @@ mod avx2 {
             );
 
             let hadd = _mm_hadd_epi32(e0123, e4567);
+            println!("{hadd:?}");
             let hadd = _mm_hadd_epi32(hadd, e891011);
             let hadd0123 = _mm_and_si128(hadd, _mm_setr_epi32( -1, 0, 0,0));
 
@@ -215,6 +217,7 @@ mod avx2 {
             );
 
             let hadd = _mm_or_si128(_mm_slli_si128::<4>(hadd4567891011), hadd0123);
+            println!("{hadd:?}");
             let hadd = _mm_and_si128(hadd, non_slice_edge_mask);
 
             let lut_index = _mm_and_si128(
@@ -350,17 +353,17 @@ mod neon {
             ));
 
             let edge_sums = vaddq_u8(edge_sums, vqtbl1q_u8(
-                slice_edges,
+                edge_sums,
                 C16 { a_i8: [-1, -1, 0, 1, -1, -1, 4, 5, -1, -1, 8, 9, -1, -1, -1, -1] }.a,
             ));
 
             let edge_sums = vaddq_u8(edge_sums, vqtbl1q_u8(
-                slice_edges,
+                edge_sums,
                 C16 { a_i8: [-1, -1, -1, -1, 3 , 3, 3, 3, -1, -1, -1, -1, -1, -1, -1, -1] }.a,
             ));
 
             let edge_sums = vaddq_u8(edge_sums, vqtbl1q_u8(
-                slice_edges,
+                edge_sums,
                 C16 { a_i8: [-1, -1, -1, -1, -1, -1, -1, -1, 7, 7, 7, 7, -1, -1, -1, -1] }.a,
             ));
 

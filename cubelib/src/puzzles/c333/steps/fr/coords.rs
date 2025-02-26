@@ -107,6 +107,12 @@ impl From<&EdgeCube333> for FREdgesCoord {
     fn from(value: &EdgeCube333) -> Self {
         wasm32::from_fr_edges_coord(value)
     }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn from(value: &EdgeCube333) -> Self {
+        unsafe { neon::unsafe_from_fr_edges_coord(value) }
+    }
 }
 
 impl From<&CornerCube333> for FRCPOrbitCoord {
@@ -120,6 +126,12 @@ impl From<&CornerCube333> for FRCPOrbitCoord {
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn from(value: &CornerCube333) -> Self {
         wasm32::from_fr_cp_coord(value)
+    }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn from(value: &CornerCube333) -> Self {
+        unsafe { neon::unsafe_from_fr_cp_coord(value) }
     }
 }
 
@@ -135,6 +147,12 @@ impl From<&Cube333> for FROrbitParityCoord {
     fn from(value: &Cube333) -> Self {
         wasm32::from_fr_parity_coord(value)
     }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn from(value: &Cube333) -> Self {
+        unsafe { neon::unsafe_from_fr_parity_coord(value) }
+    }
 }
 
 impl From<&Cube333> for FRSliceEdgesCoord {
@@ -148,6 +166,12 @@ impl From<&Cube333> for FRSliceEdgesCoord {
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn from(value: &Cube333) -> Self {
         wasm32::from_fr_slice_coord(value)
+    }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn from(value: &Cube333) -> Self {
+        unsafe { neon::unsafe_from_fr_slice_coord(value) }
     }
 }
 
@@ -176,7 +200,7 @@ impl From<&Cube333> for FRUDWithSliceCoord {
 
 #[cfg(target_feature = "avx2")]
 mod avx2 {
-    use std::arch::x86_64::{_mm_and_si128, _mm_castpd_si128, _mm_castsi128_pd, _mm_cmpeq_epi8, _mm_cmpgt_epi8, _mm_extract_epi16, _mm_movemask_epi8, _mm_or_si128, _mm_permute_pd, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_setr_epi8, _mm_shuffle_epi8, _mm_srli_epi32, _mm_xor_si128};
+    use std::arch::x86_64::{_mm_and_si128, _mm_broadcastb_epi8, _mm_castpd_si128, _mm_castsi128_pd, _mm_cmpeq_epi8, _mm_cmpgt_epi8, _mm_extract_epi16, _mm_movemask_epi8, _mm_or_si128, _mm_permute_pd, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_setr_epi8, _mm_shuffle_epi8, _mm_srli_epi32, _mm_xor_si128};
 
     use crate::puzzles::c333::{CornerCube333, Cube333, EdgeCube333};
     use crate::puzzles::c333::steps::fr::coords::{FRCPOrbitCoord, FREdgesCoord, FROrbitParityCoord, FRSliceEdgesCoord};
@@ -215,7 +239,7 @@ mod avx2 {
     #[inline]
     pub unsafe fn unsafe_from_fr_cp_coord(cube: &CornerCube333) -> FRCPOrbitCoord {
         let opposites = _mm_and_si128(_mm_xor_si128(cube.0, _mm_set1_epi32(-1)), _mm_set1_epi8(0b11100000_u8 as i8));
-        let all_ubl_opposite = _mm_shuffle_epi8(opposites, _mm_setr_epi8( 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1,-1));
+        let all_ubl_opposite = _mm_broadcastb_epi8(opposites);
         let opposite_position = _mm_cmpeq_epi8(cube.0, all_ubl_opposite);
         let position_values = _mm_and_si128(opposite_position, _mm_setr_epi8( -1, 1, -1, 2, -1, 3, -1, 0, -1, -1, -1, -1, -1, -1, -1,-1));
         let coord = _mm_extract_epi16::<0>(_mm_sad_epu8(position_values, _mm_set1_epi8(0))) as u8;
@@ -249,6 +273,65 @@ mod avx2 {
     }
 }
 
+#[cfg(target_feature = "neon")]
+mod neon {
+    use std::arch::aarch64::{vaddv_u8, vaddvq_u8, vand_u8, vandq_u8, vceq_u8, vceqq_u8, vcombine_u8, vdup_lane_u8, vdup_n_u8, vdupq_n_u8, veor_u8, vget_low_u8, vorr_u8, vqtbl1_u8, vshr_n_u8, vtbl1_u8};
+
+    use crate::puzzles::c333::{CornerCube333, Cube333, EdgeCube333};
+    use crate::puzzles::c333::steps::fr::coords::{FRCPOrbitCoord, FREdgesCoord, FROrbitParityCoord, FRSliceEdgesCoord};
+    use crate::simd_util::neon::{C16, C8, extract_most_significant_bits_u8};
+
+    pub unsafe fn unsafe_from_fr_slice_coord(cube: &Cube333) -> FRSliceEdgesCoord {
+        let corner_edge_mapping = C8 { a_u8: [0b01110000, 0b01100000, 0b01000000, 0b01010000, 0b01010000, 0b01000000, 0b01100000, 0b01110000] }.a;
+
+        let associated_edges = vtbl1_u8(corner_edge_mapping, vand_u8(vshr_n_u8::<5>(cube.corners.0), vdup_n_u8(0x0F)));
+
+        let correct_bl_edge_position = vceq_u8(vget_low_u8(cube.edges.0), vtbl1_u8(associated_edges, C8 { a_i8: [-1, -1, -1, -1, 0, 0, 0, 0] }.a));
+        let correct_br_edge_position = vceq_u8(vget_low_u8(cube.edges.0), vtbl1_u8(associated_edges, C8 { a_i8: [-1, -1, -1, -1, 1, 1, 1, 1] }.a));
+
+        let bl_edge_values = vand_u8(correct_bl_edge_position, C8 { a_i8: [0, 0, 0, 0, 3, 2, 1, 0]}.a);
+        let br_edge_values = vand_u8(correct_br_edge_position, C8 { a_i8: [0, 0, 0, 0, 12, 8, 0, 4]}.a);
+
+        let edge_coord = vaddv_u8(vorr_u8(bl_edge_values, br_edge_values));
+
+        FRSliceEdgesCoord(edge_coord)
+    }
+
+    pub unsafe fn unsafe_from_fr_edges_coord(cube: &EdgeCube333) -> FREdgesCoord {
+        let relevant_edges = vqtbl1_u8(cube.0, C8 { a_i8: [0, 1, 2, 3, 8, 9, -1, -1]}.a);
+        let ids = vand_u8(vshr_n_u8::<4>(relevant_edges), vdup_n_u8(0x0F));
+        let fr_colors = vqtbl1_u8(C16 { a_i8: [0, 1, 1, 0, -1, -1, -1, -1, 1, 1, 0, 0, -1, -1, -1,-1]}.a, ids);
+        let incorrect = vceq_u8(fr_colors, C8 { a_i8: [1, 0, 0, 1, 0, 0, -1, -1]}.a);
+        let coord = extract_most_significant_bits_u8(incorrect);
+        FREdgesCoord(coord)
+    }
+
+    pub unsafe fn unsafe_from_fr_cp_coord(cube: &CornerCube333) -> FRCPOrbitCoord {
+        let opposites = vand_u8(veor_u8(cube.0, vdup_n_u8(0xFF)), vdup_n_u8(0b11100000_u8));
+        let all_ubl_opposite = vdup_lane_u8::<0>(opposites);
+        let opposite_position = vceq_u8(cube.0, all_ubl_opposite);
+        let position_values = vand_u8(opposite_position, C8 { a_i8: [-1, 1, -1, 2, -1, 3, -1, 0]}.a);
+        let coord = vaddv_u8(position_values);
+        FRCPOrbitCoord(coord)
+    }
+
+    pub unsafe fn unsafe_from_fr_parity_coord(cube: &Cube333) -> FROrbitParityCoord {
+        let orbit_corners = vtbl1_u8(cube.corners.0, C8 { a_i8: [2, 4, 4, 6, 6, 6, -1, -1]}.a);
+        let slice_edges = vqtbl1_u8(cube.edges.0, C8 { a_i8: [5, 6, 6, 7, 7, 7, -1,-1]}.a);
+
+        let cmp_corners = vtbl1_u8(cube.corners.0, C8 { a_i8: [0, 0, 2, 0, 2, 4, -1, -1]}.a);
+        let cmp_edges = vqtbl1_u8(cube.edges.0, C8 { a_i8: [4, 4, 5, 4, 5, 6, -1,-1]}.a);
+
+        let cmp0 = vcombine_u8(orbit_corners, slice_edges);
+        let cmp1 = vcombine_u8(cmp_edges, cmp_corners);
+        let higher_left = vandq_u8(
+            vceqq_u8(cmp0, cmp1),
+            vdupq_n_u8(1),
+        );
+        let parity = vaddvq_u8(higher_left) & 0;
+        FROrbitParityCoord(parity == 1)
+    }
+}
 
 #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
 mod wasm32 {

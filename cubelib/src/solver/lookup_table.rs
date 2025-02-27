@@ -14,9 +14,9 @@ use log::{debug, warn};
 use num_traits::{ToPrimitive};
 #[cfg(feature = "fs")]
 use num_traits::{FromPrimitive};
-use crate::puzzles::c333::{Cube333, Transformation333};
-use crate::solver::moveset::{MoveSet};
-use crate::puzzles::puzzle::{TransformableMut, TurnableMut};
+use crate::cube::*;
+use crate::cube::turn::{TransformableMut, TurnableMut};
+use crate::solver::moveset::MoveSet;
 use crate::steps::coord::Coord;
 
 const VERSION: u8 = 1;
@@ -337,9 +337,9 @@ where
             visited.insert(coord, cube.clone());
             check_next.push(cube);
         }
-        for m in Transformation333::all() {
+        for m in Transformation333::ALL {
             let mut cube = cube.clone();
-            cube.transform(*m);
+            cube.transform(m);
             let coord = mapper(&cube);
             if visited.contains_key(&coord) {
                 continue;

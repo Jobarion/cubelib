@@ -3,16 +3,17 @@ use std::time::Instant;
 
 use clap::Parser;
 use cubelib::algs::Algorithm;
+use cubelib::cube::*;
 use cubelib::defs::StepKind;
-use cubelib::puzzles::c333::Cube333;
-use cubelib::puzzles::c333::steps::{eo, solver};
-use cubelib::puzzles::c333::steps::tables::PruningTables333;
-use cubelib::puzzles::puzzle::ApplyAlgorithm;
+
 use cubelib::solver::stream;
 use cubelib::solver::df_search::CancelToken;
 use cubelib::solver::solution::Solution;
+use cubelib::steps::{eo, solver};
+use cubelib::steps::tables::PruningTables333;
 use log::{debug, error, info, LevelFilter};
 use simple_logger::SimpleLogger;
+use cubelib::cube::turn::ApplyAlgorithm;
 
 use crate::cli::Cli;
 

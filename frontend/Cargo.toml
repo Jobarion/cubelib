@@ -22,7 +22,7 @@ wasm-log = "0.3.1"
 console_error_panic_hook = "0.1.7"
 serde = { version = "1.0.190", features = ["derive"] }
 
-cubelib = { path = "../cubelib", features = ["333", "solver", "serde_support"], default-features = false }
+cubelib = { path = "../cubelib", features = ["solver", "serde_support"], default-features = false }
 
 
 # Backend

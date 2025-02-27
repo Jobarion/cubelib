@@ -1,8 +1,8 @@
 use itertools::Itertools;
 use crate::defs::StepKind;
+use crate::steps;
 use crate::steps::step::{DefaultStepOptions, Step, StepConfig};
-use crate::puzzles::c333::steps;
-use crate::puzzles::c333::steps::tables::PruningTables333;
+use crate::steps::tables::PruningTables333;
 
 pub fn gen_tables(steps: &Vec<StepConfig>, tables: &mut PruningTables333) {
     let previous = vec![None].into_iter().chain(steps.iter().map(|x|Some(x.kind.clone()))).collect_vec();

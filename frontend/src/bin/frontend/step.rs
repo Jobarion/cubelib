@@ -2,8 +2,8 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
 use cubelib::defs::NissSwitchType;
-use cubelib::puzzles::c333::util::{DR_SUBSETS, expand_subset_name};
-use cubelib::puzzles::cube::CubeAxis;
+use cubelib::steps::util::{DR_SUBSETS, expand_subset_name};
+use cubelib::cube::*;
 use leptonic::prelude::*;
 use leptos::*;
 use leptos_icons::IoIcon;

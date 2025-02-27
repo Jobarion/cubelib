@@ -1,4 +1,4 @@
-use crate::puzzles::c333::{CornerCube333, Cube333};
+use crate::cube::{CornerCube333, Cube333};
 
 pub trait COCountUD {
     fn co_count(&self) -> u8;
@@ -56,7 +56,7 @@ impl COCountUD for CornerCube333 {
 mod avx2 {
     use std::arch::x86_64::{_mm_and_si128, _mm_cmpgt_epi8, _mm_movemask_epi8, _mm_set1_epi8};
 
-    use crate::puzzles::c333::CornerCube333;
+    use crate::cube::CornerCube333;
 
     pub unsafe fn co_ud(cube: &CornerCube333) -> u8 {
         let co = _mm_and_si128(cube.0, _mm_set1_epi8(0x0F));
@@ -70,7 +70,7 @@ mod avx2 {
 mod neon {
     use std::arch::aarch64::{vaddv_u8, vand_u8, vcgt_u8, vdup_n_u8};
 
-    use crate::puzzles::c333::CornerCube333;
+    use crate::cube::CornerCube333;
 
     pub unsafe fn co_ud(cube: &CornerCube333) -> u8 {
         let co = vand_u8(cube.0, vdup_n_u8(0x0F));
@@ -83,7 +83,7 @@ mod neon {
 mod wasm32 {
     use std::arch::wasm32::{u64x2, u8x16, u8x16_bitmask, u8x16_gt, v128, v128_and};
 
-    use crate::puzzles::c333::CornerCube333;
+    use crate::cube::CornerCube333;
 
     pub fn co_ud(cube: &CornerCube333) -> u8 {
         let co = v128_and(cube.0, u8x16set1(0x0F));

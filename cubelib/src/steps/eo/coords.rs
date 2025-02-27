@@ -1,4 +1,4 @@
-use crate::puzzles::c333::{Cube333, EdgeCube333};
+use crate::cube::*;
 use crate::steps::coord::Coord;
 
 //Edge orientation on the respective axis
@@ -88,8 +88,8 @@ impl BadEdgeCount for EdgeCube333 {
 #[cfg(target_feature = "avx2")]
 mod avx2 {
     use std::arch::x86_64::{_mm_and_si128, _mm_movemask_epi8, _mm_setr_epi8, _mm_slli_epi64};
-    use crate::puzzles::c333::EdgeCube333;
-    use crate::puzzles::c333::steps::eo::coords::EOCoordFB;
+    use crate::cube::EdgeCube333;
+    use crate::steps::eo::coords::EOCoordFB;
 
     #[inline]
     pub(crate) unsafe fn unsafe_from_eocoord_fb(value: &EdgeCube333) -> EOCoordFB {
@@ -132,8 +132,8 @@ mod avx2 {
 mod neon {
     use std::arch::aarch64::{vaddv_u8, vandq_u8, vdupq_n_u8, vget_high_u8, vget_low_u8, vshlq_u8};
 
-    use crate::puzzles::c333::EdgeCube333;
-    use crate::puzzles::c333::steps::eo::coords::EOCoordFB;
+    use crate::cube::EdgeCube333;
+    use crate::steps::eo::coords::EOCoordFB;
 
     use crate::simd_util::neon::C16;
 
@@ -182,8 +182,8 @@ mod neon {
 mod wasm32 {
     use std::arch::wasm32::{u32x4_shl, u8x16, u8x16_bitmask, v128_and};
 
-    use crate::puzzles::c333::EdgeCube333;
-    use crate::puzzles::c333::steps::eo::coords::{EOCoordAll, EOCoordFB, EOCoordLR, EOCoordUD};
+    use crate::cube::EdgeCube333;
+    use crate::steps::eo::coords::EOCoordFB;
 
     #[inline]
     pub(crate) fn from_eocoord_fb(value: &EdgeCube333) -> EOCoordFB {

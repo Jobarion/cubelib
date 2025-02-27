@@ -1,8 +1,8 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::algs::Algorithm;
+use crate::cube::turn::{InvertibleMut, TurnableMut};
 use crate::defs::StepKind;
-use crate::puzzles::puzzle::{InvertibleMut, TurnableMut};
 
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Eq, PartialEq)]

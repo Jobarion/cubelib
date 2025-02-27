@@ -4,47 +4,43 @@ use crate::algs::Algorithm;
 use crate::defs::*;
 use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::TransitionTable333;
-use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
-use crate::puzzles::c333::steps::{MoveSet333, Step333};
-use crate::puzzles::c333::steps::eo::coords::{BadEdgeCount, EOCoordFB};
-use crate::puzzles::cube::{CubeAxis, CubeFace, CubeOuterTurn};
-use crate::puzzles::cube::CubeFace::*;
-use crate::puzzles::cube::Direction::*;
-use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
-use crate::steps::step::StepConfig;
+use crate::cube::*;
+use crate::steps::{MoveSet333, Step333};
+use crate::steps::eo::coords::{BadEdgeCount, EOCoordFB};
+use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepConfig, StepVariant};
 
-pub const FB_EO_STATE_CHANGE_MOVES: &[CubeOuterTurn] = &[
-    Turn333::new(Front, Clockwise),
-    Turn333::new(Front, CounterClockwise),
-    Turn333::new(Back, Clockwise),
-    Turn333::new(Back, CounterClockwise),
+pub const FB_EO_STATE_CHANGE_MOVES: &[Turn333] = &[
+    Turn333::new(CubeFace::Front, Direction::Clockwise),
+    Turn333::new(CubeFace::Front, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Back, Direction::Clockwise),
+    Turn333::new(CubeFace::Back, Direction::CounterClockwise),
 ];
 
-pub const FB_EO_MOVES: &[CubeOuterTurn] = &[
-    Turn333::new(Up, Clockwise),
-    Turn333::new(Up, CounterClockwise),
-    Turn333::new(Up, Half),
-    Turn333::new(Down, Clockwise),
-    Turn333::new(Down, CounterClockwise),
-    Turn333::new(Down, Half),
-    Turn333::new(Front, Half),
-    Turn333::new(Back, Half),
-    Turn333::new(Left, Clockwise),
-    Turn333::new(Left, CounterClockwise),
-    Turn333::new(Left, Half),
-    Turn333::new(Right, Clockwise),
-    Turn333::new(Right, CounterClockwise),
-    Turn333::new(Right, Half),
+pub const FB_EO_MOVES: &[Turn333] = &[
+    Turn333::new(CubeFace::Up, Direction::Clockwise),
+    Turn333::new(CubeFace::Up, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Up, Direction::Half),
+    Turn333::new(CubeFace::Down, Direction::Clockwise),
+    Turn333::new(CubeFace::Down, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Down, Direction::Half),
+    Turn333::new(CubeFace::Front, Direction::Half),
+    Turn333::new(CubeFace::Back, Direction::Half),
+    Turn333::new(CubeFace::Left, Direction::Clockwise),
+    Turn333::new(CubeFace::Left, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Left, Direction::Half),
+    Turn333::new(CubeFace::Right, Direction::Clockwise),
+    Turn333::new(CubeFace::Right, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Right, Direction::Half),
 ];
 
 pub const EO_FB_MOVESET: MoveSet333 = MoveSet333 {
     st_moves: FB_EO_STATE_CHANGE_MOVES,
     aux_moves: FB_EO_MOVES,
-    transitions: &eo_transitions(Front),
+    transitions: &eo_transitions(CubeFace::Front),
 };
 
-pub const EO_UD_PRE_TRANS: [Transformation333; 1] = [Transformation333::new(CubeAxis::X, Clockwise)];
-pub const EO_LR_PRE_TRANS: [Transformation333; 1] = [Transformation333::new(CubeAxis::Y, Clockwise)];
+pub const EO_UD_PRE_TRANS: [Transformation333; 1] = [Transformation333::new(CubeAxis::X, Direction::Clockwise)];
+pub const EO_LR_PRE_TRANS: [Transformation333; 1] = [Transformation333::new(CubeAxis::Y, Direction::Clockwise)];
 const BAD_EDGE_HEURISTIC: [u8; 7] = [0, 2, 1, 2, 2, 3, 3];
 
 pub type EOPruningTable = LookupTable<2048, EOCoordFB>;
@@ -111,7 +107,7 @@ impl<'a> EOStepTable<'a> {
     fn new_ud(table: &'a EOPruningTable) -> Self {
         EOStepTable {
             move_set: &EO_FB_MOVESET,
-            pre_trans: vec![Transformation333::new(CubeAxis::X, Clockwise)],
+            pre_trans: vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)],
             table,
             name: "ud",
         }
@@ -120,7 +116,7 @@ impl<'a> EOStepTable<'a> {
     fn new_lr(table: &'a EOPruningTable) -> Self {
         EOStepTable {
             move_set: &EO_FB_MOVESET,
-            pre_trans: vec![Transformation333::new(CubeAxis::Y, Clockwise)],
+            pre_trans: vec![Transformation333::new(CubeAxis::Y, Direction::Clockwise)],
             table,
             name: "lr",
         }
@@ -179,13 +175,13 @@ pub fn filter_eo_last_moves_pure(alg: &Algorithm) -> bool {
 fn filter_last_moves_pure(vec: &Vec<Turn333>) -> bool {
     match vec.len() {
         0 => true,
-        1 => vec[0].dir != CounterClockwise,
+        1 => vec[0].dir != Direction::CounterClockwise,
         n => {
-            if vec[n - 1].dir == CounterClockwise {
+            if vec[n - 1].dir == Direction::CounterClockwise {
                 false
             } else {
                 if vec[n - 1].face.opposite() == vec[n - 2].face {
-                    vec[n - 2].dir != CounterClockwise
+                    vec[n - 2].dir != Direction::CounterClockwise
                 } else {
                     true
                 }
@@ -198,31 +194,31 @@ pub(crate) const fn eo_transitions(axis_face: CubeFace) -> [TransitionTable333; 
     let mut transitions = [TransitionTable333::new(0, 0); 18];
     let mut i = 0;
     let can_end_mask = TransitionTable333::moves_to_mask([
-        Turn333::new(axis_face, Clockwise),
-        Turn333::new(axis_face, CounterClockwise),
-        Turn333::new(axis_face.opposite(), Clockwise),
-        Turn333::new(axis_face.opposite(), CounterClockwise),
+        Turn333::new(axis_face, Direction::Clockwise),
+        Turn333::new(axis_face, Direction::CounterClockwise),
+        Turn333::new(axis_face.opposite(), Direction::Clockwise),
+        Turn333::new(axis_face.opposite(), Direction::CounterClockwise),
     ]);
     while i < CubeFace::ALL.len() {
-        transitions[Turn333::new(CubeFace::ALL[i], Clockwise).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::Clockwise).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );
-        transitions[Turn333::new(CubeFace::ALL[i], Half).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::Half).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );
-        transitions[Turn333::new(CubeFace::ALL[i], CounterClockwise).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::CounterClockwise).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );
         i += 1;
     }
-    transitions[Turn333::new(axis_face, Half).to_id()] = TransitionTable333::new(
+    transitions[Turn333::new(axis_face, Direction::Half).to_id()] = TransitionTable333::new(
         TransitionTable333::DEFAULT_ALLOWED_AFTER[axis_face as usize],
         TransitionTable333::NONE,
     );
-    transitions[Turn333::new(axis_face.opposite(), Half).to_id()] = TransitionTable333::new(
+    transitions[Turn333::new(axis_face.opposite(), Direction::Half).to_id()] = TransitionTable333::new(
         TransitionTable333::DEFAULT_ALLOWED_AFTER[axis_face.opposite() as usize],
         TransitionTable333::NONE,
     );

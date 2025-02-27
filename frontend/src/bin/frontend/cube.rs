@@ -1,9 +1,8 @@
 use std::str::FromStr;
 
 use cubelib::algs::Algorithm;
-use cubelib::puzzles::c333::Cube333;
-use cubelib::puzzles::cube::{CubeColor, CubeFace};
-use cubelib::puzzles::puzzle::ApplyAlgorithm;
+use cubelib::cube::*;
+use cubelib::cube::turn::ApplyAlgorithm;
 use leptos::*;
 use leptonic::prelude::*;
 use leptos::html::Div;

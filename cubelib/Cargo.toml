@@ -18,13 +18,10 @@ tinyset = "0.5.1"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = []
+default = ["333finish"]
 solver = []
-cubic = []
-cubic-odd = ["cubic"]
 
-333 = ["cubic-odd"]
-333eo = ["333", "solver"]
+333eo = ["solver"]
 333dr = ["333eo"]
 333htr = ["333dr"]
 333fr = ["333htr"]

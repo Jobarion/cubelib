@@ -1,56 +1,52 @@
 use itertools::Itertools;
 
 use crate::algs::Algorithm;
+use crate::cube::*;
 use crate::defs::*;
-use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
-use crate::puzzles::c333::steps::{dr, MoveSet333, Step333};
-use crate::puzzles::c333::steps::eo::coords::BadEdgeCount;
-use crate::puzzles::cube::{CubeAxis, CubeFace};
-use crate::puzzles::cube::CubeFace::*;
-use crate::puzzles::cube::Direction::*;
 use crate::solver::moveset::TransitionTable333;
-use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
-use crate::steps::step::StepConfig;
+use crate::steps::{dr, MoveSet333, Step333};
+use crate::steps::eo::coords::BadEdgeCount;
+use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepConfig, StepVariant};
 
 const QT_MOVES: [Turn333; 12] = [
-    Turn333::new(Up, Clockwise),
-    Turn333::new(Up, CounterClockwise),
-    Turn333::new(Down, Clockwise),
-    Turn333::new(Down, CounterClockwise),
-    Turn333::new(Front, Clockwise),
-    Turn333::new(Front, CounterClockwise),
-    Turn333::new(Back, Clockwise),
-    Turn333::new(Back, CounterClockwise),
-    Turn333::new(Left, Clockwise),
-    Turn333::new(Left, CounterClockwise),
-    Turn333::new(Right, Clockwise),
-    Turn333::new(Right, CounterClockwise),
+    Turn333::new(CubeFace::Up, Direction::Clockwise),
+    Turn333::new(CubeFace::Up, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Down, Direction::Clockwise),
+    Turn333::new(CubeFace::Down, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Front, Direction::Clockwise),
+    Turn333::new(CubeFace::Front, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Back, Direction::Clockwise),
+    Turn333::new(CubeFace::Back, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Left, Direction::Clockwise),
+    Turn333::new(CubeFace::Left, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Right, Direction::Clockwise),
+    Turn333::new(CubeFace::Right, Direction::CounterClockwise),
 ];
 
 pub const RZP_EO_FB_STATE_CHANGE_MOVES: &[Turn333] = &[
-    Turn333::new(Up, Clockwise),
-    Turn333::new(Up, CounterClockwise),
-    Turn333::new(Down, Clockwise),
-    Turn333::new(Down, CounterClockwise),
-    Turn333::new(Right, Clockwise),
-    Turn333::new(Right, CounterClockwise),
-    Turn333::new(Left, Clockwise),
-    Turn333::new(Left, CounterClockwise),
+    Turn333::new(CubeFace::Up, Direction::Clockwise),
+    Turn333::new(CubeFace::Up, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Down, Direction::Clockwise),
+    Turn333::new(CubeFace::Down, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Right, Direction::Clockwise),
+    Turn333::new(CubeFace::Right, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Left, Direction::Clockwise),
+    Turn333::new(CubeFace::Left, Direction::CounterClockwise),
 ];
 
 pub const RZP_EO_FB_AUX_MOVES: &[Turn333] = &[
-    Turn333::new(Up, Half),
-    Turn333::new(Down, Half),
-    Turn333::new(Right, Half),
-    Turn333::new(Left, Half),
-    Turn333::new(Front, Half),
-    Turn333::new(Back, Half),
+    Turn333::new(CubeFace::Up, Direction::Half),
+    Turn333::new(CubeFace::Down, Direction::Half),
+    Turn333::new(CubeFace::Right, Direction::Half),
+    Turn333::new(CubeFace::Left, Direction::Half),
+    Turn333::new(CubeFace::Front, Direction::Half),
+    Turn333::new(CubeFace::Back, Direction::Half),
 ];
 
 pub const RZP_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
     st_moves: RZP_EO_FB_STATE_CHANGE_MOVES,
     aux_moves: RZP_EO_FB_AUX_MOVES,
-    transitions: &rzp_transitions(Left),
+    transitions: &rzp_transitions(CubeFace::Left),
 };
 
 pub const RZP_ANY: MoveSet333 = MoveSet333 {
@@ -196,25 +192,25 @@ const fn rzp_transitions(axis_face: CubeFace) -> [TransitionTable333; 18] {
         Turn333::R, Turn333::Ri]);
 
     while i < CubeFace::ALL.len() {
-        transitions[Turn333::new(CubeFace::ALL[i], Clockwise).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::Clockwise).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );
-        transitions[Turn333::new(CubeFace::ALL[i], Half).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::Half).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );
-        transitions[Turn333::new(CubeFace::ALL[i], CounterClockwise).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::CounterClockwise).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );
         i += 1;
     }
-    transitions[Turn333::new(axis_face, Half).to_id()] = TransitionTable333::new(
+    transitions[Turn333::new(axis_face, Direction::Half).to_id()] = TransitionTable333::new(
         TransitionTable333::DEFAULT_ALLOWED_AFTER[axis_face as usize],
         TransitionTable333::NONE,
     );
-    transitions[Turn333::new(axis_face.opposite(), Half).to_id()] = TransitionTable333::new(
+    transitions[Turn333::new(axis_face.opposite(), Direction::Half).to_id()] = TransitionTable333::new(
         TransitionTable333::DEFAULT_ALLOWED_AFTER[axis_face.opposite() as usize],
         TransitionTable333::NONE,
     );
@@ -226,15 +222,15 @@ const fn rzp_transitions_any() -> [TransitionTable333; 18] {
     let mut i = 0;
     let can_end_mask = TransitionTable333::moves_to_mask(QT_MOVES);
     while i < CubeFace::ALL.len() {
-        transitions[Turn333::new(CubeFace::ALL[i], Clockwise).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::Clockwise).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );
-        transitions[Turn333::new(CubeFace::ALL[i], Half).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::Half).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );
-        transitions[Turn333::new(CubeFace::ALL[i], CounterClockwise).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::CounterClockwise).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );

@@ -1,4 +1,4 @@
-use crate::puzzles::c333::Cube333;
+use crate::cube::Cube333;
 use crate::steps::coord::Coord;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -101,8 +101,8 @@ impl From<&Cube333> for HTRLeaveSliceFinishCoord {
 mod avx2 {
     use std::arch::x86_64::{_mm_and_si128, _mm_cmpeq_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_movemask_epi8, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi8, _mm_set_epi16, _mm_set_epi8, _mm_setr_epi8, _mm_shuffle_epi8, _mm_srli_epi32};
 
-    use crate::puzzles::c333::Cube333;
-    use crate::puzzles::c333::steps::finish::coords::{FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord};
+    use crate::cube::*;
+    use crate::steps::finish::coords::{FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord};
 
     #[target_feature(enable = "avx2")]
     #[inline]
@@ -178,7 +178,7 @@ mod avx2 {
         let higher_left_m123s123 = _mm_and_si128(_mm_cmplt_epi8(values_m123s123, cmp_values), _mm_set1_epi8(1));
         //We're doing two sums at once
         let sum = _mm_hadd_epi32(higher_left_m123s123, _mm_set1_epi8(0));
-        //Split up the two sums again
+        //Split CubeFace::up the two sums again
         let sum = _mm_shuffle_epi8(sum, _mm_set_epi8(
             -1,-1,-1, 3,
             -1, 5, 6, 7,
@@ -257,7 +257,7 @@ mod avx2 {
         let higher_left_m123s123 = _mm_and_si128(_mm_cmplt_epi8(values_m123s123, cmp_values), _mm_set1_epi8(1));
         //We're doing two sums at once
         let sum = _mm_hadd_epi32(higher_left_m123s123, _mm_set1_epi8(0));
-        //Split up the two sums again
+        //Split CubeFace::up the two sums again
         let sum = _mm_shuffle_epi8(sum, _mm_set_epi8(
             -1,-1,-1, 3,
             -1, 5, 6, 7,
@@ -283,10 +283,9 @@ mod avx2 {
 #[cfg(target_feature = "neon")]
 mod neon {
     use std::arch::aarch64::{vaddq_u8, vaddv_u8, vaddvq_u16, vand_u8, vandq_u8, vceq_u8, vclt_u8, vcltq_u8, vcombine_u8, vdup_n_u8, vdupq_n_u8, vget_low_u8, vmulq_u16, vorr_u8, vorrq_u8, vqtbl1_u8, vqtbl1q_u8, vreinterpretq_u16_u8, vshr_n_u8, vshrq_n_u8, vtbl1_u8, vzip1q_u8};
-
-    use crate::puzzles::c333::Cube333;
-    use crate::puzzles::c333::steps::finish::coords::{FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord};
+    use crate::cube::Cube333;
     use crate::simd_util::neon::{C16, C8, extract_most_significant_bits_u8};
+    use crate::steps::finish::coords::{FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord};
 
     pub unsafe fn unsafe_from_fr_finish_coord(cube: &Cube333) -> FRUDFinishCoord {
         let correct_ufl_corner_position = vceq_u8(cube.corners.0, vdup_n_u8(0b01100000));

@@ -6,25 +6,25 @@ use log::{debug, info};
 use log::error;
 
 #[cfg(feature = "333dr")]
-use crate::puzzles::c333::steps::dr::coords::DRUDEOFBCoord;
+use crate::steps::dr::coords::DRUDEOFBCoord;
 #[cfg(feature = "333dr")]
-use crate::puzzles::c333::steps::dr::dr_config::{DR_UD_EO_FB_MOVESET, DRPruningTable};
+use crate::steps::dr::dr_config::{DR_UD_EO_FB_MOVESET, DRPruningTable};
 #[cfg(feature = "333eo")]
-use crate::puzzles::c333::steps::eo::coords::EOCoordFB;
+use crate::steps::eo::coords::EOCoordFB;
 #[cfg(feature = "333eo")]
-use crate::puzzles::c333::steps::eo::eo_config::{EO_FB_MOVESET, EOPruningTable};
+use crate::steps::eo::eo_config::{EO_FB_MOVESET, EOPruningTable};
 #[cfg(feature = "333finish")]
-use crate::puzzles::c333::steps::finish::coords::{FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord};
+use crate::steps::finish::coords::{FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord};
 #[cfg(feature = "333finish")]
-use crate::puzzles::c333::steps::finish::finish_config::{FRFinishPruningTable, FRUD_FINISH_MOVESET, HTR_FINISH_MOVESET, HTRFinishPruningTable, HTRLeaveSliceFinishPruningTable};
+use crate::steps::finish::finish_config::{FRFinishPruningTable, FRUD_FINISH_MOVESET, HTR_FINISH_MOVESET, HTRFinishPruningTable, HTRLeaveSliceFinishPruningTable};
 #[cfg(feature = "333fr")]
-use crate::puzzles::c333::steps::fr::coords::{FRUDNoSliceCoord, FRUDWithSliceCoord};
+use crate::steps::fr::coords::{FRUDNoSliceCoord, FRUDWithSliceCoord};
 #[cfg(feature = "333fr")]
-use crate::puzzles::c333::steps::fr::fr_config::{FR_UD_MOVESET, FRLeaveSlicePruningTable, FRPruningTable};
+use crate::steps::fr::fr_config::{FR_UD_MOVESET, FRLeaveSlicePruningTable, FRPruningTable};
 #[cfg(feature = "333htr")]
-use crate::puzzles::c333::steps::htr::coords::HTRDRUDCoord;
+use crate::steps::htr::coords::HTRDRUDCoord;
 #[cfg(feature = "333htr")]
-use crate::puzzles::c333::steps::htr::htr_config::{HTR_DR_UD_MOVESET, HTRPruningTable, HTRSubsetTable};
+use crate::steps::htr::htr_config::{HTR_DR_UD_MOVESET, HTRPruningTable, HTRSubsetTable};
 use crate::solver::lookup_table;
 #[cfg(feature = "fs")]
 use crate::solver::lookup_table::{LoadFromDisk, SaveToDisk, LookupTable, NissLookupTable};
@@ -354,7 +354,7 @@ impl PruningTables333 {
 
     #[cfg(all(feature = "333finish", not(feature = "fs")))]
     pub fn gen_htr_finish(&mut self) {
-        self.htr_ls_finish = Some(crate::puzzles::c333::steps::tables::gen_htr_no_slice_finish());
+        self.htr_ls_finish = Some(crate::steps::tables::gen_htr_no_slice_finish());
     }
 
     #[cfg(feature = "333finish")]
@@ -369,7 +369,7 @@ impl PruningTables333 {
 
     #[cfg(all(feature = "333finish", not(feature = "fs")))]
     pub fn gen_htr_leave_slice_finish(&mut self) {
-        self.htr_finish = Some(crate::puzzles::c333::steps::tables::gen_htr_finish());
+        self.htr_finish = Some(crate::steps::tables::gen_htr_finish());
     }
 
     #[cfg(feature = "333finish")]
@@ -384,7 +384,7 @@ fn gen_eo() -> EOPruningTable {
     #[cfg(not(target_arch = "wasm32"))]
     let time = Instant::now();
     let table = lookup_table::generate(&EO_FB_MOVESET,
-                                       &|c: &crate::puzzles::c333::Cube333| EOCoordFB::from(c),
+                                       &|c: &crate::cube::Cube333| EOCoordFB::from(c),
                                        &|| EOPruningTable::new(false),
                                        &|table, coord|table.get(coord),
                                        &|table, coord, val|table.set(coord, val));
@@ -399,7 +399,7 @@ fn gen_dr() -> DRPruningTable {
     #[cfg(not(target_arch = "wasm32"))]
     let time = Instant::now();
     let table = lookup_table::generate(&DR_UD_EO_FB_MOVESET,
-                                       &|c: &crate::puzzles::c333::Cube333| DRUDEOFBCoord::from(c),
+                                       &|c: &crate::cube::Cube333| DRUDEOFBCoord::from(c),
                                        &|| DRPruningTable::new(false),
                                        &|table, coord|table.get(coord),
                                        &|table, coord, val|table.set(coord, val));
@@ -414,7 +414,7 @@ fn gen_htr() -> HTRPruningTable {
     #[cfg(not(target_arch = "wasm32"))]
     let time = Instant::now();
     let table = lookup_table::generate(&HTR_DR_UD_MOVESET,
-                                           &|c: &crate::puzzles::c333::Cube333| HTRDRUDCoord::from(c),
+                                           &|c: &crate::cube::Cube333| HTRDRUDCoord::from(c),
                                            &|| HTRPruningTable::new(),
                                            &|table, coord|table.get(coord).0,
                                            &|table, coord, val|table.set(coord, val));
@@ -429,7 +429,7 @@ fn gen_htr_subsets(htr_table: &mut HTRPruningTable) -> HTRSubsetTable {
     info!("Generating HTR subset table...");
     #[cfg(not(target_arch = "wasm32"))]
     let time = Instant::now();
-    let subset_table = crate::puzzles::c333::steps::htr::subsets::gen_subset_tables(htr_table);
+    let subset_table = crate::steps::htr::subsets::gen_subset_tables(htr_table);
     #[cfg(not(target_arch = "wasm32"))]
     debug!("Took {}ms", time.elapsed().as_millis());
     subset_table
@@ -441,7 +441,7 @@ fn gen_fr_leave_slice() -> FRLeaveSlicePruningTable {
     #[cfg(not(target_arch = "wasm32"))]
     let time = Instant::now();
     let table = lookup_table::generate(&FR_UD_MOVESET,
-                                       &|c: &crate::puzzles::c333::Cube333| FRUDNoSliceCoord::from(c),
+                                       &|c: &crate::cube::Cube333| FRUDNoSliceCoord::from(c),
                                        &|| FRLeaveSlicePruningTable::new(false),
                                        &|table, coord|table.get(coord),
                                        &|table, coord, val|table.set(coord, val));
@@ -456,7 +456,7 @@ fn gen_fr() -> FRPruningTable {
     #[cfg(not(target_arch = "wasm32"))]
     let time = Instant::now();
     let table = lookup_table::generate(&FR_UD_MOVESET,
-                                       &|c: &crate::puzzles::c333::Cube333| FRUDWithSliceCoord::from(c),
+                                       &|c: &crate::cube::Cube333| FRUDWithSliceCoord::from(c),
                                        &|| FRPruningTable::new(false),
                                        &|table, coord|table.get(coord),
                                        &|table, coord, val|table.set(coord, val));
@@ -471,7 +471,7 @@ fn gen_fr_finish() -> FRFinishPruningTable {
     #[cfg(not(target_arch = "wasm32"))]
     let time = Instant::now();
     let table = lookup_table::generate(&FRUD_FINISH_MOVESET,
-                                       &|c: &crate::puzzles::c333::Cube333| FRUDFinishCoord::from(c),
+                                       &|c: &crate::cube::Cube333| FRUDFinishCoord::from(c),
                                        &|| FRFinishPruningTable::new(false),
                                        &|table, coord|table.get(coord),
                                        &|table, coord, val|table.set(coord, val));
@@ -486,7 +486,7 @@ fn gen_htr_finish() -> HTRFinishPruningTable {
     #[cfg(not(target_arch = "wasm32"))]
     let time = Instant::now();
     let table = lookup_table::generate(&HTR_FINISH_MOVESET,
-                                       &|c: &crate::puzzles::c333::Cube333| HTRFinishCoord::from(c),
+                                       &|c: &crate::cube::Cube333| HTRFinishCoord::from(c),
                                        &|| HTRFinishPruningTable::new(false),
                                        &|table, coord|table.get(coord),
                                        &|table, coord, val|table.set(coord, val));
@@ -501,7 +501,7 @@ fn gen_htr_no_slice_finish() -> HTRLeaveSliceFinishPruningTable {
     #[cfg(not(target_arch = "wasm32"))]
     let time = Instant::now();
     let table = lookup_table::generate(&HTR_FINISH_MOVESET,
-                                       &|c: &crate::puzzles::c333::Cube333| HTRLeaveSliceFinishCoord::from(c),
+                                       &|c: &crate::cube::Cube333| HTRLeaveSliceFinishCoord::from(c),
                                        &|| HTRLeaveSliceFinishPruningTable::new(false),
                                        &|table, coord|table.get(coord),
                                        &|table, coord, val|table.set(coord, val));

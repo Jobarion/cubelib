@@ -1,5 +1,5 @@
-use crate::puzzles::cube::{Corner, CubeOuterTurn, CubeTransformation};
-use crate::puzzles::puzzle::{InvertibleMut, TransformableMut, TurnableMut};
+use crate::cube::Corner;
+use crate::cube::turn::{CubeOuterTurn, CubeTransformation, InvertibleMut, TransformableMut, TurnableMut};
 
 //One byte per corner, 3 bits for id, 2 bits free, 3 bits for co (from UD perspective)
 //UBL UBR UFR UFL DFL DFR DBR DBL
@@ -238,7 +238,8 @@ mod avx2 {
         _mm_sub_epi8, _mm_xor_si128,
     };
 
-    use crate::puzzles::cube::{Corner, CubeAxis, CubeCornersOdd, CubeFace, Direction};
+    use crate::cube::{Corner, CubeAxis, CubeFace, Direction};
+    use crate::cube::cube_corners::CubeCornersOdd;
     use crate::simd_util::avx2::C;
 
     const TURN_CORNER_SHUFFLE: [[__m128i; 3]; 6] = [
@@ -445,8 +446,8 @@ mod avx2 {
 #[cfg(target_feature = "neon")]
 mod neon {
     use std::arch::aarch64::{uint8x16_t, uint8x8_t, vadd_u8, vand_u8, vdup_n_u8, veor_u8, vget_lane_u64, vld1_u8, vmvn_u8, vorr_u8, vqtbl1_u8, vreinterpret_u64_u8, vshl_n_u8, vshr_n_u8, vsub_u8, vtbl1_u8};
-
-    use crate::puzzles::cube::{Corner, CubeAxis, CubeCornersOdd, CubeFace, Direction};
+    use crate::cube::{Corner, CubeAxis, CubeFace, Direction};
+    use crate::cube::cube_corners::CubeCornersOdd;
     use crate::simd_util::neon::{C16, C8};
 
     const TURN_CORNER_SHUFFLE: [[uint8x8_t; 3]; 6] = [
@@ -643,7 +644,8 @@ mod wasm32 {
         v128_or, v128_xor,
     };
 
-    use crate::puzzles::cube::{Corner, CubeAxis, CubeCornersOdd, CubeFace, Direction};
+    use crate::cube::{Corner, CubeAxis, CubeFace, Direction};
+    use crate::cube::cube_corners::CubeCornersOdd;
     use crate::wasm_util::u8x16_set1;
 
     const TURN_CORNER_SHUFFLE: [[v128; 3]; 6] = [

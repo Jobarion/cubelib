@@ -1,6 +1,6 @@
 use std::str::FromStr;
 use cubelib::algs::Algorithm;
-use cubelib::puzzles::c333::Turn333;
+use cubelib::cube::*;
 use leptonic::prelude::*;
 use leptos::*;
 use leptos_icons::IoIcon;

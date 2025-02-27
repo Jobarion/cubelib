@@ -2,70 +2,63 @@ use std::rc::Rc;
 use std::vec;
 
 use itertools::Itertools;
-
+use crate::cube::*;
 use crate::defs::*;
-use crate::puzzles::c333::{Transformation333, Turn333};
-use crate::puzzles::c333::steps::{MoveSet333, Step333};
-use crate::puzzles::c333::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
-use crate::puzzles::c333::steps::eo::coords::EOCoordFB;
-#[cfg(feature = "333htr")]
-use crate::puzzles::c333::steps::htr::htr_config::HTRSubsetTable;
-#[cfg(feature = "333htr")]
-use crate::puzzles::c333::steps::htr::subsets::dr_subset_filter;
-use crate::puzzles::cube::{CubeAxis, CubeFace};
-use crate::puzzles::cube::CubeFace::*;
-use crate::puzzles::cube::Direction::*;
 use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::TransitionTable333;
-use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, PostStepCheck, Step, StepVariant};
-use crate::steps::step::StepConfig;
+use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
+use crate::steps::eo::coords::EOCoordFB;
+#[cfg(feature = "333htr")]
+use crate::steps::htr::htr_config::HTRSubsetTable;
+use crate::steps::{MoveSet333, Step333};
+use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, PostStepCheck, Step, StepConfig, StepVariant};
 
 pub const HTR_DR_UD_STATE_CHANGE_MOVES: &[Turn333] = &[
-    Turn333::new(Up, Clockwise),
-    Turn333::new(Up, CounterClockwise),
-    Turn333::new(Down, Clockwise),
-    Turn333::new(Down, CounterClockwise),
+    Turn333::new(CubeFace::Up, Direction::Clockwise),
+    Turn333::new(CubeFace::Up, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Down, Direction::Clockwise),
+    Turn333::new(CubeFace::Down, Direction::CounterClockwise),
 ];
 
 pub const HTR_MOVES: &[Turn333] = &[
-    Turn333::new(Up, Half),
-    Turn333::new(Down, Half),
-    Turn333::new(Right, Half),
-    Turn333::new(Left, Half),
-    Turn333::new(Front, Half),
-    Turn333::new(Back, Half),
+    Turn333::new(CubeFace::Up, Direction::Half),
+    Turn333::new(CubeFace::Down, Direction::Half),
+    Turn333::new(CubeFace::Right, Direction::Half),
+    Turn333::new(CubeFace::Left, Direction::Half),
+    Turn333::new(CubeFace::Front, Direction::Half),
+    Turn333::new(CubeFace::Back, Direction::Half),
 ];
 
 pub const HTR_DR_UD_MOVESET: MoveSet333 = MoveSet333 {
     st_moves: HTR_DR_UD_STATE_CHANGE_MOVES,
     aux_moves: HTR_MOVES,
-    transitions: &dr_transitions(Up),
+    transitions: &dr_transitions(CubeFace::Up),
 };
 
 pub const DR_UD_EO_FB_STATE_CHANGE_MOVES: &[Turn333] = &[
-    Turn333::new(Right, Clockwise),
-    Turn333::new(Right, CounterClockwise),
-    Turn333::new(Left, Clockwise),
-    Turn333::new(Left, CounterClockwise),
+    Turn333::new(CubeFace::Right, Direction::Clockwise),
+    Turn333::new(CubeFace::Right, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Left, Direction::Clockwise),
+    Turn333::new(CubeFace::Left, Direction::CounterClockwise),
 ];
 
 pub const DR_UD_EO_FB_MOVES: &[Turn333] = &[
-    Turn333::new(Up, Clockwise),
-    Turn333::new(Up, CounterClockwise),
-    Turn333::new(Up, Half),
-    Turn333::new(Down, Clockwise),
-    Turn333::new(Down, CounterClockwise),
-    Turn333::new(Down, Half),
-    Turn333::new(Right, Half),
-    Turn333::new(Left, Half),
-    Turn333::new(Front, Half),
-    Turn333::new(Back, Half),
+    Turn333::new(CubeFace::Up, Direction::Clockwise),
+    Turn333::new(CubeFace::Up, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Up, Direction::Half),
+    Turn333::new(CubeFace::Down, Direction::Clockwise),
+    Turn333::new(CubeFace::Down, Direction::CounterClockwise),
+    Turn333::new(CubeFace::Down, Direction::Half),
+    Turn333::new(CubeFace::Right, Direction::Half),
+    Turn333::new(CubeFace::Left, Direction::Half),
+    Turn333::new(CubeFace::Front, Direction::Half),
+    Turn333::new(CubeFace::Back, Direction::Half),
 ];
 
 pub const DR_UD_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
     st_moves: DR_UD_EO_FB_STATE_CHANGE_MOVES,
     aux_moves: DR_UD_EO_FB_MOVES,
-    transitions: &dr_transitions(Left),
+    transitions: &dr_transitions(CubeFace::Left),
 };
 
 pub type DRPruningTable = LookupTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
@@ -75,7 +68,7 @@ pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")
     #[cfg(feature = "333htr")]
     let post_step_filters: Vec<Box<dyn PostStepCheck>> = config.params.remove("subsets")
         .map(|x|x.split(",").map(|x|x.to_string()).collect_vec())
-        .and_then(|subsets|dr_subset_filter(subset_table, &subsets))
+        .and_then(|subsets| crate::steps::htr::subsets::dr_subset_filter(subset_table, &subsets))
         .map(|filter|{
             let b: Box<dyn PostStepCheck> = Box::new(filter);
             vec![b]
@@ -159,5 +152,5 @@ pub fn dr_any<'a>(table: &'a DRPruningTable, post_step_checks: Rc<Vec<Box<dyn Po
 }
 
 const fn dr_transitions(axis_face: CubeFace) -> [TransitionTable333; 18] {
-    crate::puzzles::c333::steps::eo::eo_config::eo_transitions(axis_face)
+    crate::steps::eo::eo_config::eo_transitions(axis_face)
 }

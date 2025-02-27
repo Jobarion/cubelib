@@ -1,10 +1,10 @@
 use std::vec;
 use log::debug;
-use crate::puzzles::c333::Cube333;
+use crate::cube::Cube333;
+
 use crate::solver::solution::Solution;
 
 use crate::steps;
-use crate::steps::step::{DefaultStepOptions, Step};
 
 pub mod lookup_table;
 pub mod stream;
@@ -12,6 +12,7 @@ pub mod solution;
 pub mod df_search;
 pub mod moveset;
 use crate::solver::df_search::CancelToken;
+use crate::steps::step::{DefaultStepOptions, Step};
 
 pub fn solve_steps<'a>(puzzle: Cube333, steps: &'a Vec<(Step<'a>, DefaultStepOptions)>, cancel_token: &'a CancelToken) -> impl Iterator<Item = Solution> + 'a {
     let first_step: Box<dyn Iterator<Item = Solution>> = Box::new(vec![Solution::new()].into_iter());

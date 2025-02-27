@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use cubelib::defs::*;
-use cubelib::puzzles::cube::CubeAxis;
+use cubelib::cube::*;
 use cubelib::steps::step::StepConfig;
 use leptos::*;
 
@@ -182,8 +182,8 @@ pub mod wasm_solver {
     use std::str::FromStr;
 
     use cubelib::algs::Algorithm;
-    use cubelib::puzzles::c333::Cube333;
-    use cubelib::puzzles::puzzle::ApplyAlgorithm;
+    use cubelib::cube::*;
+    use cubelib::cube::turn::ApplyAlgorithm;
     use gloo_worker::Spawnable;
     use leptonic::prelude::*;
     use leptos::*;

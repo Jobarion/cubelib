@@ -1,11 +1,10 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use log::trace;
 use crate::algs::Algorithm;
-
+use crate::cube::{Cube333, Turn333};
+use crate::cube::turn::{Invertible, InvertibleMut, Transformable, TransformableMut, TurnableMut};
 use crate::defs::NissSwitchType;
-use crate::puzzles::c333::{Cube333, Turn333};
 use crate::solver::moveset::{Transition, TransitionTable};
-use crate::puzzles::puzzle::{Invertible, InvertibleMut, Transformable, TransformableMut, TurnableMut};
 use crate::steps::step::{DefaultStepOptions, StepVariant};
 
 pub struct CancelToken {
@@ -26,19 +25,6 @@ impl Default for CancelToken {
     fn default() -> Self {
         CancelToken {
             cancelled: AtomicBool::new(false),
-        }
-    }
-}
-
-impl DefaultStepOptions {
-    pub fn new(min_moves: u8, max_moves: u8, absolute_min_moves: Option<u8>, absolute_max_moves: Option<u8>, niss_type: NissSwitchType, step_limit: Option<usize>) -> Self {
-        DefaultStepOptions {
-            min_moves,
-            max_moves,
-            absolute_min_moves,
-            absolute_max_moves,
-            niss_type,
-            step_limit,
         }
     }
 }

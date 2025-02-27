@@ -5,9 +5,9 @@ use std::rc::Rc;
 use log::trace;
 
 use crate::algs::Algorithm;
+use crate::cube::turn::ApplyAlgorithm;
 use crate::defs::*;
-use crate::puzzles::c333::{Cube333, Transformation333};
-use crate::puzzles::puzzle::ApplyAlgorithm;
+use crate::cube::*;
 use crate::solver::df_search::{CancelToken, dfs_iter};
 use crate::solver::lookup_table::{LookupTable, NissLookupTable};
 use crate::solver::moveset::MoveSet;
@@ -64,7 +64,18 @@ pub struct DefaultStepOptions {
     pub step_limit: Option<usize>
 }
 
-//Shh, don't look at the types below
+impl DefaultStepOptions {
+    pub fn new(min_moves: u8, max_moves: u8, absolute_min_moves: Option<u8>, absolute_max_moves: Option<u8>, niss_type: NissSwitchType, step_limit: Option<usize>) -> Self {
+        DefaultStepOptions {
+            min_moves,
+            max_moves,
+            absolute_min_moves,
+            absolute_max_moves,
+            niss_type,
+            step_limit,
+        }
+    }
+}
 
 pub trait StepVariant: PreStepCheck + PostStepCheck
 {

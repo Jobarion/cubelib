@@ -1,20 +1,15 @@
 use std::rc::Rc;
 
 use itertools::Itertools;
-
+use crate::cube::*;
 use crate::defs::*;
-use crate::puzzles::c333::{Transformation333, Turn333};
-use crate::puzzles::c333::steps::{fr, MoveSet333, Step333};
-use crate::puzzles::c333::steps::finish::coords::{FR_FINISH_SIZE, FRUDFinishCoord, HTR_FINISH_SIZE, HTR_LEAVE_SLICE_FINISH_SIZE, HTRFinishCoord, HTRLeaveSliceFinishCoord};
-use crate::puzzles::c333::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
-use crate::puzzles::c333::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
-use crate::puzzles::cube::{CubeAxis, CubeFace};
-use crate::puzzles::cube::CubeFace::*;
-use crate::puzzles::cube::Direction::*;
 use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::TransitionTable333;
-use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
-use crate::steps::step::StepConfig;
+use crate::steps::finish::coords::{FR_FINISH_SIZE, FRUDFinishCoord, HTR_FINISH_SIZE, HTR_LEAVE_SLICE_FINISH_SIZE, HTRFinishCoord, HTRLeaveSliceFinishCoord};
+use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
+use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
+use crate::steps::{fr, MoveSet333, Step333};
+use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, Step, StepConfig, StepVariant};
 
 pub const FRUD_FINISH_MOVESET: MoveSet333 = MoveSet333 {
     st_moves: fr::fr_config::FR_UD_AUX_MOVES,
@@ -25,12 +20,12 @@ pub const FRUD_FINISH_MOVESET: MoveSet333 = MoveSet333 {
 pub const HTR_FINISH_MOVESET: MoveSet333 = MoveSet333 {
     aux_moves: &[],
     st_moves: &[
-        Turn333::new(Up, Half),
-        Turn333::new(Down, Half),
-        Turn333::new(Right, Half),
-        Turn333::new(Left, Half),
-        Turn333::new(Front, Half),
-        Turn333::new(Back, Half),
+        Turn333::new(CubeFace::Up, Direction::Half),
+        Turn333::new(CubeFace::Down, Direction::Half),
+        Turn333::new(CubeFace::Right, Direction::Half),
+        Turn333::new(CubeFace::Left, Direction::Half),
+        Turn333::new(CubeFace::Front, Direction::Half),
+        Turn333::new(CubeFace::Back, Direction::Half),
     ],
     transitions: &finish_transitions(),
 };
@@ -167,8 +162,8 @@ pub fn fr_finish<'a>(table: &'a FRFinishPruningTable, fr_axis: Vec<CubeAxis>) ->
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant + 'a>> = match x {
                 CubeAxis::UD => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![], table, Rc::new(vec![]), ""))),
-                CubeAxis::FB => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, Rc::new(vec![]), ""))),
-                CubeAxis::LR => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, Rc::new(vec![]), ""))),
+                CubeAxis::FB => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), ""))),
+                CubeAxis::LR => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), ""))),
             };
             x
         })
@@ -192,8 +187,8 @@ pub fn htr_finish_leave_slice<'a>(table: &'a HTRLeaveSliceFinishPruningTable, sl
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant + 'a>> = match x {
                 CubeAxis::UD => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
-                CubeAxis::FB => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, Rc::new(vec![]), "fb"))),
-                CubeAxis::LR => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, Rc::new(vec![]), "lr"))),
+                CubeAxis::FB => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), "fb"))),
+                CubeAxis::LR => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), "lr"))),
             };
             x
         })
@@ -212,8 +207,8 @@ pub fn fr_finish_leave_slice<'a>(table: &'a FRFinishPruningTable, fr_axis: Vec<C
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant + 'a>> = match x {
                 CubeAxis::UD => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
-                CubeAxis::FB => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, Rc::new(vec![]), "fb"))),
-                CubeAxis::LR => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, Rc::new(vec![]), "lr"))),
+                CubeAxis::FB => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), "fb"))),
+                CubeAxis::LR => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), "lr"))),
             };
             x
         })
@@ -226,15 +221,15 @@ const fn finish_transitions() -> [TransitionTable333; 18] {
     let mut i = 0;
     let can_end_mask = TransitionTable333::ANY;
     while i < CubeFace::ALL.len() {
-        transitions[Turn333::new(CubeFace::ALL[i], Clockwise).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::Clockwise).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );
-        transitions[Turn333::new(CubeFace::ALL[i], Half).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::Half).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );
-        transitions[Turn333::new(CubeFace::ALL[i], CounterClockwise).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::CounterClockwise).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );

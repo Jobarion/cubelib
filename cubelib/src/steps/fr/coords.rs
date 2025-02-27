@@ -1,4 +1,4 @@
-use crate::puzzles::c333::{CornerCube333, Cube333, EdgeCube333};
+use crate::cube::*;
 use crate::steps::coord::Coord;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -202,8 +202,8 @@ impl From<&Cube333> for FRUDWithSliceCoord {
 mod avx2 {
     use std::arch::x86_64::{_mm_and_si128, _mm_broadcastb_epi8, _mm_castpd_si128, _mm_castsi128_pd, _mm_cmpeq_epi8, _mm_cmpgt_epi8, _mm_extract_epi16, _mm_movemask_epi8, _mm_or_si128, _mm_permute_pd, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_setr_epi8, _mm_shuffle_epi8, _mm_srli_epi32, _mm_xor_si128};
 
-    use crate::puzzles::c333::{CornerCube333, Cube333, EdgeCube333};
-    use crate::puzzles::c333::steps::fr::coords::{FRCPOrbitCoord, FREdgesCoord, FROrbitParityCoord, FRSliceEdgesCoord};
+    use crate::cube::{CornerCube333, Cube333, EdgeCube333};
+    use crate::steps::fr::coords::{FRCPOrbitCoord, FREdgesCoord, FROrbitParityCoord, FRSliceEdgesCoord};
 
     #[target_feature(enable = "avx2")]
     #[inline]
@@ -277,8 +277,8 @@ mod avx2 {
 mod neon {
     use std::arch::aarch64::{vaddv_u8, vaddvq_u8, vand_u8, vandq_u8, vceq_u8, vcgtq_s8, vcombine_u8, vdup_lane_u8, vdup_n_u8, vdupq_n_u8, veor_u8, vget_low_u8, vorr_u8, vqtbl1_u8, vreinterpretq_s8_u8, vshr_n_u8, vtbl1_u8};
 
-    use crate::puzzles::c333::{CornerCube333, Cube333, EdgeCube333};
-    use crate::puzzles::c333::steps::fr::coords::{FRCPOrbitCoord, FREdgesCoord, FROrbitParityCoord, FRSliceEdgesCoord};
+    use crate::cube::{CornerCube333, Cube333, EdgeCube333};
+    use crate::steps::fr::coords::{FRCPOrbitCoord, FREdgesCoord, FROrbitParityCoord, FRSliceEdgesCoord};
     use crate::simd_util::neon::{C16, C8, extract_most_significant_bits_u8};
 
     pub unsafe fn unsafe_from_fr_slice_coord(cube: &Cube333) -> FRSliceEdgesCoord {
@@ -337,8 +337,8 @@ mod neon {
 mod wasm32 {
     use std::arch::wasm32::{i32x4, i8x16, u32x4_shr, u64x2, u64x2_shuffle, u8x16, u8x16_bitmask, u8x16_eq, u8x16_extract_lane, u8x16_gt, u8x16_swizzle, v128_and, v128_or, v128_xor};
 
-    use crate::puzzles::c333::{CornerCube333, Cube333, EdgeCube333};
-    use crate::puzzles::c333::steps::fr::coords::{FRCPOrbitCoord, FREdgesCoord, FROrbitParityCoord, FRSliceEdgesCoord};
+    use crate::cube::{CornerCube333, Cube333, EdgeCube333};
+    use crate::steps::fr::coords::{FRCPOrbitCoord, FREdgesCoord, FROrbitParityCoord, FRSliceEdgesCoord};
     use crate::wasm_util::{mm_sad_epu8, u8x16_set1};
 
     #[inline]

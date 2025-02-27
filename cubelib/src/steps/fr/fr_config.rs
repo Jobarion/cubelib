@@ -2,36 +2,31 @@ use std::rc::Rc;
 use std::vec;
 
 use itertools::Itertools;
-
+use crate::cube::*;
 use crate::defs::*;
-use crate::puzzles::c333::{Transformation333, Turn333};
-use crate::puzzles::c333::steps::{MoveSet333, Step333};
-use crate::puzzles::c333::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
-use crate::puzzles::c333::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
-use crate::puzzles::cube::{CubeAxis, CubeFace};
-use crate::puzzles::cube::CubeFace::*;
-use crate::puzzles::cube::Direction::*;
 use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::TransitionTable333;
-use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, Step, StepVariant};
-use crate::steps::step::StepConfig;
+use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
+use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
+use crate::steps::{MoveSet333, Step333};
+use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, Step, StepConfig, StepVariant};
 
 pub const FR_UD_STATE_CHANGE_MOVES: &[Turn333] = &[
-    Turn333::new(Up, Half),
-    Turn333::new(Down, Half),
+    Turn333::new(CubeFace::Up, Direction::Half),
+    Turn333::new(CubeFace::Down, Direction::Half),
 ];
 
 pub const FR_UD_AUX_MOVES: &[Turn333] = &[
-    Turn333::new(Right, Half),
-    Turn333::new(Left, Half),
-    Turn333::new(Front, Half),
-    Turn333::new(Back, Half),
+    Turn333::new(CubeFace::Right, Direction::Half),
+    Turn333::new(CubeFace::Left, Direction::Half),
+    Turn333::new(CubeFace::Front, Direction::Half),
+    Turn333::new(CubeFace::Back, Direction::Half),
 ];
 
 pub const FR_UD_MOVESET: MoveSet333 = MoveSet333 {
     st_moves: FR_UD_STATE_CHANGE_MOVES,
     aux_moves: FR_UD_AUX_MOVES,
-    transitions: &fr_transitions(Up),
+    transitions: &fr_transitions(CubeFace::Up),
 };
 
 pub type FRLeaveSlicePruningTable = LookupTable<{ FRUD_NO_SLICE_SIZE }, FRUDNoSliceCoord>;
@@ -117,8 +112,8 @@ pub fn fr_no_slice<'a>(table: &'a FRLeaveSlicePruningTable, fr_axis: Vec<CubeAxi
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant + 'a>> = match x {
                 CubeAxis::UD => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
-                CubeAxis::FB => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, Rc::new(vec![]), "fb"))),
-                CubeAxis::LR => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, Rc::new(vec![]), "lr"))),
+                CubeAxis::FB => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), "fb"))),
+                CubeAxis::LR => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), "lr"))),
             };
             x
         })
@@ -132,8 +127,8 @@ pub fn fr<'a>(table: &'a FRPruningTable, fr_axis: Vec<CubeAxis>) -> Step333<'a> 
         .flat_map(move |x| {
             let x: Option<Box<dyn StepVariant + 'a>> = match x {
                 CubeAxis::UD => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
-                CubeAxis::FB => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Clockwise)], table, Rc::new(vec![]), "fb"))),
-                CubeAxis::LR => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Clockwise)], table, Rc::new(vec![]), "lr"))),
+                CubeAxis::FB => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), "fb"))),
+                CubeAxis::LR => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), "lr"))),
             };
             x
         })
@@ -145,19 +140,19 @@ const fn fr_transitions(axis_face: CubeFace) -> [TransitionTable333; 18] {
     let mut transitions = [TransitionTable333::new(0, 0); 18];
     let mut i = 0;
     let can_end_mask = TransitionTable333::moves_to_mask([
-        Turn333::new(axis_face, Half),
-        Turn333::new(axis_face.opposite(), Half),
+        Turn333::new(axis_face, Direction::Half),
+        Turn333::new(axis_face.opposite(), Direction::Half),
     ]);
     while i < CubeFace::ALL.len() {
-        transitions[Turn333::new(CubeFace::ALL[i], Clockwise).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::Clockwise).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );
-        transitions[Turn333::new(CubeFace::ALL[i], Half).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::Half).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );
-        transitions[Turn333::new(CubeFace::ALL[i], CounterClockwise).to_id()] = TransitionTable333::new(
+        transitions[Turn333::new(CubeFace::ALL[i], Direction::CounterClockwise).to_id()] = TransitionTable333::new(
             TransitionTable333::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize],
             can_end_mask,
         );

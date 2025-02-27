@@ -2,9 +2,9 @@ use std::time::SystemTime;
 
 use base64::Engine;
 use cubelib::algs::Algorithm;
-use cubelib::puzzles::c333::Cube333;
-use cubelib::puzzles::c333::steps::tables::PruningTables333;
-use cubelib::puzzles::puzzle::{ApplyAlgorithm, InvertibleMut};
+use cubelib::cube::Cube333;
+use cubelib::cube::turn::{ApplyAlgorithm, InvertibleMut};
+use cubelib::steps::tables::PruningTables333;
 use cubelib::steps::step::StepConfig;
 
 pub type Connection = r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>;

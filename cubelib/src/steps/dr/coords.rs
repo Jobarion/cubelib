@@ -1,5 +1,4 @@
-use crate::puzzles::c333::{Cube333, EdgeCube333};
-use crate::puzzles::cube::CubeCornersOdd;
+use crate::cube::{CornerCube333, Cube333, EdgeCube333};
 use crate::steps::coord::Coord;
 
 //UD corner orientation
@@ -53,23 +52,22 @@ impl Into<usize> for DRUDEOFBCoord {
     }
 }
 
-#[cfg(feature = "cubic-odd")]
-impl From<&CubeCornersOdd> for COUDCoord {
+impl From<&CornerCube333> for COUDCoord {
     #[inline]
     #[cfg(target_feature = "avx2")]
-    fn from(value: &CubeCornersOdd) -> Self {
+    fn from(value: &CornerCube333) -> Self {
         unsafe { avx2::unsafe_from_cocoord(value.0) }
     }
 
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    fn from(value: &CubeCornersOdd) -> Self {
+    fn from(value: &CornerCube333) -> Self {
         wasm32::from_cocoord(value)
     }
 
     #[inline]
     #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
-    fn from(value: &CubeCornersOdd) -> Self {
+    fn from(value: &CornerCube333) -> Self {
         unsafe { neon::unsafe_from_cocoord(value) }
     }
 }
@@ -106,11 +104,11 @@ impl From<&Cube333> for DRUDEOFBCoord {
 
 #[cfg(target_feature = "avx2")]
 mod avx2 {
-    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_slli_si128, _mm_srli_epi32, _mm_sub_epi8};
+    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_srli_epi32, _mm_sub_epi8};
 
-    use crate::puzzles::c333::EdgeCube333;
-    use crate::puzzles::c333::steps::dr::coords::{COUDCoord, UDSliceUnsortedCoord};
+    use crate::cube::EdgeCube333;
     use crate::simd_util::avx2::C;
+    use crate::steps::dr::coords::{COUDCoord, UDSliceUnsortedCoord};
 
     const UD_SLICE_BINOM_0_ARR: [u8; 16] = [
         b(0, 0), b(0, 1), b(0, 2), b(0, 3),
@@ -182,43 +180,30 @@ mod avx2 {
 
             let non_slice_edge_mask = _mm_cmpeq_epi8(slice_edges, _mm_set1_epi8(0));
 
-            let e0123 = _mm_shuffle_epi8(
+            let edge_sums = _mm_add_epi8(slice_edges, _mm_shuffle_epi8(
                 slice_edges,
-                _mm_setr_epi8( 0, 0, 0, 0, -1, 1, 1, 1, -1, -1, 2, 2, -1, -1, -1,3),
-            );
-            let e4567 = _mm_shuffle_epi8(
-                slice_edges,
-                _mm_setr_epi8( 4, 4, 4, 4, -1, 5, 5, 5, -1, -1, 6, 6, -1, -1, -1,7),
-            );
-            let e891011 = _mm_shuffle_epi8(
-                slice_edges,
-                _mm_setr_epi8( 8, 8, 8, 8, -1, 9, 9, 9, -1, -1, 10, 10, -1, -1, -1,11),
-            );
+                _mm_setr_epi8(-1, 0, 1, 2, -1, 4, 5, 6, -1, 8, 9, 10, -1, -1, -1 ,-1),
+            ));
 
-            let hadd = _mm_hadd_epi32(e0123, e4567);
-            let hadd = _mm_hadd_epi32(hadd, e891011);
-            let hadd0123 = _mm_and_si128(hadd, _mm_setr_epi32( -1, 0, 0,0));
+            let edge_sums = _mm_add_epi8(edge_sums, _mm_shuffle_epi8(
+                edge_sums,
+                _mm_setr_epi8(-1, -1, 0, 1, -1, -1, 4, 5, -1, -1, 8, 9, -1, -1, -1, -1),
+            ));
 
-            let hadd4567891011 = _mm_hadd_epi32(
-                _mm_shuffle_epi8(
-                    hadd,
-                    _mm_setr_epi8( 3, 3, 3, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,15),
-                ),
-                _mm_set1_epi8(0),
-            );
-            let hadd4567891011 = _mm_add_epi8(
-                hadd4567891011,
-                _mm_shuffle_epi8(
-                    hadd4567891011,
-                    _mm_setr_epi8( 15, 15, 15, 15, 3, 3, 3, 3, -1, -1, -1, -1, -1, -1, -1,-1),
-                ),
-            );
+            let edge_sums = _mm_add_epi8(edge_sums, _mm_shuffle_epi8(
+                edge_sums,
+                _mm_setr_epi8(-1, -1, -1, -1, 3 , 3, 3, 3, -1, -1, -1, -1, -1, -1, -1, -1),
+            ));
 
-            let hadd = _mm_or_si128(_mm_slli_si128::<4>(hadd4567891011), hadd0123);
-            let hadd = _mm_and_si128(hadd, non_slice_edge_mask);
+            let edge_sums = _mm_add_epi8(edge_sums, _mm_shuffle_epi8(
+                edge_sums,
+                _mm_setr_epi8(-1, -1, -1, -1, -1, -1, -1, -1, 7, 7, 7, 7, -1, -1, -1, -1),
+            ));
+
+            let non_slice_edge_sums = _mm_and_si128(edge_sums, non_slice_edge_mask);
 
             let lut_index = _mm_and_si128(
-                _mm_sub_epi8(hadd, _mm_set1_epi8(1)),
+                _mm_sub_epi8(non_slice_edge_sums, _mm_set1_epi8(1)),
                 _mm_set1_epi8(0b10001111_u8 as i8),
             );
             let lut_index = _mm_add_epi8(
@@ -267,10 +252,9 @@ mod avx2 {
 mod neon {
     use std::arch::aarch64::{uint16x8_t, uint8x16_t, vaddq_u8, vaddvq_u16, vand_u8, vandq_u8, vceqq_u8, vcombine_u8, vdup_n_u8, vdupq_n_u8, vmulq_u16, vorrq_u8, vqtbl1q_u8, vreinterpretq_u16_u8, vshrq_n_u8, vsubq_u8, vzip1q_u8, vzip2q_u8};
 
-    use crate::puzzles::c333::EdgeCube333;
-    use crate::puzzles::c333::steps::dr::coords::{COUDCoord, UDSliceUnsortedCoord};
-    use crate::puzzles::cube::CubeCornersOdd;
+    use crate::cube::{CornerCube333, EdgeCube333};
     use crate::simd_util::neon::C16;
+    use crate::steps::dr::coords::{COUDCoord, UDSliceUnsortedCoord};
 
     const UD_SLICE_BINOM_0_ARR: [u8; 16] = [
         b(0, 0), b(0, 1), b(0, 2), b(0, 3),
@@ -297,7 +281,7 @@ mod neon {
 
     const CO_MUL: uint16x8_t = unsafe { C16 { a_u16: [1, 3, 9, 27, 81, 243, 729, 0] }.a_16 };
 
-    pub(crate) unsafe fn unsafe_from_cocoord(value: &CubeCornersOdd) -> COUDCoord {
+    pub(crate) unsafe fn unsafe_from_cocoord(value: &CornerCube333) -> COUDCoord {
         //Spread co data out into 16bit values to avoid overflow later
         let co = vand_u8(value.0, vdup_n_u8(0b11));
         let co = vreinterpretq_u16_u8(vzip1q_u8(vcombine_u8(co, co), vdupq_n_u8(0)));
@@ -412,9 +396,9 @@ mod neon {
 mod wasm32 {
     use std::arch::wasm32::{i32x4, i8x16, u16x8, u16x8_extract_lane, u16x8_mul, u32x4_shr, u32x4_shuffle, u8x16, u8x16_add, u8x16_eq, u8x16_sub, u8x16_swizzle, v128, v128_and, v128_or};
 
-    use crate::puzzles::c333::EdgeCube333;
-    use crate::puzzles::c333::steps::dr::coords::{COUDCoord, UDSliceUnsortedCoord};
+    use crate::cube::EdgeCube333;
     use crate::puzzles::cube::CubeCornersOdd;
+    use crate::steps::dr::coords::{COUDCoord, UDSliceUnsortedCoord};
     use crate::wasm_util::{complete_hsum_epi16, hsum_narrow_epi32, hsum_wide_epi32, mm_sad_epu8, u8x16_set1};
 
     const UD_SLICE_BINOM_0: v128 = u8x16(

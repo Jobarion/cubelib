@@ -8,25 +8,19 @@ use itertools::Itertools;
 use log::{debug, error};
 
 use crate::algs::Algorithm;
-use crate::co::COCountUD;
+use crate::steps::dr::co::COCountUD;
 use crate::defs::*;
-use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
-use crate::puzzles::c333::steps::{MoveSet333, Step333};
-use crate::puzzles::c333::steps::dr::coords::DRUDEOFBCoord;
-use crate::puzzles::c333::steps::dr::dr_config::{DR_UD_EO_FB_MOVES, DR_UD_EO_FB_MOVESET, DR_UD_EO_FB_STATE_CHANGE_MOVES, DRPruningTable, HTR_DR_UD_MOVESET};
-use crate::puzzles::c333::steps::eo::coords::{BadEdgeCount, EOCoordFB};
-
+use crate::cube::*;
+use crate::cube::turn::{TransformableMut, TurnableMut};
 #[cfg(feature = "333htr")]
-use crate::puzzles::c333::steps::htr::htr_config::HTRSubsetTable;
-#[cfg(feature = "333htr")]
-use crate::puzzles::c333::steps::htr::subsets::dr_subset_filter;
-use crate::puzzles::cube::CubeAxis;
-use crate::puzzles::cube::Direction::{Clockwise, Half};
-use crate::puzzles::puzzle::{TransformableMut, TurnableMut};
+use crate::steps::htr::htr_config::HTRSubsetTable;
 use crate::solver::moveset::TransitionTable333;
+use crate::steps::dr::dr_config::{DR_UD_EO_FB_MOVES, DR_UD_EO_FB_MOVESET, DR_UD_EO_FB_STATE_CHANGE_MOVES, DRPruningTable, HTR_DR_UD_MOVESET};
+use crate::steps::{MoveSet333, Step333};
 use crate::steps::coord::Coord;
-use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepVariant};
-use crate::steps::step::StepConfig;
+use crate::steps::dr::coords::DRUDEOFBCoord;
+use crate::steps::eo::coords::{BadEdgeCount, EOCoordFB};
+use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepConfig, StepVariant};
 
 pub const DR_UD_EO_FB_TRIGGER_MOVESET: MoveSet333 = MoveSet333 {
     st_moves: DR_UD_EO_FB_STATE_CHANGE_MOVES,
@@ -49,7 +43,7 @@ pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")
     #[cfg(feature = "333htr")]
     let post_step_filters: Vec<Box<dyn PostStepCheck>> = config.params.remove("subsets")
         .map(|x|x.split(",").map(|x|x.to_string()).collect_vec())
-        .and_then(|subsets|dr_subset_filter(subset_table, &subsets))
+        .and_then(|subsets| crate::steps::htr::subsets::dr_subset_filter(subset_table, &subsets))
         .map(|filter|{
             let b: Box<dyn PostStepCheck + 'a> = Box::new(filter);
             vec![b]
@@ -260,7 +254,7 @@ fn generate_trigger_variations(mut trigger: Algorithm) -> Vec<Vec<Turn333>> {
         return vec![];
     }
     if let Some(last) = trigger.normal_moves.last() {
-        if !last.face.is_on_axis(CubeAxis::LR) || last.dir == Half {
+        if !last.face.is_on_axis(CubeAxis::LR) || last.dir == Direction::Half {
             error!("DRUD triggers should end with R R' L or L'");
             return vec![];
         }
@@ -270,26 +264,26 @@ fn generate_trigger_variations(mut trigger: Algorithm) -> Vec<Vec<Turn333>> {
     };
     let mut triggers: Vec<Vec<Turn333>> = vec![];
     triggers.push(trigger.normal_moves.clone());
-    trigger.transform(Transformation333::new(CubeAxis::UD, Half));
+    trigger.transform(Transformation333::new(CubeAxis::UD, Direction::Half));
     triggers.push(trigger.normal_moves.clone());
-    trigger.transform(Transformation333::new(CubeAxis::FB, Half));
+    trigger.transform(Transformation333::new(CubeAxis::FB, Direction::Half));
     triggers.push(trigger.normal_moves.clone());
-    trigger.transform(Transformation333::new(CubeAxis::UD, Half));
+    trigger.transform(Transformation333::new(CubeAxis::UD, Direction::Half));
     triggers.push(trigger.normal_moves.clone());
-    trigger.transform(Transformation333::new(CubeAxis::FB, Half));
+    trigger.transform(Transformation333::new(CubeAxis::FB, Direction::Half));
     trigger.mirror(CubeAxis::LR);
     triggers.push(trigger.normal_moves.clone());
-    trigger.transform(Transformation333::new(CubeAxis::UD, Half));
+    trigger.transform(Transformation333::new(CubeAxis::UD, Direction::Half));
     triggers.push(trigger.normal_moves.clone());
-    trigger.transform(Transformation333::new(CubeAxis::FB, Half));
+    trigger.transform(Transformation333::new(CubeAxis::FB, Direction::Half));
     triggers.push(trigger.normal_moves.clone());
-    trigger.transform(Transformation333::new(CubeAxis::UD, Half));
+    trigger.transform(Transformation333::new(CubeAxis::UD, Direction::Half));
     triggers.push(trigger.normal_moves.clone());
 
     triggers.into_iter()
         .map(|mut moves| {
             let last = moves.len() - 1;
-            moves[last] = Turn333::new(moves[last].face, Clockwise);
+            moves[last] = Turn333::new(moves[last].face, Direction::Clockwise);
             moves
         })
         .unique()
@@ -303,7 +297,7 @@ pub fn filter_dr_trigger(alg: &Algorithm, triggers: &Vec<Vec<Turn333>>) -> bool 
     if !temp_alg.normal_moves.is_empty() {
         let last_id = temp_alg.normal_moves.len() - 1;
         let last = temp_alg.normal_moves[last_id];
-        temp_alg.normal_moves[last_id] = Turn333::new(last.face, if last.dir == Half { Half } else {Clockwise});
+        temp_alg.normal_moves[last_id] = Turn333::new(last.face, if last.dir == Direction::Half { Direction::Half } else {Direction::Clockwise});
         let normal_match = triggers.iter()
             .any(|trigger|temp_alg.normal_moves.ends_with(trigger));
         if normal_match {
@@ -313,7 +307,7 @@ pub fn filter_dr_trigger(alg: &Algorithm, triggers: &Vec<Vec<Turn333>>) -> bool 
     if !temp_alg.inverse_moves.is_empty() {
         let last_id = temp_alg.inverse_moves.len() - 1;
         let last = temp_alg.inverse_moves[last_id];
-        temp_alg.inverse_moves[last_id] = Turn333::new(last.face, if last.dir == Half { Half } else {Clockwise});
+        temp_alg.inverse_moves[last_id] = Turn333::new(last.face, if last.dir == Direction::Half { Direction::Half } else {Direction::Clockwise});
         let inverse_match = triggers.iter()
             .any(|trigger|temp_alg.inverse_moves.ends_with(trigger));
         if inverse_match {

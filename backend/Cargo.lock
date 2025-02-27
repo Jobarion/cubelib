@@ -537,13 +537,13 @@ name = "cubelib"
 version = "1.4.0"
 dependencies = [
  "home",
- "itertools 0.11.0",
+ "itertools 0.14.0",
  "log",
  "num-derive",
  "num-traits",
  "rand 0.9.0",
  "serde",
- "simple_logger",
+ "simple_logger 5.0.0",
  "tinyset",
 ]
 
@@ -567,7 +567,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "simple_logger",
+ "simple_logger 4.3.3",
 ]
 
 [[package]]
@@ -1053,18 +1053,18 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.11.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
 dependencies = [
  "either",
 ]
 
 [[package]]
 name = "itertools"
-version = "0.12.1"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
 dependencies = [
  "either",
 ]
@@ -1705,6 +1705,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "simple_logger"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8c5dfa5e08767553704aa0ffd9d9794d527103c736aba9854773851fd7497eb"
+dependencies = [
+ "colored",
+ "log",
+ "time",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1828,9 +1840,9 @@ dependencies = [
 
 [[package]]
 name = "tinyset"
-version = "0.4.16"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04fbfff0fe34d26ff3b4e8af3f988a2fa3b4a39143cc93db768e035b0e9f9101"
+checksum = "deb8b0efd7ec26d8a7dec5e87c73962b650f2b06c63b9417eb620b0f54e71784"
 dependencies = [
  "rand 0.8.5",
 ]

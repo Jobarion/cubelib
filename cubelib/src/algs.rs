@@ -3,8 +3,8 @@ use std::ops::Add;
 use std::str::FromStr;
 
 use itertools::Itertools;
-use crate::puzzles::c333::{Transformation333, Turn333};
-use crate::puzzles::puzzle::{Invertible, Transformable, TransformableMut, TurnableMut};
+use crate::cube::*;
+use crate::cube::turn::{Invertible, Transformable, TransformableMut, TurnableMut};
 
 #[derive(PartialEq, Eq, Hash)]
 //This is a pretty bad serialization format. We can do better if Turn is FromStr, but right now that's not enforced.
@@ -83,9 +83,8 @@ impl Algorithm {
     }
 }
 
-#[cfg(feature = "333")]
 impl Algorithm {
-    pub fn mirror(&mut self, axis: crate::puzzles::cube::CubeAxis) {
+    pub fn mirror(&mut self, axis: CubeAxis) {
         self.normal_moves = self
             .normal_moves
             .iter()
@@ -181,45 +180,3 @@ impl TransformableMut for Algorithm {
             .collect_vec();
     }
 }
-
-// #[cfg(feature = "serde_support")]
-// mod serde_support {
-//     use std::fmt::{Display, Formatter};
-//     use std::marker::PhantomData;
-//     use std::str::FromStr;
-//
-//     use serde::{Deserialize, Deserializer, Serialize, Serializer};
-//     use serde::de::{Error, Visitor};
-//
-//     use crate::algs::Algorithm;
-//     use crate::puzzles::puzzle::PuzzleMove;
-//
-//     impl <T: PuzzleMove + Display> Serialize for Algorithm<T> {
-//         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-//             serializer.serialize_str(self.to_string().as_str())
-//         }
-//     }
-//
-//     struct AlgVisitor<T: PuzzleMove>(PhantomData<T>);
-//
-//     impl<'de, T: PuzzleMove + FromStr<Err = ()>> Visitor<'de> for AlgVisitor<T> {
-//         type Value = Algorithm<T>;
-//
-//         fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-//             formatter.write_str("An algorithm in string format")
-//         }
-//
-//         fn visit_str<E>(self, v: &str) -> Result<Self::Value, E> where E: Error {
-//             Algorithm::<T>::from_str(v).map_err(|_| E::custom("Failed to parse algorithm string"))
-//         }
-//     }
-//
-//     impl<'de, T: PuzzleMove + FromStr<Err = ()>> Deserialize<'de> for Algorithm<T> {
-//         fn deserialize<D>(deserializer: D) -> Result<Algorithm<T>, D::Error>
-//             where
-//                 D: Deserializer<'de>,
-//         {
-//             deserializer.deserialize_str(AlgVisitor(PhantomData::default()))
-//         }
-//     }
-// }

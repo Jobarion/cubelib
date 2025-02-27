@@ -1,14 +1,12 @@
-#[cfg(feature = "cubic-odd")]
-mod cube_corners;
-#[cfg(feature = "cubic-odd")]
-mod cube_edges;
-
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Index, IndexMut};
 use std::str::FromStr;
-use crate::puzzles::cube::Direction::*;
-use crate::puzzles::cube::CubeFace::*;
-use crate::puzzles::puzzle::{Invertible, Transformable};
+
+use crate::algs::Algorithm;
+use crate::cube::{Transformation333, Turn333};
+
+use crate::cube::turn::CubeFace::*;
+use crate::cube::turn::Direction::*;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
@@ -17,11 +15,6 @@ pub struct CubeOuterTurn {
     pub face: CubeFace,
     pub dir: Direction,
 }
-
-#[cfg(feature = "cubic-odd")]
-pub use cube_corners::CubeCornersOdd;
-#[cfg(feature = "cubic-odd")]
-pub use cube_edges::CenterEdgeCube;
 
 impl CubeOuterTurn {
     pub fn all() -> &'static [Self] {
@@ -33,13 +26,42 @@ impl CubeOuterTurn {
     }
 }
 
-impl CubeTransformation {
-    pub fn all() -> &'static [Self] {
-        &Self::ALL
-    }
+pub trait TransformableMut {
+    fn transform(&mut self, transformation: Transformation333);
+}
 
-    pub fn is_same_type(&self, other: &Self) -> bool {
-        self.axis == other.axis
+pub trait Transformable {
+    fn transform(&self, transformation: Transformation333) -> Self;
+}
+
+pub trait TurnableMut {
+    fn turn(&mut self, turn: Turn333);
+}
+
+pub trait InvertibleMut {
+    fn invert(&mut self);
+}
+
+pub trait Invertible {
+    fn invert(&self) -> Self;
+}
+
+pub trait ApplyAlgorithm {
+    fn apply_alg(&mut self, alg: &Algorithm);
+}
+
+impl<C: TurnableMut + InvertibleMut> ApplyAlgorithm for C {
+    fn apply_alg(&mut self, alg: &Algorithm) {
+        for m in &alg.normal_moves {
+            self.turn(*m);
+        }
+        if !alg.inverse_moves.is_empty() {
+            self.invert();
+            for m in &alg.inverse_moves {
+                self.turn(*m);
+            }
+            self.invert();
+        }
     }
 }
 
@@ -398,42 +420,14 @@ impl<T, const N: usize> Index<CubeAxis> for [T; N] {
 
 #[derive(Debug, Clone, Copy)]
 pub enum CubeColor {
-    White = 0,
-    Yellow = 1,
-    Green = 2,
-    Blue = 3,
-    Orange = 4,
-    Red = 5,
+     White = 0,
+     Yellow = 1,
+     Green = 2,
+     Blue = 3,
+     Orange = 4,
+     Red = 5,
 
     None = 6,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum CornerPosition {
-    UBL = 0,
-    UBR = 1,
-    UFR = 2,
-    UFL = 3,
-    DFL = 4,
-    DFR = 5,
-    DBR = 6,
-    DBL = 7,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum EdgePosition {
-    UB = 0,
-    UR = 1,
-    UF = 2,
-    UL = 3,
-    FR = 4,
-    FL = 5,
-    BR = 6,
-    BL = 7,
-    DF = 8,
-    DR = 9,
-    DB = 10,
-    DL = 11,
 }
 
 #[derive(Debug, Clone, Copy)]

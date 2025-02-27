@@ -1,4 +1,4 @@
-use crate::puzzles::c333::{CornerCube333, Cube333, EdgeCube333};
+use crate::cube::*;
 use crate::steps::coord::Coord;
 
 //Coordinate representing the position of edges that belong into the FB slice, assuming the UD slice is already correct.
@@ -142,8 +142,8 @@ impl From<&Cube333> for HTRDRUDCoord {
 mod avx2 {
     use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi32, _mm_movemask_epi8, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi8, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_slli_epi16, _mm_slli_epi32, _mm_srli_epi32, _mm_srli_epi64, _mm_sub_epi8};
 
-    use crate::puzzles::c333::{CornerCube333, EdgeCube333};
-    use crate::puzzles::c333::steps::htr::coords::{CPOrbitTwistCoord, CPOrbitUnsortedCoord, FBSliceUnsortedCoord};
+    use crate::cube::{CornerCube333, EdgeCube333};
+    use crate::steps::htr::coords::{CPOrbitTwistCoord, CPOrbitUnsortedCoord, FBSliceUnsortedCoord};
     use crate::simd_util::avx2::C;
 
     const UD_SLICE_BINOM_0_ARR: [u8; 16] = [
@@ -387,8 +387,8 @@ mod avx2 {
 mod neon {
     use std::arch::aarch64::{uint8x16_t, uint8x8_t, vadd_u8, vaddv_u8, vand_u8, vandq_u8, vceq_u8, vceqq_u8, vcombine_u8, vdup_n_u8, vdupq_n_u8, vget_high_u8, vget_lane_u8, vget_low_u8, vorr_u32, vorr_u8, vorrq_u8, vqtbl1_u8, vqtbl1q_u8, vreinterpret_u32_u8, vreinterpret_u8_u32, vshl_n_u8, vshr_n_u32, vshr_n_u8, vshrq_n_u8, vsub_u8, vtbl1_u8};
 
-    use crate::puzzles::c333::{CornerCube333, EdgeCube333};
-    use crate::puzzles::c333::steps::htr::coords::{CPOrbitTwistCoord, CPOrbitUnsortedCoord, FBSliceUnsortedCoord};
+    use crate::cube::{CornerCube333, EdgeCube333};
+    use crate::steps::htr::coords::{CPOrbitTwistCoord, CPOrbitUnsortedCoord, FBSliceUnsortedCoord};
     use crate::simd_util::neon::{C16, C8, extract_most_significant_bits_u8};
 
     const UD_SLICE_BINOM_0_ARR: [u8; 16] = [
@@ -631,8 +631,8 @@ mod neon {
 mod wasm32 {
     use std::arch::wasm32::{i32x4, i8x16, u16x8, u16x8_extract_lane, u16x8_mul, u32x4_shl, u32x4_shr, u32x4_shuffle, u64x2, u64x2_extract_lane, u8x16, u8x16_add, u8x16_bitmask, u8x16_eq, u8x16_extract_lane, u8x16_lt, u8x16_sub, u8x16_swizzle, v128, v128_and, v128_or, v128_xor};
 
-    use crate::puzzles::c333::{CornerCube333, EdgeCube333};
-    use crate::puzzles::c333::steps::htr::coords::{CPCoord, CPOrbitTwistCoord, CPOrbitUnsortedCoord, FBSliceUnsortedCoord, ParityCoord};
+    use crate::cube::{CornerCube333, EdgeCube333};
+    use crate::steps::htr::coords::{CPOrbitTwistCoord, CPOrbitUnsortedCoord, FBSliceUnsortedCoord};
     use crate::wasm_util::{hsum_narrow_epi16, hsum_narrow_epi32, hsum_wide_epi32, mm_sad_epu8, u8x16_set1};
 
     const UD_SLICE_BINOM_0: v128 = u8x16(

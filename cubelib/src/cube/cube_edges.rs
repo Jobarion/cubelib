@@ -1,5 +1,4 @@
-use crate::puzzles::cube::{CubeOuterTurn, CubeTransformation, Edge};
-use crate::puzzles::puzzle::{InvertibleMut, TransformableMut, TurnableMut};
+use crate::cube::turn::{CubeOuterTurn, CubeTransformation, Edge, InvertibleMut, TransformableMut, TurnableMut};
 
 //One byte per edge, 4 bits for id, 3 bits for eo (UD/FB/RL), 1 bit free
 //UB UR UF UL FR FL BR BL DF DR DB DL
@@ -235,7 +234,8 @@ mod avx2 {
         _mm_store_si128, _mm_xor_si128,
     };
 
-    use crate::puzzles::cube::{CenterEdgeCube, CubeAxis, CubeFace, Direction, Edge};
+    use crate::cube::{CubeAxis, CubeFace, Direction, Edge};
+    use crate::cube::cube_edges::CenterEdgeCube;
     use crate::simd_util::{AlignedU64, AlignedU8};
     use crate::simd_util::avx2::C;
 
@@ -440,7 +440,8 @@ mod avx2 {
 mod neon {
     use std::arch::aarch64::{uint8x16_t, vandq_u8, vdupq_n_u8, veorq_u8, vld1q_u8, vorrq_u8, vqtbl1q_u8, vreinterpretq_u64_u8, vshlq_n_u8, vshrq_n_u8, vst1q_u64, vst1q_u8};
 
-    use crate::puzzles::cube::{CenterEdgeCube, CubeAxis, CubeFace, Direction, Edge};
+    use crate::cube::{CubeAxis, CubeFace, Direction, Edge};
+    use crate::cube::cube_edges::CenterEdgeCube;
     use crate::simd_util::{AlignedU64, AlignedU8};
     use crate::simd_util::neon::C16;
 
@@ -632,7 +633,8 @@ mod wasm32 {
         v128_store, v128_xor,
     };
 
-    use crate::puzzles::cube::{CenterEdgeCube, CubeAxis, CubeFace, Direction, Edge};
+    use crate::cube::{CubeAxis, CubeFace, Direction, Edge};
+    use crate::cube::cube_edges::CenterEdgeCube;
     use crate::wasm_util::u8x16_set1;
 
     //UB UR UF UL FR FL BR BL DF DR DB DL

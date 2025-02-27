@@ -5,18 +5,19 @@ use itertools::Itertools;
 use log::{debug, trace, warn};
 use tinyset::Set64;
 use crate::algs::Algorithm;
-use crate::puzzles::c333::{Cube333, Turn333};
-use crate::puzzles::c333::steps::dr::coords::DRUDEOFBCoord;
-use crate::puzzles::c333::steps::htr::coords::HTRDRUDCoord;
-use crate::puzzles::c333::steps::htr::htr_config::{HTR_DR_UD_MOVESET, HTRPruningTable, HTRSubsetTable};
-use crate::puzzles::c333::util::expand_subset_name;
-use crate::puzzles::cube::{Direction};
-use crate::puzzles::puzzle::{ApplyAlgorithm, InvertibleMut, TurnableMut};
+use crate::cube::*;
+use crate::cube::Cube333;
+use crate::cube::turn::{ApplyAlgorithm, InvertibleMut, TurnableMut};
 use crate::steps::coord::Coord;
+use crate::steps::dr::coords::DRUDEOFBCoord;
+use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
+use crate::steps::htr::coords::HTRDRUDCoord;
+use crate::steps::htr::htr_config::{HTRPruningTable, HTRSubsetTable};
 use crate::steps::step::{PostStepCheck, PreStepCheck};
+use crate::steps::util::expand_subset_name;
 
-pub type Subset = crate::puzzles::c333::util::Subset;
-pub const DR_SUBSETS: [Subset; 48] = crate::puzzles::c333::util::DR_SUBSETS;
+pub type Subset = crate::steps::util::Subset;
+pub const DR_SUBSETS: [Subset; 48] = crate::steps::util::DR_SUBSETS;
 
 #[derive(Clone)]
 pub struct DRSubsetFilter<'a>(&'a HTRSubsetTable, Set64<u8>);

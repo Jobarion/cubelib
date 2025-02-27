@@ -6,7 +6,7 @@ use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::TransitionTable333;
 use crate::puzzles::c333::{Cube333, Transformation333, Turn333};
 use crate::puzzles::c333::steps::{MoveSet333, Step333};
-use crate::puzzles::c333::steps::eo::coords::EOCoordFB;
+use crate::puzzles::c333::steps::eo::coords::{BadEdgeCount, EOCoordFB};
 use crate::puzzles::cube::{CubeAxis, CubeFace, CubeOuterTurn};
 use crate::puzzles::cube::CubeFace::*;
 use crate::puzzles::cube::Direction::*;
@@ -45,6 +45,7 @@ pub const EO_FB_MOVESET: MoveSet333 = MoveSet333 {
 
 pub const EO_UD_PRE_TRANS: [Transformation333; 1] = [Transformation333::new(CubeAxis::X, Clockwise)];
 pub const EO_LR_PRE_TRANS: [Transformation333; 1] = [Transformation333::new(CubeAxis::Y, Clockwise)];
+const BAD_EDGE_HEURISTIC: [u8; 7] = [0, 2, 1, 2, 2, 3, 3];
 
 pub type EOPruningTable = LookupTable<2048, EOCoordFB>;
 
@@ -158,7 +159,8 @@ impl StepVariant for EOStepTable<'_> {
 
     fn heuristic(&self, cube: &Cube333, _: u8, can_niss: bool) -> u8 {
         if can_niss {
-            1
+            let fb_edges = cube.edges.count_bad_edges_fb();
+            BAD_EDGE_HEURISTIC[(fb_edges >> 1) as usize]
         } else {
             let coord = EOCoordFB::from(cube);
             self.table.get(coord)

@@ -231,12 +231,12 @@ mod avx2 {
         let higher_left_e12 = _mm_and_si128(_mm_cmplt_epi8(values_e12, cmp_values), _mm_set1_epi8(1));
 
         println!("{higher_left_246:?}");
-        println!("{values_e12:?}");
-        println!("{cmp_values:?}");
         println!("{higher_left_e12:?}");
 
         let sum = _mm_hadd_epi32(higher_left_246, higher_left_e12);
         let sum = _mm_hadd_epi32(sum, _mm_set1_epi8(0));
+        println!("{sum:?}");
+
         let sum = _mm_or_si128(sum, _mm_shuffle_epi8(orbit_corners, _mm_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, -1, -1, -1)));
         let sum = _mm_shuffle_epi8(sum, _mm_set_epi8(
             -1,-1,-1,-1,
@@ -353,7 +353,7 @@ mod neon {
 
         let combined = vcombine_u8(higher_left_246, higher_left_e12);
         let sum = vaddq_u8(combined, vqtbl1q_u8(combined, C16{ a_i8: [-1, 3, 4, -1, -1, -1, -1, -1, -1, 11, 12, -1, -1, -1, -1, -1]}.a));
-        let sum = vaddq_u8(sum, vqtbl1q_u8(sum, C16{ a_i8: [-1, 1, 5, -1, -1, -1, -1, -1, -1, 9, 13, -1, -1, -1, -1, -1]}.a));
+        let sum = vaddq_u8(sum, vqtbl1q_u8(sum, C16{ a_i8: [-1, -1, 5, -1, -1, -1, -1, -1, -1, -1, 13, -1, -1, -1, -1, -1]}.a));
         let sum = vqtbl1q_u8(sum, C16{ a_i8: [0, -1, 1, 2, 8, 9, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1]}.a);
         let sum = vorrq_u8(sum, vcombine_u8(vand_u8(orbit_corners, C8{ a_i8: [0, -1, 0, 0, 0, 0, 0, 0]}.a), vdup_n_u8(0)));
         let sum = vreinterpretq_u16_u8(vzip1q_u8(sum, vdupq_n_u8(0)));
@@ -365,7 +365,7 @@ mod neon {
         let higher_left_m123s123 = vandq_u8(vcltq_u8(values_m123s123, cmp_values), vdupq_n_u8(1));
 
         let sum = vaddq_u8(higher_left_m123s123, vqtbl1q_u8(higher_left_m123s123, C16{ a_i8: [-1, 3, 4, -1, -1, -1, -1, -1, -1, 11, 12, -1, -1, -1, -1, -1]}.a));
-        let sum = vaddq_u8(sum, vqtbl1q_u8(sum, C16{ a_i8: [-1, 1, 5, -1, -1, -1, -1, -1, -1, 9, 13, -1, -1, -1, -1, -1]}.a));
+        let sum = vaddq_u8(sum, vqtbl1q_u8(sum, C16{ a_i8: [-1, -1, 5, -1, -1, -1, -1, -1, -1, -1, 13, -1, -1, -1, -1, -1]}.a));
 
         let sum = vreinterpretq_u16_u8(vqtbl1q_u8(sum, C16{ a_i8: [0, -1, 1, -1, 2, -1, 8, -1, 9, -1, 10, -1, -1, -1, -1, -1]}.a));
         let binom = vmulq_u16(sum, C16{ a_u16: [6, 2, 1, 6*24, 2*24, 1*24, 0, 0]}.a_16);

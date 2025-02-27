@@ -20,7 +20,7 @@ mod cli;
 
 fn main() {
     let cli: Cli = Cli::parse();
-    SimpleLogger::new()it
+    SimpleLogger::new()
         .with_level(if cli.verbose {
             LevelFilter::Trace
         } else if cli.quiet {

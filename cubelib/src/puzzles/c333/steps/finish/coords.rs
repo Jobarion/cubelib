@@ -266,13 +266,11 @@ mod avx2 {
 
 
         let sum = _mm_hadd_epi32(sum, _mm_set1_epi8(0));
-        println!("{sum:?}");
         let sum = _mm_shuffle_epi8(sum, _mm_set_epi8(
             -1, 7,-1, 4,
             -1, 5,-1, 6,
             -1, 3,-1, 0,
             -1, 1,-1, 2));
-        println!("{sum:?}");
         let binom = _mm_mullo_epi16(sum, _mm_set_epi16(0, 6*24, 2*24, 1*24, 0, 6, 2, 1));
         let full_sum = _mm_hadd_epi16(_mm_hadd_epi16(_mm_hadd_epi16(binom, _mm_set1_epi8(0)), _mm_set1_epi8(0)), _mm_set1_epi8(0));
 
@@ -312,27 +310,27 @@ mod neon {
         let values_246 = vtbl1_u8(orbit_corners, C8{ a_i8: [2, 4, 6, 4, 6, 6, -1, -1]}.a);
         let higher_left_246 = vand_u8(vclt_u8(values_246, vtbl1_u8(orbit_corners, C8{ a_i8: [0, 0, 0, 2, 2, 4, -1, -1]}.a)), vdup_n_u8(1));
 
-        let values_e12 = vtbl1_u8(orbit_corners, C8{ a_i8: [5, 6, 7, 6, 7, 7, -1, -1]}.a);
+        let values_e12 = vqtbl1_u8(edges, C8{ a_i8: [5, 6, 7, 6, 7, 7, -1, -1]}.a);
         let higher_left_e12 = vand_u8(vclt_u8(values_e12, vqtbl1_u8(edges, C8{ a_i8: [4, 4, 4, 5, 5, 6, -1, -1]}.a)), vdup_n_u8(1));
 
         let combined = vcombine_u8(higher_left_246, higher_left_e12);
-        let sum = vaddq_u8(combined, vqtbl1q_u8(combined, C16{ a_i8: [0, 3, 4, -1, -1, -1, -1, -1, 8, 11, 12, -1, -1, -1, -1, -1]}.a));
-        let sum = vaddq_u8(sum, vqtbl1q_u8(sum, C16{ a_i8: [0, 1, 5, -1, -1, -1, -1, -1, 8, 9, 13, -1, -1, -1, -1, -1]}.a));
+        let sum = vaddq_u8(combined, vqtbl1q_u8(combined, C16{ a_i8: [-1, 3, 4, -1, -1, -1, -1, -1, -1, 11, 12, -1, -1, -1, -1, -1]}.a));
+        let sum = vaddq_u8(sum, vqtbl1q_u8(sum, C16{ a_i8: [-1, -1, 5, -1, -1, -1, -1, -1, -1, -1, 13, -1, -1, -1, -1, -1]}.a));
         let sum = vqtbl1q_u8(sum, C16{ a_i8: [0, -1, 1, 2, 8, 9, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1]}.a);
         let sum = vorrq_u8(sum, vcombine_u8(vand_u8(orbit_corners, C8{ a_i8: [0, -1, 0, 0, 0, 0, 0, 0]}.a), vdup_n_u8(0)));
         let sum = vreinterpretq_u16_u8(vzip1q_u8(sum, vdupq_n_u8(0)));
-        let binom = vmulq_u16(sum, C16{ a_u16: [6, 24, 2, 1, 0, 0, 0, 0]}.a_16);
+        let binom = vmulq_u16(sum, C16{ a_u16: [1, 24, 2, 6, 0, 0, 0, 0]}.a_16);
         let cp_eep_value = vaddvq_u16(binom);
 
         let values_m123s123 = vqtbl1q_u8(edges, C16{ a_i8: [2, 8, 10, 8, 10, 10, -1, -1, 3, 9, 11, 9, 11, 11, -1, -1]}.a);
         let cmp_values = vqtbl1q_u8(edges, C16{ a_i8:      [0, 0,  0, 2,  2,  8, -1, -1, 1, 1,  1, 3,  3,  9, -1, -1]}.a);
         let higher_left_m123s123 = vandq_u8(vcltq_u8(values_m123s123, cmp_values), vdupq_n_u8(1));
 
-        let sum = vaddq_u8(higher_left_m123s123, vqtbl1q_u8(higher_left_m123s123, C16{ a_i8: [0, 3, 4, -1, -1, -1, -1, -1, 8, 11, 12, -1, -1, -1, -1, -1]}.a));
-        let sum = vaddq_u8(sum, vqtbl1q_u8(sum, C16{ a_i8: [0, 1, 5, -1, -1, -1, -1, -1, 8, 9, 13, -1, -1, -1, -1, -1]}.a));
+        let sum = vaddq_u8(higher_left_m123s123, vqtbl1q_u8(higher_left_m123s123, C16{ a_i8: [-1, 3, 4, -1, -1, -1, -1, -1, -1, 11, 12, -1, -1, -1, -1, -1]}.a));
+        let sum = vaddq_u8(sum, vqtbl1q_u8(sum, C16{ a_i8: [-1, -1, 5, -1, -1, -1, -1, -1, -1, -1, 13, -1, -1, -1, -1, -1]}.a));
 
         let sum = vreinterpretq_u16_u8(vqtbl1q_u8(sum, C16{ a_i8: [0, -1, 1, -1, 2, -1, 8, -1, 9, -1, 10, -1, -1, -1, -1, -1]}.a));
-        let binom = vmulq_u16(sum, C16{ a_u16: [6, 2, 1, 6*24, 2*24, 1*24, 0, 0]}.a_16);
+        let binom = vmulq_u16(sum, C16{ a_u16: [1, 2, 6, 1*24, 2*24, 6*24, 0, 0]}.a_16);
         let edge_sum_ms = vaddvq_u16(binom);
 
         HTRLeaveSliceFinishCoord(cp_eep_value + edge_sum_ms * 96)
@@ -354,7 +352,7 @@ mod neon {
         let sum = vqtbl1q_u8(sum, C16{ a_i8: [0, -1, 1, 2, 8, 9, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1]}.a);
         let sum = vorrq_u8(sum, vcombine_u8(vand_u8(orbit_corners, C8{ a_i8: [0, -1, 0, 0, 0, 0, 0, 0]}.a), vdup_n_u8(0)));
         let sum = vreinterpretq_u16_u8(vzip1q_u8(sum, vdupq_n_u8(0)));
-        let binom = vmulq_u16(sum, C16{ a_u16: [6*12, 24*12, 2*12, 1*12, 0, 3, 1, 0]}.a_16);
+        let binom = vmulq_u16(sum, C16{ a_u16: [1*12, 24*12, 2*12, 6*12, 0, 1, 3, 0]}.a_16);
         let cp_eep_value = vaddvq_u16(binom) as u32;
 
         let values_m123s123 = vqtbl1q_u8(edges, C16{ a_i8: [2, 8, 10, 8, 10, 10, -1, -1, 3, 9, 11, 9, 11, 11, -1, -1]}.a);

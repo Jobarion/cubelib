@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 use std::process::Command;
 use std::str::FromStr;
+
 use cubelib::algs::Algorithm;
-use cubelib::puzzles::c333::Turn333;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -44,7 +44,7 @@ fn run_length_test(test: &LengthTestCase) {
     println!("Solution: {alg_string}");
     if let Some((alg_string, length)) = parts {
         let reported_length = usize::from_str(&length[0..(length.len() - 1)]).expect("Expected length number");
-        let alg = Algorithm::<Turn333>::from_str(alg_string).expect("Expected valid algorithm");
+        let alg = Algorithm::from_str(alg_string).expect("Expected valid algorithm");
         assert_eq!(reported_length, alg.len());
         assert_eq!(test.length, alg.len() as isize);
     } else {

@@ -266,11 +266,13 @@ mod avx2 {
 
 
         let sum = _mm_hadd_epi32(sum, _mm_set1_epi8(0));
+        println!("{sum:?}");
         let sum = _mm_shuffle_epi8(sum, _mm_set_epi8(
             -1, 7,-1, 4,
             -1, 5,-1, 6,
             -1, 3,-1, 0,
             -1, 1,-1, 2));
+        println!("{sum:?}");
         let binom = _mm_mullo_epi16(sum, _mm_set_epi16(0, 6*24, 2*24, 1*24, 0, 6, 2, 1));
         let full_sum = _mm_hadd_epi16(_mm_hadd_epi16(_mm_hadd_epi16(binom, _mm_set1_epi8(0)), _mm_set1_epi8(0)), _mm_set1_epi8(0));
 
@@ -363,7 +365,7 @@ mod neon {
         let sum = vaddq_u8(sum, vqtbl1q_u8(sum, C16{ a_i8: [-1, -1, 5, -1, -1, -1, -1, -1, -1, -1, 13, -1, -1, -1, -1, -1]}.a));
 
         let sum = vreinterpretq_u16_u8(vqtbl1q_u8(sum, C16{ a_i8: [0, -1, 1, -1, 2, -1, 8, -1, 9, -1, 10, -1, -1, -1, -1, -1]}.a));
-        let binom = vmulq_u16(sum, C16{ a_u16: [6, 2, 1, 6*24, 2*24, 1*24, 0, 0]}.a_16);
+        let binom = vmulq_u16(sum, C16{ a_u16: [1, 2, 6, 1*24, 2*24, 6*24, 0, 0]}.a_16);
         let edge_sum_ms = vaddvq_u16(binom) as u32;
 
         HTRFinishCoord(cp_eep_value + edge_sum_ms * 1152)

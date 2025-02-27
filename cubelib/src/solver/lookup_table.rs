@@ -14,8 +14,9 @@ use log::{debug, warn};
 use num_traits::{ToPrimitive};
 #[cfg(feature = "fs")]
 use num_traits::{FromPrimitive};
-use crate::solver::moveset::{MoveSet, TransitionTable};
-use crate::puzzles::puzzle::{Puzzle, PuzzleMove, Transformable};
+use crate::cube::*;
+use crate::cube::turn::{TransformableMut, TurnableMut};
+use crate::solver::moveset::MoveSet;
 use crate::steps::coord::Coord;
 
 const VERSION: u8 = 1;
@@ -255,25 +256,21 @@ pub fn generate<
     Init,
     Getter,
     Setter,
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation>,
-    TransTable: TransitionTable<Turn>,
     CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq + Debug,
 >(
-    move_set: &MoveSet<Turn, TransTable>,
+    move_set: &MoveSet,
     mapper: &Mapper,
     init: &Init,
     getter: &Getter,
     setter: &Setter,
 ) -> Table
 where
-    Mapper: Fn(&PuzzleParam) -> CoordParam,
+    Mapper: Fn(&Cube333) -> CoordParam,
     Init: Fn() -> Table,
     Setter: Fn(&mut Table, CoordParam, u8),
     Getter: Fn(&Table, CoordParam) -> u8
 {
-    let start = PuzzleParam::default();
+    let start = Cube333::default();
     let mut visited = HashMap::new();
     let mut to_check = vec![start.clone()];
     visited.insert(mapper(&start), start);
@@ -318,19 +315,15 @@ where
 fn pre_gen_coset_0<
     const COORD_SIZE: usize,
     Mapper,
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation>,
-    TransTable: TransitionTable<Turn>,
     CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq + Debug,
 >(
-    move_set: &MoveSet<Turn, TransTable>,
+    move_set: &MoveSet,
     mapper: &Mapper,
-    visited: &mut HashMap<CoordParam, PuzzleParam>,
-    to_check: &Vec<PuzzleParam>,
-) -> Vec<PuzzleParam>
+    visited: &mut HashMap<CoordParam, Cube333>,
+    to_check: &Vec<Cube333>,
+) -> Vec<Cube333>
 where
-    Mapper: Fn(&PuzzleParam) -> CoordParam,
+    Mapper: Fn(&Cube333) -> CoordParam,
 {
     let mut check_next = vec![];
     for cube in to_check {
@@ -344,9 +337,9 @@ where
             visited.insert(coord, cube.clone());
             check_next.push(cube);
         }
-        for m in Transformation::all() {
+        for m in Transformation333::ALL {
             let mut cube = cube.clone();
-            cube.transform(*m);
+            cube.transform(m);
             let coord = mapper(&cube);
             if visited.contains_key(&coord) {
                 continue;
@@ -364,26 +357,22 @@ fn fill_table<
     Table: EmptyVal,
     Getter,
     Setter,
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation>,
-    TransTable: TransitionTable<Turn>,
     CoordParam: Coord<COORD_SIZE> + Copy + Hash + Eq + Debug,
 >(
-    move_set: &MoveSet<Turn, TransTable>,
+    move_set: &MoveSet,
     table: &mut Table,
     depth: u8,
     mapper: &Mapper,
     getter: &Getter,
     setter: &Setter,
-    to_check: HashMap<CoordParam, PuzzleParam>,
-) -> HashMap<CoordParam, PuzzleParam>
+    to_check: HashMap<CoordParam, Cube333>,
+) -> HashMap<CoordParam, Cube333>
 where
-    Mapper: Fn(&PuzzleParam) -> CoordParam,
+    Mapper: Fn(&Cube333) -> CoordParam,
     Setter: Fn(&mut Table, CoordParam, u8),
     Getter: Fn(&Table, CoordParam) -> u8
 {
-    let mut next_cubes: HashMap<CoordParam, PuzzleParam> = HashMap::new();
+    let mut next_cubes: HashMap<CoordParam, Cube333> = HashMap::new();
     for (_coord, cube) in to_check.into_iter() {
         for m in move_set
             .aux_moves

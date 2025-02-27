@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use leptos::*;
 use leptos_use::storage::{StorageType, UseStorageOptions};
-use log::info;
+
 use crate::AppContext;
 
 pub type RwSignalTup<T> = (Signal<T>, WriteSignal<T>, Rc<dyn Fn()>);

@@ -1,16 +1,16 @@
 use std::cmp::min;
 use std::collections::HashMap;
-use std::fmt::Display;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use log::trace;
 
 use crate::algs::Algorithm;
+use crate::cube::turn::ApplyAlgorithm;
 use crate::defs::*;
-use crate::puzzles::puzzle::{ApplyAlgorithm, Puzzle, PuzzleMove, Transformable};
+use crate::cube::*;
 use crate::solver::df_search::{CancelToken, dfs_iter};
 use crate::solver::lookup_table::{LookupTable, NissLookupTable};
-use crate::solver::moveset::{MoveSet, TransitionTable};
+use crate::solver::moveset::MoveSet;
 use crate::solver::solution::{Solution, SolutionStep};
 use crate::solver::stream;
 use crate::steps::coord::Coord;
@@ -64,31 +64,37 @@ pub struct DefaultStepOptions {
     pub step_limit: Option<usize>
 }
 
-//Shh, don't look at the types below
+impl DefaultStepOptions {
+    pub fn new(min_moves: u8, max_moves: u8, absolute_min_moves: Option<u8>, absolute_max_moves: Option<u8>, niss_type: NissSwitchType, step_limit: Option<usize>) -> Self {
+        DefaultStepOptions {
+            min_moves,
+            max_moves,
+            absolute_min_moves,
+            absolute_max_moves,
+            niss_type,
+            step_limit,
+        }
+    }
+}
 
-pub trait StepVariant<Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>, TransTable: TransitionTable<Turn>>:
-    PreStepCheck<Turn, Transformation, PuzzleParam> +
-    PostStepCheck<Turn, Transformation, PuzzleParam>
+pub trait StepVariant: PreStepCheck + PostStepCheck
 {
-    fn move_set(&self, cube: &PuzzleParam, depth_left: u8) -> &'_ MoveSet<Turn, TransTable>;
-    fn pre_step_trans(&self) -> &'_ Vec<Transformation>;
-    fn heuristic(&self, cube: &PuzzleParam, depth_left: u8, can_niss: bool) -> u8;
+    fn move_set(&self, cube: &Cube333, depth_left: u8) -> &'_ MoveSet;
+    fn pre_step_trans(&self) -> &'_ Vec<Transformation333>;
+    fn heuristic(&self, cube: &Cube333, depth_left: u8, can_niss: bool) -> u8;
     fn name(&self) -> &str;
 }
 
-pub trait PreStepCheck<Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>> {
-    fn is_cube_ready(&self, cube: &PuzzleParam) -> bool;
+pub trait PreStepCheck {
+    fn is_cube_ready(&self, cube: &Cube333) -> bool;
 }
 
-pub trait PostStepCheck<Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>> {
-    fn is_solution_admissible(&self, cube: &PuzzleParam, alg: &Algorithm<Turn>) -> bool;
+pub trait PostStepCheck {
+    fn is_solution_admissible(&self, cube: &Cube333, alg: &Algorithm) -> bool;
 }
 
-trait Heuristic<
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation>> {
-    fn heuristic(&self, cube: &PuzzleParam, can_niss: bool) -> u8;
+trait Heuristic {
+    fn heuristic(&self, cube: &Cube333, can_niss: bool) -> u8;
 }
 
 struct NissPruningTableHeuristic<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>>(&'a NissLookupTable<HC_SIZE, HC>);
@@ -106,13 +112,8 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>> PruningTableHeuristic<'a, HC
     }
 }
 
-impl <const HC_SIZE: usize,
-    HC: Coord<HC_SIZE>,
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation>> Heuristic<Turn, Transformation, PuzzleParam> for PruningTableHeuristic<'_, HC_SIZE, HC> where
-    HC: for<'x> From<&'x PuzzleParam> {
-    fn heuristic(&self, cube: &PuzzleParam, can_niss: bool) -> u8 {
+impl <const HC_SIZE: usize, HC: Coord<HC_SIZE>> Heuristic for PruningTableHeuristic<'_, HC_SIZE, HC> where HC: for<'a> From<&'a Cube333> {
+    fn heuristic(&self, cube: &Cube333, can_niss: bool) -> u8 {
         let coord = HC::from(cube);
         let heuristic = self.0.get(coord);
         if can_niss {
@@ -123,13 +124,8 @@ impl <const HC_SIZE: usize,
     }
 }
 
-impl <const HC_SIZE: usize,
-    HC: Coord<HC_SIZE>,
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation>> Heuristic<Turn, Transformation, PuzzleParam> for NissPruningTableHeuristic<'_, HC_SIZE, HC> where
-    HC: for<'x> From<&'x PuzzleParam> {
-    fn heuristic(&self, cube: &PuzzleParam, can_niss: bool) -> u8 {
+impl <const HC_SIZE: usize, HC: Coord<HC_SIZE>> Heuristic for NissPruningTableHeuristic<'_, HC_SIZE, HC> where HC: for<'a> From<&'a Cube333> {
+    fn heuristic(&self, cube: &Cube333, can_niss: bool) -> u8 {
         let coord = HC::from(cube);
         let (val, niss) = self.0.get(coord);
         if can_niss && val != 0 {
@@ -146,42 +142,27 @@ pub struct DefaultPruningTableStep<
     HC: Coord<HC_SIZE>,
     const PC_SIZE: usize,
     PC: Coord<PC_SIZE>,
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation>,
-    TransTable: TransitionTable<Turn> + 'static
 >
-    where
-        HC: for<'x> From<&'x PuzzleParam>,
-        PC: for<'x> From<&'x PuzzleParam>,
 {
-    move_set: &'a MoveSet<Turn, TransTable>,
-    pre_trans: Vec<Transformation>,
-    heuristic: Box<dyn Heuristic<Turn, Transformation, PuzzleParam> + 'a>,
+    move_set: &'a MoveSet,
+    pre_trans: Vec<Transformation333>,
+    heuristic: Box<dyn Heuristic + 'a>,
     name: &'a str,
-    post_step_checks: Rc<Vec<Box<dyn PostStepCheck<Turn, Transformation, PuzzleParam> + 'a>>>,
+    post_step_checks: Rc<Vec<Box<dyn PostStepCheck + 'a>>>,
     _hc: PhantomData<HC>,
     _pc: PhantomData<PC>,
-    _puzzle: PhantomData<PuzzleParam>,
-    _turn: PhantomData<Turn>,
 }
 
-impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>, TransTable: TransitionTable<Turn>> PreStepCheck<Turn, Transformation, PuzzleParam> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable>
-    where
-        HC: for<'x> From<&'x PuzzleParam>,
-        PC: for<'x> From<&'x PuzzleParam>, {
+impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: for<'b> From<&'b Cube333> {
 
-    fn is_cube_ready(&self, cube: &PuzzleParam) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333) -> bool {
         PC::from(cube).val() == 0
     }
 }
 
-impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>, TransTable: TransitionTable<Turn>> PostStepCheck<Turn, Transformation, PuzzleParam> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable>
-    where
-        HC: for<'x> From<&'x PuzzleParam>,
-        PC: for<'x> From<&'x PuzzleParam>, {
+impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PostStepCheck for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: for<'b> From<&'b Cube333> {
 
-    fn is_solution_admissible(&self, cube: &PuzzleParam, alg: &Algorithm<Turn>) -> bool {
+    fn is_solution_admissible(&self, cube: &Cube333, alg: &Algorithm) -> bool {
         self.post_step_checks.iter()
             .all(|psc| psc.is_solution_admissible(cube, alg))
     }
@@ -192,25 +173,18 @@ impl <
     const HC_SIZE: usize,
     HC: Coord<HC_SIZE>,
     const PC_SIZE: usize,
-    PC: Coord<PC_SIZE>,
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation>,
-    TransTable: TransitionTable<Turn>>
-StepVariant<Turn, Transformation, PuzzleParam, TransTable> for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable>
-where
-    HC: for<'x> From<&'x PuzzleParam>,
-    PC: for<'x> From<&'x PuzzleParam> {
+    PC: Coord<PC_SIZE>>
+StepVariant for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: for<'b> From<&'b Cube333>, HC: for<'b> From<&'b Cube333> {
 
-    fn move_set(&self, _: &PuzzleParam, _: u8) -> &'_ MoveSet<Turn, TransTable> {
+    fn move_set(&self, _: &Cube333, _: u8) -> &'_ MoveSet {
         self.move_set
     }
 
-    fn pre_step_trans(&self) -> &'_ Vec<Transformation> {
+    fn pre_step_trans(&self) -> &'_ Vec<Transformation333> {
         &self.pre_trans
     }
 
-    fn heuristic(&self, cube: &PuzzleParam, _: u8, can_niss: bool) -> u8 {
+    fn heuristic(&self, cube: &Cube333, _: u8, can_niss: bool) -> u8 {
         self.heuristic.heuristic(cube, can_niss)
     }
 
@@ -224,21 +198,14 @@ impl <
     const HC_SIZE: usize,
     HC: Coord<HC_SIZE>,
     const PC_SIZE: usize,
-    PC: Coord<PC_SIZE>,
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation>,
-    TransTable: TransitionTable<Turn>,
+    PC: Coord<PC_SIZE>
 >
-DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, PuzzleParam, TransTable>
-    where
-        HC: for<'x> From<&'x PuzzleParam>,
-        PC: for<'x> From<&'x PuzzleParam>, {
+DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: for<'b> From<&'b Cube333>, HC: for<'b> From<&'b Cube333>{
 
-    pub fn new(move_set: &'a MoveSet<Turn, TransTable>,
-               pre_trans: Vec<Transformation>,
+    pub fn new(move_set: &'a MoveSet,
+               pre_trans: Vec<Transformation333>,
                table: &'a LookupTable<HC_SIZE, HC>,
-               post_step_checker: Rc<Vec<Box<dyn PostStepCheck<Turn, Transformation, PuzzleParam> + 'a>>>,
+               post_step_checker: Rc<Vec<Box<dyn PostStepCheck + 'a>>>,
                name: &'a str) -> Self {
         DefaultPruningTableStep {
             move_set,
@@ -246,17 +213,15 @@ DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, Puzz
             heuristic: Box::new(PruningTableHeuristic::new(table)),
             name,
             post_step_checks: post_step_checker,
-            _puzzle: PhantomData::default(),
             _hc: PhantomData::default(),
             _pc: PhantomData::default(),
-            _turn: PhantomData::default(),
         }
     }
 
-    pub fn new_niss_table(move_set: &'a MoveSet<Turn, TransTable>,
-               pre_trans: Vec<Transformation>,
+    pub fn new_niss_table(move_set: &'a MoveSet,
+               pre_trans: Vec<Transformation333>,
                table: &'a NissLookupTable<HC_SIZE, HC>,
-               post_step_checker: Rc<Vec<Box<dyn PostStepCheck<Turn, Transformation, PuzzleParam> + 'a>>>,
+               post_step_checker: Rc<Vec<Box<dyn PostStepCheck + 'a>>>,
                name: &'a str) -> Self {
         DefaultPruningTableStep {
             move_set,
@@ -264,23 +229,21 @@ DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC, Turn, Transformation, Puzz
             heuristic: Box::new(NissPruningTableHeuristic::new(table)),
             name,
             post_step_checks: post_step_checker,
-            _puzzle: PhantomData::default(),
             _hc: PhantomData::default(),
             _pc: PhantomData::default(),
-            _turn: PhantomData::default(),
         }
     }
 }
 
-pub struct Step<'a, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation>, TransTable: TransitionTable<Turn>> {
-    step_variants: Vec<Box<dyn StepVariant<Turn, Transformation, PuzzleParam, TransTable> + 'a>>,
+pub struct Step<'a> {
+    step_variants: Vec<Box<dyn StepVariant + 'a>>,
     is_major: bool,
     kind: StepKind,
 }
 
-impl<'a, Turn: PuzzleMove + Transformable<Transformation>, Transformation: PuzzleMove, PuzzleParam: Puzzle<Turn, Transformation> + 'a, TransTable: TransitionTable<Turn>> Step<'a, Turn, Transformation, PuzzleParam, TransTable> {
+impl<'a> Step<'a> {
     pub fn new(
-        step_variants: Vec<Box<dyn StepVariant<Turn, Transformation, PuzzleParam, TransTable> + 'a>>,
+        step_variants: Vec<Box<dyn StepVariant + 'a>>,
         kind: StepKind,
         is_major: bool,
     ) -> Self {
@@ -294,17 +257,13 @@ impl<'a, Turn: PuzzleMove + Transformable<Transformation>, Transformation: Puzzl
 
 pub fn first_step<
     'a,
-    'b,
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation> + Display,
-    TransTable: TransitionTable<Turn> + 'static,
+    'b
 >(
-    step: &'a Step<'b, Turn, Transformation, PuzzleParam, TransTable>,
+    step: &'a Step<'b>,
     search_opts: DefaultStepOptions,
-    cube: PuzzleParam,
+    cube: Cube333,
     cancel_token: &'a CancelToken
-) -> impl Iterator<Item = Solution<Turn>> + 'a {
+) -> impl Iterator<Item = Solution> + 'a {
     next_step(vec![Solution::new()].into_iter(), step, search_opts, cube, cancel_token)
 }
 
@@ -313,21 +272,17 @@ pub fn first_step<
 pub fn next_step<
     'a,
     'b,
-    IN: Iterator<Item = Solution<Turn>> + 'a,
-    Turn: PuzzleMove + Transformable<Transformation>,
-    Transformation: PuzzleMove,
-    PuzzleParam: Puzzle<Turn, Transformation> + Display,
-    TransTable: TransitionTable<Turn>,
+    IN: Iterator<Item = Solution> + 'a,
 >(
     algs: IN,
-    step: &'a Step<'b, Turn, Transformation, PuzzleParam, TransTable>,
+    step: &'a Step<'b>,
     search_opts: DefaultStepOptions,
-    cube: PuzzleParam,
+    cube: Cube333,
     cancel_token: &'a CancelToken,
-) -> impl Iterator<Item = Solution<Turn>> + 'a {
+) -> impl Iterator<Item = Solution> + 'a {
     stream::iterated_dfs(algs, cancel_token, move |solution, depth, cancel_token| {
         let absolute_target_length = solution.len() as u8 + depth;
-        let result: Box<dyn Iterator<Item = Solution<Turn>>> =
+        let result: Box<dyn Iterator<Item = Solution>> =
             if depth < search_opts.min_moves ||
                 depth > search_opts.max_moves ||
                 search_opts.absolute_min_moves.map(|m| m > absolute_target_length).unwrap_or(false) ||
@@ -335,7 +290,7 @@ pub fn next_step<
                 Box::new(vec![].into_iter())
             } else {
                 let mut cube = cube.clone();
-                let alg: Algorithm<Turn> = solution.clone().into();
+                let alg: Algorithm = solution.clone().into();
                 let ends_on_normal = solution.ends_on_normal();
                 cube.apply_alg(&alg);
                 let stage_opts = DefaultStepOptions::new(depth, depth, None, None, search_opts.niss_type, search_opts.step_limit);

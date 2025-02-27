@@ -1,12 +1,13 @@
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-use cubelib::algs::Algorithm;
+
 use cubelib::defs::NissSwitchType;
-use cubelib::puzzles::c333::util::{expand_subset_name, DR_SUBSETS};
-use cubelib::puzzles::cube::CubeAxis;
+use cubelib::steps::util::{DR_SUBSETS, expand_subset_name};
+use cubelib::cube::*;
 use leptonic::prelude::*;
 use leptos::*;
 use leptos_icons::IoIcon;
+
 use crate::SettingsState;
 use crate::util::{RwSignalTup, use_local_storage};
 

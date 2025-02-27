@@ -2,23 +2,21 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 
 use crate::algs::Algorithm;
-use crate::puzzles::puzzle::PuzzleMove;
 use crate::solver::df_search::CancelToken;
 use crate::solver::solution::Solution;
 
 pub(crate) fn iterated_dfs<
     'a,
-    Turn: PuzzleMove + 'a,
-    IN: Iterator<Item = Solution<Turn>> + 'a,
-    OUT: Iterator<Item = Solution<Turn>> + 'a,
+    IN: Iterator<Item = Solution> + 'a,
+    OUT: Iterator<Item = Solution> + 'a,
     F: 'a,
 >(
     current_stage: IN,
     cancel_token: &'a CancelToken,
     mapper: F,
-) -> impl Iterator<Item = Solution<Turn>> + 'a
+) -> impl Iterator<Item = Solution> + 'a
 where
-    F: Fn(Solution<Turn>, u8, &'a CancelToken) -> OUT,
+    F: Fn(Solution, u8, &'a CancelToken) -> OUT,
 {
     DFSSolutionIter::new(current_stage)
         .take_while(move |_|!cancel_token.is_cancelled())
@@ -29,16 +27,16 @@ where
         })
 }
 
-pub struct DFSSolutionIter<I, Turn: PuzzleMove> {
+pub struct DFSSolutionIter<I> {
     orig: I,
     pos: usize,
     cycle_count: usize,
-    cached_values: Vec<Solution<Turn>>,
+    cached_values: Vec<Solution>,
 }
 
-impl<I, Turn: PuzzleMove> DFSSolutionIter<I, Turn>
+impl<I> DFSSolutionIter<I>
 where
-    I: Iterator<Item = Solution<Turn>>,
+    I: Iterator<Item = Solution>,
 {
     pub fn new(iter: I) -> Self {
         Self {
@@ -50,9 +48,9 @@ where
     }
 }
 
-impl<I, Turn: PuzzleMove> Iterator for DFSSolutionIter<I, Turn>
+impl<I> Iterator for DFSSolutionIter<I>
 where
-    I: Iterator<Item = Solution<Turn>>,
+    I: Iterator<Item = Solution>,
 {
     type Item = (<I as Iterator>::Item, usize);
 
@@ -85,17 +83,17 @@ where
     }
 }
 
-struct DistinctSolutions<I, V, Turn: PuzzleMove> {
+struct DistinctSolutions<I, V> {
     orig: I,
-    observed: HashSet<Algorithm<Turn>>,
+    observed: HashSet<Algorithm>,
     current_length: usize,
     _v: PhantomData<V>,
 }
 
-impl<I, V, Turn: PuzzleMove> DistinctSolutions<I, V, Turn>
+impl<I, V> DistinctSolutions<I, V>
     where
         I: Iterator<Item = V>,
-        V: Into<Algorithm<Turn>> + Clone
+        V: Into<Algorithm> + Clone
 {
     fn new(iter: I) -> Self {
         Self {
@@ -107,10 +105,10 @@ impl<I, V, Turn: PuzzleMove> DistinctSolutions<I, V, Turn>
     }
 }
 
-impl<I, V, Turn: PuzzleMove> Iterator for DistinctSolutions<I, V, Turn>
+impl<I, V> Iterator for DistinctSolutions<I, V>
     where
         I: Iterator<Item = V>,
-        V: Into<Algorithm<Turn>> + Clone
+        V: Into<Algorithm> + Clone
 {
     type Item = <I as Iterator>::Item;
 
@@ -118,7 +116,7 @@ impl<I, V, Turn: PuzzleMove> Iterator for DistinctSolutions<I, V, Turn>
         match self.orig.next() {
             None => None,
             Some(v) => {
-                let alg: Algorithm<Turn> = v.clone().into();
+                let alg: Algorithm = v.clone().into();
                 if alg.len() > self.current_length {
                     self.observed.clear();
                     self.current_length = alg.len();
@@ -134,6 +132,6 @@ impl<I, V, Turn: PuzzleMove> Iterator for DistinctSolutions<I, V, Turn>
     }
 }
 
-pub fn distinct_algorithms<Turn: PuzzleMove, V: Into<Algorithm<Turn>> + Clone>(iter: impl Iterator<Item = V>) -> impl Iterator<Item = V> {
-    DistinctSolutions::<_, V, Turn>::new(iter)
+pub fn distinct_algorithms<V: Into<Algorithm> + Clone>(iter: impl Iterator<Item = V>) -> impl Iterator<Item = V> {
+    DistinctSolutions::<_, V>::new(iter)
 }

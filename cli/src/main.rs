@@ -3,16 +3,17 @@ use std::time::Instant;
 
 use clap::Parser;
 use cubelib::algs::Algorithm;
+use cubelib::cube::*;
 use cubelib::defs::StepKind;
-use cubelib::puzzles::c333::{Cube333, Turn333};
-use cubelib::puzzles::c333::steps::{eo, solver};
-use cubelib::puzzles::c333::steps::tables::PruningTables333;
-use cubelib::puzzles::puzzle::ApplyAlgorithm;
+
 use cubelib::solver::stream;
 use cubelib::solver::df_search::CancelToken;
 use cubelib::solver::solution::Solution;
+use cubelib::steps::{eo, solver};
+use cubelib::steps::tables::PruningTables333;
 use log::{debug, error, info, LevelFilter};
 use simple_logger::SimpleLogger;
+use cubelib::cube::turn::ApplyAlgorithm;
 
 use crate::cli::Cli;
 
@@ -65,7 +66,7 @@ fn main() {
     info!("Generating solutions\n");
     let time = Instant::now();
 
-    let mut solutions: Box<dyn Iterator<Item = Solution<Turn333>>> = Box::new(solutions
+    let mut solutions: Box<dyn Iterator<Item = Solution>> = Box::new(solutions
         .skip_while(|alg| alg.len() < cli.min)
         .take_while(|alg| cli.max.map_or(true, |max| alg.len() <= max)));
 
@@ -79,7 +80,7 @@ fn main() {
     //We already generate a mostly duplicate free iterator, but sometimes the same solution is valid for different stages and that can cause duplicates.
     let solutions = stream::distinct_algorithms(solutions);
 
-    let mut solutions: Box<dyn Iterator<Item = Solution<Turn333>>> = Box::new(solutions);
+    let mut solutions: Box<dyn Iterator<Item = Solution>> = Box::new(solutions);
 
     if cli.max.is_none() || cli.solution_count.is_some() {
         solutions = Box::new(solutions
@@ -90,9 +91,9 @@ fn main() {
     for solution in solutions {
         if cli.compact_solutions {
             if cli.plain_solution {
-                println!("{}", Into::<Algorithm<Turn333>>::into(solution));
+                println!("{}", Into::<Algorithm>::into(solution));
             } else {
-                let alg = Into::<Algorithm<Turn333>>::into(solution);
+                let alg = Into::<Algorithm>::into(solution);
                 println!("{alg} ({})", alg.len());
             }
         } else {

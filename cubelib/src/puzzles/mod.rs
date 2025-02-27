@@ -1,9 +1,0 @@
-pub mod puzzle;
-#[cfg(feature = "cubic")]
-pub mod cube;
-#[cfg(feature = "333")]
-pub mod c333;
-#[cfg(feature = "222")]
-pub mod c222;
-#[cfg(feature = "pyraminx")]
-pub mod pyraminx;

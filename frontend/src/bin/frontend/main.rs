@@ -1,20 +1,18 @@
 use std::collections::HashMap;
 use std::panic;
-use std::str::FromStr;
+
 use base64::Engine;
+use base64::prelude::BASE64_URL_SAFE;
 use leptonic::prelude::*;
 use leptos::*;
-use log::{Level};
+use leptos_icons::IoIcon;
+use log::Level;
 
 use crate::cube::ScrambleComponent;
-use crate::solution::SolutionComponent;
 use crate::settings::{SettingsComponent, SettingsState};
+use crate::solution::SolutionComponent;
 use crate::step::*;
-use crate::util::{build_toggle_chain};
-use leptos_icons::IoIcon;
-use leptos_use::storage::StorageType;
-use serde_json::json;
-use base64::prelude::BASE64_URL_SAFE;
+use crate::util::build_toggle_chain;
 
 mod cube;
 mod step;

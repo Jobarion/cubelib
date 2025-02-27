@@ -1,13 +1,13 @@
-use crate::puzzles::puzzle::PuzzleMove;
+use crate::cube::*;
 
-pub struct MoveSet<Turn: PuzzleMove, Table: TransitionTable<Turn>> {
-    pub st_moves: &'static [Turn],
-    pub aux_moves: &'static [Turn],
-    pub transitions: &'static [Table],
+pub struct MoveSet {
+    pub st_moves: &'static [Turn333],
+    pub aux_moves: &'static [Turn333],
+    pub transitions: &'static [TransitionTable333],
 }
 
-pub trait TransitionTable<Turn: PuzzleMove>: 'static {
-    fn check_move(&self, m: Turn) -> Transition;
+pub trait TransitionTable: 'static {
+    fn check_move(&self, m: Turn333) -> Transition;
 }
 
 #[derive(Debug)]
@@ -25,16 +25,11 @@ impl Transition {
     }
 }
 
-#[cfg(feature = "222")]
-pub type TransitionTable222 = cube_outer_turn::TransitionTableCubeOuterTurn;
-#[cfg(feature = "333")]
 pub type TransitionTable333 = cube_outer_turn::TransitionTableCubeOuterTurn;
 
-#[cfg(feature = "cubic")]
 mod cube_outer_turn {
     use crate::solver::moveset::{Transition, TransitionTable};
-    use crate::puzzles::cube::{CubeFace, CubeOuterTurn, Direction};
-    use crate::puzzles::cube::Direction::{Clockwise, CounterClockwise, Half};
+    use crate::cube::*;
 
     #[derive(Copy, Clone)]
     pub struct TransitionTableCubeOuterTurn {
@@ -42,8 +37,8 @@ mod cube_outer_turn {
         pub can_end: u32,
     }
 
-    impl TransitionTable<CubeOuterTurn> for TransitionTableCubeOuterTurn {
-        fn check_move(&self, m: CubeOuterTurn) -> Transition {
+    impl TransitionTable for TransitionTableCubeOuterTurn {
+        fn check_move(&self, m: Turn333) -> Transition {
             let mid = Into::<usize>::into(m) as u32;
             let allowed = self.allowed & (1 << mid) != 0;
             let can_end = self.can_end & (1 << mid) != 0;
@@ -75,7 +70,7 @@ mod cube_outer_turn {
             Self::except_faces_to_mask([CubeFace::Right]), //R
         ];
 
-        pub const fn moves_to_mask<const L: usize>(moves: [CubeOuterTurn; L]) -> u32 {
+        pub const fn moves_to_mask<const L: usize>(moves: [Turn333; L]) -> u32 {
             let mut mask = 0u32;
             let mut i = 0;
             while i < L {
@@ -85,7 +80,7 @@ mod cube_outer_turn {
             mask & 0x3FFFF
         }
 
-        pub const fn except_moves_to_mask<const L: usize>(moves: [CubeOuterTurn; L]) -> u32 {
+        pub const fn except_moves_to_mask<const L: usize>(moves: [Turn333; L]) -> u32 {
             !Self::moves_to_mask(moves) & 0x3FFFF
         }
 
@@ -94,9 +89,9 @@ mod cube_outer_turn {
             let mut i = 0;
             while i < L {
                 let f = faces[i];
-                mask |= 1 << CubeOuterTurn::new(f, Direction::Clockwise).to_id();
-                mask |= 1 << CubeOuterTurn::new(f, Direction::CounterClockwise).to_id();
-                mask |= 1 << CubeOuterTurn::new(f, Direction::Half).to_id();
+                mask |= 1 << Turn333::new(f, Direction::Clockwise).to_id();
+                mask |= 1 << Turn333::new(f, Direction::CounterClockwise).to_id();
+                mask |= 1 << Turn333::new(f, Direction::Half).to_id();
                 i += 1;
             }
             mask & 0x3FFFF
@@ -115,9 +110,9 @@ mod cube_outer_turn {
             let mut i = 0;
             while i < CubeFace::ALL.len() {
                 let face_table = Self::new(Self::DEFAULT_ALLOWED_AFTER[CubeFace::ALL[i] as usize], Self::ANY);
-                transitions[CubeOuterTurn::new(CubeFace::ALL[i], Clockwise).to_id()] = face_table;
-                transitions[CubeOuterTurn::new(CubeFace::ALL[i], CounterClockwise).to_id()] = face_table;
-                transitions[CubeOuterTurn::new(CubeFace::ALL[i], Half).to_id()] = face_table;
+                transitions[Turn333::new(CubeFace::ALL[i], Direction::Clockwise).to_id()] = face_table;
+                transitions[Turn333::new(CubeFace::ALL[i], Direction::CounterClockwise).to_id()] = face_table;
+                transitions[Turn333::new(CubeFace::ALL[i], Direction::Half).to_id()] = face_table;
                 i += 1;
             }
             transitions
@@ -128,9 +123,9 @@ mod cube_outer_turn {
             let mut i = 0;
             while i < CubeFace::ALL.len() {
                 let face_table = Self::new(Self::DEFAULT_ALLOWED_AFTER_UNORDERED[CubeFace::ALL[i] as usize], Self::ANY);
-                transitions[CubeOuterTurn::new(CubeFace::ALL[i], Clockwise).to_id()] = face_table;
-                transitions[CubeOuterTurn::new(CubeFace::ALL[i], CounterClockwise).to_id()] = face_table;
-                transitions[CubeOuterTurn::new(CubeFace::ALL[i], Half).to_id()] = face_table;
+                transitions[Turn333::new(CubeFace::ALL[i], Direction::Clockwise).to_id()] = face_table;
+                transitions[Turn333::new(CubeFace::ALL[i], Direction::CounterClockwise).to_id()] = face_table;
+                transitions[Turn333::new(CubeFace::ALL[i], Direction::Half).to_id()] = face_table;
                 i += 1;
             }
             transitions

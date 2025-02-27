@@ -2,14 +2,14 @@ use std::time::SystemTime;
 
 use base64::Engine;
 use cubelib::algs::Algorithm;
-use cubelib::puzzles::c333::{Cube333, Turn333};
-use cubelib::puzzles::c333::steps::tables::PruningTables333;
-use cubelib::puzzles::puzzle::{ApplyAlgorithm, InvertibleMut};
+use cubelib::cube::Cube333;
+use cubelib::cube::turn::{ApplyAlgorithm, InvertibleMut};
+use cubelib::steps::tables::PruningTables333;
 use cubelib::steps::step::StepConfig;
 
 pub type Connection = r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>;
 
-pub fn record_request(conn: &Connection, scramble: &Algorithm<Turn333>, step_configs: &Vec<StepConfig>, _: &PruningTables333) -> rusqlite::Result<()> {
+pub fn record_request(conn: &Connection, scramble: &Algorithm, step_configs: &Vec<StepConfig>, _: &PruningTables333) -> rusqlite::Result<()> {
     let time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).expect("System time before unix epoch").as_secs();
     let canonical = get_canonical_scramble_id(scramble);
     let encoded_steps = base64::engine::general_purpose::STANDARD.encode(serde_json::to_string(step_configs).unwrap());
@@ -24,7 +24,7 @@ pub fn record_request(conn: &Connection, scramble: &Algorithm<Turn333>, step_con
     ).map(|_|())
 }
 
-fn get_canonical_scramble_id(scramble: &Algorithm<Turn333>) -> String {
+fn get_canonical_scramble_id(scramble: &Algorithm) -> String {
     let mut cube = Cube333::default();
     cube.apply_alg(scramble);
     let normal_encoded = serialize_cube_to_base64(&cube);

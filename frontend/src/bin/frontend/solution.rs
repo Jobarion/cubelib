@@ -1,6 +1,7 @@
 use std::collections::HashMap;
+
 use cubelib::defs::*;
-use cubelib::puzzles::cube::CubeAxis;
+use cubelib::cube::*;
 use cubelib::steps::step::StepConfig;
 use leptos::*;
 
@@ -18,7 +19,6 @@ pub mod backend {
     use std::str::FromStr;
 
     use cubelib::algs::Algorithm;
-    use cubelib::puzzles::c333::Turn333;
     use cubelib::solver::solution::Solution;
     use cubelib_interface::{SolverRequest, SolverResponse};
     use ehttp::Request;
@@ -35,13 +35,13 @@ pub mod backend {
     enum SolutionState {
         NotFetched,
         Requested,
-        Found(ehttp::Result<Solution<Turn333>>)
+        Found(ehttp::Result<Solution>)
     }
 
     #[component]
     pub fn SolutionComponent() -> impl IntoView {
 
-        let scramble = Signal::derive(move || Algorithm::<Turn333>::from_str(use_context::<RwSignalTup<String>>().expect("Scramble context required").0.get().as_str()).ok());
+        let scramble = Signal::derive(move || Algorithm::from_str(use_context::<RwSignalTup<String>>().expect("Scramble context required").0.get().as_str()).ok());
         let eo = use_context::<EOConfig>().expect("EO context required");
         let rzp = use_context::<RZPConfig>().expect("RZP context required");
         let dr = use_context::<DRConfig>().expect("DR context required");
@@ -182,8 +182,8 @@ pub mod wasm_solver {
     use std::str::FromStr;
 
     use cubelib::algs::Algorithm;
-    use cubelib::puzzles::c333::Cube333;
-    use cubelib::puzzles::puzzle::ApplyAlgorithm;
+    use cubelib::cube::*;
+    use cubelib::cube::turn::ApplyAlgorithm;
     use gloo_worker::Spawnable;
     use leptonic::prelude::*;
     use leptos::*;

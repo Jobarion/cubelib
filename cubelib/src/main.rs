@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use cubelib::algs::Algorithm;
 use cubelib::puzzles::c333::Cube333;
-use cubelib::puzzles::c333::steps::fr::coords::{FRUDNoSliceCoord, FRUDWithSliceCoord};
+use cubelib::puzzles::c333::steps::fr::coords::FRUDNoSliceCoord;
 use cubelib::puzzles::puzzle::ApplyAlgorithm;
 
 pub fn main() {

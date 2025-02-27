@@ -1,5 +1,5 @@
-use crate::steps::coord::Coord;
 use crate::puzzles::c333::Cube333;
+use crate::steps::coord::Coord;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct FRUDFinishCoord(pub(crate) u8);
@@ -45,6 +45,12 @@ impl From<&Cube333> for FRUDFinishCoord {
     }
 
     #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn from(value: &Cube333) -> Self {
+        unsafe { neon::unsafe_from_fr_finish_coord(value) }
+    }
+
+    #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn from(value: &Cube333) -> Self {
         wasm32::from_fr_finish_coord(value)
@@ -63,6 +69,12 @@ impl From<&Cube333> for HTRFinishCoord {
     fn from(value: &Cube333) -> Self {
         unsafe { avx2::unsafe_from_htr_finish_coord(value) }
     }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn from(value: &Cube333) -> Self {
+        unsafe { neon::unsafe_from_htr_finish_coord(value) }
+    }
 }
 
 impl Into<usize> for HTRLeaveSliceFinishCoord {
@@ -76,6 +88,12 @@ impl From<&Cube333> for HTRLeaveSliceFinishCoord {
     #[cfg(target_feature = "avx2")]
     fn from(value: &Cube333) -> Self {
         unsafe { avx2::unsafe_from_htr_leave_slice_finish_coord(value) }
+    }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    fn from(value: &Cube333) -> Self {
+        unsafe { neon::unsafe_from_htr_leave_slice_finish_coord(value) }
     }
 }
 
@@ -259,9 +277,99 @@ mod avx2 {
     }
 }
 
+#[cfg(target_feature = "neon")]
+mod neon {
+    use std::arch::aarch64::{vaddq_u8, vaddv_u8, vaddvq_u16, vand_u8, vandq_u8, vceq_u8, vclt_u8, vcltq_u8, vcombine_u8, vdup_n_u8, vdupq_n_u8, vget_low_u8, vmulq_u16, vorr_u8, vorrq_u8, vqtbl1_u8, vqtbl1q_u8, vreinterpretq_u16_u8, vshr_n_u8, vshrq_n_u8, vtbl1_u8, vzip1q_u8};
+
+    use crate::puzzles::c333::Cube333;
+    use crate::puzzles::c333::steps::finish::coords::{FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord};
+    use crate::simd_util::neon::{C16, C8, extract_most_significant_bits_u8};
+
+    pub unsafe fn unsafe_from_fr_finish_coord(cube: &Cube333) -> FRUDFinishCoord {
+        let correct_ufl_corner_position = vceq_u8(cube.corners.0, vdup_n_u8(0b01100000));
+        let correct_ufr_corner_position = vceq_u8(cube.corners.0, vdup_n_u8(0b01000000));
+
+        let ufl_values = vand_u8(correct_ufl_corner_position, C8 { a_u8: [0, 1, 0, 0, 0, 2, 0, 3]}.a);
+        let ufr_values = vand_u8(correct_ufr_corner_position, C8 { a_u8: [4, 0, 0, 0, 8, 0, 12, 0]}.a);
+
+        let corners = vaddv_u8(vorr_u8(ufl_values, ufr_values));
+
+        let edges = extract_most_significant_bits_u8(vget_low_u8(cube.edges.0)) & 0xF;
+
+        let coord = corners << 4 | edges;
+        FRUDFinishCoord(coord)
+    }
+
+    pub unsafe fn unsafe_from_htr_leave_slice_finish_coord(cube: &Cube333) -> HTRLeaveSliceFinishCoord {
+        let orbit_corners = vand_u8(vshr_n_u8::<6>(cube.corners.0), vdup_n_u8(0b00000011));
+        let edges = vshrq_n_u8::<4>(cube.edges.0);
+
+        let values_246 = vtbl1_u8(orbit_corners, C8{ a_i8: [2, 4, 6, 4, 6, 6, -1, -1]}.a);
+        let higher_left_246 = vand_u8(vclt_u8(values_246, vtbl1_u8(orbit_corners, C8{ a_i8: [0, 0, 0, 2, 2, 4, -1, -1]}.a)), vdup_n_u8(1));
+
+        let values_e12 = vtbl1_u8(orbit_corners, C8{ a_i8: [5, 6, 7, 6, 7, 7, -1, -1]}.a);
+        let higher_left_e12 = vand_u8(vclt_u8(values_e12, vqtbl1_u8(edges, C8{ a_i8: [4, 4, 4, 5, 5, 6, -1, -1]}.a)), vdup_n_u8(1));
+
+        let combined = vcombine_u8(higher_left_246, higher_left_e12);
+        let sum = vaddq_u8(combined, vqtbl1q_u8(combined, C16{ a_i8: [0, 3, 4, -1, -1, -1, -1, -1, 8, 11, 12, -1, -1, -1, -1, -1]}.a));
+        let sum = vaddq_u8(sum, vqtbl1q_u8(sum, C16{ a_i8: [0, 1, 5, -1, -1, -1, -1, -1, 8, 9, 13, -1, -1, -1, -1, -1]}.a));
+        let sum = vqtbl1q_u8(sum, C16{ a_i8: [0, -1, 1, 2, 8, 9, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1]}.a);
+        let sum = vorrq_u8(sum, vcombine_u8(vand_u8(orbit_corners, C8{ a_i8: [0, -1, 0, 0, 0, 0, 0, 0]}.a), vdup_n_u8(0)));
+        let sum = vreinterpretq_u16_u8(vzip1q_u8(sum, vdupq_n_u8(0)));
+        let binom = vmulq_u16(sum, C16{ a_u16: [6, 24, 2, 1, 0, 0, 0, 0]}.a_16);
+        let cp_eep_value = vaddvq_u16(binom);
+
+        let values_m123s123 = vqtbl1q_u8(edges, C16{ a_i8: [2, 8, 10, 8, 10, 10, -1, -1, 3, 9, 11, 9, 11, 11, -1, -1]}.a);
+        let cmp_values = vqtbl1q_u8(edges, C16{ a_i8:      [0, 0,  0, 2,  2,  8, -1, -1, 1, 1,  1, 3,  3,  9, -1, -1]}.a);
+        let higher_left_m123s123 = vandq_u8(vcltq_u8(values_m123s123, cmp_values), vdupq_n_u8(1));
+
+        let sum = vaddq_u8(higher_left_m123s123, vqtbl1q_u8(higher_left_m123s123, C16{ a_i8: [0, 3, 4, -1, -1, -1, -1, -1, 8, 11, 12, -1, -1, -1, -1, -1]}.a));
+        let sum = vaddq_u8(sum, vqtbl1q_u8(sum, C16{ a_i8: [0, 1, 5, -1, -1, -1, -1, -1, 8, 9, 13, -1, -1, -1, -1, -1]}.a));
+
+        let sum = vreinterpretq_u16_u8(vqtbl1q_u8(sum, C16{ a_i8: [0, -1, 1, -1, 2, -1, 8, -1, 9, -1, 10, -1, -1, -1, -1, -1]}.a));
+        let binom = vmulq_u16(sum, C16{ a_u16: [6, 2, 1, 6*24, 2*24, 1*24, 0, 0]}.a_16);
+        let edge_sum_ms = vaddvq_u16(binom);
+
+        HTRLeaveSliceFinishCoord(cp_eep_value + edge_sum_ms * 96)
+    }
+
+    pub unsafe fn unsafe_from_htr_finish_coord(cube: &Cube333) -> HTRFinishCoord {
+        let orbit_corners = vand_u8(vshr_n_u8::<6>(cube.corners.0), vdup_n_u8(0b00000011));
+        let edges = vshrq_n_u8::<4>(cube.edges.0);
+
+        let values_246 = vtbl1_u8(orbit_corners, C8{ a_i8: [2, 4, 6, 4, 6, 6, -1, -1]}.a);
+        let higher_left_246 = vand_u8(vclt_u8(values_246, vtbl1_u8(orbit_corners, C8{ a_i8: [0, 0, 0, 2, 2, 4, -1, -1]}.a)), vdup_n_u8(1));
+
+        let values_e12 = vtbl1_u8(orbit_corners, C8{ a_i8: [5, 6, 7, 6, 7, 7, -1, -1]}.a);
+        let higher_left_e12 = vand_u8(vclt_u8(values_e12, vqtbl1_u8(edges, C8{ a_i8: [4, 4, 4, 5, 5, 6, -1, -1]}.a)), vdup_n_u8(1));
+
+        let combined = vcombine_u8(higher_left_246, higher_left_e12);
+        let sum = vaddq_u8(combined, vqtbl1q_u8(combined, C16{ a_i8: [0, 3, 4, -1, -1, -1, -1, -1, 8, 11, 12, -1, -1, -1, -1, -1]}.a));
+        let sum = vaddq_u8(sum, vqtbl1q_u8(sum, C16{ a_i8: [0, 1, 5, -1, -1, -1, -1, -1, 8, 9, 13, -1, -1, -1, -1, -1]}.a));
+        let sum = vqtbl1q_u8(sum, C16{ a_i8: [0, -1, 1, 2, 8, 9, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1]}.a);
+        let sum = vorrq_u8(sum, vcombine_u8(vand_u8(orbit_corners, C8{ a_i8: [0, -1, 0, 0, 0, 0, 0, 0]}.a), vdup_n_u8(0)));
+        let sum = vreinterpretq_u16_u8(vzip1q_u8(sum, vdupq_n_u8(0)));
+        let binom = vmulq_u16(sum, C16{ a_u16: [6*12, 24*12, 2*12, 1*12, 1, 3, 0, 0]}.a_16);
+        let cp_eep_value = vaddvq_u16(binom) as u32;
+
+        let values_m123s123 = vqtbl1q_u8(edges, C16{ a_i8: [2, 8, 10, 8, 10, 10, -1, -1, 3, 9, 11, 9, 11, 11, -1, -1]}.a);
+        let cmp_values = vqtbl1q_u8(edges, C16{ a_i8:      [0, 0,  0, 2,  2,  8, -1, -1, 1, 1,  1, 3,  3,  9, -1, -1]}.a);
+        let higher_left_m123s123 = vandq_u8(vcltq_u8(values_m123s123, cmp_values), vdupq_n_u8(1));
+
+        let sum = vaddq_u8(higher_left_m123s123, vqtbl1q_u8(higher_left_m123s123, C16{ a_i8: [0, 3, 4, -1, -1, -1, -1, -1, 8, 11, 12, -1, -1, -1, -1, -1]}.a));
+        let sum = vaddq_u8(sum, vqtbl1q_u8(sum, C16{ a_i8: [0, 1, 5, -1, -1, -1, -1, -1, 8, 9, 13, -1, -1, -1, -1, -1]}.a));
+
+        let sum = vreinterpretq_u16_u8(vqtbl1q_u8(sum, C16{ a_i8: [0, -1, 1, -1, 2, -1, 8, -1, 9, -1, 10, -1, -1, -1, -1, -1]}.a));
+        let binom = vmulq_u16(sum, C16{ a_u16: [6, 2, 1, 6*24, 2*24, 1*24, 0, 0]}.a_16);
+        let edge_sum_ms = vaddvq_u16(binom) as u32;
+
+        HTRFinishCoord(cp_eep_value + edge_sum_ms * 1152)
+    }
+}
+
 #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
 mod wasm32 {
-    use std::arch::wasm32::{u8x16, u8x16_eq, v128_and, v128_or, u8x16_extract_lane, u8x16_bitmask};
+    use std::arch::wasm32::{u8x16, u8x16_bitmask, u8x16_eq, u8x16_extract_lane, v128_and, v128_or};
 
     use crate::puzzles::c333::Cube333;
     use crate::puzzles::c333::steps::finish::coords::FRUDFinishCoord;

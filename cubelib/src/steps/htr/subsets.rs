@@ -2,7 +2,7 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::str::FromStr;
 use itertools::Itertools;
-use log::{debug, trace, warn};
+use log::{trace, debug, warn};
 use tinyset::Set64;
 use crate::algs::Algorithm;
 use crate::cube::*;
@@ -45,7 +45,7 @@ pub fn dr_subset_filter<'a>(subset_table: &'a HTRSubsetTable, subsets: &Vec<Stri
         .flat_map(|subset_name|{
             let matched_subsets = expand_subset_name(subset_name.as_str());
             if matched_subsets.is_empty() {
-                warn!("Unrecognized subset name {subset_name}, ignoring")
+                warn!("Ignoring unrecognized subset name {subset_name}")
             }
             if matched_subsets.len() == 1 {
                 for (subset, _) in matched_subsets.iter() {
@@ -87,7 +87,7 @@ pub fn gen_subset_tables(htr_table: &mut HTRPruningTable) -> HTRSubsetTable {
     let mut total_checked = 0;
 
     for (subset, id) in DR_SUBSETS.iter().zip(1..) {
-        debug!("Generating NISS table for subset: {id}. {subset:?}");
+        info!("Generating NISS table for subset: {id}. {subset:?}");
         let generator = Algorithm::from_str(subset.generator).unwrap();
         let checked = fill_table(htr_table, &mut subset_table, &generator, id - 1);
         total_checked += checked;

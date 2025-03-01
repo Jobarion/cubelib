@@ -5,7 +5,7 @@ use std::str::FromStr;
 use std::vec;
 
 use itertools::Itertools;
-use log::{debug, error};
+use log::{debug, warn, error};
 
 use crate::algs::Algorithm;
 use crate::steps::dr::co::COCountUD;
@@ -255,11 +255,11 @@ fn generate_trigger_variations(mut trigger: Algorithm) -> Vec<Vec<Turn333>> {
     }
     if let Some(last) = trigger.normal_moves.last() {
         if !last.face.is_on_axis(CubeAxis::LR) || last.dir == Direction::Half {
-            error!("DRUD triggers should end with R R' L or L'");
+            warn!("Ignoring DRUD triggers that don't end with R R' L or L'");
             return vec![];
         }
     } else {
-        error!("Empty triggers do not make sense");
+        warn!("Ignoring empty triggers");
         return vec![];
     };
     let mut triggers: Vec<Vec<Turn333>> = vec![];

@@ -1,23 +1,21 @@
 use std::collections::HashMap;
 use std::str::FromStr;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use regex::Regex;
 use cubelib::defs::*;
 use cubelib::steps::step::{StepConfig};
+use serde::Deserialize;
+use log::LevelFilter;
 
 #[derive(Parser)]
 #[command(name = "Cubelib")]
 #[command(author = "Jonas Balsfulland <cubelib@joba.me>")]
 #[command(version = "1.2")]
 pub struct Cli {
-    #[arg(short, long, default_value_t = false, group = "log_level", help = "Enables more detailed logging")]
-    pub verbose: bool,
-    #[arg(long, default_value_t = false, group = "log_level", help = "Prints nothing but the solutions")]
-    pub quiet: bool,
-    #[arg(id = "compact", short = 'c', long = "compact", default_value_t = false, help = "Prints only the solution, and not the different steps")]
-    pub compact_solutions: bool,
-    #[arg(short = 'p', long = "plain", default_value_t = false, requires = "compact", help = "Does not print the number of moves of the solution")]
-    pub plain_solution: bool,
+    #[arg(short, long = "log", help = "Log level")]
+    pub log: LogLevel,
+    #[arg(short, long = "format", help="Solution output format")]
+    pub format: SolutionFormat,
     #[arg(short = 'a', long = "all", default_value_t = false, help = "Print solutions that would otherwise get filtered out. E.g. an EO ending in F'")]
     pub all_solutions: bool,
     #[arg(short = 'm', long = "min", default_value_t = 0, help = "Minimum length of solutions")]
@@ -34,6 +32,40 @@ pub struct Cli {
     pub steps: String,
     pub scramble: String,
 }
+
+#[derive(ValueEnum, Clone, Default, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogLevel {
+    Error, // Unrecoverable error. Results cannot be trusted
+    #[default]
+    Warn, // Unexpected input, user-correctable
+    Info, // User-meaningful message
+    Debug, // Developer-meaningful message
+    Trace // DFS step
+}
+
+impl LogLevel {
+    pub fn to_level_filter(&self) -> LevelFilter {
+        match self {
+            LogLevel::Error => LevelFilter::Error,
+            LogLevel::Warn => LevelFilter::Warn,
+            LogLevel::Info => LevelFilter::Info,
+            LogLevel::Debug => LevelFilter::Debug,
+            LogLevel::Trace => LevelFilter::Trace,
+        }
+    }
+}
+
+#[derive(ValueEnum, Clone, Default, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SolutionFormat {
+    #[default]
+    Detailed,
+    Compact,
+    Plain
+}
+
+
 
 impl Cli {
 

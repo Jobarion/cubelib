@@ -138,7 +138,7 @@ impl Display for Solution {
                 format!("{}{comment}", step.kind.to_string())
             };
             total_moves += alg_length;
-            writeln!(f, "{:longest_alg_length$}  //{name:longest_name_length$} ({alg_length}/{total_moves})", step.alg.to_string())?;
+            writeln!(f, "{:longest_alg_length$}  // {name:longest_name_length$} ({alg_length}/{total_moves})", step.alg.to_string())?;
         }
         let final_alg: Algorithm = if self.steps.last().map(|x| x.kind == StepKind::FIN).unwrap_or(false) {
             Into::<Algorithm>::into(self.clone()).to_uninverted()
@@ -147,7 +147,7 @@ impl Display for Solution {
         };
         writeln!(
             f,
-            "\nSolution ({}): {}",
+            "Solution ({}): {}",
             total_moves,
             final_alg
         )

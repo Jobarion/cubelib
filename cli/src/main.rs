@@ -11,27 +11,20 @@ use cubelib::solver::df_search::CancelToken;
 use cubelib::solver::solution::Solution;
 use cubelib::steps::{eo, solver};
 use cubelib::steps::tables::PruningTables333;
-use log::{debug, error, info, LevelFilter};
+use log::{error, info};
 use simple_logger::SimpleLogger;
 use cubelib::cube::turn::ApplyAlgorithm;
 
-use crate::cli::Cli;
+use crate::cli::{Cli, SolutionFormat};
 
 mod cli;
 
 fn main() {
     let cli: Cli = Cli::parse();
     SimpleLogger::new()
-        .with_level(if cli.verbose {
-            LevelFilter::Trace
-        } else if cli.quiet {
-            LevelFilter::Error
-        } else {
-            LevelFilter::Info
-        })
+        .with_level(cli.log.to_level_filter())
         .init()
         .unwrap();
-
 
     let scramble = Algorithm::from_str(cli.scramble.as_str()).expect("Invalid scramble {}");
     let mut cube = Cube333::default();
@@ -89,17 +82,17 @@ fn main() {
 
     //The iterator is always sorted, so this just prints the shortest solutions
     for solution in solutions {
-        if cli.compact_solutions {
-            if cli.plain_solution {
-                println!("{}", Into::<Algorithm>::into(solution));
-            } else {
+        match cli.format {
+            SolutionFormat::Plain =>
+                println!("{}", Into::<Algorithm>::into(solution)),
+            SolutionFormat::Compact => {
                 let alg = Into::<Algorithm>::into(solution);
                 println!("{alg} ({})", alg.len());
-            }
-        } else {
-            println!("{}", solution);
+            },
+            SolutionFormat::Detailed =>
+                println!("{}", solution)
         }
     }
 
-    debug!("Took {}ms", time.elapsed().as_millis());
+    info!("Took {}ms", time.elapsed().as_millis());
 }

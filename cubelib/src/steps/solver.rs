@@ -49,7 +49,7 @@ pub fn build_steps(steps: Vec<StepConfig>, tables: &PruningTables333) -> Result<
             (Some(StepKind::EO), StepKind::DR) => {
                 let dr_table = tables.dr().expect("DR table required");
                 if config.params.contains_key("triggers") {
-                    log::info!("Found explicitly defined DR triggers without RZP. Adding RZP step with default settings.");
+                    log::warn!("Found explicitly defined DR triggers without RZP. Adding RZP step with default settings.");
                     let mut rzp_config = StepConfig::new(StepKind::RZP);
                     rzp_config.quality = config.quality;
                     rzp_config.max = config.max;

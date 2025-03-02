@@ -156,10 +156,10 @@ impl PruningTables333 {
             match res {
                 Ok(v) => {
                     *val = Some(v);
-                    info!("Loaded {key} table from disk");
+                    debug!("Loaded {key} table from disk");
                 },
-                Err(e) => {
-                    error!("Error loading {key} table from disk: {e}");
+                Err(_) => {
+                    info!("{key} table not found on disk");
                 }
             }
         }
@@ -178,10 +178,10 @@ impl PruningTables333 {
             match res {
                 Ok(v) => {
                     *val = Some(v);
-                    info!("Loaded {key} table from disk");
+                    debug!("Loaded {key} table from disk");
                 },
-                Err(e) => {
-                    error!("Error loading {key} table from disk: {e}");
+                Err(_) => {
+                    info!("Error loading {key} table from disk");
                 }
             }
         }
@@ -259,10 +259,10 @@ impl PruningTables333 {
             match HTRSubsetTable::load_from_disk("333", "htr-subset") {
                 Ok(v) => {
                     self.htr_subset = Some(v);
-                    info!("Loaded htr-subset table from disk");
+                    debug!("Loaded htr-subset table from disk");
                 },
-                Err(e) => {
-                    error!("Error loading htr-subset table from disk: {e}");
+                Err(_) => {
+                    info!("htr-subset table not found on disk");
                 }
             }
             if new_table || self.htr_subset.is_none() {

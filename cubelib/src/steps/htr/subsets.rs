@@ -2,7 +2,7 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::str::FromStr;
 use itertools::Itertools;
-use log::{trace, debug, warn};
+use log::{trace, debug, info, warn};
 use tinyset::Set64;
 use crate::algs::Algorithm;
 use crate::cube::*;

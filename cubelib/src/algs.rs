@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use itertools::Itertools;
 use crate::cube::*;
-use crate::cube::turn::{Invertible, Transformable, TransformableMut, TurnableMut};
+use crate::cube::turn::{Invertible, InvertibleMut, Transformable, TransformableMut, TurnableMut};
 
 #[derive(PartialEq, Eq, Hash)]
 //This is a pretty bad serialization format. We can do better if Turn is FromStr, but right now that's not enforced.
@@ -80,6 +80,15 @@ impl Algorithm {
 
     pub fn len(&self) -> usize {
         self.normal_moves.len() + self.inverse_moves.len()
+    }
+}
+
+impl InvertibleMut for Algorithm {
+    fn invert(&mut self) {
+        self.normal_moves.reverse();
+        self.normal_moves.iter_mut().for_each(|m| *m = m.invert());
+        self.inverse_moves.reverse();
+        self.inverse_moves.iter_mut().for_each(|m| *m = m.invert());
     }
 }
 

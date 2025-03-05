@@ -1,15 +1,8 @@
 use crate::cube::*;
 use crate::steps::coord::Coord;
 
-//Edge orientation on the respective axis
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EOCoordAll(pub EOCoordUD, pub EOCoordFB, pub EOCoordLR);
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EOCoordUD(pub(crate) u16);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct EOCoordFB(pub(crate) u16);
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EOCoordLR(pub(crate) u16);
 
 impl Coord<2048> for EOCoordFB {
     fn val(&self) -> usize {

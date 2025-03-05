@@ -1,16 +1,19 @@
-use std::sync::Arc;
+use std::sync::LazyLock;
+use std::time::Instant;
+use log::{debug, info};
 use typed_builder::TypedBuilder;
 use crate::algs::Algorithm;
-use crate::cube::{Cube333, CubeFace, Direction, Transformation333, Turn333};
+use crate::cube::*;
 use crate::defs::{NissSwitchType, StepKind};
+use crate::solver::lookup_table;
 use crate::solver::moveset::{Transition, TransitionTable333};
 use crate::solver_new::step::{DFSParameters, MoveSet, Step, StepOptions};
 use crate::steps::eo::coords::EOCoordFB;
-use crate::steps::eo::eo_config::EOPruningTable;
+use crate::steps::eo::eo_config::{EO_FB_MOVESET, EOPruningTable};
 use crate::steps::step::{PostStepCheck, PreStepCheck};
 
 pub type EOOptions = StepOptions<EOStepOptions, 5, 20>;
-
+static EO_TABLE: LazyLock<EOPruningTable> = LazyLock::new(gen_eo);
 
 const EOFB_ST_MOVES: &[Turn333] = &[
     Turn333::F, Turn333::Fi,
@@ -28,7 +31,7 @@ const EOFB_AUX_MOVES: &[Turn333] = &[
 
 pub const EOFB_MOVESET: MoveSet = MoveSet::new(EOFB_ST_MOVES, EOFB_AUX_MOVES);
 
-#[derive(TypedBuilder)]
+#[derive(Clone, TypedBuilder)]
 pub struct EOStepOptions {
     #[builder(default=NissSwitchType::Never)]
     pub niss: NissSwitchType
@@ -41,15 +44,15 @@ impl Into<NissSwitchType> for &EOStepOptions {
 }
 
 pub struct EOStep {
-     table: Arc<EOPruningTable>,
+     table: &'static EOPruningTable,
      options: EOOptions,
      pre_step_trans: Vec<Transformation333>,
 }
 
 impl EOStep {
-    pub fn new(opts: EOOptions, table: Arc<EOPruningTable>) -> Self {
+    pub fn new(opts: EOOptions) -> Self {
         Self {
-            table,
+            table: &EO_TABLE,
             options: opts,
             pre_step_trans: vec![],
         }
@@ -92,4 +95,18 @@ impl <'a> Step for EOStep {
     fn get_name(&self) -> (StepKind, String) {
         (StepKind::EO, "fb".to_string())
     }
+}
+
+fn gen_eo() -> EOPruningTable {
+    info!("Generating EO pruning table...");
+    #[cfg(not(target_arch = "wasm32"))]
+    let time = Instant::now();
+    let table = lookup_table::generate(&EO_FB_MOVESET,
+                                       &|c: &crate::cube::Cube333| EOCoordFB::from(c),
+                                       &|| EOPruningTable::new(false),
+                                       &|table, coord|table.get(coord),
+                                       &|table, coord, val|table.set(coord, val));
+    #[cfg(not(target_arch = "wasm32"))]
+    debug!("Took {}ms", time.elapsed().as_millis());
+    table
 }

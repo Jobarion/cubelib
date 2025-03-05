@@ -408,6 +408,14 @@ impl CubeAxis {
     pub const UD: CubeAxis = CubeAxis::Y;
     pub const FB: CubeAxis = CubeAxis::Z;
     pub const LR: CubeAxis = CubeAxis::X;
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            CubeAxis::X => "lr",
+            CubeAxis::Y => "ud",
+            CubeAxis::Z => "fb",
+        }
+    }
 }
 
 impl<T, const N: usize> Index<CubeAxis> for [T; N] {

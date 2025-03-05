@@ -1,34 +1,23 @@
 use std::cmp::min;
-use std::collections::HashMap;
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
-use std::future::Future;
-use std::iter::Peekable;
+use std::fmt::Debug;
 use std::ops::Deref;
-use std::ptr::write;
-use std::str::FromStr;
-use std::sync::{Arc, Mutex, Once, OnceLock};
-use std::sync::mpsc::{Receiver, RecvError, Sender, SendError, SyncSender};
-use std::thread;
+use std::sync::Arc;
 use std::thread::JoinHandle;
 
-use itertools::{Either, Itertools, rev};
-use log::{debug, error, trace, warn};
+use log::trace;
 use typed_builder::TypedBuilder;
 
 use crate::algs::Algorithm;
 use crate::cube::{Cube333, Transformation333, Turn333};
 use crate::cube::turn::*;
 use crate::defs::{NissSwitchType, StepKind};
-use crate::simd_util::avx2::C;
 use crate::solver::df_search::CancelToken;
-use crate::solver::solution::{Solution, SolutionStep};
-use crate::steps::eo::eo_config::EOPruningTable;
-use crate::steps::htr::subsets::Subset;
-use crate::steps::step::{PostStepCheck, PreStepCheck, StepVariant};
+use crate::solver::solution::{ApplySolution, Solution, SolutionStep};
+use crate::solver_new::thread_util::*;
+use crate::steps::step::{PostStepCheck, PreStepCheck};
 
-#[derive(TypedBuilder)]
-pub struct StepOptions<T, const DM: usize, const DAM: usize> {
+#[derive(Clone, TypedBuilder)]
+pub struct StepOptions<T: Clone, const DM: usize, const DAM: usize> {
     #[builder(default=0)]
     pub min_length: usize,
     #[builder(default=DM)]
@@ -40,7 +29,24 @@ pub struct StepOptions<T, const DM: usize, const DAM: usize> {
     pub options: T,
 }
 
-impl <T, const DM: usize, const DAM: usize> Deref for StepOptions<T, DM, DAM> {
+// pub type Sender<T> = sync::mpsc::SyncSender<T>;
+// pub type Receiver<T> = sync::mpsc::Receiver<T>;
+// pub type SendError<T> = sync::mpsc::SendError<T>;
+// pub type RecvError = sync::mpsc::RecvError;
+// pub type TryRecvError = sync::mpsc::TryRecvError;
+
+pub type Sender<T> = crossbeam::channel::Sender<T>;
+pub type Receiver<T> = crossbeam::channel::Receiver<T>;
+pub type SendError<T> = crossbeam::channel::SendError<T>;
+pub type RecvError = crossbeam::channel::RecvError;
+pub type TryRecvError = crossbeam::channel::TryRecvError;
+
+pub fn bounded_channel<T>(size: usize) -> (Sender<T>, Receiver<T>) {
+    crossbeam::channel::bounded(size)
+    // sync::mpsc::sync_channel(size)
+}
+
+impl <T: Clone, const DM: usize, const DAM: usize> Deref for StepOptions<T, DM, DAM> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -48,7 +54,7 @@ impl <T, const DM: usize, const DAM: usize> Deref for StepOptions<T, DM, DAM> {
     }
 }
 
-impl <T, const DM: usize, const DAM: usize> Into<DFSParameters> for &StepOptions<T, DM, DAM> where for<'a> &'a T: Into<NissSwitchType> {
+impl <T: Clone, const DM: usize, const DAM: usize> Into<DFSParameters> for &StepOptions<T, DM, DAM> where for<'a> &'a T: Into<NissSwitchType> {
     fn into(self) -> DFSParameters {
         DFSParameters {
             niss_type: (&self.options).into(),
@@ -63,12 +69,23 @@ impl <T, const DM: usize, const DAM: usize> Into<DFSParameters> for &StepOptions
 pub struct StepWorker {
     join_handle: Option<JoinHandle<()>>,
     cancel_token: Arc<CancelToken>,
-    step_runner: Arc<Mutex<Option<StepIORunner>>>,
+    step_runner: ThreadState<StepIORunner, ()>,
+}
+
+impl Worker<()> for StepWorker {
+    fn start(&mut self) {
+        self.step_runner.start();
+    }
+
+    fn stop(&mut self) -> Option<JoinHandle<()>> {
+        self.cancel_token.cancel();
+        self.join_handle.take()
+    }
 }
 
 struct StepIORunner {
     rc: Receiver<Solution>,
-    tx: SyncSender<Solution>,
+    tx: Sender<Solution>,
     input: Vec<Solution>,
     dfs_parameters: DFSParameters,
     current_length: usize,
@@ -78,30 +95,7 @@ struct StepIORunner {
     cube_state: Cube333,
 }
 
-pub trait Worker {
-    fn start(&mut self);
-    fn stop(&mut self) -> Option<JoinHandle<()>>;
-}
-
-impl Worker for StepWorker {
-    fn start(&mut self) {
-        if let Ok(mut step_runner) = self.step_runner.try_lock() {
-            let step_runner = step_runner.take();
-            if step_runner.is_some() {
-                self.join_handle = Some(thread::spawn(move || {
-                    step_runner.unwrap().run();
-                }));
-            }
-        }
-    }
-
-    fn stop(&mut self) -> Option<JoinHandle<()>> {
-        self.cancel_token.cancel();
-        self.join_handle.take()
-    }
-}
-
-impl StepIORunner {
+impl Run<()> for StepIORunner {
     fn run(&mut self) {
         let next = if let Ok(next) = self.rc.recv() {
             next
@@ -113,7 +107,6 @@ impl StepIORunner {
         while !self.cancel_token.is_cancelled() && self.current_length <= self.dfs_parameters.max_moves {
             trace!("[{}] Loop start {} {}", self.step.get_name().0, self.current_length, self.input.len());
             // If we need to fetch all inputs up to length X, we do this now
-            let mut sender_closed = false;
             match self.process_fetched() {
                 Ok(Some(full_fetch_required_length)) => {
                     trace!("[{}] Requested fetch up to {full_fetch_required_length}", self.step.get_name().0);
@@ -147,13 +140,16 @@ impl StepIORunner {
             }
         }
     }
+}
+
+impl StepIORunner {
 
     fn process_fetched(&mut self) -> Result<Option<usize>, SendError<Solution>> {
         let min_length = self.input[0].len();
         while !self.cancel_token.is_cancelled() && self.current_position < self.input.len() {
             let len = self.input[self.current_position].len();
             // We know that they are ordered by length, so we can abort immediately
-            trace!("[{}] \tCurrent state has length {len} (min is {min_length})", self.step.get_name().0);
+            //trace!("[{}] \tCurrent state has length {len} (min is {min_length})", self.step.get_name().0);
             if len > self.current_length + min_length {
                 return Ok(None);
             }
@@ -166,7 +162,8 @@ impl StepIORunner {
     fn submit_solution(&self, input: &Solution, result: Algorithm) -> Result<(), SendError<Solution>>{
         let mut input = input.clone();
         let (kind, variant) = self.step.get_name();
-        input.steps.push(SolutionStep {
+
+        input.add_step(SolutionStep {
             kind,
             variant,
             alg: result,
@@ -178,6 +175,7 @@ impl StepIORunner {
 
     // Finds solutions that exactly match the depth parameter. Does _not_ look for shorter ones
     pub fn find_solutions(&self, mut cube: Cube333, input: &Solution, depth: usize, niss_type: NissSwitchType) -> Result<(), SendError<Solution>> {
+        cube.apply_solution(input);
         if !self.step.is_cube_ready(&cube) {
             return Ok(());
         }
@@ -193,6 +191,8 @@ impl StepIORunner {
             previous_inverse = previous_inverse.map(|m|m.transform(t));
         }
 
+        let heuristic = self.step.heuristic(&cube, niss_type != NissSwitchType::Never);
+        //trace!("[{}{}] \t{alg} is solvable in {}, depth is {depth}", self.step.get_name().0, self.step.get_name().1, heuristic);
         if self.step.heuristic(&cube, niss_type != NissSwitchType::Never) == 0 {
             //Only return a solution if we are allowed to return zero length solutions
             if depth == 0 {
@@ -201,13 +201,14 @@ impl StepIORunner {
             return Ok(());
         }
 
+        let cancel_token = self.cancel_token.as_ref();
         let iter: Box<dyn Iterator<Item = Algorithm>> = match niss_type {
             NissSwitchType::Never if start_on_normal => {
-                Box::new(self.find_solutions_dfs(cube, depth, false, previous_normal, previous_inverse))
+                Box::new(self.find_solutions_dfs(cube, depth, false, previous_normal, previous_inverse, cancel_token))
             },
             NissSwitchType::Never => {
                 cube.invert();
-                Box::new(self.find_solutions_dfs(cube, depth, false, previous_inverse, previous_normal)
+                Box::new(self.find_solutions_dfs(cube, depth, false, previous_inverse, previous_normal, cancel_token)
                     .map(|alg| {
                         Algorithm {
                             normal_moves: alg.inverse_moves,
@@ -216,9 +217,9 @@ impl StepIORunner {
                     }))
             },
             NissSwitchType::Before => {
-                let normal = self.find_solutions_dfs(cube.clone(), depth, false, previous_normal, previous_inverse);
+                let normal = self.find_solutions_dfs(cube.clone(), depth, false, previous_normal, previous_inverse, cancel_token);
                 cube.invert();
-                let inverse = self.find_solutions_dfs(cube, depth, false, previous_inverse, previous_normal)
+                let inverse = self.find_solutions_dfs(cube, depth, false, previous_inverse, previous_normal, cancel_token)
                     .map(|alg| {
                         Algorithm {
                             normal_moves: alg.inverse_moves,
@@ -228,9 +229,9 @@ impl StepIORunner {
                 Box::new(normal.chain(inverse))
             }
             NissSwitchType::Always => {
-                let normal = self.find_solutions_dfs(cube.clone(), depth, true, previous_normal, previous_inverse);
+                let normal = self.find_solutions_dfs(cube.clone(), depth, true, previous_normal, previous_inverse, cancel_token);
                 cube.invert();
-                let inverse = self.find_solutions_dfs(cube, depth, false, previous_inverse, previous_normal)
+                let inverse = self.find_solutions_dfs(cube, depth, false, previous_inverse, previous_normal, cancel_token)
                     .map(|alg| {
                         Algorithm {
                             normal_moves: alg.inverse_moves,
@@ -248,8 +249,8 @@ impl StepIORunner {
         Ok(())
     }
 
-    fn find_solutions_dfs<'a>(&'a self, mut cube: Cube333, depth: usize, niss_available: bool, prev: Option<Turn333>, prev_inv: Option<Turn333>) -> Box<dyn Iterator<Item = Algorithm> + 'a> {
-        if self.cancel_token.is_cancelled() {
+    fn find_solutions_dfs<'a>(&'a self, mut cube: Cube333, depth: usize, niss_available: bool, prev: Option<Turn333>, prev_inv: Option<Turn333>, cancel_token: &'a CancelToken) -> Box<dyn Iterator<Item = Algorithm> + 'a> {
+        if cancel_token.is_cancelled() {
             return Box::new(vec![].into_iter());
         }
         let lower_bound = self.step.heuristic(&cube, niss_available);
@@ -261,7 +262,7 @@ impl StepIORunner {
         let values: Box<dyn Iterator<Item = Algorithm>> = Box::new(self.step.get_moveset(&cube, depth).get_allowed_moves(prev, depth)
             .flat_map(move |(turn, can_invert)|{
                 cube.turn(turn);
-                let normal_results = self.find_solutions_dfs(cube, depth - 1, niss_available, Some(turn), prev_inv)
+                let normal_results = self.find_solutions_dfs(cube, depth - 1, niss_available, Some(turn), prev_inv, cancel_token)
                     .map(move |mut alg|{
                         alg.normal_moves.push(turn);
                         alg
@@ -269,7 +270,7 @@ impl StepIORunner {
                 let results: Box<dyn Iterator<Item = Algorithm>> = if niss_available && can_invert && depth > 1 {
                     let mut cube = cube.clone();
                     cube.invert();
-                    let inverse_results = self.find_solutions_dfs(cube, depth - 1, false, prev_inv, Some(turn))
+                    let inverse_results = self.find_solutions_dfs(cube, depth - 1, false, prev_inv, Some(turn), cancel_token)
                         .map(move |mut alg|{
                             alg.inverse_moves.push(turn);
                             Algorithm {
@@ -288,20 +289,13 @@ impl StepIORunner {
     }
 }
 
-pub trait ToWorker {
-    fn to_worker(self: Self, cube_state: Cube333, rc: Receiver<Solution>, tx: SyncSender<Solution>) -> Box<dyn Worker> where Self: Send + 'static + Sized {
-        Box::new(self).to_worker_box(cube_state, rc, tx)
-    }
-    fn to_worker_box(self: Box<Self>, cube_state: Cube333, rc: Receiver<Solution>, tx: SyncSender<Solution>) -> Box<dyn Worker> where Self: Send + 'static;
-}
-
 impl <S: Step + Send + 'static> ToWorker for S {
-    fn to_worker_box(self: Box<Self>, cube_state: Cube333, rc: Receiver<Solution>, tx: SyncSender<Solution>) -> Box<dyn Worker> {
+    fn to_worker_box(self: Box<Self>, cube_state: Cube333, rc: Receiver<Solution>, tx: Sender<Solution>) -> Box<dyn Worker<()> + Send> {
         let cancel_token = Arc::new(CancelToken::default());
         Box::new(StepWorker {
             join_handle: None,
             cancel_token: cancel_token.clone(),
-            step_runner: Arc::new(Mutex::new(Some(StepIORunner {
+            step_runner: ThreadState::PreStart(StepIORunner {
                 rc,
                 tx,
                 input: vec![],
@@ -311,7 +305,7 @@ impl <S: Step + Send + 'static> ToWorker for S {
                 step: self,
                 cancel_token: cancel_token.clone(),
                 cube_state
-            }))),
+            }),
         })
     }
 }
@@ -400,56 +394,3 @@ impl MoveSet {
             .filter(move |t|previous.map_or(true, |tp|self.transitions[tp.to_id()][t.0.to_id()]))
     }
 }
-
-// pub trait Sampler: Iterator<Item = Solution> {
-//     fn set_inputs(&mut self, inputs: Vec<Box<dyn Iterator<Item = Solution>>>);
-// }
-//
-// pub struct ShortestNSampler {
-//     elements_left: usize,
-//     next_iterator: usize,
-//     target_length: usize,
-//     round_length: usize,
-//     active_iterators: Vec<Peekable<Box<dyn Iterator<Item=Solution>>>>,
-// }
-//
-// impl Iterator for ShortestNSampler {
-//     type Item = Solution;
-//
-//     fn next(&mut self) -> Option<Self::Item> {
-//         if self.elements_left == 0 {
-//             return None;
-//         }
-//         if self.next_iterator == 0 {
-//             if self.round_length == usize::MAX {
-//                 self.elements_left = 0;
-//                 self.active_iterators.clear();
-//                 return None;
-//             }
-//             self.target_length = self.round_length;
-//             self.round_length = usize::MAX;
-//         }
-//         for idx in self.next_iterator..self.active_iterators.len() {
-//             if let Some(x) = self.active_iterators[idx].peek() {
-//                 self.round_length = min(x.len(), self.round_length);
-//                 if x.len() <= self.target_length {
-//                     self.next_iterator += idx + 1;
-//                     if self.next_iterator >= self.active_iterators.len() {
-//                         self.next_iterator = 0;
-//                     }
-//                     return self.active_iterators[idx].next();
-//                 }
-//             }
-//         }
-//         self.next_iterator = 0;
-//         self.next()
-//     }
-// }
-//
-// impl Sampler for ShortestNSampler {
-//     fn set_inputs(&mut self, inputs: Vec<Box<dyn Iterator<Item = Solution>>>) {
-//         self.active_iterators = inputs.into_iter()
-//             .map(|i|i.peekable())
-//             .collect_vec();
-//     }
-// }

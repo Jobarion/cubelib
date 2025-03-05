@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::string::ToString;
-use crate::solver::lookup_table::TableType::Niss;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]

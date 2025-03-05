@@ -110,7 +110,7 @@ pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")
 
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
-        config.max.unwrap_or(12),
+        config.max.unwrap_or(8),
         config.absolute_min,
         config.absolute_max,
         config.niss.unwrap_or(NissSwitchType::Before),

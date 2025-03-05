@@ -1,3 +1,4 @@
+use rand::Rng;
 use crate::cube::turn::{CubeOuterTurn, CubeTransformation, Edge, InvertibleMut, TransformableMut, TurnableMut};
 
 //One byte per edge, 4 bits for id, 3 bits for eo (UD/FB/RL), 1 bit free
@@ -225,6 +226,78 @@ impl Default for CenterEdgeCube {
     }
 }
 
+impl CenterEdgeCube {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    pub fn random<T: Rng>(parity: bool, rng: &mut T) -> Self {
+        let bytes = random_edges(parity, rng);
+        unsafe { avx2::unsafe_from_bytes(bytes) }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    pub fn random<T: Rng>(parity: bool, rng: &mut T) -> Self {
+        let bytes = random_edges(parity, rng);
+        wasm32::from_bytes(bytes)
+    }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    pub fn random<T: Rng>(parity: bool, rng: &mut T) -> Self {
+        let bytes = random_edges(parity, rng);
+        unsafe { neon::unsafe_from_bytes(bytes) }
+    }
+
+}
+
+fn random_edges<T: Rng>(parity: bool, rng: &mut T) -> [u8; 12] {
+    let mut edge_bytes: [u8; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    let mut orientation_parity = false;
+    let mut swap_parity = false;
+
+    fn get_bytes(position_id: u8, piece_id: u8, flipped: bool) -> u8 {
+        let slice = [0, 2, 0, 2, 1, 1, 1, 1, 0, 2, 0, 2]; // 0 = M, 1 = E, 2 = S
+        let default_orientation: [u8; 4] = [
+            0, // Piece is in its home slice
+            1, // E <-> S
+            2, // E <-> M
+            4, // M <-> S
+        ];
+        let mut orientation: u8 = default_orientation[(slice[piece_id as usize] ^ slice[position_id as usize]) as usize];
+        if flipped {
+            orientation ^= 7;
+        }
+        (piece_id << 4) | (orientation << 1)
+    }
+
+    for i in 0..10 {
+        let swap_index = rng.gen_range(i..12);
+        if swap_index != i {
+            edge_bytes.swap(i, swap_index);
+            swap_parity = !swap_parity;
+        }
+        let flipped = if rng.gen_bool(0.5) {
+            orientation_parity = !orientation_parity;
+            true
+        } else { false };
+        edge_bytes[i] = get_bytes(i as u8, edge_bytes[i], flipped);
+    }
+
+    // Last position determined by parity
+    if swap_parity != parity {
+        edge_bytes.swap(10, 11);
+    }
+    let flipped = if rng.gen_bool(0.5) {
+        orientation_parity = !orientation_parity;
+        true
+    } else { false };
+    edge_bytes[10] = get_bytes(10, edge_bytes[10], flipped);
+    // Last orientation determined by parity
+    edge_bytes[11] = get_bytes(11, edge_bytes[11], !orientation_parity);
+    edge_bytes
+}
+
+
 #[cfg(target_feature = "avx2")]
 mod avx2 {
     use std::arch::x86_64::{
@@ -321,6 +394,13 @@ mod avx2 {
     pub(crate) unsafe fn unsafe_new_solved() -> CenterEdgeCube {
         CenterEdgeCube(unsafe {
             _mm_slli_epi64::<4>(_mm_setr_epi8( 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 0, 0, 0))
+        })
+    }
+
+    #[target_feature(enable = "avx2")]
+    pub(crate) unsafe fn unsafe_from_bytes(bytes: [u8; 12]) -> CenterEdgeCube {
+        CenterEdgeCube(unsafe {
+            _mm_setr_epi8( bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], 0, 0, 0, 0)
         })
     }
 
@@ -528,6 +608,12 @@ mod neon {
         })
     }
 
+    pub(crate) unsafe fn unsafe_from_bytes(bytes: [u8; 12]) -> CenterEdgeCube {
+        CenterEdgeCube(unsafe {
+            C16 { a_u8: [bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], 0, 0, 0, 0]}.a
+        })
+    }
+
     pub unsafe fn unsafe_get_edges(cube: &CenterEdgeCube) -> [Edge; 12] {
         let mut edges = unsafe_get_edges_raw(cube);
         let mut edge_arr = [Edge {
@@ -716,6 +802,10 @@ mod wasm32 {
             u8x16(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 0, 0, 0),
             4,
         ))
+    }
+
+    pub(crate) fn from_bytes(bytes: [u8; 12]) -> CenterEdgeCube {
+        CenterEdgeCube(u8x16(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], 0, 0, 0, 0))
     }
 
     pub(crate) fn get_edges(cube: &CenterEdgeCube) -> [Edge; 12] {

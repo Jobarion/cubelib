@@ -14,19 +14,55 @@ pub mod moveset;
 use crate::solver::df_search::CancelToken;
 use crate::steps::step::{DefaultStepOptions, Step};
 
-pub fn solve_steps<'a>(puzzle: Cube333, steps: &'a Vec<(Step<'a>, DefaultStepOptions)>, cancel_token: &'a CancelToken) -> impl Iterator<Item = Solution> + 'a {
-    let first_step: Box<dyn Iterator<Item = Solution>> = Box::new(vec![Solution::new()].into_iter());
+pub fn solve_steps<'a>(puzzle: Cube333, steps: &'a Vec<(Step<'a>, DefaultStepOptions)>, cancel_token: &'a CancelToken) -> Vec<Solution> {
+    let mut solutions = vec![Solution::new()];
 
-    let solutions: Box<dyn Iterator<Item=Solution>> = steps.iter()
-        .fold(first_step, |acc, (step, search_opts)|{
-            debug!("Step {} with options {:?}", step.kind(), search_opts);
-            let next = steps::step::next_step(acc, step, search_opts.clone(), puzzle.clone(), cancel_token)
-                .zip(0..)
-                .take_while(|(_, count)| search_opts.step_limit.map(|limit| limit > *count).unwrap_or(true))
-                .map(|(sol, _)|sol);
-            Box::new(next)
-        });
-
+    for (step, search_opts) in steps {
+        debug!("Step {} with options {:?}", step.kind(), search_opts);
+        let mut next_step_solutions = vec![];
+        for i in 0..solutions.len() {
+            let iter = steps::step::next_step(
+                solutions[i..i+1].iter().cloned(),
+                step,
+                search_opts.clone(),
+                puzzle.clone(),
+                cancel_token
+            );
+            if step.kind.can_reverse_final_move() {
+                next_step_solutions.extend(iter.filter(Solution::is_canonical));
+            }
+            else {
+                next_step_solutions.extend(iter);
+            }
+        }
+        match search_opts.step_limit {
+            Some(limit) => {
+                debug!("Found {} {}'s. Selecting {}", next_step_solutions.len(), step.kind, limit);
+                next_step_solutions.sort_by(|a, b| a.len().cmp(&b.len()));
+                if step.kind.can_reverse_final_move() {
+                    solutions = next_step_solutions[..limit]
+                        .iter()
+                        .flat_map(Solution::equivalents)
+                        .collect();
+                }
+                else {
+                    solutions = next_step_solutions[..limit].to_vec();
+                }
+            }
+            None => {
+                debug!("Found {} {}'s. Keeping all", next_step_solutions.len(), step.kind);
+                if step.kind.can_reverse_final_move() {
+                    solutions = next_step_solutions
+                        .iter()
+                        .flat_map(Solution::equivalents)
+                        .collect();
+                }
+                else {
+                    solutions = next_step_solutions;
+                }
+            }
+        }
+    }
     solutions
 }
 

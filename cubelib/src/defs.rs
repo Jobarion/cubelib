@@ -16,6 +16,16 @@ pub enum StepKind {
     Other(String)
 }
 
+impl StepKind {
+    pub fn can_reverse_final_move(&self) -> bool {
+        match self {
+            StepKind::FR | StepKind::FIN => false,
+            _ => true
+        }
+    }
+}
+
+
 impl Display for StepKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", Into::<String>::into(self.clone()))

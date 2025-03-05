@@ -20,6 +20,19 @@ pub struct SolutionStep {
     pub comment: String
 }
 
+impl SolutionStep {
+    // Return all equivalent steps from reversing the last move
+    pub fn equivalents(&self) -> Vec<SolutionStep> {
+        self.alg.equivalents().into_iter().map(|alg| SolutionStep {
+            kind: self.kind.clone(),
+            variant: self.variant.clone(),
+            alg,
+            comment: self.comment.clone()
+        }).collect()
+    }
+
+}
+
 impl Solution {
     pub fn new() -> Solution {
         Solution { steps: vec![], ends_on_normal: true }
@@ -46,6 +59,22 @@ impl Solution {
     pub fn get_steps(&self) -> &'_ Vec<SolutionStep> {
         &self.steps
     }
+
+    pub fn is_canonical(&self) -> bool {
+        self.steps.last().map(|x| x.alg.is_canonical()).unwrap_or(true)
+    }
+
+    // Return all equivalent solutions
+    pub fn equivalents(&self) -> Vec<Solution> {
+        if self.steps.is_empty() {
+            return vec![self.clone()];
+        }
+        self.steps.last().unwrap().equivalents().into_iter().map(|step| Solution {
+            steps: self.steps[..self.steps.len() - 1].to_vec().into_iter().chain(vec![step]).collect(),
+            ends_on_normal: self.ends_on_normal,
+        }).collect()
+    }
+
 
     pub fn compact(self) -> Self {
         let mut steps: Vec<SolutionStep> = vec![];

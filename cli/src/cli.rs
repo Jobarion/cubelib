@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::str::FromStr;
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use regex::Regex;
 use cubelib::defs::*;
 use cubelib::steps::step::{StepConfig};
@@ -12,9 +12,28 @@ use log::LevelFilter;
 #[command(author = "Jonas Balsfulland <cubelib@joba.me>")]
 #[command(version = "1.2")]
 pub struct Cli {
-    #[arg(short, long = "log", help = "Log level")]
+    #[arg(short, long = "log", default_value = "warn", help = "Log level")]
     pub log: LogLevel,
-    #[arg(short, long = "format", help="Solution output format")]
+    #[clap(subcommand)]
+    pub command: Commands,
+}
+
+#[derive(Subcommand)]
+pub enum Commands {
+    Solve(SolveCommand),
+    Scramble,
+    Invert(InvertCommand),
+}
+
+#[derive(Parser)]
+pub struct InvertCommand {
+    #[arg(help = "Scramble to invert (use '-' to read from stdin)")]
+    pub scramble: String,
+}
+
+#[derive(Parser)]
+pub struct SolveCommand {
+    #[arg(short, long = "format", default_value = "compact", help="Solution output format")]
     pub format: SolutionFormat,
     #[arg(short = 'a', long = "all", default_value_t = false, help = "Print solutions that would otherwise get filtered out. E.g. an EO ending in F'")]
     pub all_solutions: bool,
@@ -30,6 +49,7 @@ pub struct Cli {
     pub quality: usize,
     #[arg(long = "steps", short = 's', default_value = "EO > RZP > DR[triggers=R,RUR,RU'R,RU2R] > HTR > FIN", help = "List of steps to perform")]
     pub steps: String,
+    #[arg(help = "Scramble to solve (use '-' to read from stdin)")]
     pub scramble: String,
 }
 
@@ -67,7 +87,7 @@ pub enum SolutionFormat {
 
 
 
-impl Cli {
+impl SolveCommand {
 
     fn get_default_niss_type(&self) -> Option<NissSwitchType> {
         if self.niss {

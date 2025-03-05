@@ -1,3 +1,5 @@
+use rand::Rng;
+
 use crate::cube::Corner;
 use crate::cube::turn::{CubeOuterTurn, CubeTransformation, InvertibleMut, TransformableMut, TurnableMut};
 
@@ -229,6 +231,62 @@ impl Default for CubeCornersOdd {
     }
 }
 
+impl CubeCornersOdd {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    pub fn random<T: Rng>(parity: bool, rng: &mut T) -> Self {
+        let bytes = random_corners(parity, rng);
+        unsafe { avx2::unsafe_from_bytes(bytes) }
+    }
+
+    #[inline]
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    pub fn random<T: Rng>(parity: bool, rng: &mut T) -> Self {
+        let bytes = random_corners(parity, rng);
+        wasm32a::from_bytes(bytes)
+    }
+
+    #[inline]
+    #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
+    pub fn random<T: Rng>(parity: bool, rng: &mut T) -> Self {
+        let bytes = random_corners(parity, rng);
+        unsafe { neon::unsafe_from_bytes(bytes) }
+    }
+}
+
+fn random_corners<T: Rng>(parity: bool, rng: &mut T) -> [u8; 8] {
+    let mut corner_bytes: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+    let mut orientation_parity = 0;
+    let mut swap_parity = false;
+
+    fn get_bytes(piece_id: u8, orientation: u8) -> u8 {
+        (piece_id << 5) | (orientation & 0x3)
+    }
+
+    for i in 0..6 {
+        let swap_index = rng.gen_range(i..8);
+        if swap_index != i {
+            corner_bytes.swap(i, swap_index);
+            swap_parity = !swap_parity;
+        }
+        let orientation = rng.gen_range(0..3);
+        orientation_parity = (orientation_parity + orientation) % 3;
+        corner_bytes[i] = get_bytes(corner_bytes[i], orientation);
+    }
+    // Last position determined by parity
+    if swap_parity != parity {
+        corner_bytes.swap(6, 7);
+    }
+    let orientation = rng.gen_range(0..3);
+    orientation_parity = (orientation_parity + orientation) % 3;
+    corner_bytes[6] = get_bytes(corner_bytes[6], orientation);
+    // Last orientation determined by parity
+    let last_orientation = (3 - orientation_parity) % 3;
+    corner_bytes[7] = get_bytes(corner_bytes[7], last_orientation);
+    corner_bytes
+}
+
+
 #[cfg(target_feature = "avx2")]
 mod avx2 {
     use std::arch::x86_64::{
@@ -318,6 +376,14 @@ mod avx2 {
     pub(crate) unsafe fn unsafe_new_solved() -> CubeCornersOdd {
         CubeCornersOdd(unsafe {
             _mm_slli_epi64::<5>(_mm_setr_epi8( 0, 1, 2, 3, 4, 5, 6, 7, 0, 0, 0, 0, 0, 0, 0,0))
+        })
+    }
+
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    pub(crate) unsafe fn from_bytes(bytes: [u8; 8]) -> CubeCornersOdd {
+        CubeCornersOdd(unsafe {
+            _mm_setr_epi8( bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], 0, 0, 0, 0, 0, 0, 0,0)
         })
     }
 
@@ -527,6 +593,11 @@ mod neon {
     }
 
     #[inline]
+    pub(crate) unsafe fn unsafe_from_bytes(bytes: [u8; 8]) -> CubeCornersOdd {
+        CubeCornersOdd(C8 { a_u8: bytes, }.a)
+    }
+
+    #[inline]
     pub(crate) unsafe fn unsafe_get_corners_raw(cube: &CubeCornersOdd) -> u64 {
         vget_lane_u64::<0>(vreinterpret_u64_u8(cube.0))
     }
@@ -721,6 +792,11 @@ mod wasm32 {
             u8x16(0, 1, 2, 3, 4, 5, 6, 7, 0, 0, 0, 0, 0, 0, 0, 0),
             5,
         ))
+    }
+
+    #[inline]
+    pub(crate) fn from_bytes(bytes: [u8; 8]) -> CubeCornersOdd {
+        u8x16(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], 0, 0, 0, 0, 0, 0, 0, 0)
     }
 
     #[inline]

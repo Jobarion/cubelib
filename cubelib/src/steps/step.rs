@@ -238,7 +238,7 @@ DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: for<'b> From<&'b
 pub struct Step<'a> {
     step_variants: Vec<Box<dyn StepVariant + 'a>>,
     is_major: bool,
-    kind: StepKind,
+    pub kind: StepKind,
 }
 
 impl<'a> Step<'a> {
@@ -253,6 +253,7 @@ impl<'a> Step<'a> {
     pub fn kind(&self) -> StepKind {
         self.kind.clone()
     }
+
 }
 
 pub fn first_step<

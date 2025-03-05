@@ -168,28 +168,6 @@ impl StepVariant for EOStepTable<'_> {
     }
 }
 
-pub fn filter_eo_last_moves_pure(alg: &Algorithm) -> bool {
-    filter_last_moves_pure(&alg.normal_moves) && filter_last_moves_pure(&alg.inverse_moves)
-}
-
-fn filter_last_moves_pure(vec: &Vec<Turn333>) -> bool {
-    match vec.len() {
-        0 => true,
-        1 => vec[0].dir != Direction::CounterClockwise,
-        n => {
-            if vec[n - 1].dir == Direction::CounterClockwise {
-                false
-            } else {
-                if vec[n - 1].face.opposite() == vec[n - 2].face {
-                    vec[n - 2].dir != Direction::CounterClockwise
-                } else {
-                    true
-                }
-            }
-        }
-    }
-}
-
 pub(crate) const fn eo_transitions(axis_face: CubeFace) -> [TransitionTable333; 18] {
     let mut transitions = [TransitionTable333::new(0, 0); 18];
     let mut i = 0;

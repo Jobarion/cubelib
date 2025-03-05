@@ -1,7 +1,10 @@
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::vec;
 
 use itertools::Itertools;
+use typed_builder::TypedBuilder;
+use crate::algs::Algorithm;
 use crate::cube::*;
 use crate::defs::*;
 use crate::solver::lookup_table::LookupTable;
@@ -11,6 +14,8 @@ use crate::steps::eo::coords::EOCoordFB;
 #[cfg(feature = "333htr")]
 use crate::steps::htr::htr_config::HTRSubsetTable;
 use crate::steps::{MoveSet333, Step333};
+use crate::steps::eo::eo_config::{EOPruningTable, EOStepTable};
+use crate::steps::htr::subsets::Subset;
 use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, PostStepCheck, Step, StepConfig, StepVariant};
 
 pub const HTR_DR_UD_STATE_CHANGE_MOVES: &[Turn333] = &[
@@ -63,6 +68,35 @@ pub const DR_UD_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
 
 pub type DRPruningTable = LookupTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
 pub type DRPruningTableStep<'a> = DefaultPruningTableStep<'a, {DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB>;
+
+#[derive(TypedBuilder)]
+struct DROptions {
+    #[builder(default=HashMap::from([(CubeAxis::X, vec![CubeAxis::Y, CubeAxis::Z]), (CubeAxis::Y, vec![CubeAxis::X, CubeAxis::Z]), (CubeAxis::Z, vec![CubeAxis::X, CubeAxis::Y])]))]
+    pub dr_eo_axis: HashMap<crate::cube::turn::CubeAxis, Vec<crate::cube::turn::CubeAxis>>,
+    #[builder(default=NissSwitchType::Before)]
+    pub niss: NissSwitchType,
+    #[builder(default=vec![])]
+    pub triggers: Vec<Algorithm>,
+    #[builder(default=vec![])]
+    pub subsets: Vec<Subset>,
+}
+
+// pub fn dr_step(table: &DRPruningTable, config: DRStepOptions) -> Result<(Step333, DefaultStepOptions), String> {
+//     let step_variants = config.dr_eo_axis
+//         .iter()
+//         .cloned()
+//         .map(move |x| {
+//             let x: Box<dyn StepVariant> = match x {
+//                 CubeAxis::UD => Box::new(EOStepTable::new_ud(&table)),
+//                 CubeAxis::FB => Box::new(EOStepTable::new_fb(&table)),
+//                 CubeAxis::LR => Box::new(EOStepTable::new_lr(&table)),
+//             };
+//             x
+//         })
+//         .collect_vec();
+//
+//     Ok((Step::new(step_variants, StepKind::EO, true), config.into()))
+// }
 
 pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")] subset_table: &'a HTRSubsetTable, mut config: StepConfig) -> Result<(Step333<'a>, DefaultStepOptions), String> {
     #[cfg(feature = "333htr")]

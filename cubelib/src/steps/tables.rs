@@ -1,3 +1,4 @@
+use std::sync::Arc;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
@@ -51,6 +52,43 @@ pub struct PruningTables333 {
     htr_finish: Option<HTRFinishPruningTable>,
     #[cfg(feature = "333finish")]
     htr_ls_finish: Option<HTRLeaveSliceFinishPruningTable>
+}
+
+pub struct ArcPruningTable333 {
+    #[cfg(feature = "333eo")]
+    pub eo: Option<Arc<EOPruningTable>>,
+    #[cfg(feature = "333dr")]
+    pub dr: Option<Arc<DRPruningTable>>,
+    #[cfg(feature = "333htr")]
+    pub htr: Option<Arc<HTRPruningTable>>,
+    #[cfg(feature = "333htr")]
+    pub htr_subset: Option<Arc<HTRSubsetTable>>,
+    #[cfg(feature = "333fr")]
+    pub frls: Option<Arc<FRLeaveSlicePruningTable>>,
+    #[cfg(feature = "333fr")]
+    pub fr: Option<Arc<FRPruningTable>>,
+    #[cfg(feature = "333finish")]
+    pub fr_finish: Option<Arc<FRFinishPruningTable>>,
+    #[cfg(feature = "333finish")]
+    pub htr_finish: Option<Arc<HTRFinishPruningTable>>,
+    #[cfg(feature = "333finish")]
+    pub htr_ls_finish: Option<Arc<HTRLeaveSliceFinishPruningTable>>
+}
+
+impl From<PruningTables333> for ArcPruningTable333 {
+    fn from(value: PruningTables333) -> Self {
+        Self {
+            eo: value.eo.map(Arc::new),
+            dr: value.dr.map(Arc::new),
+            htr: value.htr.map(Arc::new),
+            htr_subset: value.htr_subset.map(Arc::new),
+            frls: value.frls.map(Arc::new),
+            fr: value.fr.map(Arc::new),
+            fr_finish: value.fr_finish.map(Arc::new),
+            htr_finish: value.htr_finish.map(Arc::new),
+            htr_ls_finish: value.htr_ls_finish.map(Arc::new),
+        }
+    }
 }
 
 impl PruningTables333 {

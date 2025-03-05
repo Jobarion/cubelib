@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::string::ToString;
+use crate::solver::lookup_table::TableType::Niss;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
@@ -57,9 +58,32 @@ impl Into<String> for StepKind {
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde_support", derive(serde_with::DeserializeFromStr, serde_with::SerializeDisplay))]
 pub enum NissSwitchType {
     #[default] Never = 0,
     Before = 1,
     Always = 2,
+}
+
+impl FromStr for NissSwitchType {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "never" => Ok(NissSwitchType::Never),
+            "before" => Ok(NissSwitchType::Before),
+            "always" => Ok(NissSwitchType::Always),
+            _ => Err("Invalid option")
+        }
+    }
+}
+
+impl Display for NissSwitchType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NissSwitchType::Never => write!(f, "never"),
+            NissSwitchType::Before => write!(f, "before"),
+            NissSwitchType::Always => write!(f, "always"),
+        }
+    }
 }

@@ -9,14 +9,14 @@ use crate::steps::{MoveSet333, Step333};
 use crate::steps::eo::coords::{BadEdgeCount, EOCoordFB};
 use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepConfig, StepVariant};
 
-pub const FB_EO_STATE_CHANGE_MOVES: &[Turn333] = &[
+const FB_EO_STATE_CHANGE_MOVES: &[Turn333] = &[
     Turn333::new(CubeFace::Front, Direction::Clockwise),
     Turn333::new(CubeFace::Front, Direction::CounterClockwise),
     Turn333::new(CubeFace::Back, Direction::Clockwise),
     Turn333::new(CubeFace::Back, Direction::CounterClockwise),
 ];
 
-pub const FB_EO_MOVES: &[Turn333] = &[
+const FB_EO_MOVES: &[Turn333] = &[
     Turn333::new(CubeFace::Up, Direction::Clockwise),
     Turn333::new(CubeFace::Up, Direction::CounterClockwise),
     Turn333::new(CubeFace::Up, Direction::Half),
@@ -39,8 +39,6 @@ pub const EO_FB_MOVESET: MoveSet333 = MoveSet333 {
     transitions: &eo_transitions(CubeFace::Front),
 };
 
-pub const EO_UD_PRE_TRANS: [Transformation333; 1] = [Transformation333::new(CubeAxis::X, Direction::Clockwise)];
-pub const EO_LR_PRE_TRANS: [Transformation333; 1] = [Transformation333::new(CubeAxis::Y, Direction::Clockwise)];
 const BAD_EDGE_HEURISTIC: [u8; 7] = [0, 2, 1, 2, 2, 3, 3];
 
 pub type EOPruningTable = LookupTable<2048, EOCoordFB>;

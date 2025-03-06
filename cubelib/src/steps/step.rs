@@ -2,7 +2,7 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use log::trace;
+use log::{debug, trace};
 use core::cmp::Ordering;
 
 use crate::algs::Algorithm;
@@ -55,14 +55,22 @@ impl StepConfig {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct DefaultStepOptions {
     pub niss_type: NissSwitchType,
     pub min_moves: u8,
     pub max_moves: u8,
     pub absolute_min_moves: Option<u8>,
     pub absolute_max_moves: Option<u8>,
-    pub step_limit: Option<usize>
+    pub step_limit: Option<usize>,
+    pub step_ordering: Option<Vec<StepOrdering>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum StepOrdering {
+    TotalLength,
+    HasNiss,
+    RequiresScrambleSwitch,
 }
 
 impl DefaultStepOptions {
@@ -74,19 +82,43 @@ impl DefaultStepOptions {
             absolute_max_moves,
             niss_type,
             step_limit,
+            step_ordering: Some(vec![StepOrdering::TotalLength, StepOrdering::HasNiss, StepOrdering::RequiresScrambleSwitch]),
         }
     }
 
     pub fn compare(&self, sol1: &Solution, sol2: &Solution) -> Ordering {
-        match sol1.len().cmp(&sol2.len()) {
-            Ordering::Equal => {
-                sol1.steps.last().zip(sol2.steps.last()).map_or(Ordering::Equal, |(s1, s2)| {
-                    min(&s1.alg.normal_moves.len(),&s1.alg.inverse_moves.len())
-                        .cmp(min(&s2.alg.normal_moves.len(),&s2.alg.inverse_moves.len()))
-                })
-            },
-            n => n
+        let mut order = Ordering::Equal;
+        for &ordering in self.step_ordering.clone().unwrap_or(vec![StepOrdering::TotalLength]).iter() {
+            order = compare_steps(sol1, sol2, ordering);
+            if order != Ordering::Equal {
+                return order;
+            }
         }
+        return order;
+    }
+
+
+}
+
+fn compare_steps(sol1: &Solution, sol2: &Solution, ordering: StepOrdering) -> Ordering {
+    match ordering {
+        StepOrdering::TotalLength => sol1.len().cmp(&sol2.len()),
+        StepOrdering::HasNiss => {
+            sol1.steps.last().map_or(false, |s| s.alg.has_niss())
+                .cmp(&sol2.steps.last().map_or(false, |s| s.alg.has_niss()))
+        },
+        StepOrdering::RequiresScrambleSwitch => {
+            fn requires_switch(s: &Solution) -> bool {
+              match s.steps.len() {
+                    n if (n > 1) => {
+                        s.steps[n-1].alg.normal_moves.len() > 0 && s.steps[n-2].alg.inverse_moves.len() > 0
+                            || s.steps[n-1].alg.inverse_moves.len() > 0 && s.steps[n-2].alg.normal_moves.len() > 0
+                    }
+                    _ => false
+                }
+            }
+            requires_switch(sol1).cmp(&requires_switch(sol2))
+        },
     }
 }
 

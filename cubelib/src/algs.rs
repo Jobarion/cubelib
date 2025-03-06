@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Add;
 use std::str::FromStr;
+use std::cmp::min;
 
 use itertools::Itertools;
 use crate::cube::*;
@@ -80,6 +81,10 @@ impl Algorithm {
 
     pub fn len(&self) -> usize {
         self.normal_moves.len() + self.inverse_moves.len()
+    }
+
+    pub fn has_niss(&self) -> bool {
+        min(self.normal_moves.len(), self.inverse_moves.len()) > 0
     }
 }
 

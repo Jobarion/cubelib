@@ -84,7 +84,6 @@ impl SolutionStep {
             comment: self.comment.clone()
         }))
     }
-
 }
 
 impl Solution {

@@ -12,6 +12,7 @@ use cubelib::steps::tables::PruningTables333;
 use log::{error, info};
 use simple_logger::SimpleLogger;
 use cubelib::cube::turn::ApplyAlgorithm;
+use cubelib::solver::solution::Solution;
 
 use crate::cli::{Cli, SolutionFormat, SolveCommand, InvertCommand};
 
@@ -101,9 +102,8 @@ fn find_and_print_solutions(cube: Cube333, cmd: SolveCommand) {
     let time = Instant::now();
 
     let mut solutions = cubelib::solver::solve_steps(cube, &steps, &cancel_token);
-    let can_reverse_last_move = steps.last().map(|(s, _)| s.kind.can_reverse_final_move()).unwrap_or(true);
-    if !cmd.all_solutions && can_reverse_last_move {
-        solutions = solutions.into_iter().filter(|sol| sol.is_canonical()).collect();
+    if !cmd.all_solutions {
+        solutions = solutions.into_iter().filter(Solution::is_canonical).collect();
     }
     let limit = cmd.solution_count.unwrap_or(usize::MAX);
     //The iterator is always sorted, so this just prints the shortest solutions

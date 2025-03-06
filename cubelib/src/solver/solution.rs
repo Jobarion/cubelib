@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::algs::Algorithm;
-use crate::cube::turn::{InvertibleMut, TurnableMut};
+use crate::cube::turn::{Invertible, InvertibleMut, TurnableMut, CubeOuterTurn, Direction};
 use crate::defs::StepKind;
 
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
@@ -21,14 +21,68 @@ pub struct SolutionStep {
 }
 
 impl SolutionStep {
+
+    // True if this step represents a class of steps
+    // where the moves along the final axis may be inverted
+    pub fn is_canonical(&self) -> bool {
+        if self.kind == StepKind::FIN {
+            return true;
+        }
+        fn is_canonical(vec: &Vec<CubeOuterTurn>) -> bool {
+            match vec.len() {
+                0 => true,
+                1 => vec[0].dir != Direction::CounterClockwise,
+                n =>
+                    vec[n - 1].dir != Direction::CounterClockwise &&
+                        (
+                            vec[n - 2].face != vec[n - 1].face.opposite() ||
+                                vec[n - 2].dir != Direction::CounterClockwise
+                        ),
+            }
+        }
+        is_canonical(&self.alg.normal_moves) && is_canonical(&self.alg.inverse_moves)
+    }
+
     // Return all equivalent steps from reversing the last move
-    pub fn equivalents(&self) -> Vec<SolutionStep> {
-        self.alg.equivalents().into_iter().map(|alg| SolutionStep {
+    pub fn equivalents(&self) -> Box<dyn Iterator<Item = SolutionStep> +'_> {
+        if self.is_canonical() {
+            return Box::new(vec![self.clone()].into_iter());
+        }
+        fn expand(moves: &Vec<CubeOuterTurn>) -> Vec<Vec<CubeOuterTurn>> {
+            let n = moves.len();
+            if n > 1 && moves[n - 1].face.opposite() == moves[n - 2].face {
+                // Reverse last move
+                let mut v1 = moves.clone();
+                v1[n-1..n].iter_mut().for_each(|m| *m = m.invert());
+                // Reverse penultimate move
+                let mut v2 = moves.clone();
+                v2[n-2..n-1].iter_mut().for_each(|m| *m = m.invert());
+                // Reverse both
+                let mut v3 = moves.clone();
+                v3[n-2..n].iter_mut().for_each(|m| *m = m.invert());
+                vec![moves.clone(), v1, v2, v3]
+            } else if n > 0 {
+                // Reverse last move
+                let mut v = moves.clone();
+                v[n-1..n].iter_mut().for_each(|m| *m = m.invert());
+                vec![moves.clone(), v]
+            }
+            else {
+                vec![moves.clone()]
+            }
+        }
+        let mut algs = vec![];
+        for n in expand(&self.alg.normal_moves) {
+            for i in expand(&self.alg.inverse_moves) {
+                algs.push(Algorithm { normal_moves: n.clone(), inverse_moves: i.clone() });
+            }
+        }
+        Box::new(algs.into_iter().map(|alg| SolutionStep {
             kind: self.kind.clone(),
             variant: self.variant.clone(),
             alg,
             comment: self.comment.clone()
-        }).collect()
+        }))
     }
 
 }
@@ -61,18 +115,18 @@ impl Solution {
     }
 
     pub fn is_canonical(&self) -> bool {
-        self.steps.last().map(|x| x.alg.is_canonical()).unwrap_or(true)
+        self.steps.iter().all(SolutionStep::is_canonical)
     }
 
     // Return all equivalent solutions
-    pub fn equivalents(&self) -> Vec<Solution> {
+    pub fn equivalents(&self) -> Box<dyn Iterator<Item = Solution> +'_> {
         if self.steps.is_empty() {
-            return vec![self.clone()];
+            return Box::new(vec![self.clone()].into_iter());
         }
-        self.steps.last().unwrap().equivalents().into_iter().map(|step| Solution {
+        Box::new(self.steps.last().unwrap().equivalents().map(|step| Solution {
             steps: self.steps[..self.steps.len() - 1].to_vec().into_iter().chain(vec![step]).collect(),
             ends_on_normal: self.ends_on_normal,
-        }).collect()
+        }))
     }
 
 

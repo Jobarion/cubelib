@@ -236,8 +236,8 @@ DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: for<'b> From<&'b
 }
 
 pub struct Step<'a> {
-    step_variants: Vec<Box<dyn StepVariant + 'a>>,
-    is_major: bool,
+    pub step_variants: Vec<Box<dyn StepVariant + 'a>>,
+    pub is_major: bool,
     pub kind: StepKind,
 }
 

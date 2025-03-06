@@ -28,38 +28,21 @@ pub fn solve_steps<'a>(puzzle: Cube333, steps: &'a Vec<(Step<'a>, DefaultStepOpt
                 puzzle.clone(),
                 cancel_token
             );
-            if step.kind.can_reverse_final_move() {
-                next_step_solutions.extend(iter.filter(Solution::is_canonical));
-            }
-            else {
-                next_step_solutions.extend(iter);
-            }
+            next_step_solutions.extend(iter)
         }
         match search_opts.step_limit {
             Some(limit) => {
                 debug!("Found {} {}'s. Selecting {}", next_step_solutions.len(), step.kind, limit);
-                next_step_solutions.sort_by(|a, b| a.len().cmp(&b.len()));
-                if step.kind.can_reverse_final_move() {
-                    solutions = next_step_solutions[..limit]
-                        .iter()
-                        .flat_map(Solution::equivalents)
-                        .collect();
-                }
-                else {
-                    solutions = next_step_solutions[..limit].to_vec();
-                }
+                let mut canonical = next_step_solutions.into_iter().filter(Solution::is_canonical).collect::<Vec<_>>();
+                canonical.sort_by(|a, b| a.len().cmp(&b.len()));
+                solutions = canonical[..limit]
+                    .iter()
+                    .flat_map(Solution::equivalents)
+                    .collect();
             }
             None => {
                 debug!("Found {} {}'s. Keeping all", next_step_solutions.len(), step.kind);
-                if step.kind.can_reverse_final_move() {
-                    solutions = next_step_solutions
-                        .iter()
-                        .flat_map(Solution::equivalents)
-                        .collect();
-                }
-                else {
-                    solutions = next_step_solutions;
-                }
+                solutions = next_step_solutions
             }
         }
     }

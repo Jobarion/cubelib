@@ -81,66 +81,6 @@ impl Algorithm {
     pub fn len(&self) -> usize {
         self.normal_moves.len() + self.inverse_moves.len()
     }
-
-    // True if this algorithm represents a class of algorithms
-    // where the direction of the final move doesn't matter
-    pub fn is_canonical(&self) -> bool {
-        fn ends_with_clockwise(vec: &Vec<Turn333>) -> bool {
-            match vec.len() {
-                0 => true,
-                1 => vec[0].dir != Direction::CounterClockwise,
-                n => {
-                    if vec[n - 1].dir == Direction::CounterClockwise {
-                        false
-                    } else {
-                        if vec[n - 1].face.opposite() == vec[n - 2].face {
-                            vec[n - 2].dir != Direction::CounterClockwise
-                        } else {
-                            true
-                        }
-                    }
-                }
-            }
-        }
-        ends_with_clockwise(&self.normal_moves) && ends_with_clockwise(&self.inverse_moves)
-    }
-
-    // If this algorithm is canonical, return all equivalent algorithms
-    pub fn equivalents(&self) -> Vec<Algorithm> {
-        if !self.is_canonical() {
-            return  vec![self.clone()];
-        }
-        fn expand(moves: &Vec<Turn333>) -> Vec<Vec<Turn333>> {
-            let n = moves.len();
-            if n > 1 && moves[n - 1].face.opposite() == moves[n - 2].face {
-                // Reverse last move
-                let mut v1 = moves.clone();
-                v1[n-1..n].iter_mut().for_each(|m| *m = m.invert());
-                // Reverse penultimate move
-                let mut v2 = moves.clone();
-                v2[n-2..n-1].iter_mut().for_each(|m| *m = m.invert());
-                // Reverse both
-                let mut v3 = moves.clone();
-                v3[n-2..n].iter_mut().for_each(|m| *m = m.invert());
-                vec![moves.clone(), v1, v2, v3]
-            } else if n > 0 {
-                // Reverse last move
-                let mut v = moves.clone();
-                v[n-1..n].iter_mut().for_each(|m| *m = m.invert());
-                vec![moves.clone(), v]
-            }
-            else {
-                vec![moves.clone()]
-            }
-        }
-        let mut algs = vec![];
-        for n in expand(&self.normal_moves) {
-            for i in expand(&self.inverse_moves) {
-                algs.push(Algorithm { normal_moves: n.clone(), inverse_moves: i.clone() });
-            }
-        }
-        algs
-    }
 }
 
 impl InvertibleMut for Algorithm {

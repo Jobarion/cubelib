@@ -1,9 +1,11 @@
 use std::cmp::min;
+use std::hash::Hasher;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use log::{debug, trace};
+use log::{trace};
 use core::cmp::Ordering;
+use std::hash::Hash;
 
 use crate::algs::Algorithm;
 use crate::cube::turn::ApplyAlgorithm;
@@ -55,7 +57,7 @@ impl StepConfig {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct DefaultStepOptions {
     pub niss_type: NissSwitchType,
     pub min_moves: u8,
@@ -63,14 +65,15 @@ pub struct DefaultStepOptions {
     pub absolute_min_moves: Option<u8>,
     pub absolute_max_moves: Option<u8>,
     pub step_limit: Option<usize>,
-    pub step_ordering: Option<Vec<StepOrdering>>,
+    pub step_ordering: (SolutionOrdering, SolutionOrdering, SolutionOrdering, SolutionOrdering),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum StepOrdering {
+pub enum SolutionOrdering {
     TotalLength,
     HasNiss,
     RequiresScrambleSwitch,
+    Hash,
 }
 
 impl DefaultStepOptions {
@@ -82,14 +85,15 @@ impl DefaultStepOptions {
             absolute_max_moves,
             niss_type,
             step_limit,
-            step_ordering: Some(vec![StepOrdering::TotalLength, StepOrdering::HasNiss, StepOrdering::RequiresScrambleSwitch]),
+            step_ordering: (SolutionOrdering::TotalLength, SolutionOrdering::HasNiss, SolutionOrdering::RequiresScrambleSwitch, SolutionOrdering::Hash),
         }
     }
 
     pub fn compare(&self, sol1: &Solution, sol2: &Solution) -> Ordering {
         let mut order = Ordering::Equal;
-        for &ordering in self.step_ordering.clone().unwrap_or(vec![StepOrdering::TotalLength]).iter() {
-            order = compare_steps(sol1, sol2, ordering);
+        let orderings = vec![self.step_ordering.0, self.step_ordering.1, self.step_ordering.2];
+        for &ordering in orderings.iter() {
+            order = compare_solutions(sol1, sol2, ordering);
             if order != Ordering::Equal {
                 return order;
             }
@@ -100,16 +104,20 @@ impl DefaultStepOptions {
 
 }
 
-fn compare_steps(sol1: &Solution, sol2: &Solution, ordering: StepOrdering) -> Ordering {
+fn compare_solutions(sol1: &Solution, sol2: &Solution, ordering: SolutionOrdering) -> Ordering {
     match ordering {
-        StepOrdering::TotalLength => sol1.len().cmp(&sol2.len()),
-        StepOrdering::HasNiss => {
-            sol1.steps.last().map_or(false, |s| s.alg.has_niss())
-                .cmp(&sol2.steps.last().map_or(false, |s| s.alg.has_niss()))
-        },
-        StepOrdering::RequiresScrambleSwitch => {
-            sol1.requires_scramble_switch().cmp(&sol2.requires_scramble_switch())
-        },
+        SolutionOrdering::TotalLength => sol1.len().cmp(&sol2.len()),
+        SolutionOrdering::HasNiss => sol1.steps.last().map_or(false, |s| s.alg.has_niss())
+            .cmp(&sol2.steps.last().map_or(false, |s| s.alg.has_niss())),
+        SolutionOrdering::RequiresScrambleSwitch => sol1.requires_scramble_switch()
+            .cmp(&sol2.requires_scramble_switch()),
+        SolutionOrdering::Hash => {
+            let mut hasher1 = std::collections::hash_map::DefaultHasher::new();
+            let mut hasher2 = std::collections::hash_map::DefaultHasher::new();
+            format!("{}", Into::<Algorithm>::into(sol1.clone())).hash(&mut hasher1);
+            format!("{}", Into::<Algorithm>::into(sol2.clone())).hash(&mut hasher2);
+            hasher1.finish().cmp(&hasher2.finish())
+        }
     }
 }
 

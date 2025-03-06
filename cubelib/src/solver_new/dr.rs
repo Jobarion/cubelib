@@ -1,26 +1,31 @@
 use std::collections::HashMap;
-use std::env::var;
-use std::fmt::format;
 use std::sync::LazyLock;
 use std::time::Instant;
 use itertools::Itertools;
-use log::{debug, info};
+use log::{debug, info, warn};
+use tinyset::Set64;
 use typed_builder::TypedBuilder;
 use crate::algs::Algorithm;
 use crate::cube::*;
 use crate::defs::{NissSwitchType, StepKind};
 use crate::solver::lookup_table;
-use crate::solver_new::group::Parallel;
-use crate::solver_new::step::{DFSParameters, MoveSet, Step, StepOptions};
-use crate::solver_new::thread_util::ToWorker;
+use crate::solver::solution::{ApplySolution, Solution};
+use crate::solver_new::group::{Parallel, Sequential};
+use crate::solver_new::step::{DFSParameters, MoveSet, Receiver, Sender, Step, StepOptions};
+use crate::solver_new::thread_util::{Run, ToWorker, Worker};
+use crate::solver_new::util_steps::{Filter, StepFilter};
 use crate::steps::dr::coords::DRUDEOFBCoord;
-use crate::steps::dr::dr_config::{DR_UD_EO_FB_MOVESET, DRPruningTable, DRPruningTableStep};
+use crate::steps::dr::dr_config::{DR_UD_EO_FB_MOVESET, DRPruningTable, HTR_DR_UD_MOVESET};
 use crate::steps::eo::coords::EOCoordFB;
-use crate::steps::htr::subsets::Subset;
+use crate::steps::htr::coords::HTRDRUDCoord;
+use crate::steps::htr::htr_config::{HTRPruningTable, HTRSubsetTable};
+use crate::steps::htr::subsets::{DRSubsetFilter, Subset};
 use crate::steps::step::{PostStepCheck, PreStepCheck};
+use crate::steps::util::expand_subset_name;
 
 pub type DROptions = StepOptions<DRStepOptions, 11, 13>;
 static DR_TABLE: LazyLock<DRPruningTable> = LazyLock::new(gen_dr);
+static DR_SUBSET_TABLE: LazyLock<HTRSubsetTable> = LazyLock::new(||gen_htr_with_subsets().1);
 
 const DRUD_EOFB_ST_MOVES: &[Turn333] = &[
     Turn333::L, Turn333::Li,
@@ -46,8 +51,8 @@ pub struct DRStepOptions {
     pub niss: NissSwitchType,
     // #[builder(default=vec![])]
     // pub triggers: Vec<Algorithm>,
-    // #[builder(default=vec![])]
-    // pub subsets: Vec<Subset>,
+    #[builder(default=vec![])]
+    pub subsets: Vec<Subset>,
 }
 
 impl Into<NissSwitchType> for &DRStepOptions {
@@ -86,11 +91,33 @@ impl DRStep {
                 b
             })
             .collect_vec();
-        if variants.len() == 1 {
+        let worker = if variants.len() == 1 {
             variants.pop().unwrap()
         } else {
             Box::new(Parallel::new(variants))
+        };
+        if !opts.subsets.is_empty() {
+            Box::new(Sequential::new(vec![worker, Box::new(DRSubsetFilter::new_subset(&DR_SUBSET_TABLE, &opts.subsets))]))
+        } else {
+            worker
         }
+    }
+}
+
+impl StepFilter for DRSubsetFilter<'static> {
+    fn filter(&self, sol: &Solution, cube: &Cube333) -> bool {
+        let mut cube = cube.clone();
+        cube.apply_solution(sol);
+        self.matches_subset(&cube)
+    }
+}
+
+impl ToWorker for DRSubsetFilter<'static> {
+    fn to_worker_box(self: Box<Self>, cube_state: Cube333, rc: Receiver<Solution>, tx: Sender<Solution>) -> Box<dyn Worker<()> + Send>
+    where
+        Self: Send + 'static
+    {
+        self.create_worker(cube_state, rc, tx)
     }
 }
 
@@ -144,4 +171,25 @@ fn gen_dr() -> DRPruningTable {
     #[cfg(not(target_arch = "wasm32"))]
     debug!("Took {}ms", time.elapsed().as_millis());
     table
+}
+
+fn gen_htr_with_subsets() -> (HTRPruningTable, HTRSubsetTable) {
+    info!("Generating DR pruning table...");
+    #[cfg(not(target_arch = "wasm32"))]
+    let time = Instant::now();
+    let mut htr_table = lookup_table::generate(&HTR_DR_UD_MOVESET,
+                                           &|c: &Cube333| HTRDRUDCoord::from(c),
+                                           &|| HTRPruningTable::new(),
+                                           &|table, coord|table.get(coord).0,
+                                           &|table, coord, val|table.set(coord, val));
+    #[cfg(not(target_arch = "wasm32"))]
+    debug!("Took {}ms", time.elapsed().as_millis());
+
+    info!("Generating HTR subset table...");
+    #[cfg(not(target_arch = "wasm32"))]
+    let time = Instant::now();
+    let subset_table = crate::steps::htr::subsets::gen_subset_tables(&mut htr_table);
+    #[cfg(not(target_arch = "wasm32"))]
+    debug!("Took {}ms", time.elapsed().as_millis());
+    (htr_table, subset_table)
 }

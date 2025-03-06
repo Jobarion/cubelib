@@ -1,10 +1,8 @@
-use std::cmp::min;
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::thread::JoinHandle;
 
-use log::trace;
 use typed_builder::TypedBuilder;
 
 use crate::algs::Algorithm;
@@ -13,7 +11,9 @@ use crate::cube::turn::*;
 use crate::defs::{NissSwitchType, StepKind};
 use crate::solver::df_search::CancelToken;
 use crate::solver::solution::{ApplySolution, Solution, SolutionStep};
+use crate::solver_new::group::Sequential;
 use crate::solver_new::thread_util::*;
+use crate::solver_new::util_steps::{FilterDup, FilterLastMoveNotPrime};
 use crate::steps::step::{PostStepCheck, PreStepCheck};
 
 #[derive(Clone, TypedBuilder)]
@@ -69,7 +69,7 @@ impl <T: Clone, const DM: usize, const DAM: usize> Into<DFSParameters> for &Step
 pub struct StepWorker {
     join_handle: Option<JoinHandle<()>>,
     cancel_token: Arc<CancelToken>,
-    step_runner: ThreadState<StepIORunner, ()>,
+    step_runner: ThreadState<()>,
 }
 
 impl Worker<()> for StepWorker {
@@ -84,8 +84,8 @@ impl Worker<()> for StepWorker {
 }
 
 struct StepIORunner {
-    rc: Receiver<Solution>,
-    tx: Sender<Solution>,
+    rc: Option<Receiver<Solution>>,
+    tx: Option<Sender<Solution>>,
     input: Vec<Solution>,
     dfs_parameters: DFSParameters,
     current_length: usize,
@@ -96,8 +96,20 @@ struct StepIORunner {
 }
 
 impl Run<()> for StepIORunner {
-    fn run(&mut self) {
-        let next = if let Ok(next) = self.rc.recv() {
+    fn run(&mut self) -> () {
+        // trace!("[{:?}] Start", self.step.get_name());
+        if let Some(rc) = self.rc.take() {
+            self.run_internal(rc);
+        }
+        // trace!("[{:?}] Done", self.step.get_name());
+        drop(self.tx.take());
+    }
+}
+
+impl StepIORunner {
+
+    fn run_internal(&mut self, rc: Receiver<Solution>) {
+        let next = if let Ok(next) = rc.recv() {
             next
         } else {
             return;
@@ -105,14 +117,13 @@ impl Run<()> for StepIORunner {
         self.input.push(next);
 
         while !self.cancel_token.is_cancelled() && self.current_length <= self.dfs_parameters.max_moves {
-            trace!("[{}] Loop start {} {}", self.step.get_name().0, self.current_length, self.input.len());
             // If we need to fetch all inputs up to length X, we do this now
             match self.process_fetched() {
                 Ok(Some(full_fetch_required_length)) => {
-                    trace!("[{}] Requested fetch up to {full_fetch_required_length}", self.step.get_name().0);
                     while !self.cancel_token.is_cancelled() {
-                        match self.rc.recv() {
+                        match rc.recv() {
                             Ok(next) => {
+                                // trace!("[{:?}] Received {next:?}", self.step.get_name());
                                 let len = next.len();
                                 self.input.push(next);
                                 if len > full_fetch_required_length {
@@ -140,9 +151,6 @@ impl Run<()> for StepIORunner {
             }
         }
     }
-}
-
-impl StepIORunner {
 
     fn process_fetched(&mut self) -> Result<Option<usize>, SendError<Solution>> {
         let min_length = self.input[0].len();
@@ -169,17 +177,18 @@ impl StepIORunner {
             alg: result,
             comment: "".to_string(),
         });
-        // Add alg
-        self.tx.send(input)
+        if let Some(tx) = self.tx.as_ref() {
+            // trace!("[{:?}] Submitting {input:?}", self.step.get_name());
+            // Add alg
+            tx.send(input)
+        } else {
+            Err(crossbeam::channel::SendError(input))
+        }
     }
 
     // Finds solutions that exactly match the depth parameter. Does _not_ look for shorter ones
     pub fn find_solutions(&self, mut cube: Cube333, input: &Solution, depth: usize, niss_type: NissSwitchType) -> Result<(), SendError<Solution>> {
         cube.apply_solution(input);
-        if !self.step.is_cube_ready(&cube) {
-            return Ok(());
-        }
-
         let alg: Algorithm = input.clone().into();
         let mut previous_normal = alg.normal_moves.last().cloned();
         let mut previous_inverse = alg.inverse_moves.last().cloned();
@@ -190,8 +199,10 @@ impl StepIORunner {
             previous_normal = previous_normal.map(|m|m.transform(t));
             previous_inverse = previous_inverse.map(|m|m.transform(t));
         }
+        if !self.step.is_cube_ready(&cube) {
+            return Ok(());
+        }
 
-        let heuristic = self.step.heuristic(&cube, niss_type != NissSwitchType::Never);
         //trace!("[{}{}] \t{alg} is solvable in {}, depth is {depth}", self.step.get_name().0, self.step.get_name().1, heuristic);
         if self.step.heuristic(&cube, niss_type != NissSwitchType::Never) == 0 {
             //Only return a solution if we are allowed to return zero length solutions
@@ -243,7 +254,13 @@ impl StepIORunner {
         };
 
         for alg in iter {
-            let alg = alg.reverse();
+            let mut alg = alg.reverse();
+            if !self.step.is_solution_admissible(&cube, &alg) {
+                continue;
+            }
+            for t in self.step.pre_step_trans().iter().cloned().rev() {
+                alg.transform(t.invert());
+            }
             self.submit_solution(input, alg)?;
         }
         Ok(())
@@ -295,9 +312,9 @@ impl <S: Step + Send + 'static> ToWorker for S {
         Box::new(StepWorker {
             join_handle: None,
             cancel_token: cancel_token.clone(),
-            step_runner: ThreadState::PreStart(StepIORunner {
-                rc,
-                tx,
+            step_runner: ThreadState::PreStart(Box::new(StepIORunner {
+                rc: Some(rc),
+                tx: Some(tx),
                 input: vec![],
                 dfs_parameters: self.get_dfs_parameters(),
                 current_length: 0,
@@ -305,7 +322,7 @@ impl <S: Step + Send + 'static> ToWorker for S {
                 step: self,
                 cancel_token: cancel_token.clone(),
                 cube_state
-            }),
+            })),
         })
     }
 }
@@ -393,4 +410,18 @@ impl MoveSet {
             .filter(move |t|t.1 || depth_left > 1)
             .filter(move |t|previous.map_or(true, |tp|self.transitions[tp.to_id()][t.0.to_id()]))
     }
+}
+
+pub fn create_worker(cube: Cube333, mut steps: Vec<Box<dyn ToWorker + Send + 'static>>) -> (Box<dyn Worker<()> + Send + 'static>, Receiver<Solution>) {
+    let (tx0, rc0) = bounded_channel(1);
+    let (tx1, rc1) = bounded_channel(1);
+
+    tx0.send(Solution::new()).unwrap();
+    drop(tx0);
+
+    (if steps.len() == 1 {
+        steps.pop().unwrap().to_worker_box(cube, rc0, tx1)
+    } else {
+        Sequential::new(steps).to_worker(cube, rc0, tx1)
+    }, rc1)
 }

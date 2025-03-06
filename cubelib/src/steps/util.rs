@@ -3,7 +3,7 @@ use std::str::FromStr;
 use itertools::Itertools;
 //This should be in the htr step, but we need it in the wasm version and the HTR step cannot be compiled to wasm right now
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Copy, Debug, Clone, Eq, PartialEq)]
 pub struct Subset {
     pub discriminator: Option<&'static str>,
     pub generator: &'static str, //We need a const array, and creating an FromStr isn't const
@@ -87,11 +87,97 @@ pub const DR_SUBSETS: [Subset; 48] = [
     Subset::new(None, "U' R2 U F2 U' F2 U F2 U", 4, 4, 5, 5)
 ];
 
+pub const SUBSETS_0C0: &[Subset] = &[
+    DR_SUBSETS[0],
+    DR_SUBSETS[1],
+    DR_SUBSETS[2],
+    DR_SUBSETS[3],
+    DR_SUBSETS[4],
+];
 
+pub const SUBSETS_4A1: &[Subset] = &[
+    DR_SUBSETS[5],
+    DR_SUBSETS[6],
+    DR_SUBSETS[7],
+];
 
-pub fn expand_subset_name(name: &str) -> Vec<(Subset, u8)> {
-    DR_SUBSETS.iter().cloned().zip(0u8..)
-        .filter(|(x, _)|{
+pub const SUBSETS_4B2: &[Subset] = &[
+    DR_SUBSETS[8],
+    DR_SUBSETS[9],
+    DR_SUBSETS[10],
+];
+
+pub const SUBSETS_4A2: &[Subset] = &[
+    DR_SUBSETS[11],
+    DR_SUBSETS[12],
+    DR_SUBSETS[13],
+];
+
+pub const SUBSETS_2C3: &[Subset] = &[
+    DR_SUBSETS[14],
+    DR_SUBSETS[15],
+    DR_SUBSETS[16],
+    DR_SUBSETS[17],
+    DR_SUBSETS[18],
+];
+
+pub const SUBSETS_4A3: &[Subset] = &[
+    DR_SUBSETS[19],
+    DR_SUBSETS[20],
+    DR_SUBSETS[21],
+];
+
+pub const SUBSETS_4B3: &[Subset] = SUBSETS_4A3;
+
+pub const SUBSETS_0C3: &[Subset] = &[
+    DR_SUBSETS[22],
+    DR_SUBSETS[23],
+    DR_SUBSETS[24],
+    DR_SUBSETS[25],
+    DR_SUBSETS[26],
+];
+
+pub const SUBSETS_2C4: &[Subset] = &[
+    DR_SUBSETS[27],
+    DR_SUBSETS[28],
+    DR_SUBSETS[29],
+    DR_SUBSETS[30],
+    DR_SUBSETS[31],
+];
+
+pub const SUBSETS_0C4: &[Subset] = &[
+    DR_SUBSETS[32],
+    DR_SUBSETS[33],
+    DR_SUBSETS[34],
+    DR_SUBSETS[35],
+    DR_SUBSETS[36],
+];
+
+pub const SUBSETS_4A4: &[Subset] = &[
+    DR_SUBSETS[37],
+    DR_SUBSETS[38],
+    DR_SUBSETS[39],
+];
+
+pub const SUBSETS_4B4: &[Subset] = SUBSETS_4A4;
+
+pub const SUBSETS_2C5: &[Subset] = &[
+    DR_SUBSETS[40],
+    DR_SUBSETS[41],
+    DR_SUBSETS[42],
+    DR_SUBSETS[43],
+    DR_SUBSETS[44],
+];
+
+pub const SUBSETS_4B5: &[Subset] = &[
+    DR_SUBSETS[45],
+    DR_SUBSETS[46],
+    DR_SUBSETS[47],
+];
+
+pub fn expand_subset_name(name: &str) -> Vec<Subset> {
+    DR_SUBSETS.iter().cloned()
+        .filter(|x|{
             if name.len() >= 2 {
                 x.to_string().starts_with(name)
             } else if name.len() == 1 {

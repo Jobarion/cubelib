@@ -1,13 +1,15 @@
 use std::sync::LazyLock;
 use std::time::Instant;
+use itertools::Itertools;
 use log::{debug, info};
 use typed_builder::TypedBuilder;
 use crate::algs::Algorithm;
 use crate::cube::*;
 use crate::defs::{NissSwitchType, StepKind};
 use crate::solver::lookup_table;
-use crate::solver::moveset::{Transition, TransitionTable333};
+use crate::solver_new::group::Parallel;
 use crate::solver_new::step::{DFSParameters, MoveSet, Step, StepOptions};
+use crate::solver_new::thread_util::ToWorker;
 use crate::steps::eo::coords::EOCoordFB;
 use crate::steps::eo::eo_config::{EO_FB_MOVESET, EOPruningTable};
 use crate::steps::step::{PostStepCheck, PreStepCheck};
@@ -34,7 +36,9 @@ pub const EOFB_MOVESET: MoveSet = MoveSet::new(EOFB_ST_MOVES, EOFB_AUX_MOVES);
 #[derive(Clone, TypedBuilder)]
 pub struct EOStepOptions {
     #[builder(default=NissSwitchType::Never)]
-    pub niss: NissSwitchType
+    pub niss: NissSwitchType,
+    #[builder(default=vec![CubeAxis::X, CubeAxis::Y, CubeAxis::Z])]
+    pub eo_axis: Vec<turn::CubeAxis>,
 }
 
 impl Into<NissSwitchType> for &EOStepOptions {
@@ -44,17 +48,34 @@ impl Into<NissSwitchType> for &EOStepOptions {
 }
 
 pub struct EOStep {
-     table: &'static EOPruningTable,
-     options: EOOptions,
-     pre_step_trans: Vec<Transformation333>,
+    table: &'static EOPruningTable,
+    options: EOOptions,
+    pre_step_trans: Vec<Transformation333>,
+    name: &'static str,
 }
 
 impl EOStep {
-    pub fn new(opts: EOOptions) -> Self {
-        Self {
-            table: &EO_TABLE,
-            options: opts,
-            pre_step_trans: vec![],
+    pub fn new(opts: EOOptions) -> Box<dyn ToWorker + Send + 'static> {
+        let mut variants = opts.eo_axis.iter()
+            .map(|eo|match eo.clone() {
+                CubeAxis::UD => (vec![Transformation333::X], eo.name()),
+                CubeAxis::FB => (vec![], eo.name()),
+                CubeAxis::LR => (vec![Transformation333::Y], eo.name()),
+            })
+            .map(|(trans, name)|{
+                let b: Box<dyn ToWorker + Send + 'static> = Box::new(Self {
+                    table: &EO_TABLE,
+                    options: opts.clone(),
+                    pre_step_trans: trans,
+                    name,
+                });
+                b
+            })
+            .collect_vec();
+        if variants.len() == 1 {
+            variants.pop().unwrap()
+        } else {
+            Box::new(Parallel::new(variants))
         }
     }
 }
@@ -93,7 +114,7 @@ impl <'a> Step for EOStep {
     }
 
     fn get_name(&self) -> (StepKind, String) {
-        (StepKind::EO, "fb".to_string())
+        (StepKind::EO, self.name.to_string())
     }
 }
 

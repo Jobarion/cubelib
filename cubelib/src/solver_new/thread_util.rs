@@ -5,19 +5,19 @@ use crate::cube::Cube333;
 use crate::solver::solution::Solution;
 use crate::solver_new::step::{Receiver, Sender};
 
-pub enum ThreadState<I: Run<O>, O> {
+pub enum ThreadState<O> {
     None,
-    PreStart(I),
+    PreStart(Box<dyn Run<O> + Send>),
     PostStart(JoinHandle<O>),
 }
 
-impl <I: Run<O>, O> Default for ThreadState<I, O> {
+impl <O> Default for ThreadState<O> {
     fn default() -> Self {
         Self::None
     }
 }
 
-impl <I: Run<O> + Send + 'static, O: Send + 'static> Worker<O> for ThreadState<I, O> {
+impl <O: Send + 'static> Worker<O> for ThreadState<O> {
     fn start(&mut self) {
         *self = match mem::take(self) {
             ThreadState::None => ThreadState::None,

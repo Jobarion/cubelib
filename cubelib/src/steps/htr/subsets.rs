@@ -23,7 +23,7 @@ pub const DR_SUBSETS: [Subset; 48] = crate::steps::util::DR_SUBSETS;
 pub struct DRSubsetFilter<'a>(&'a HTRSubsetTable, Set64<u8>);
 
 impl <'a> DRSubsetFilter<'a> {
-    fn matches_subset(&self, cube: &Cube333) -> bool {
+    pub fn matches_subset(&self, cube: &Cube333) -> bool {
         if DRUDEOFBCoord::from(cube).val() != 0 {
             return false;
         }
@@ -31,10 +31,15 @@ impl <'a> DRSubsetFilter<'a> {
         self.1.contains(subset_id)
     }
 
-    fn new_subset(subset_table: &'a HTRSubsetTable, subsets: &Vec<(Subset, u8)>) -> Self {
+    pub fn new_subset(subset_table: &'a HTRSubsetTable, subsets: &Vec<Subset>) -> Self {
         let mut subset_set = Set64::new();
-        for (_, id) in subsets {
-            subset_set.insert(id.clone());
+        for subset in subsets {
+            for id in 0..DR_SUBSETS.len() {
+                if DR_SUBSETS[id].eq(subset) {
+                    subset_set.insert(id as u8);
+                    break;
+                }
+            }
         }
         Self(subset_table, subset_set)
     }
@@ -48,11 +53,11 @@ pub fn dr_subset_filter<'a>(subset_table: &'a HTRSubsetTable, subsets: &Vec<Stri
                 warn!("Ignoring unrecognized subset name {subset_name}")
             }
             if matched_subsets.len() == 1 {
-                for (subset, _) in matched_subsets.iter() {
+                for subset in matched_subsets.iter() {
                     debug!("Adding subset {subset}");
                 }
             } else {
-                for (subset, _) in matched_subsets.iter() {
+                for subset in matched_subsets.iter() {
                     debug!("Expanding {subset_name} to subset {subset}");
                 }
             }

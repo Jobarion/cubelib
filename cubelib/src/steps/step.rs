@@ -108,16 +108,7 @@ fn compare_steps(sol1: &Solution, sol2: &Solution, ordering: StepOrdering) -> Or
                 .cmp(&sol2.steps.last().map_or(false, |s| s.alg.has_niss()))
         },
         StepOrdering::RequiresScrambleSwitch => {
-            fn requires_switch(s: &Solution) -> bool {
-              match s.steps.len() {
-                    n if (n > 1) => {
-                        s.steps[n-1].alg.normal_moves.len() > 0 && s.steps[n-2].alg.inverse_moves.len() > 0
-                            || s.steps[n-1].alg.inverse_moves.len() > 0 && s.steps[n-2].alg.normal_moves.len() > 0
-                    }
-                    _ => false
-                }
-            }
-            requires_switch(sol1).cmp(&requires_switch(sol2))
+            sol1.requires_scramble_switch().cmp(&sol2.requires_scramble_switch())
         },
     }
 }

@@ -128,6 +128,16 @@ impl Solution {
         }))
     }
 
+    pub fn requires_scramble_switch(&self) -> bool {
+        match self.steps.len() {
+            n if (n > 1) => {
+                self.steps[n-1].alg.normal_moves.len() > 0 && self.steps[n-2].alg.inverse_moves.len() > 0
+                    || self.steps[n-1].alg.inverse_moves.len() > 0 && self.steps[n-2].alg.normal_moves.len() > 0
+            }
+            _ => false
+        }
+    }
+
 
     pub fn compact(self) -> Self {
         let mut steps: Vec<SolutionStep> = vec![];

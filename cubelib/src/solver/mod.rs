@@ -34,14 +34,13 @@ pub fn solve_steps<'a>(puzzle: Cube333, steps: &'a Vec<(Step<'a>, DefaultStepOpt
             Some(limit) => {
                 debug!("Found {} {}'s. Selecting {}", next_step_solutions.len(), step.kind, limit);
                 let mut canonical = next_step_solutions.into_iter().filter(Solution::is_canonical).collect::<Vec<_>>();
-                for (i, s) in canonical[..limit].iter().enumerate() {
-                    debug!("Starting {}: {}", i, s.steps.last().unwrap().alg);
-                }
-                // debug!("Compare {} with {}: {}", canonical[0].steps.last().unwrap().alg, canonical[4].steps.last().unwrap().alg, search_opts.compare(&canonical[0], &canonical[4]) as i8);
+                // for (i, s) in canonical[..limit].iter().enumerate() {
+                //     debug!("Starting {}: {}", i, s.steps.last().unwrap().alg);
+                // }
                 canonical.sort_by(|a,b| search_opts.compare(a,b));
-                for (i, s) in canonical[..limit].iter().enumerate() {
-                    debug!("Selecting {}: {}", i, s);
-                }
+                // for (i, s) in canonical[..limit].iter().enumerate() {
+                //     debug!("Selecting {}: {}", i, s);
+                // }
                 solutions = canonical[..limit]
                     .iter()
                     .flat_map(Solution::equivalents)

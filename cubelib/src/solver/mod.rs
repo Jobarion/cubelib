@@ -34,7 +34,7 @@ pub fn solve_steps<'a>(puzzle: Cube333, steps: &'a Vec<(Step<'a>, DefaultStepOpt
             Some(limit) => {
                 debug!("Found {} {}'s. Selecting {}", next_step_solutions.len(), step.kind, limit);
                 let mut canonical = next_step_solutions.into_iter().filter(Solution::is_canonical).collect::<Vec<_>>();
-                canonical.sort_by(|a, b| a.len().cmp(&b.len()));
+                canonical.sort_by(|a,b| search_opts.compare(a,b));
                 solutions = canonical[..limit]
                     .iter()
                     .flat_map(Solution::equivalents)

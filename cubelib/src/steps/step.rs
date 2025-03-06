@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use log::trace;
+use core::cmp::Ordering;
 
 use crate::algs::Algorithm;
 use crate::cube::turn::ApplyAlgorithm;
@@ -73,6 +74,18 @@ impl DefaultStepOptions {
             absolute_max_moves,
             niss_type,
             step_limit,
+        }
+    }
+
+    pub fn compare(&self, sol1: &Solution, sol2: &Solution) -> Ordering {
+        match sol1.len().cmp(&sol2.len()) {
+            Ordering::Equal => {
+                sol1.steps.last().zip(sol2.steps.last()).map_or(Ordering::Equal, |(s1, s2)| {
+                    min(&s1.alg.normal_moves.len(),&s1.alg.inverse_moves.len())
+                        .cmp(min(&s2.alg.normal_moves.len(),&s2.alg.inverse_moves.len()))
+                })
+            },
+            n => n
         }
     }
 }
@@ -253,7 +266,6 @@ impl<'a> Step<'a> {
     pub fn kind(&self) -> StepKind {
         self.kind.clone()
     }
-
 }
 
 pub fn first_step<

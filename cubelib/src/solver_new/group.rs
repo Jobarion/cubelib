@@ -3,9 +3,9 @@ use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::thread::JoinHandle;
 
-use crossbeam::channel::{Select, TrySendError};
+use crossbeam::channel::{Select, SelectedOperation, TrySendError};
 use itertools::Itertools;
-
+use log::debug;
 use crate::cube::Cube333;
 use crate::solver::solution::Solution;
 use crate::solver_new::*;
@@ -90,7 +90,8 @@ impl Parallel {
 }
 
 struct Broadcaster {
-    sinks: Vec<Sink>,
+    sinks: Vec<Sender<Solution>>,
+    positions: Vec<usize>,
     source: Receiver<Solution>,
     buffer: Vec<Solution>
 }
@@ -103,75 +104,134 @@ struct Sink {
 impl Broadcaster {
     pub fn new(source: Receiver<Solution>, sinks: Vec<Sender<Solution>>) -> Self {
         Self {
-            sinks: sinks.into_iter()
-                .map(|x|Sink {
-                    sink: x,
-                    buffer_position: 0,
-                })
-                .collect(),
+            positions: vec![0; sinks.len()],
+            sinks,
             source,
             buffer: vec![],
         }
     }
 }
 
+// If only we had a good sync spmc broadcast channel :(
+// I don't want to spend the time to implement myself and it doesn't have to be super fast so we'll just add another thread
 impl Run<()> for Broadcaster {
     fn run(&mut self) {
-        while !self.sinks.is_empty()  {
+        let mut source_dead = false;
+        while !self.sinks.is_empty() {
+            let mut select = Select::new();
             let mut lowest = self.buffer.len();
-            let mut highest = 0;
-            let mut to_remove = vec![];
-            for (sink, id) in self.sinks.iter_mut().zip(0..) {
-                lowest = min(lowest, sink.buffer_position);
-                highest = max(highest, sink.buffer_position);
-                while sink.buffer_position < self.buffer.len() {
-                    match sink.sink.try_send(self.buffer[sink.buffer_position].clone()) {
-                        Ok(_) => {
-                            sink.buffer_position += 1;
-                        }
-                        Err(TrySendError::Disconnected(_)) => {
-                            to_remove.push(id);
-                            break;
-                        }
-                        _ => {
-                            break;
-                        }
-                    }
+            let mut active_sinks = vec![];
+            for id in 0..self.sinks.len() {
+                lowest = min(lowest, self.positions[id]);
+                if self.positions[id] < self.buffer.len() {
+                    select.send(&self.sinks[id]);
+                    active_sinks.push(id);
                 }
             }
-            for id in to_remove.into_iter().rev() {
-                self.sinks.remove(id);
+            // Has one sink reached the end of the buffer
+            if active_sinks.len() < self.sinks.len() && !source_dead {
+                select.recv(&self.source);
             }
             if lowest > 0 {
                 self.buffer.drain(0..lowest);
-                for sink in self.sinks.iter_mut() {
-                    sink.buffer_position -= lowest;
+                for buffer_positios in self.positions.iter_mut() {
+                    *buffer_positios -= lowest;
                 }
-                highest -= lowest;
             }
-            if self.buffer.is_empty() {
-                // The buffer is empty, we need a new element. If there is none, we can abort immediately
-                if let Ok(x) = self.source.recv() {
-                    self.buffer.push(x)
-                } else {
-                    self.sinks.clear();
-                    return;
+            let index = select.ready();
+            if index == active_sinks.len() {
+                match self.source.recv() {
+                    Ok(v) => {
+                        self.buffer.push(v);
+                    }
+                    Err(_) => {
+                        source_dead = true;
+                    }
                 }
-            } else if highest == self.buffer.len() {
-                // Someone reached the end of the buffer, so we'll try to fetch a new element. We don't block to serve the workers that did not reach the end of the buffer yet.
-                // TODO this can spin, use select to do better
-                match self.source.try_recv() {
-                    Ok(s) => self.buffer.push(s),
-                    Err(TryRecvError::Empty) => {},
-                    Err(TryRecvError::Disconnected) => {
-                        self.sinks.retain(|s|s.buffer_position < self.buffer.len());
-                        break;
-                    },
+            } else {
+                let index = active_sinks[index];
+                let sink = &self.sinks[index];
+                let item = self.buffer[self.positions[index]].clone();
+                let result = sink.send(item);
+                match result {
+                    Ok(_) => {
+                        self.positions[index] += 1;
+                    }
+                    Err(_) => {
+                        self.sinks.remove(index);
+                        self.positions.remove(index);
+                    }
+                }
+            }
+            if source_dead {
+                for idx in (0..self.sinks.len()).rev() {
+                    if self.positions[idx] >= self.buffer.len() {
+                        self.positions.remove(idx);
+                        self.sinks.remove(idx);
+                    }
                 }
             }
         }
     }
 }
+
+// impl Run<()> for Broadcaster {
+//     fn run(&mut self) {
+//         while !self.sinks.is_empty()  {
+//             let mut lowest = self.buffer.len();
+//             let mut highest = 0;
+//             let mut to_remove = vec![];
+//             for (sink, id) in self.sinks.iter_mut().zip(0..) {
+//                 lowest = min(lowest, sink.buffer_position);
+//                 highest = max(highest, sink.buffer_position);
+//                 while sink.buffer_position < self.buffer.len() {
+//                     match sink.sink.try_send(self.buffer[sink.buffer_position].clone()) {
+//                         Ok(_) => {
+//                             sink.buffer_position += 1;
+//                         }
+//                         Err(TrySendError::Disconnected(_)) => {
+//                             to_remove.push(id);
+//                             break;
+//                         }
+//                         _ => {
+//                             break;
+//                         }
+//                     }
+//                 }
+//             }
+//             for id in to_remove.into_iter().rev() {
+//                 self.sinks.remove(id);
+//             }
+//             if lowest > 0 {
+//                 self.buffer.drain(0..lowest);
+//                 for sink in self.sinks.iter_mut() {
+//                     sink.buffer_position -= lowest;
+//                 }
+//                 highest -= lowest;
+//             }
+//             if self.buffer.is_empty() {
+//                 // The buffer is empty, we need a new element. If there is none, we can abort immediately
+//                 if let Ok(x) = self.source.recv() {
+//                     self.buffer.push(x)
+//                 } else {
+//                     self.sinks.clear();
+//                     return;
+//                 }
+//             } else if highest == self.buffer.len() {
+//                 // Someone reached the end of the buffer, so we'll try to fetch a new element. We don't block to serve the workers that did not reach the end of the buffer yet.
+//                 // TODO this can spin, use select to do better
+//                 match self.source.try_recv() {
+//                     Ok(s) => self.buffer.push(s),
+//                     Err(TryRecvError::Empty) => {},
+//                     Err(TryRecvError::Disconnected) => {
+//                         self.sinks.retain(|s|s.buffer_position < self.buffer.len());
+//                         break;
+//                     },
+//                 }
+//             }
+//         }
+//     }
+// }
 
 pub struct FifoSampler {
     sources: Vec<Receiver<Solution>>,

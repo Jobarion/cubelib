@@ -8,14 +8,18 @@ use crate::cube::*;
 use crate::defs::{NissSwitchType, StepKind};
 use crate::solver::lookup_table;
 use crate::solver_new::group::Parallel;
-use crate::solver_new::step::{DFSParameters, MoveSet, Step, StepOptions};
+use crate::solver_new::*;
+use crate::solver_new::htr::HTRStepOptions;
+use crate::solver_new::step::*;
 use crate::solver_new::thread_util::ToWorker;
+use crate::steps::coord::ZeroCoord;
+use crate::steps::dr::coords::DRUDEOFBCoord;
 use crate::steps::eo::coords::EOCoordFB;
 use crate::steps::eo::eo_config::{EO_FB_MOVESET, EOPruningTable};
 use crate::steps::step::{PostStepCheck, PreStepCheck};
 
 pub type EOOptions = StepOptions<EOStepOptions, 5, 20>;
-static EO_TABLE: LazyLock<EOPruningTable> = LazyLock::new(gen_eo);
+pub static EO_TABLE: LazyLock<EOPruningTable> = LazyLock::new(gen_eo);
 
 const EOFB_ST_MOVES: &[Turn333] = &[
     Turn333::F, Turn333::Fi,
@@ -41,18 +45,19 @@ pub struct EOStepOptions {
     pub eo_axis: Vec<turn::CubeAxis>,
 }
 
+impl Default for EOStepOptions {
+    fn default() -> Self {
+        Self::builder().build()
+    }
+}
+
 impl Into<NissSwitchType> for &EOStepOptions {
     fn into(self) -> NissSwitchType {
         self.niss
     }
 }
 
-pub struct EOStep {
-    table: &'static EOPruningTable,
-    options: EOOptions,
-    pre_step_trans: Vec<Transformation333>,
-    name: &'static str,
-}
+pub struct EOStep;
 
 impl EOStep {
     pub fn new(opts: EOOptions) -> Box<dyn ToWorker + Send + 'static> {
@@ -63,11 +68,15 @@ impl EOStep {
                 CubeAxis::LR => (vec![Transformation333::Y], eo.name()),
             })
             .map(|(trans, name)|{
-                let b: Box<dyn ToWorker + Send + 'static> = Box::new(Self {
+                let b: Box<dyn ToWorker + Send + 'static> = Box::new(PruningTableStep::<2048, EOCoordFB, 0, ZeroCoord>  {
                     table: &EO_TABLE,
-                    options: opts.clone(),
+                    options: (&opts).into(),
                     pre_step_trans: trans,
-                    name,
+                    name: name.to_string(),
+                    kind: StepKind::EO,
+                    post_step_check: vec![],
+                    move_set: &EOFB_MOVESET,
+                    _pc: Default::default(),
                 });
                 b
             })
@@ -77,44 +86,6 @@ impl EOStep {
         } else {
             Box::new(Parallel::new(variants))
         }
-    }
-}
-
-impl PreStepCheck for EOStep {
-    fn is_cube_ready(&self, _: &Cube333) -> bool {
-        true
-    }
-}
-
-impl PostStepCheck for EOStep {
-    fn is_solution_admissible(&self, _: &Cube333, _: &Algorithm) -> bool {
-        true
-    }
-}
-
-impl <'a> Step for EOStep {
-    fn get_dfs_parameters(&self) -> DFSParameters {
-        (&self.options).into()
-    }
-
-    fn get_moveset(&self, _: &Cube333, _: usize) -> &'_ MoveSet {
-        &EOFB_MOVESET
-    }
-
-    fn heuristic(&self, state: &Cube333, can_niss_switch: bool) -> usize {
-        if can_niss_switch {
-            1
-        } else {
-            self.table.get(EOCoordFB::from(state)) as usize
-        }
-    }
-
-    fn pre_step_trans(&self) -> &'_ Vec<Transformation333> {
-        &self.pre_step_trans
-    }
-
-    fn get_name(&self) -> (StepKind, String) {
-        (StepKind::EO, self.name.to_string())
     }
 }
 

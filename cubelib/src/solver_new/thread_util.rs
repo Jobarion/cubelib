@@ -3,7 +3,7 @@ use std::thread::JoinHandle;
 
 use crate::cube::Cube333;
 use crate::solver::solution::Solution;
-use crate::solver_new::step::{Receiver, Sender};
+use crate::solver_new::{Receiver, Sender};
 
 pub enum ThreadState<O> {
     None,

@@ -8,7 +8,7 @@ use itertools::Itertools;
 
 use crate::cube::Cube333;
 use crate::solver::solution::Solution;
-use crate::solver_new::step::*;
+use crate::solver_new::*;
 use crate::solver_new::thread_util::*;
 
 const BUFFER_SIZE: usize = 10;

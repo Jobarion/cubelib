@@ -4,7 +4,7 @@ use crate::algs::Algorithm;
 use crate::cube::{Cube333, Turn333};
 use crate::cube::turn::Direction;
 use crate::solver::solution::Solution;
-use crate::solver_new::step::{Receiver, Sender};
+use crate::solver_new::{Receiver, Sender};
 use crate::solver_new::thread_util::{Run, ThreadState, ToWorker, Worker};
 
 pub struct FilterDup;

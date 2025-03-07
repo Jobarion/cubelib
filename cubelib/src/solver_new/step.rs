@@ -1,8 +1,10 @@
+use std::cmp::min;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::thread::JoinHandle;
-
+use log::{debug, trace};
 use typed_builder::TypedBuilder;
 
 use crate::algs::Algorithm;
@@ -10,14 +12,19 @@ use crate::cube::{Cube333, Transformation333, Turn333};
 use crate::cube::turn::*;
 use crate::defs::{NissSwitchType, StepKind};
 use crate::solver::df_search::CancelToken;
+use crate::solver::lookup_table::{LookupTable, NissLookupTable};
 use crate::solver::solution::{ApplySolution, Solution, SolutionStep};
 use crate::solver_new::group::Sequential;
+use crate::solver_new::*;
+use crate::solver_new::dr::DROptions;
 use crate::solver_new::thread_util::*;
 use crate::solver_new::util_steps::{FilterDup, FilterLastMoveNotPrime};
+use crate::steps::coord::Coord;
+use crate::steps::eo::coords::EOCoordFB;
 use crate::steps::step::{PostStepCheck, PreStepCheck};
 
 #[derive(Clone, TypedBuilder)]
-pub struct StepOptions<T: Clone, const DM: usize, const DAM: usize> {
+pub struct StepOptions<T: Clone + Default, const DM: usize, const DAM: usize> {
     #[builder(default=0)]
     pub min_length: usize,
     #[builder(default=DM)]
@@ -29,24 +36,16 @@ pub struct StepOptions<T: Clone, const DM: usize, const DAM: usize> {
     pub options: T,
 }
 
-// pub type Sender<T> = sync::mpsc::SyncSender<T>;
-// pub type Receiver<T> = sync::mpsc::Receiver<T>;
-// pub type SendError<T> = sync::mpsc::SendError<T>;
-// pub type RecvError = sync::mpsc::RecvError;
-// pub type TryRecvError = sync::mpsc::TryRecvError;
-
-pub type Sender<T> = crossbeam::channel::Sender<T>;
-pub type Receiver<T> = crossbeam::channel::Receiver<T>;
-pub type SendError<T> = crossbeam::channel::SendError<T>;
-pub type RecvError = crossbeam::channel::RecvError;
-pub type TryRecvError = crossbeam::channel::TryRecvError;
-
-pub fn bounded_channel<T>(size: usize) -> (Sender<T>, Receiver<T>) {
-    crossbeam::channel::bounded(size)
-    // sync::mpsc::sync_channel(size)
+impl <T: Clone + Default, const DM: usize, const DAM: usize> Default for StepOptions<T, DM, DAM> {
+    fn default() -> Self {
+        StepOptions::builder()
+            .options(T::default())
+            .build()
+    }
 }
 
-impl <T: Clone, const DM: usize, const DAM: usize> Deref for StepOptions<T, DM, DAM> {
+
+impl <T: Clone + Default, const DM: usize, const DAM: usize> Deref for StepOptions<T, DM, DAM> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -54,7 +53,7 @@ impl <T: Clone, const DM: usize, const DAM: usize> Deref for StepOptions<T, DM, 
     }
 }
 
-impl <T: Clone, const DM: usize, const DAM: usize> Into<DFSParameters> for &StepOptions<T, DM, DAM> where for<'a> &'a T: Into<NissSwitchType> {
+impl <T: Clone + Default, const DM: usize, const DAM: usize> Into<DFSParameters> for &StepOptions<T, DM, DAM> where for<'a> &'a T: Into<NissSwitchType> {
     fn into(self) -> DFSParameters {
         DFSParameters {
             niss_type: (&self.options).into(),
@@ -63,6 +62,116 @@ impl <T: Clone, const DM: usize, const DAM: usize> Into<DFSParameters> for &Step
             absolute_min_moves: self.min_absolute_length,
             absolute_max_moves: self.max_absolute_length,
         }
+    }
+}
+
+impl <T: Clone + Default, const DM: usize, const DAM: usize> Into<DFSParameters> for StepOptions<T, DM, DAM> where for<'a> &'a T: Into<NissSwitchType> {
+    fn into(self) -> DFSParameters {
+        (&self).into()
+    }
+}
+
+pub struct PruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'static, const PC_SIZE: usize, PC: Coord<PC_SIZE> + 'static> {
+    pub table: &'b LookupTable<C_SIZE, C>,
+    pub options: DFSParameters,
+    pub pre_step_trans: Vec<Transformation333>,
+    pub name: String,
+    pub kind: StepKind,
+    pub post_step_check: Vec<Box<dyn PostStepCheck + Send + 'static>>,
+    pub move_set: &'a MoveSet,
+    pub _pc: PhantomData<PC>,
+}
+
+pub struct NissPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'static, const PC_SIZE: usize, PC: Coord<PC_SIZE> + 'static> {
+    pub table: &'b NissLookupTable<C_SIZE, C>,
+    pub options: DFSParameters,
+    pub pre_step_trans: Vec<Transformation333>,
+    pub name: String,
+    pub kind: StepKind,
+    pub post_step_check: Vec<Box<dyn PostStepCheck + Send + 'static>>,
+    pub move_set: &'a MoveSet,
+    pub _pc: PhantomData<PC>,
+}
+
+impl<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for PruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where PC: for<'c> From<&'c Cube333> {
+    fn is_cube_ready(&self, cube: &Cube333) -> bool {
+        PC::from(cube).val() == 0
+    }
+}
+
+impl<'a, 'b,const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PostStepCheck for PruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> {
+    fn is_solution_admissible(&self, cube: &Cube333, alg: &Algorithm) -> bool {
+        self.post_step_check.iter()
+            .all(|psc|psc.is_solution_admissible(cube, alg))
+    }
+}
+
+impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> Step for PruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where C: for<'c> From<&'c Cube333>, PC: for<'d> From<&'d Cube333>  {
+    fn get_dfs_parameters(&self) -> DFSParameters {
+        self.options.clone()
+    }
+
+    fn get_moveset(&self, _: &Cube333, _: usize) -> &'a MoveSet {
+        self.move_set
+    }
+
+    fn heuristic(&self, state: &Cube333, can_niss_switch: bool) -> usize {
+        let coord = C::from(state);
+        let heuristic = self.table.get(coord) as usize;
+        if can_niss_switch {
+            min(1, heuristic)
+        } else {
+            heuristic
+        }
+    }
+
+    fn pre_step_trans(&self) -> &'_ Vec<Transformation333> {
+        &self.pre_step_trans
+    }
+
+    fn get_name(&self) -> (StepKind, String) {
+        (self.kind.clone(), self.name.clone())
+    }
+}
+
+impl<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for NissPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where PC: for<'c> From<&'c Cube333> {
+    fn is_cube_ready(&self, cube: &Cube333) -> bool {
+        PC::from(cube).val() == 0
+    }
+}
+
+impl<'a, 'b,const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PostStepCheck for NissPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> {
+    fn is_solution_admissible(&self, cube: &Cube333, alg: &Algorithm) -> bool {
+        self.post_step_check.iter()
+            .all(|psc|psc.is_solution_admissible(cube, alg))
+    }
+}
+
+impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> Step for NissPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where C: for<'c> From<&'c Cube333>, PC: for<'d> From<&'d Cube333>  {
+    fn get_dfs_parameters(&self) -> DFSParameters {
+        self.options.clone()
+    }
+
+    fn get_moveset(&self, _: &Cube333, _: usize) -> &'a MoveSet {
+        self.move_set
+    }
+
+    fn heuristic(&self, state: &Cube333, can_niss_switch: bool) -> usize {
+        let coord = C::from(state);
+        let (val, niss) = self.table.get(coord);
+        if can_niss_switch && val != 0 {
+            niss as usize
+        } else {
+            val as usize
+        }
+    }
+
+    fn pre_step_trans(&self) -> &'_ Vec<Transformation333> {
+        &self.pre_step_trans
+    }
+
+    fn get_name(&self) -> (StepKind, String) {
+        (self.kind.clone(), self.name.clone())
     }
 }
 
@@ -97,11 +206,9 @@ struct StepIORunner {
 
 impl Run<()> for StepIORunner {
     fn run(&mut self) -> () {
-        // trace!("[{:?}] Start", self.step.get_name());
         if let Some(rc) = self.rc.take() {
             self.run_internal(rc);
         }
-        // trace!("[{:?}] Done", self.step.get_name());
         drop(self.tx.take());
     }
 }
@@ -115,15 +222,15 @@ impl StepIORunner {
             return;
         };
         self.input.push(next);
+        self.current_length = self.input[0].len();
 
-        while !self.cancel_token.is_cancelled() && self.current_length <= self.dfs_parameters.max_moves {
+        while !self.cancel_token.is_cancelled() && self.current_length <= self.dfs_parameters.absolute_max_moves.unwrap_or(usize::MAX) {
             // If we need to fetch all inputs up to length X, we do this now
             match self.process_fetched() {
                 Ok(Some(full_fetch_required_length)) => {
                     while !self.cancel_token.is_cancelled() {
                         match rc.recv() {
                             Ok(next) => {
-                                // trace!("[{:?}] Received {next:?}", self.step.get_name());
                                 let len = next.len();
                                 self.input.push(next);
                                 if len > full_fetch_required_length {
@@ -141,30 +248,37 @@ impl StepIORunner {
                     return;
                 }
             };
-            if let Err(_) = self.process_fetched() {
-                return;
-            }
+            _ = self.process_fetched();
             self.current_position = 0;
             self.current_length += 1;
-            if self.input[0].len() + self.current_length > self.dfs_parameters.absolute_max_moves.unwrap_or(usize::MAX) {
-                break;
-            }
         }
     }
 
     fn process_fetched(&mut self) -> Result<Option<usize>, SendError<Solution>> {
-        let min_length = self.input[0].len();
+        let mut drain_until = 0;
         while !self.cancel_token.is_cancelled() && self.current_position < self.input.len() {
             let len = self.input[self.current_position].len();
-            // We know that they are ordered by length, so we can abort immediately
-            //trace!("[{}] \tCurrent state has length {len} (min is {min_length})", self.step.get_name().0);
-            if len > self.current_length + min_length {
-                return Ok(None);
+            if len > self.current_length {
+                break;
             }
-            self.find_solutions(self.cube_state.clone(), &self.input[self.current_position], self.current_length, self.dfs_parameters.niss_type)?;
+            let depth = self.current_length - len;
+            if depth > self.dfs_parameters.max_moves {
+                drain_until += 1;
+                self.current_position += 1;
+                continue
+            }
+            self.find_solutions(self.cube_state.clone(), &self.input[self.current_position], depth, self.dfs_parameters.niss_type)?;
             self.current_position += 1;
         }
-        return Ok(Some(min_length + self.current_length));
+
+        if drain_until > 0 {
+            self.input.drain(0..drain_until);
+        }
+        if self.current_position >= self.input.len() + drain_until {
+            Ok(Some(self.current_length))
+        } else {
+            Ok(None)
+        }
     }
 
     fn submit_solution(&self, input: &Solution, result: Algorithm) -> Result<(), SendError<Solution>>{
@@ -174,12 +288,10 @@ impl StepIORunner {
         input.add_step(SolutionStep {
             kind,
             variant,
-            alg: result,
+            alg: result.clone(),
             comment: "".to_string(),
         });
         if let Some(tx) = self.tx.as_ref() {
-            // trace!("[{:?}] Submitting {input:?}", self.step.get_name());
-            // Add alg
             tx.send(input)
         } else {
             Err(crossbeam::channel::SendError(input))
@@ -327,13 +439,6 @@ impl <S: Step + Send + 'static> ToWorker for S {
     }
 }
 
-pub trait Step: PreStepCheck + PostStepCheck {
-    fn get_dfs_parameters(&self) -> DFSParameters;
-    fn get_moveset(&self, state: &Cube333, depth_left: usize) -> &'_ MoveSet;
-    fn heuristic(&self, state: &Cube333, can_niss_switch: bool) -> usize;
-    fn pre_step_trans(&self) -> &'_ Vec<Transformation333>;
-    fn get_name(&self) -> (StepKind, String);
-}
 
 #[derive(Clone, Copy, Debug)]
 pub struct DFSParameters {
@@ -410,18 +515,4 @@ impl MoveSet {
             .filter(move |t|t.1 || depth_left > 1)
             .filter(move |t|previous.map_or(true, |tp|self.transitions[tp.to_id()][t.0.to_id()]))
     }
-}
-
-pub fn create_worker(cube: Cube333, mut steps: Vec<Box<dyn ToWorker + Send + 'static>>) -> (Box<dyn Worker<()> + Send + 'static>, Receiver<Solution>) {
-    let (tx0, rc0) = bounded_channel(1);
-    let (tx1, rc1) = bounded_channel(1);
-
-    tx0.send(Solution::new()).unwrap();
-    drop(tx0);
-
-    (if steps.len() == 1 {
-        steps.pop().unwrap().to_worker_box(cube, rc0, tx1)
-    } else {
-        Sequential::new(steps).to_worker(cube, rc0, tx1)
-    }, rc1)
 }

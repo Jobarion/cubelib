@@ -19,17 +19,18 @@ pub fn solve_steps<'a>(puzzle: Cube333, steps: &'a Vec<(Step<'a>, DefaultStepOpt
 
     for (step, search_opts) in steps {
         debug!("Step {} with options {:?}", step.kind(), search_opts);
-        let mut next_step_solutions = vec![];
-        for i in 0..solutions.len() {
-            let iter = steps::step::next_step(
-                solutions[i..i+1].iter().cloned(),
-                step,
-                search_opts.clone(),
-                puzzle.clone(),
-                cancel_token
-            );
-            next_step_solutions.extend(iter)
-        }
+        let next_step_solutions: Vec<Solution> = solutions
+            .iter()
+            .flat_map(|solution| {
+                steps::step::next_step(
+                    vec![solution.clone()].into_iter(),
+                    step,
+                    search_opts.clone(),
+                    puzzle.clone(),
+                    cancel_token
+                ).collect::<Vec<_>>()
+            })
+            .collect();
         match search_opts.step_limit {
             Some(limit) => {
                 debug!("Found {} {}'s. Selecting {}", next_step_solutions.len(), step.kind, limit);

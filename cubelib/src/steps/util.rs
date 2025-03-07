@@ -13,6 +13,12 @@ pub struct Subset {
     pub qt: u8,
 }
 
+impl AsRef<Subset> for Subset {
+    fn as_ref(&self) -> &Subset {
+        self
+    }
+}
+
 impl FromStr for Subset {
     type Err = ();
 

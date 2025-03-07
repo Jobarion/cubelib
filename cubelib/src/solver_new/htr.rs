@@ -1,32 +1,19 @@
-
-use std::collections::HashMap;
 use std::sync::LazyLock;
 use std::time::Instant;
 use itertools::Itertools;
-use log::{debug, info, warn};
-use tinyset::Set64;
+use log::{debug, info};
 use typed_builder::TypedBuilder;
-use crate::algs::Algorithm;
 use crate::cube::*;
 use crate::defs::{NissSwitchType, StepKind};
-use crate::defs::StepKind::HTR;
 use crate::solver::lookup_table;
-use crate::solver::solution::{ApplySolution, Solution};
-use crate::solver_new::group::{Parallel, Sequential};
+use crate::solver_new::group::Parallel;
 use crate::solver_new::*;
-use crate::solver_new::eo::{EO_TABLE, EOFB_MOVESET, EOOptions, EOStep};
 use crate::solver_new::step::*;
-use crate::solver_new::thread_util::{Run, ToWorker, Worker};
-use crate::solver_new::util_steps::{Filter, StepFilter};
-use crate::steps::coord::ZeroCoord;
+use crate::solver_new::thread_util::ToWorker;
 use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
-use crate::steps::dr::dr_config::{DR_UD_EO_FB_MOVESET, DRPruningTable, HTR_DR_UD_MOVESET};
-use crate::steps::eo::coords::EOCoordFB;
+use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
 use crate::steps::htr::htr_config::{HTRPruningTable, HTRSubsetTable};
-use crate::steps::htr::subsets::{DRSubsetFilter, Subset};
-use crate::steps::step::{PostStepCheck, PreStepCheck};
-use crate::steps::util::expand_subset_name;
 
 pub type HTROptions = StepOptions<HTRStepOptions, 10, 18>;
 pub static HTR_TABLES: LazyLock<(HTRPruningTable, HTRSubsetTable)> = LazyLock::new(||gen_htr_with_subsets());

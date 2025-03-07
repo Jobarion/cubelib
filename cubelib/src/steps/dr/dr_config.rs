@@ -8,7 +8,7 @@ use crate::defs::*;
 use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::TransitionTable333;
 use crate::steps::{MoveSet333, Step333};
-use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
+use crate::steps::dr::coords::{DRUD_SIZE, DRUDCoord, DRUDEOFB_SIZE, DRUDEOFBCoord};
 use crate::steps::eo::coords::EOCoordFB;
 #[cfg(feature = "333htr")]
 use crate::steps::htr::htr_config::HTRSubsetTable;
@@ -62,6 +62,7 @@ pub const DR_UD_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
     transitions: &dr_transitions(CubeFace::Left),
 };
 
+pub type DRDirectPruningTable = LookupTable<{ DRUD_SIZE }, DRUDCoord>;
 pub type DRPruningTable = LookupTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
 pub type DRPruningTableStep<'a> = DefaultPruningTableStep<'a, {DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB>;
 

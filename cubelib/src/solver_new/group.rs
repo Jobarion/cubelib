@@ -1,11 +1,11 @@
 use std::{mem, thread};
-use std::cmp::{max, min};
+use std::cmp::min;
 use std::collections::HashSet;
 use std::thread::JoinHandle;
 
-use crossbeam::channel::{Select, SelectedOperation, TrySendError};
+use crossbeam::channel::Select;
 use itertools::Itertools;
-use log::debug;
+
 use crate::cube::Cube333;
 use crate::solver::solution::Solution;
 use crate::solver_new::*;
@@ -94,11 +94,6 @@ struct Broadcaster {
     positions: Vec<usize>,
     source: Receiver<Solution>,
     buffer: Vec<Solution>
-}
-
-struct Sink {
-    sink: Sender<Solution>,
-    buffer_position: usize,
 }
 
 impl Broadcaster {

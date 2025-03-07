@@ -4,7 +4,6 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::thread::JoinHandle;
-use log::{debug, trace};
 use typed_builder::TypedBuilder;
 
 use crate::algs::Algorithm;
@@ -14,13 +13,9 @@ use crate::defs::{NissSwitchType, StepKind};
 use crate::solver::df_search::CancelToken;
 use crate::solver::lookup_table::{LookupTable, NissLookupTable};
 use crate::solver::solution::{ApplySolution, Solution, SolutionStep};
-use crate::solver_new::group::Sequential;
 use crate::solver_new::*;
-use crate::solver_new::dr::DROptions;
 use crate::solver_new::thread_util::*;
-use crate::solver_new::util_steps::{FilterDup, FilterLastMoveNotPrime};
 use crate::steps::coord::Coord;
-use crate::steps::eo::coords::EOCoordFB;
 use crate::steps::step::{PostStepCheck, PreStepCheck};
 
 #[derive(Clone, TypedBuilder)]

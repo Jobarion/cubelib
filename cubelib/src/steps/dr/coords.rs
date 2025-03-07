@@ -1,5 +1,6 @@
 use crate::cube::{CornerCube333, Cube333, EdgeCube333};
 use crate::steps::coord::Coord;
+use crate::steps::eo::coords::EOCoordFB;
 
 //UD corner orientation
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -26,6 +27,10 @@ pub struct UDSliceUnsortedCoord(pub(crate) u16);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DRUDEOFBCoord(pub(crate) u32);
 
+//Assuming we already have FB-EO, represents the combination of UDSliceUnsortedCoord and COUDCoord
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct DRUDCoord(pub(crate) u32);
+
 impl Coord<495> for UDSliceUnsortedCoord {
     fn val(&self) -> usize {
         self.0 as usize
@@ -49,6 +54,27 @@ impl Coord<DRUDEOFB_SIZE> for DRUDEOFBCoord {
 impl Into<usize> for DRUDEOFBCoord {
     fn into(self) -> usize {
         self.val()
+    }
+}
+
+pub const DRUD_SIZE: usize = DRUDEOFB_SIZE * 2048;
+impl Coord<DRUD_SIZE> for DRUDCoord {
+    fn val(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Into<usize> for DRUDCoord {
+    fn into(self) -> usize {
+        self.val()
+    }
+}
+
+impl From<&Cube333> for DRUDCoord {
+    fn from(value: &Cube333) -> Self {
+        let eo = EOCoordFB::from(value);
+        let dr = DRUDEOFBCoord::from(value);
+        DRUDCoord(eo.0 as u32 + dr.0 * 2048)
     }
 }
 

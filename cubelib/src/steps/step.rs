@@ -90,15 +90,14 @@ impl DefaultStepOptions {
     }
 
     pub fn compare(&self, sol1: &Solution, sol2: &Solution) -> Ordering {
-        let mut order = Ordering::Equal;
-        let orderings = vec![self.step_ordering.0, self.step_ordering.1, self.step_ordering.2];
+        let orderings = vec![self.step_ordering.0, self.step_ordering.1, self.step_ordering.2, self.step_ordering.3];
         for &ordering in orderings.iter() {
-            order = compare_solutions(sol1, sol2, ordering);
+            let order = compare_solutions(sol1, sol2, ordering);
             if order != Ordering::Equal {
                 return order;
             }
         }
-        return order;
+        return Ordering::Equal
     }
 
 

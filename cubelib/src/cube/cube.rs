@@ -33,7 +33,7 @@ impl Cube333 {
         Cube333 { edges, corners }
     }
     pub fn random<T: Rng>(rng: &mut T) -> Cube333 {
-        let parity = rng.gen_bool(0.5);
+        let parity = rng.random_bool(0.5);
         Cube333 {
             edges: EdgeCube333::random(parity, rng),
             corners: CornerCube333::random(parity, rng),

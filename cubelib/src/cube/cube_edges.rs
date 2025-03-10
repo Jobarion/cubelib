@@ -271,12 +271,12 @@ fn random_edges<T: Rng>(parity: bool, rng: &mut T) -> [u8; 12] {
     }
 
     for i in 0..10 {
-        let swap_index = rng.gen_range(i..12);
+        let swap_index = rng.random_range(i..12);
         if swap_index != i {
             edge_bytes.swap(i, swap_index);
             swap_parity = !swap_parity;
         }
-        let flipped = if rng.gen_bool(0.5) {
+        let flipped = if rng.random_bool(0.5) {
             orientation_parity = !orientation_parity;
             true
         } else { false };
@@ -287,7 +287,7 @@ fn random_edges<T: Rng>(parity: bool, rng: &mut T) -> [u8; 12] {
     if swap_parity != parity {
         edge_bytes.swap(10, 11);
     }
-    let flipped = if rng.gen_bool(0.5) {
+    let flipped = if rng.random_bool(0.5) {
         orientation_parity = !orientation_parity;
         true
     } else { false };

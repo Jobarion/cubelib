@@ -35,7 +35,7 @@ fn main() {
 }
 
 fn scramble() {
-    let cube = Cube333::random(&mut rand::thread_rng());
+    let cube = Cube333::random(&mut rand::rng());
 
     let cmd = SolveCommand {
         format: SolutionFormat::Plain,

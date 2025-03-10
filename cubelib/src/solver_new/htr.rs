@@ -1,13 +1,14 @@
 use std::sync::LazyLock;
 use std::time::Instant;
+
 use itertools::Itertools;
 use log::{debug, info};
-use typed_builder::TypedBuilder;
+
 use crate::cube::*;
-use crate::defs::{NissSwitchType, StepKind};
+use crate::defs::StepKind;
 use crate::solver::lookup_table;
-use crate::solver_new::group::Parallel;
 use crate::solver_new::*;
+use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
 use crate::solver_new::thread_util::ToWorker;
 use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
@@ -15,7 +16,6 @@ use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
 use crate::steps::htr::htr_config::{HTRPruningTable, HTRSubsetTable};
 
-pub type HTROptions = StepOptions<HTRStepOptions, 10, 18>;
 pub static HTR_TABLES: LazyLock<(HTRPruningTable, HTRSubsetTable)> = LazyLock::new(||gen_htr_with_subsets());
 
 const HTR_DRUD_ST_MOVES: &[Turn333] = &[
@@ -31,32 +31,19 @@ const HTR_DRUD_AUX_MOVES: &[Turn333] = &[
 
 pub const HTR_DRUD_MOVESET: MoveSet = MoveSet::new(HTR_DRUD_ST_MOVES, HTR_DRUD_AUX_MOVES);
 
-#[derive(Clone, TypedBuilder)]
-pub struct HTRStepOptions {
-    #[builder(default=vec![CubeAxis::X, CubeAxis::Y, CubeAxis::Z])]
-    pub dr_axis: Vec<turn::CubeAxis>,
-    #[builder(default=NissSwitchType::Before)]
-    pub niss: NissSwitchType,
-}
-
-impl Default for HTRStepOptions {
-    fn default() -> Self {
-        Self::builder().build()
-    }
-}
-
-impl Into<NissSwitchType> for &HTRStepOptions {
-    fn into(self) -> NissSwitchType {
-        self.niss
-    }
-}
-
 pub struct HTRStep;
+pub type HTRBuilder = builder::HTRBuilderInternal<false, false, false, false>;
 
 impl HTRStep {
-    pub fn new(opts: HTROptions) -> Box<dyn ToWorker + Send + 'static> {
-        let mut variants = opts.dr_axis.iter()
-            .map(|dr|match dr.clone() {
+    pub fn builder() -> HTRBuilder {
+        HTRBuilder::default()
+    }
+}
+
+impl HTRStep {
+    pub fn new(dfs: DFSParameters, dr_axis: Vec<CubeAxis>) -> Box<dyn ToWorker + Send + 'static> {
+        let mut variants = dr_axis.into_iter()
+            .map(|dr|match dr {
                 CubeAxis::UD => (vec![], dr.name()),
                 CubeAxis::FB => (vec![Transformation333::X], dr.name()),
                 CubeAxis::LR => (vec![Transformation333::Z], dr.name()),
@@ -64,7 +51,7 @@ impl HTRStep {
             .map(|(trans, name)|{
                 let b: Box<dyn ToWorker + Send + 'static> = Box::new(NissPruningTableStep::<HTRDRUD_SIZE, HTRDRUDCoord, DRUDEOFB_SIZE, DRUDEOFBCoord>  {
                     table: &HTR_TABLES.0,
-                    options: (&opts).into(),
+                    options: dfs.clone(),
                     pre_step_trans: trans,
                     name: name.to_string(),
                     kind: StepKind::HTR,
@@ -78,7 +65,7 @@ impl HTRStep {
         if variants.len() == 1 {
             variants.pop().unwrap()
         } else {
-            Box::new(Parallel::new(variants))
+            StepGroup::parallel(variants)
         }
     }
 }
@@ -102,4 +89,88 @@ fn gen_htr_with_subsets() -> (HTRPruningTable, HTRSubsetTable) {
     #[cfg(not(target_arch = "wasm32"))]
     debug!("Took {}ms", time.elapsed().as_millis());
     (htr_table, subset_table)
+}
+
+
+pub mod builder {
+    use crate::cube::CubeAxis;
+    use crate::defs::NissSwitchType;
+    use crate::solver_new::htr::HTRStep;
+    use crate::solver_new::step::DFSParameters;
+    use crate::solver_new::thread_util::ToWorker;
+
+    pub struct HTRBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool> {
+        _a_max_length: usize,
+        _b_max_absolute_length: usize,
+        _c_niss: NissSwitchType,
+        _d_dr_axis: Vec<CubeAxis>,
+    }
+
+    impl <const A: bool, const B: bool, const C: bool, const D: bool> HTRBuilderInternal<A, B, C, D> {
+        fn convert<const _A: bool, const _B: bool, const _C: bool, const _D: bool>(self) -> HTRBuilderInternal<_A, _B, _C, _D> {
+            HTRBuilderInternal {
+                _a_max_length: self._a_max_length,
+                _b_max_absolute_length: self._b_max_absolute_length,
+                _c_niss: self._c_niss,
+                _d_dr_axis: self._d_dr_axis,
+            }
+        }
+    }
+
+    impl <const B: bool, const C: bool, const D: bool> HTRBuilderInternal<false, B, C, D> {
+        pub fn max_length(mut self, max_length: usize) -> HTRBuilderInternal<true, B, C, D> {
+            self._a_max_length = max_length;
+            self.convert()
+        }
+    }
+
+    impl <const A: bool, const C: bool, const D: bool> HTRBuilderInternal<A, false, C, D> {
+        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> HTRBuilderInternal<A, true, C, D> {
+            self._b_max_absolute_length = max_absolute_length;
+            self.convert()
+        }
+    }
+
+    impl <const A: bool, const B: bool, const D: bool> HTRBuilderInternal<A, B, false, D> {
+        pub fn niss(mut self, niss: NissSwitchType) -> HTRBuilderInternal<A, B, true, D> {
+            self._c_niss = niss;
+            self.convert()
+        }
+    }
+
+    impl <const A: bool, const B: bool, const C: bool> HTRBuilderInternal<A, B, C, false> {
+        pub fn dr_axis(mut self, eo_axis: Vec<CubeAxis>) -> HTRBuilderInternal<A, B, C, true> {
+            self._d_dr_axis = eo_axis;
+            self.convert()
+        }
+    }
+
+    impl <const A: bool, const B: bool, const C: bool, const D: bool> HTRBuilderInternal<A, B, C, D> {
+        pub fn build(self) -> Box<dyn ToWorker + Send + 'static> {
+            let dfs = DFSParameters {
+                niss_type: self._c_niss,
+                min_moves: 0,
+                max_moves: self._a_max_length,
+                absolute_max_moves: Some(self._b_max_absolute_length),
+            };
+            HTRStep::new(dfs, self._d_dr_axis)
+        }
+    }
+
+    impl HTRBuilderInternal<false, false, false, false> {
+        pub fn new() -> Self {
+            Self {
+                _a_max_length: 14,
+                _b_max_absolute_length: 24,
+                _c_niss: NissSwitchType::Before,
+                _d_dr_axis: vec![CubeAxis::X, CubeAxis::Y, CubeAxis::Z],
+            }
+        }
+    }
+
+    impl Default for HTRBuilderInternal<false, false, false, false> {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
 }

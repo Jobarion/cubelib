@@ -13,7 +13,6 @@ num-traits = "0.2"
 num-derive = "0.4"
 home = { version = "0.5.9", optional = true }
 tinyset = "0.5.1"
-typed-builder = "0.20.0"
 serde_with = { version = "3.12.0", optional = true }
 crossbeam = { version = "0.8.4", features = ["crossbeam-channel"] }
 

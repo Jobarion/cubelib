@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use itertools::Itertools;
 use crate::cube::*;
-use crate::cube::turn::{Invertible, Transformable, TransformableMut, TurnableMut};
+use crate::cube::turn::{ApplyAlgorithm, Invertible, Transformable, TransformableMut, TurnableMut};
 
 #[derive(PartialEq, Eq, Hash)]
 //This is a pretty bad serialization format. We can do better if Turn is FromStr, but right now that's not enforced.
@@ -13,6 +13,22 @@ use crate::cube::turn::{Invertible, Transformable, TransformableMut, TurnableMut
 pub struct Algorithm {
     pub normal_moves: Vec<Turn333>,
     pub inverse_moves: Vec<Turn333>,
+}
+
+impl Into<Cube333> for Algorithm {
+    fn into(self) -> Cube333 {
+        let mut cube = Cube333::default();
+        cube.apply_alg(&self);
+        cube
+    }
+}
+
+impl Into<Cube333> for &Algorithm {
+    fn into(self) -> Cube333 {
+        let mut cube = Cube333::default();
+        cube.apply_alg(self);
+        cube
+    }
 }
 
 impl Clone for Algorithm {

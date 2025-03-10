@@ -121,7 +121,7 @@ impl Display for Solution {
         let longest_name_length = compact
             .steps
             .iter()
-            .map(|s| s.kind.to_string().len() + if s.comment.is_empty() { 0 } else { s.comment.len() + 3 })
+            .map(|s| s.kind.to_string().len() + s.variant.len() + 1 + if s.comment.is_empty() { 0 } else { s.comment.len() + 3 })
             .max()
             .unwrap_or(0);
 
@@ -135,7 +135,7 @@ impl Display for Solution {
                 } else {
                     format!(" [{}]", step.comment)
                 };
-                format!("{}{comment}", step.kind.to_string())
+                format!("{}-{}{comment}", step.kind.to_string(), step.variant)
             };
             total_moves += alg_length;
             writeln!(f, "{:longest_alg_length$}  // {name:longest_name_length$} ({alg_length}/{total_moves})", step.alg.to_string())?;

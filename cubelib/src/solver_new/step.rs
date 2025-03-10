@@ -1,11 +1,8 @@
 use std::cmp::min;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::ops::Deref;
 use std::sync::Arc;
 use std::thread::JoinHandle;
-use typed_builder::TypedBuilder;
-
 use crate::algs::Algorithm;
 use crate::cube::{Cube333, Transformation333, Turn333};
 use crate::cube::turn::*;
@@ -14,57 +11,10 @@ use crate::solver::df_search::CancelToken;
 use crate::solver::lookup_table::{LookupTable, NissLookupTable};
 use crate::solver::solution::{ApplySolution, Solution, SolutionStep};
 use crate::solver_new::*;
+use crate::solver_new::group::StepPredicate;
 use crate::solver_new::thread_util::*;
 use crate::steps::coord::Coord;
 use crate::steps::step::{PostStepCheck, PreStepCheck};
-
-#[derive(Clone, TypedBuilder)]
-pub struct StepOptions<T: Clone + Default, const DM: usize, const DAM: usize> {
-    #[builder(default=0)]
-    pub min_length: usize,
-    #[builder(default=DM)]
-    pub max_length: usize,
-    #[builder(default, setter(strip_option))]
-    pub min_absolute_length: Option<usize>,
-    #[builder(default=Some(DAM).filter(|x|*x > 0), setter(strip_option))]
-    pub max_absolute_length: Option<usize>,
-    pub options: T,
-}
-
-impl <T: Clone + Default, const DM: usize, const DAM: usize> Default for StepOptions<T, DM, DAM> {
-    fn default() -> Self {
-        StepOptions::builder()
-            .options(T::default())
-            .build()
-    }
-}
-
-
-impl <T: Clone + Default, const DM: usize, const DAM: usize> Deref for StepOptions<T, DM, DAM> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.options
-    }
-}
-
-impl <T: Clone + Default, const DM: usize, const DAM: usize> Into<DFSParameters> for &StepOptions<T, DM, DAM> where for<'a> &'a T: Into<NissSwitchType> {
-    fn into(self) -> DFSParameters {
-        DFSParameters {
-            niss_type: (&self.options).into(),
-            min_moves: self.min_length,
-            max_moves: self.max_length,
-            absolute_min_moves: self.min_absolute_length,
-            absolute_max_moves: self.max_absolute_length,
-        }
-    }
-}
-
-impl <T: Clone + Default, const DM: usize, const DAM: usize> Into<DFSParameters> for StepOptions<T, DM, DAM> where for<'a> &'a T: Into<NissSwitchType> {
-    fn into(self) -> DFSParameters {
-        (&self).into()
-    }
-}
 
 pub struct PruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'static, const PC_SIZE: usize, PC: Coord<PC_SIZE> + 'static> {
     pub table: &'b LookupTable<C_SIZE, C>,
@@ -197,6 +147,7 @@ struct StepIORunner {
     step: Box<dyn Step + Send>,
     cancel_token: Arc<CancelToken>,
     cube_state: Cube333,
+    predicates: Vec<Box<dyn StepPredicate>>,
 }
 
 impl Run<()> for StepIORunner {
@@ -220,7 +171,6 @@ impl StepIORunner {
         self.current_length = self.input[0].len();
 
         while !self.cancel_token.is_cancelled() && self.current_length <= self.dfs_parameters.absolute_max_moves.unwrap_or(usize::MAX) {
-            // If we need to fetch all inputs up to length X, we do this now
             match self.process_fetched() {
                 Ok(Some(full_fetch_required_length)) => {
                     while !self.cancel_token.is_cancelled() {
@@ -261,6 +211,9 @@ impl StepIORunner {
                 drain_until += 1;
                 self.current_position += 1;
                 continue
+            } else if depth < self.dfs_parameters.min_moves {
+                self.current_position += 1;
+                continue
             }
             self.find_solutions(self.cube_state.clone(), &self.input[self.current_position], depth, self.dfs_parameters.niss_type)?;
             self.current_position += 1;
@@ -286,6 +239,10 @@ impl StepIORunner {
             alg: result.clone(),
             comment: "".to_string(),
         });
+        if !self.predicates.iter()
+            .all(|p|p.check_solution(&input)) {
+            return Ok(());
+        }
         if let Some(tx) = self.tx.as_ref() {
             tx.send(input)
         } else {
@@ -383,6 +340,7 @@ impl StepIORunner {
         } else if lower_bound == 0 || lower_bound > depth {
             return Box::new(vec![].into_iter());
         }
+
         let values: Box<dyn Iterator<Item = Algorithm>> = Box::new(self.step.get_moveset(&cube, depth).get_allowed_moves(prev, depth)
             .flat_map(move |(turn, can_invert)|{
                 cube.turn(turn);
@@ -414,7 +372,7 @@ impl StepIORunner {
 }
 
 impl <S: Step + Send + 'static> ToWorker for S {
-    fn to_worker_box(self: Box<Self>, cube_state: Cube333, rc: Receiver<Solution>, tx: Sender<Solution>) -> Box<dyn Worker<()> + Send> {
+    fn to_worker_box(self: Box<Self>, cube_state: Cube333, rc: Receiver<Solution>, tx: Sender<Solution>, additional_predicates: Vec<Box<dyn StepPredicate>>) -> Box<dyn Worker<()> + Send> {
         let cancel_token = Arc::new(CancelToken::default());
         Box::new(StepWorker {
             join_handle: None,
@@ -428,19 +386,18 @@ impl <S: Step + Send + 'static> ToWorker for S {
                 current_position: 0,
                 step: self,
                 cancel_token: cancel_token.clone(),
+                predicates: additional_predicates,
                 cube_state
             })),
         })
     }
 }
 
-
 #[derive(Clone, Copy, Debug)]
 pub struct DFSParameters {
     pub niss_type: NissSwitchType,
     pub min_moves: usize,
     pub max_moves: usize,
-    pub absolute_min_moves: Option<usize>,
     pub absolute_max_moves: Option<usize>,
 }
 
@@ -455,25 +412,15 @@ impl MoveSet {
         Self {
             st_moves,
             aux_moves,
-            transitions: Self::new_default_transitions_qt_st(st_moves),
+            transitions: Self::new_default_transitions(),
         }
     }
 
-    // Assuming that the state change moves are [F, F', B, B'], this makes sure that allowed order is
-    // B F2 instead of F2 B.
-    pub const fn new_default_transitions_qt_st(st_moves: &[Turn333]) -> [[bool; 18]; 18] {
-        let mut transitions = Self::new_default_transitions();
-        let mut idx = 0;
-        while idx < st_moves.len() {
-            let turn = st_moves[idx];
-            let other = Turn333::new(turn.face.opposite(), Direction::Half);
-            transitions[turn.to_id()][other.to_id()] = true;
-            transitions[other.to_id()][turn.to_id()] = false;
-            idx += 1;
-        }
-        transitions
-    }
 
+    // In order of importance:
+    // - No subsequent moves on the same face
+    // - For moves on the same axis, quarter moves before half moves
+    // - U before D, F before B, L before R
     pub const fn new_default_transitions() -> [[bool; 18]; 18] {
         let mut transitions = [[true; 18]; 18];
         let dirs = [Direction::Clockwise, Direction::CounterClockwise, Direction::Half];
@@ -484,12 +431,26 @@ impl MoveSet {
             let mut idx_last = 0;
             while idx_last < dirs.len() {
                 let dir_last = dirs[idx_last];
-                let mut idx = 0;
-                while idx < priority_faces.len() {
-                    let face = priority_faces[idx];
-                    let opposite = face.opposite();
-                    transitions[Turn333::new(face, dir_first).to_id()][Turn333::new(opposite, dir_last).to_id()] = false;
-                    idx += 1;
+                if (dir_first as usize == Direction::Half as usize && dir_last as usize == Direction::Half as usize) || (dir_first as usize != Direction::Half as usize && dir_last as usize != Direction::Half as usize) {
+                    let mut idx = 0;
+                    while idx < priority_faces.len() {
+                        let face = priority_faces[idx];
+                        transitions[Turn333::new(face.opposite(), dir_first).to_id()][Turn333::new(face, dir_last).to_id()] = false;
+                        idx += 1;
+                    }
+                } else {
+                    let non_half_dir = if dir_last as usize == Direction::Half as usize {
+                        dir_first
+                    } else {
+                        dir_last
+                    };
+                    let mut idx = 0;
+                    while idx < CubeFace::ALL.len() {
+                        let face = CubeFace::ALL[idx];
+                        let opposite = face.opposite();
+                        transitions[Turn333::new(face, Direction::Half).to_id()][Turn333::new(opposite, non_half_dir).to_id()] = false;
+                        idx += 1;
+                    }
                 }
                 let mut idx = 0;
                 while idx < CubeFace::ALL.len() {

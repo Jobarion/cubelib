@@ -1,9 +1,10 @@
 use crate::cube::{Cube333, Transformation333};
 use crate::defs::StepKind;
 use crate::solver::solution::Solution;
-use crate::solver_new::group::Sequential;
+use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::{DFSParameters, MoveSet};
 use crate::solver_new::thread_util::{ToWorker, Worker};
+use crate::solver_new::util_steps::FilterDup;
 use crate::steps::step::{PostStepCheck, PreStepCheck};
 
 pub mod step;
@@ -22,7 +23,6 @@ pub type TryRecvError = crossbeam::channel::TryRecvError;
 
 pub fn bounded_channel<T>(size: usize) -> (Sender<T>, Receiver<T>) {
     crossbeam::channel::bounded(size)
-    // sync::mpsc::sync_channel(size)
 }
 
 pub trait Step: PreStepCheck + PostStepCheck {
@@ -33,16 +33,13 @@ pub trait Step: PreStepCheck + PostStepCheck {
     fn get_name(&self) -> (StepKind, String);
 }
 
-pub fn create_worker(cube: Cube333, mut steps: Vec<Box<dyn ToWorker + Send + 'static>>) -> (Box<dyn Worker<()> + Send + 'static>, Receiver<Solution>) {
+pub fn create_worker(cube: Cube333, step: Box<dyn ToWorker + Send + 'static>) -> (Box<dyn Worker<()> + Send + 'static>, Receiver<Solution>) {
     let (tx0, rc0) = bounded_channel(1);
     let (tx1, rc1) = bounded_channel(1);
 
     tx0.send(Solution::new()).unwrap();
     drop(tx0);
 
-    (if steps.len() == 1 {
-        steps.pop().unwrap().to_worker_box(cube, rc0, tx1)
-    } else {
-        Sequential::new(steps).to_worker(cube, rc0, tx1)
-    }, rc1)
+    (StepGroup::single_with_predicates(step, vec![FilterDup::new()])
+        .to_worker_box(cube, rc0, tx1, vec![]), rc1)
 }

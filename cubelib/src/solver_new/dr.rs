@@ -9,14 +9,13 @@ use crate::cube::*;
 use crate::defs::StepKind;
 use crate::solver::lookup_table;
 use crate::solver_new::*;
-use crate::solver_new::group::Parallel;
+use crate::solver_new::group::StepGroup;
 use crate::solver_new::htr::HTR_TABLES;
 use crate::solver_new::step::*;
 use crate::solver_new::thread_util::ToWorker;
-use crate::steps::dr::coords::{DRUDCoord, DRUDEOFB_SIZE, DRUDEOFBCoord};
-use crate::steps::dr::dr_config::{DR_UD_EO_FB_MOVESET, DRDirectPruningTable, DRPruningTable};
+use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
+use crate::steps::dr::dr_config::{DR_UD_EO_FB_MOVESET, DRPruningTable};
 use crate::steps::eo::coords::EOCoordFB;
-use crate::steps::eo::eo_config::EO_FB_MOVESET;
 use crate::steps::htr::subsets::{DRSubsetFilter, Subset};
 use crate::steps::step::PostStepCheck;
 
@@ -83,7 +82,7 @@ impl DRStep {
         if variants.len() == 1 {
             variants.pop().unwrap()
         } else {
-            Box::new(Parallel::new(variants))
+            StepGroup::parallel(variants)
         }
     }
 }
@@ -102,7 +101,7 @@ fn gen_dr() -> DRPruningTable {
     table
 }
 
-pub mod builder {
+mod builder {
     use std::collections::HashMap;
 
     use crate::cube::CubeAxis;
@@ -213,7 +212,6 @@ pub mod builder {
                 niss_type: self._c_niss,
                 min_moves: 0,
                 max_moves: self._a_max_length,
-                absolute_min_moves: None,
                 absolute_max_moves: Some(self._b_max_absolute_length),
             };
             DRStep::new(dfs, self._d_dr_eo_axis, self._e_subsets)
@@ -221,7 +219,7 @@ pub mod builder {
     }
 
     impl DRBuilderInternal<false, false, false, false, false, false, false> {
-        pub fn builder() -> Self {
+        pub fn new() -> Self {
             Self {
                 _a_max_length: 11,
                 _b_max_absolute_length: 13,
@@ -236,7 +234,7 @@ pub mod builder {
 
     impl Default for DRBuilderInternal<false, false, false, false, false, false, false> {
         fn default() -> Self {
-            Self::builder()
+            Self::new()
         }
     }
 

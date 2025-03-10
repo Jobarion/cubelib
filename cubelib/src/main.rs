@@ -1,21 +1,19 @@
 use std::str::FromStr;
 use std::time::Instant;
 
-
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
 
 use cubelib::algs::Algorithm;
-use cubelib::cube::{Cube333, CubeAxis};
+use cubelib::cube::Cube333;
 use cubelib::cube::turn::ApplyAlgorithm;
 use cubelib::defs::NissSwitchType;
 use cubelib::solver_new::create_worker;
-use cubelib::solver_new::dr::DRBuilder;
-use cubelib::solver_new::eo::{EOOptions, EOStep, EOStepOptions};
-use cubelib::solver_new::htr::{HTROptions, HTRStep, HTRStepOptions};
-use cubelib::solver_new::util_steps::{FilterDup, FilterLastMoveNotPrime};
-use cubelib::steps::htr::subsets::Subset;
-use cubelib::steps::util::{DR_SUBSETS, SUBSETS_2C3, SUBSETS_2C4, SUBSETS_2C5, SUBSETS_4A1, SUBSETS_4A2, SUBSETS_4A4, SUBSETS_4B5};
+use cubelib::solver_new::dr::DRStep;
+use cubelib::solver_new::eo::EOStep;
+use cubelib::solver_new::group::StepGroup;
+use cubelib::solver_new::htr::HTRStep;
+use cubelib::solver_new::util_steps::FilterLastMoveNotPrime;
 
 fn main() {
     SimpleLogger::new()
@@ -23,64 +21,38 @@ fn main() {
         .init()
         .unwrap();
 
-    let eo_opts: EOOptions = EOOptions::builder()
-        .max_length(5)
-        .options(EOStepOptions::builder()
-            // .eo_axis(vec![CubeAxis::FB])
-            .niss(NissSwitchType::Never)
-            .build())
-        .build();
+    let eo_step = StepGroup::parallel(vec![
+        EOStep::builder()
+            .max_length(4)
+            .niss(NissSwitchType::Always)
+            .build(),
+        EOStep::builder()
+            .max_length(5)
+            .min_length(5)
+            .niss(NissSwitchType::Before)
+            .build()
+    ]);
 
-    let dr_step = DRBuilder::builder()
-        .max_length(15)
-        .max_absolute_length(20)
-        .add_subsets(SUBSETS_2C5)
-        // .add_subsets(SUBSETS_4B5)
-        // .add_subsets(SUBSETS_4A4)
-        // .add_subsets(SUBSETS_2C3)
-        // .add_subsets(SUBSETS_2C4)
+    let dr_step = DRStep::builder()
+        .max_absolute_length(13)
         .niss(NissSwitchType::Never)
         .build();
 
+    let htr_step = HTRStep::builder()
+        .niss(NissSwitchType::Never)
+        .build();
 
-    // let dr_opts: DROptions = DROptions::builder()
-    //     .options(DRStepOptions::builder()
-    //         .niss(NissSwitchType::Never)
-    //         .subsets(vec![
-    //             // SUBSETS_0C0,
-    //             SUBSETS_4A1,
-    //             // SUBSETS_4A2,
-    //             // SUBSETS_4B2,
-    //             // SUBSETS_2C3,
-    //         ].into_iter().flat_map(|x|x.into_iter()).cloned().collect())
-    //         .dr_eo_axis(HashMap::from([(CubeAxis::UD, vec![CubeAxis::FB])]))
-    //         .build())
-    //     .build();
+    let cube = Algorithm::from_str("D2 F R' U2 F2 R2 D2 B2 L B2 R' B2 L B2 D' B D2 U' R F' L'").unwrap().into();
+    let steps = StepGroup::sequential_with_predicates(vec![eo_step, dr_step, htr_step], vec![FilterLastMoveNotPrime::new()]);
 
-    // let htr_opts: HTROptions = HTROptions::builder()
-    //     .options(HTRStepOptions::builder()
-    //         .niss(NissSwitchType::Never)
-    //         .build()
-    //     )
-    //     .build();
-
-    let eo_step = EOStep::new(eo_opts);
-    // let dr_step = DRStep::new(dr_opts);
-    // let htr_step = HTRStep::new(htr_opts);
-
-    let mut cube = Cube333::default();
-    cube.apply_alg(&Algorithm::from_str("L2 F U2 F' U2 F' R2 F2 L2 F' D R' U2 B2 U L2 B' U2 R2").unwrap());
-
-    let (mut worker, receiver) = create_worker(cube, vec![eo_step, dr_step, Box::new(FilterLastMoveNotPrime), Box::new(FilterDup)]);
-
+    let (mut worker, receiver) = create_worker(cube, steps);
     worker.start();
 
     let start = Instant::now();
-    for i in 0..5 {
+    for i in 0..2 {
         let solution = if let Ok(s) = receiver.recv() {
             s
         } else {
-            println!("Terminated");
             break
         };
         println!("{i}\n{solution}");

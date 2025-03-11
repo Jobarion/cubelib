@@ -289,6 +289,7 @@ fn generate_trigger_variations(mut trigger: Algorithm) -> Vec<Vec<Turn333>> {
         .unique()
         .collect_vec()
 }
+
 pub fn filter_dr_trigger(alg: &Algorithm, triggers: &Vec<Vec<Turn333>>) -> bool {
     if alg.len() == 0 {
         return true;

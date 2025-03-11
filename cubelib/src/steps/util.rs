@@ -1,9 +1,9 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::str::FromStr;
 use itertools::Itertools;
 //This should be in the htr step, but we need it in the wasm version and the HTR step cannot be compiled to wasm right now
 
-#[derive(Copy, Debug, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Subset {
     pub discriminator: Option<&'static str>,
     pub generator: &'static str, //We need a const array, and creating an FromStr isn't const
@@ -39,6 +39,12 @@ impl Subset {
 impl Display for Subset {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}{}{} {}e", self.corners, self.discriminator.unwrap_or("c"), self.qt_corners, self.edges)
+    }
+}
+
+impl Debug for Subset {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self, f)
     }
 }
 

@@ -32,7 +32,7 @@ impl StepGroup {
         Self::sequential_with_predicates(steps, vec![])
     }
 
-    pub fn sequential_with_predicates(steps: Vec<Box<dyn ToWorker + Send + 'static>>, predicates: Vec<Box<dyn StepPredicate>>) -> Box<dyn ToWorker + Send + 'static> {
+    pub fn sequential_with_predicates(mut steps: Vec<Box<dyn ToWorker + Send + 'static>>, predicates: Vec<Box<dyn StepPredicate>>) -> Box<dyn ToWorker + Send + 'static> {
         Box::new(Self {
             step_type: StepType::Sequential(steps),
             predicates

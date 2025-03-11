@@ -1,20 +1,20 @@
 use std::str::FromStr;
 use std::time::Instant;
+use std::vec;
 
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
 
 use cubelib::algs::Algorithm;
-use cubelib::cube::Cube333;
-use cubelib::cube::turn::ApplyAlgorithm;
+use cubelib::cube::turn::CubeAxis;
 use cubelib::defs::NissSwitchType;
 use cubelib::solver_new::create_worker;
-use cubelib::solver_new::dr::DRStep;
+use cubelib::solver_new::dr::{DRStep, RZPBuilder};
 use cubelib::solver_new::eo::EOStep;
 use cubelib::solver_new::group::StepGroup;
 use cubelib::solver_new::htr::HTRStep;
 use cubelib::solver_new::util_steps::FilterLastMoveNotPrime;
-
+use cubelib::steps::dr::rzp_config::RZPStep;
 fn main() {
     SimpleLogger::new()
         .with_level(LevelFilter::Trace)
@@ -24,7 +24,8 @@ fn main() {
     let eo_step = StepGroup::parallel(vec![
         EOStep::builder()
             .max_length(4)
-            .niss(NissSwitchType::Always)
+            .eo_axis(vec![CubeAxis::LR])
+            .niss(NissSwitchType::Never)
             .build(),
         EOStep::builder()
             .max_length(5)
@@ -36,6 +37,11 @@ fn main() {
     let dr_step = DRStep::builder()
         .max_absolute_length(13)
         .niss(NissSwitchType::Never)
+        .rzp(RZPBuilder::new()
+            .max_length(3)
+            .max_absolute_length(6)
+        )
+        .triggers(vec![Algorithm::from_str("R U2 R").unwrap(), Algorithm::from_str("R").unwrap()])
         .build();
 
     let htr_step = HTRStep::builder()
@@ -49,7 +55,7 @@ fn main() {
     worker.start();
 
     let start = Instant::now();
-    for i in 0..2 {
+    for i in 0..10 {
         let solution = if let Ok(s) = receiver.recv() {
             s
         } else {
@@ -61,4 +67,3 @@ fn main() {
     drop(receiver);
     worker.stop().unwrap().join().unwrap();
 }
-

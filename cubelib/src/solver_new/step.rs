@@ -60,7 +60,7 @@ impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: C
         self.move_set
     }
 
-    fn heuristic(&self, state: &Cube333, can_niss_switch: bool) -> usize {
+    fn heuristic(&self, state: &Cube333, can_niss_switch: bool, _: usize) -> usize {
         let coord = C::from(state);
         let heuristic = self.table.get(coord) as usize;
         if can_niss_switch {
@@ -101,7 +101,7 @@ impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: C
         self.move_set
     }
 
-    fn heuristic(&self, state: &Cube333, can_niss_switch: bool) -> usize {
+    fn heuristic(&self, state: &Cube333, can_niss_switch: bool, _: usize) -> usize {
         let coord = C::from(state);
         let (val, niss) = self.table.get(coord);
         if can_niss_switch && val != 0 {
@@ -268,7 +268,7 @@ impl StepIORunner {
         }
 
         //trace!("[{}{}] \t{alg} is solvable in {}, depth is {depth}", self.step.get_name().0, self.step.get_name().1, heuristic);
-        if self.step.heuristic(&cube, niss_type != NissSwitchType::Never) == 0 {
+        if self.step.heuristic(&cube, niss_type != NissSwitchType::Never, depth) == 0 {
             //Only return a solution if we are allowed to return zero length solutions
             if depth == 0 {
                 self.submit_solution(input, Algorithm::new())?;
@@ -334,7 +334,7 @@ impl StepIORunner {
         if cancel_token.is_cancelled() {
             return Box::new(vec![].into_iter());
         }
-        let lower_bound = self.step.heuristic(&cube, niss_available);
+        let lower_bound = self.step.heuristic(&cube, niss_available, depth);
         if depth == 0 && lower_bound == 0 {
             return Box::new(vec![Algorithm::new()].into_iter());
         } else if lower_bound == 0 || lower_bound > depth {

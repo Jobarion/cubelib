@@ -14,6 +14,7 @@ pub mod group;
 pub mod thread_util;
 pub mod util_steps;
 pub mod htr;
+pub mod util_cube;
 
 pub type Sender<T> = crossbeam::channel::Sender<T>;
 pub type Receiver<T> = crossbeam::channel::Receiver<T>;
@@ -28,7 +29,7 @@ pub fn bounded_channel<T>(size: usize) -> (Sender<T>, Receiver<T>) {
 pub trait Step: PreStepCheck + PostStepCheck {
     fn get_dfs_parameters(&self) -> DFSParameters;
     fn get_moveset(&self, state: &Cube333, depth_left: usize) -> &'_ MoveSet;
-    fn heuristic(&self, state: &Cube333, can_niss_switch: bool) -> usize;
+    fn heuristic(&self, state: &Cube333, can_niss_switch: bool, depth_left: usize) -> usize;
     fn pre_step_trans(&self) -> &'_ Vec<Transformation333>;
     fn get_name(&self) -> (StepKind, String);
 }

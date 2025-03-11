@@ -110,7 +110,8 @@ impl Debug for Solution {
 
 impl Display for Solution {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let compact = self.clone().compact();
+        // let compact = self.clone().compact();
+        let compact = self.clone();
         let mut total_moves = 0;
         let longest_alg_length = compact
             .steps

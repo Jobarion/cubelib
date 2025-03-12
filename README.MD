@@ -10,7 +10,8 @@ See https://joba.me/mallard for a website that's using cubelib to generate human
 - Offer a feature-rich, yet reasonably easy to understand CLI for FMC solving.
 - Implement all of the above in a way that is fast while trying to minimize the use of pre-generated data that has to be stored on disk.
 
-## CLI Usage
+## CLI Solve
+
 Cubelib aims to define reasonable defaults to make using it as easy as possible.
 To solve a scrambled cube, simply run `cubelib <scramble>`. This will return a single solution, broken down into steps. 
 
@@ -18,7 +19,7 @@ Because direct, optimal solutions are rarely ever useful, **Cubelib will by defa
 
 Example of a simple solve:
 ```
-> cubelib --niss --quality 5000 "R' U' F R2 U2 L2 F2 D2 R2 B' U2 L2 B F' R B' F' R' U2 B' R2 U' L' D R' U' F"
+> cubelib solve --niss --quality 5000 "R' U' F R2 U2 L2 F2 D2 R2 B' U2 L2 B F' R B' F' R' U2 B' R2 U' L' D R' U' F"
 
 (B' D' L')            //eo-lr      (3/3)
 (B D)                 //rzp-lr     (2/5)
@@ -120,21 +121,33 @@ Solves the cube.
 ### Examples
 Find all EOs on the `ud` and `fb` axis between 2 and 5 moves, optionally using niss, and then to turn at most 10 of those EOs into DRs on the `fb` or `lr` axis without using NISS:
 ```
-cubelib --steps "EO[ud;fb;min=2;max=5;niss=always;limit=10] > DR[fb;lr;niss=none]" <scramble>
+cubelib solve --steps "EO[ud;fb;min=2;max=5;niss=always;limit=10] > DR[fb;lr;niss=none]" <scramble>
 ```
 
 To solve a cube into HTR using NISS anywhere except during DR:
 
 ```
-cubelib --steps "EO[niss=always] > DR[niss=before] > HTR[niss=always]" <scramble>
+cubelib solve --steps "EO[niss=always] > DR[niss=before] > HTR[niss=always]" <scramble>
 ```
 
 Find the shortest DR that ends with the 4c2e trigger `R U2 R'` or the 4c4e trigger `R` (with default EO and RZP settings):
 ```
-cubelib -q 0 --steps "EO > DR[triggers=RU2R,R]" <scramble>
+cubelib solve -q 0 --steps "EO > DR[triggers=RU2R,R]" <scramble>
 ```
 
-### APIs
+## CLI Scramble
+To generate a scramble:
+```commandline
+cubelib scramble
+```
+
+## CLI Invert
+```commandline
+cubelib invert <scramble>
+```
+
+
+## APIs
 There is no API documentation yet. If you're interested in actually using this project please let me know by creating an issue.
 
 ## Future work

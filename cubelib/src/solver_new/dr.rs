@@ -16,7 +16,6 @@ use crate::solver_new::dr::builder::RZPSettings;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::htr::HTR_TABLES;
 use crate::solver_new::step::*;
-use crate::solver_new::thread_util::ToWorker;
 use crate::solver_new::util_cube::CubeState;
 use crate::steps::coord::Coord;
 use crate::steps::dr::co::COCountUD;
@@ -70,8 +69,8 @@ impl DRStep {
         DRBuilder::default()
     }
 
-    pub fn new(dfs_parameters: DFSParameters, axis: HashMap<CubeAxis, Vec<CubeAxis>>, subsets: Vec<Subset>) -> Box<dyn ToWorker + Send + 'static> {
-        let mut variants = axis.into_iter()
+    pub fn new(dfs_parameters: DFSParameters, axis: HashMap<CubeAxis, Vec<CubeAxis>>, subsets: Vec<Subset>) -> StepGroup {
+        let variants = axis.into_iter()
             .flat_map(move |(dr, eo)|eo.into_iter().map(move |eo|(eo, dr.clone())))
             .filter_map(|(eo,dr)|match (eo, dr) {
                 (CubeAxis::UD, CubeAxis::FB) => Some((vec![Transformation333::X], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
@@ -89,28 +88,21 @@ impl DRStep {
                 }
                 (x, post_checks)
             })
-            .map(|((trans, name), psc)|{
-                let b: Box<dyn ToWorker + Send + 'static> = Box::new(PruningTableStep::<DRUDEOFB_SIZE, DRUDEOFBCoord, 2048, EOCoordFB> {
-                    table: &DR_TABLE,
-                    options: dfs_parameters.clone(),
-                    pre_step_trans: trans,
-                    post_step_check: psc,
-                    move_set: &DRUD_EOFB_MOVESET,
-                    name,
-                    kind: StepKind::DR,
-                    _pc: Default::default(),
-                });
-                b
-            })
+            .map(|((trans, name), psc)| StepGroup::single(Box::new(PruningTableStep::<DRUDEOFB_SIZE, DRUDEOFBCoord, 2048, EOCoordFB> {
+                table: &DR_TABLE,
+                options: dfs_parameters.clone(),
+                pre_step_trans: trans,
+                post_step_check: psc,
+                move_set: &DRUD_EOFB_MOVESET,
+                name,
+                kind: StepKind::DR,
+                _pc: Default::default(),
+            })))
             .collect_vec();
-        if variants.len() == 1 {
-            variants.pop().unwrap()
-        } else {
-            StepGroup::parallel(variants)
-        }
+        StepGroup::parallel(variants)
     }
 
-    pub fn new_with_triggers(dfs_parameters: DFSParameters, axis: HashMap<CubeAxis, Vec<CubeAxis>>, subsets: Vec<Subset>, triggers: Vec<Algorithm>, rzp_settings: RZPSettings) -> Box<dyn ToWorker + Send + 'static> {
+    pub fn new_with_triggers(dfs_parameters: DFSParameters, axis: HashMap<CubeAxis, Vec<CubeAxis>>, subsets: Vec<Subset>, triggers: Vec<Algorithm>, rzp_settings: RZPSettings) -> StepGroup {
         let mut trigger_variants = vec![];
         let mut trigger_types: HashMap<(u8, u8), usize> = HashMap::new();
         for trigger in triggers.into_iter() {
@@ -126,7 +118,7 @@ impl DRStep {
             trigger_variants.append(&mut Self::generate_trigger_variations(trigger));
         }
 
-        let mut variants = axis.into_iter()
+        let variants = axis.into_iter()
             .flat_map(move |(dr, eo)|eo.into_iter().map(move |eo|(eo, dr.clone())))
             .filter_map(|(eo,dr)|match (eo, dr) {
                 (CubeAxis::UD, CubeAxis::FB) => Some((vec![Transformation333::X], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
@@ -145,12 +137,12 @@ impl DRStep {
                 (x, post_checks)
             })
             .map(|((trans, name), psc)|{
-                let rzp: Box<dyn ToWorker + Send + 'static> = Box::new(RZPStep {
+                let rzp = StepGroup::single(Box::new(RZPStep {
                     dfs: rzp_settings.dfs.clone(),
                     pre_step_trans: trans.clone(),
                     name: name.clone(),
-                });
-                let dr_trigger: Box<dyn ToWorker + Send + 'static> = Box::new(DRTriggerStep {
+                }));
+                let dr_trigger = StepGroup::single(Box::new(DRTriggerStep {
                     table: &DR_TABLE,
                     options: dfs_parameters.clone(),
                     pre_step_trans: trans,
@@ -158,15 +150,11 @@ impl DRStep {
                     name,
                     trigger_variants: trigger_variants.clone(),
                     trigger_types: trigger_types.clone(),
-                });
+                }));
                 StepGroup::sequential(vec![rzp, dr_trigger])
             })
             .collect_vec();
-        if variants.len() == 1 {
-            variants.pop().unwrap()
-        } else {
-            StepGroup::parallel(variants)
-        }
+        StepGroup::parallel(variants)
     }
 
     fn generate_trigger_variations(mut trigger: Algorithm) -> Vec<Vec<Turn333>> {
@@ -403,8 +391,8 @@ mod builder {
     use crate::cube::CubeAxis;
     use crate::defs::NissSwitchType;
     use crate::solver_new::dr::DRStep;
+    use crate::solver_new::group::StepGroup;
     use crate::solver_new::step::DFSParameters;
-    use crate::solver_new::thread_util::ToWorker;
     use crate::steps::util::Subset;
 
     pub struct DRBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool, const E: bool, const F: bool, const G: bool> {
@@ -497,7 +485,7 @@ mod builder {
     }
 
     impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> DRBuilderInternal<A, B, C, D, E, true, true> {
-        pub fn build(self) -> Box<dyn ToWorker + Send + 'static> {
+        pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: self._c_niss,
                 min_moves: 0,
@@ -509,7 +497,7 @@ mod builder {
     }
 
     impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> DRBuilderInternal<A, B, C, D, E, false, false> {
-        pub fn build(self) -> Box<dyn ToWorker + Send + 'static> {
+        pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: self._c_niss,
                 min_moves: 0,

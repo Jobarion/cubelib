@@ -34,13 +34,13 @@ fn main() {
     ]);
 
     let dr_step = DRStep::builder()
-        .max_absolute_length(13)
+        .max_absolute_length(11)
         .niss(NissSwitchType::Before)
-        // .rzp(RZPStep::builder()
-        //     .max_length(3)
-        //     .max_absolute_length(6)
-        // )
-        // .triggers(vec![Algorithm::from_str("R U2 R").unwrap(), Algorithm::from_str("R").unwrap()])
+        .rzp(RZPStep::builder()
+            .max_length(3)
+            .max_absolute_length(6)
+        )
+        .triggers(vec![Algorithm::from_str("R U2 R").unwrap(), Algorithm::from_str("R").unwrap()])
         .build();
 
     let htr_step = HTRStep::builder()

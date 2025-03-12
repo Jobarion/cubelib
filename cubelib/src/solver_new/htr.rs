@@ -10,7 +10,6 @@ use crate::solver::lookup_table;
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
-use crate::solver_new::thread_util::ToWorker;
 use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
 use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
@@ -41,15 +40,15 @@ impl HTRStep {
 }
 
 impl HTRStep {
-    pub fn new(dfs: DFSParameters, dr_axis: Vec<CubeAxis>) -> Box<dyn ToWorker + Send + 'static> {
-        let mut variants = dr_axis.into_iter()
+    pub fn new(dfs: DFSParameters, dr_axis: Vec<CubeAxis>) -> StepGroup {
+        let variants = dr_axis.into_iter()
             .map(|dr|match dr {
                 CubeAxis::UD => (vec![], dr.name()),
                 CubeAxis::FB => (vec![Transformation333::X], dr.name()),
                 CubeAxis::LR => (vec![Transformation333::Z], dr.name()),
             })
             .map(|(trans, name)|{
-                let b: Box<dyn ToWorker + Send + 'static> = Box::new(NissPruningTableStep::<HTRDRUD_SIZE, HTRDRUDCoord, DRUDEOFB_SIZE, DRUDEOFBCoord>  {
+                StepGroup::single(Box::new(NissPruningTableStep::<HTRDRUD_SIZE, HTRDRUDCoord, DRUDEOFB_SIZE, DRUDEOFBCoord>  {
                     table: &HTR_TABLES.0,
                     options: dfs.clone(),
                     pre_step_trans: trans,
@@ -58,15 +57,10 @@ impl HTRStep {
                     post_step_check: vec![],
                     move_set: &HTR_DRUD_MOVESET,
                     _pc: Default::default(),
-                });
-                b
+                }))
             })
             .collect_vec();
-        if variants.len() == 1 {
-            variants.pop().unwrap()
-        } else {
-            StepGroup::parallel(variants)
-        }
+        StepGroup::parallel(variants)
     }
 }
 
@@ -95,9 +89,9 @@ fn gen_htr_with_subsets() -> (HTRPruningTable, HTRSubsetTable) {
 pub mod builder {
     use crate::cube::CubeAxis;
     use crate::defs::NissSwitchType;
+    use crate::solver_new::group::StepGroup;
     use crate::solver_new::htr::HTRStep;
     use crate::solver_new::step::DFSParameters;
-    use crate::solver_new::thread_util::ToWorker;
 
     pub struct HTRBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool> {
         _a_max_length: usize,
@@ -146,7 +140,7 @@ pub mod builder {
     }
 
     impl <const A: bool, const B: bool, const C: bool, const D: bool> HTRBuilderInternal<A, B, C, D> {
-        pub fn build(self) -> Box<dyn ToWorker + Send + 'static> {
+        pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: self._c_niss,
                 min_moves: 0,

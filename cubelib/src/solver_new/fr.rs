@@ -10,7 +10,6 @@ use crate::solver::lookup_table;
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
-use crate::solver_new::thread_util::ToWorker;
 use crate::steps::fr::coords::{FRUD_WITH_SLICE_SIZE, FRUD_NO_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::steps::fr::fr_config::{FR_UD_MOVESET, FRLeaveSlicePruningTable, FRPruningTable};
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
@@ -39,8 +38,8 @@ impl FRStep {
 }
 
 impl FRStep {
-    pub fn new(dfs: DFSParameters, fr_axis: Vec<CubeAxis>, leave_slice: bool) -> Box<dyn ToWorker + Send + 'static> {
-        let mut variants = fr_axis.into_iter()
+    pub fn new(dfs: DFSParameters, fr_axis: Vec<CubeAxis>, leave_slice: bool) -> StepGroup {
+        let variants = fr_axis.into_iter()
             .map(|dr|match dr {
                 CubeAxis::UD => (vec![], dr.name()),
                 CubeAxis::FB => (vec![Transformation333::X], dr.name()),
@@ -48,7 +47,7 @@ impl FRStep {
             })
             .map(|(trans, name)|{
                 if leave_slice {
-                    let b: Box<dyn ToWorker + Send + 'static> = Box::new(PruningTableStep::<FRUD_NO_SLICE_SIZE, FRUDNoSliceCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
+                    StepGroup::single(Box::new(PruningTableStep::<FRUD_NO_SLICE_SIZE, FRUDNoSliceCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
                         table: &FR_LEAVE_SLICE_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
@@ -57,10 +56,9 @@ impl FRStep {
                         post_step_check: vec![],
                         move_set: &FRUD_MOVESET,
                         _pc: Default::default(),
-                    });
-                    b
+                    }))
                 } else {
-                    let b: Box<dyn ToWorker + Send + 'static> = Box::new(PruningTableStep::<FRUD_WITH_SLICE_SIZE, FRUDWithSliceCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
+                    StepGroup::single(Box::new(PruningTableStep::<FRUD_WITH_SLICE_SIZE, FRUDWithSliceCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
                         table: &FR_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
@@ -69,16 +67,11 @@ impl FRStep {
                         post_step_check: vec![],
                         move_set: &FRUD_MOVESET,
                         _pc: Default::default(),
-                    });
-                    b
+                    }))
                 }
             })
             .collect_vec();
-        if variants.len() == 1 {
-            variants.pop().unwrap()
-        } else {
-            StepGroup::parallel(variants)
-        }
+        StepGroup::parallel(variants)
     }
 }
 
@@ -115,8 +108,8 @@ pub mod builder {
     use crate::cube::CubeAxis;
     use crate::defs::NissSwitchType;
     use crate::solver_new::fr::FRStep;
+    use crate::solver_new::group::StepGroup;
     use crate::solver_new::step::DFSParameters;
-    use crate::solver_new::thread_util::ToWorker;
 
     pub struct FRBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> {
         _a_max_length: usize,
@@ -174,7 +167,7 @@ pub mod builder {
     }
 
     impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> FRBuilderInternal<A, B, C, D, E> {
-        pub fn build(self) -> Box<dyn ToWorker + Send + 'static> {
+        pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: self._c_niss,
                 min_moves: 0,

@@ -36,13 +36,12 @@ pub trait Step: PreStepCheck + PostStepCheck {
     fn get_name(&self) -> (StepKind, String);
 }
 
-pub fn create_worker(cube: Cube333, step: Box<dyn ToWorker + Send + 'static>) -> (Box<dyn Worker<()> + Send + 'static>, Receiver<Solution>) {
+pub fn create_worker(cube: Cube333, step: StepGroup) -> (Box<dyn Worker<()> + Send + 'static>, Receiver<Solution>) {
     let (tx0, rc0) = bounded_channel(1);
     let (tx1, rc1) = bounded_channel(1);
 
     tx0.send(Solution::new()).unwrap();
     drop(tx0);
 
-    (StepGroup::single_with_predicates(step, vec![FilterDup::new()])
-        .to_worker_box(cube, rc0, tx1, vec![]), rc1)
+    (step.to_worker(cube, rc0, tx1, vec![FilterDup::new()]), rc1)
 }

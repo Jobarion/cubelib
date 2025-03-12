@@ -10,7 +10,6 @@ use crate::solver::lookup_table;
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
-use crate::solver_new::thread_util::ToWorker;
 use crate::steps::coord::ZeroCoord;
 use crate::steps::eo::coords::EOCoordFB;
 use crate::steps::eo::eo_config::{EO_FB_MOVESET, EOPruningTable};
@@ -41,32 +40,25 @@ impl EOStep {
         EOBuilder::default()
     }
 
-    pub fn new(dfs: DFSParameters, axis: Vec<CubeAxis>) -> Box<dyn ToWorker + Send + 'static> {
-        let mut variants = axis.into_iter()
+    pub fn new(dfs: DFSParameters, axis: Vec<CubeAxis>) -> StepGroup {
+        let variants = axis.into_iter()
             .map(|eo|match eo {
                 CubeAxis::UD => (vec![Transformation333::X], eo.name()),
                 CubeAxis::FB => (vec![], eo.name()),
                 CubeAxis::LR => (vec![Transformation333::Y], eo.name()),
             })
-            .map(|(trans, name)|{
-                let b: Box<dyn ToWorker + Send + 'static> = Box::new(PruningTableStep::<2048, EOCoordFB, 0, ZeroCoord>  {
-                    table: &EO_TABLE,
-                    options: dfs.clone(),
-                    pre_step_trans: trans,
-                    name: name.to_string(),
-                    kind: StepKind::EO,
-                    post_step_check: vec![],
-                    move_set: &EOFB_MOVESET,
-                    _pc: Default::default(),
-                });
-                b
-            })
+            .map(|(trans, name)| StepGroup::single(Box::new(PruningTableStep::<2048, EOCoordFB, 0, ZeroCoord>  {
+                table: &EO_TABLE,
+                options: dfs.clone(),
+                pre_step_trans: trans,
+                name: name.to_string(),
+                kind: StepKind::EO,
+                post_step_check: vec![],
+                move_set: &EOFB_MOVESET,
+                _pc: Default::default(),
+            })))
             .collect_vec();
-        if variants.len() == 1 {
-            variants.pop().unwrap()
-        } else {
-            StepGroup::parallel(variants)
-        }
+        StepGroup::parallel(variants)
     }
 }
 
@@ -88,8 +80,8 @@ pub mod builder {
     use crate::cube::CubeAxis;
     use crate::defs::NissSwitchType;
     use crate::solver_new::eo::EOStep;
+    use crate::solver_new::group::StepGroup;
     use crate::solver_new::step::DFSParameters;
-    use crate::solver_new::thread_util::ToWorker;
 
     pub struct EOBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> {
         _a_max_length: usize,
@@ -147,7 +139,7 @@ pub mod builder {
     }
 
     impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> EOBuilderInternal<A, B, C, D, E> {
-        pub fn build(self) -> Box<dyn ToWorker + Send + 'static> {
+        pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: self._c_niss,
                 min_moves: self._e_min_length,

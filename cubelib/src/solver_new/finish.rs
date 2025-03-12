@@ -10,7 +10,6 @@ use crate::solver::lookup_table;
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
-use crate::solver_new::thread_util::ToWorker;
 use crate::steps::finish::coords::{FR_FINISH_SIZE, FRUDFinishCoord, HTR_FINISH_SIZE, HTR_LEAVE_SLICE_FINISH_SIZE, HTRFinishCoord, HTRLeaveSliceFinishCoord};
 use crate::steps::finish::finish_config::{FRFinishPruningTable, FRUD_FINISH_MOVESET, HTR_FINISH_MOVESET, HTRFinishPruningTable, HTRLeaveSliceFinishPruningTable};
 use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
@@ -46,16 +45,16 @@ impl FRFinishStep {
 }
 
 impl FRFinishStep {
-    pub fn new(dfs: DFSParameters, fr_axis: Vec<CubeAxis>, leave_slice: bool) -> Box<dyn ToWorker + Send + 'static> {
-        let mut variants = fr_axis.into_iter()
+    pub fn new(dfs: DFSParameters, fr_axis: Vec<CubeAxis>, leave_slice: bool) -> StepGroup {
+        let variants = fr_axis.into_iter()
             .map(|dr|match dr {
                 CubeAxis::UD => (vec![], dr.name()),
                 CubeAxis::FB => (vec![Transformation333::X], dr.name()),
                 CubeAxis::LR => (vec![Transformation333::Z], dr.name()),
             })
             .map(|(trans, name)|{
-                let b: Box<dyn ToWorker + Send + 'static> = if leave_slice {
-                    Box::new(PruningTableStep::<FR_FINISH_SIZE, FRUDFinishCoord, FRUD_NO_SLICE_SIZE, FRUDNoSliceCoord>  {
+                if leave_slice {
+                    StepGroup::single(Box::new(PruningTableStep::<FR_FINISH_SIZE, FRUDFinishCoord, FRUD_NO_SLICE_SIZE, FRUDNoSliceCoord>  {
                         table: &FR_FINISH_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
@@ -64,9 +63,9 @@ impl FRFinishStep {
                         post_step_check: vec![],
                         move_set: &FINISH_FRUD_MOVESET,
                         _pc: Default::default(),
-                    })
+                    }))
                 } else {
-                    Box::new(PruningTableStep::<FR_FINISH_SIZE, FRUDFinishCoord, FRUD_WITH_SLICE_SIZE, FRUDWithSliceCoord>  {
+                    StepGroup::single(Box::new(PruningTableStep::<FR_FINISH_SIZE, FRUDFinishCoord, FRUD_WITH_SLICE_SIZE, FRUDWithSliceCoord>  {
                         table: &FR_FINISH_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
@@ -75,16 +74,11 @@ impl FRFinishStep {
                         post_step_check: vec![],
                         move_set: &FINISH_FRUD_MOVESET,
                         _pc: Default::default(),
-                    })
-                };
-                b
+                    }))
+                }
             })
             .collect_vec();
-        if variants.len() == 1 {
-            variants.pop().unwrap()
-        } else {
-            StepGroup::parallel(variants)
-        }
+        StepGroup::parallel(variants)
     }
 }
 
@@ -98,8 +92,8 @@ impl HTRFinishStep {
 }
 
 impl HTRFinishStep {
-    pub fn new(dfs: DFSParameters, leave_slice: bool) -> Box<dyn ToWorker + Send + 'static> {
-        let b: Box<dyn ToWorker + Send + 'static> = if leave_slice {
+    pub fn new(dfs: DFSParameters, leave_slice: bool) -> StepGroup {
+        if leave_slice {
             let variants = [CubeAxis::UD, CubeAxis::LR, CubeAxis::FB].into_iter()
                 .map(|slice|match slice {
                     CubeAxis::UD => (vec![], slice.name()),
@@ -107,7 +101,7 @@ impl HTRFinishStep {
                     CubeAxis::LR => (vec![Transformation333::Z], slice.name()),
                 })
                 .map(|(trans, name)|{
-                    let b: Box<dyn ToWorker + Send + 'static> = Box::new(PruningTableStep::<HTR_LEAVE_SLICE_FINISH_SIZE, HTRLeaveSliceFinishCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
+                    StepGroup::single(Box::new(PruningTableStep::<HTR_LEAVE_SLICE_FINISH_SIZE, HTRLeaveSliceFinishCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
                         table: &HTR_LEAVE_SLICE_FINISH_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
@@ -116,13 +110,12 @@ impl HTRFinishStep {
                         post_step_check: vec![],
                         move_set: &FINISH_HTR_MOVESET,
                         _pc: Default::default(),
-                    });
-                    b
+                    }))
                 })
                 .collect();
             StepGroup::parallel(variants)
         } else {
-            Box::new(PruningTableStep::<HTR_FINISH_SIZE, HTRFinishCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
+            StepGroup::single(Box::new(PruningTableStep::<HTR_FINISH_SIZE, HTRFinishCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
                 table: &HTR_FINISH_TABLE,
                 options: dfs.clone(),
                 pre_step_trans: vec![],
@@ -131,9 +124,8 @@ impl HTRFinishStep {
                 post_step_check: vec![],
                 move_set: &FINISH_HTR_MOVESET,
                 _pc: Default::default(),
-            })
-        };
-        b
+            }))
+        }
     }
 }
 
@@ -183,8 +175,8 @@ pub mod builder {
     use crate::cube::CubeAxis;
     use crate::defs::NissSwitchType;
     use crate::solver_new::finish::{FRFinishStep, HTRFinishStep};
+    use crate::solver_new::group::StepGroup;
     use crate::solver_new::step::DFSParameters;
-    use crate::solver_new::thread_util::ToWorker;
 
     pub struct FRFinish<const A: bool, const B: bool, const C: bool, const D: bool> {
         _a_max_length: usize,
@@ -233,7 +225,7 @@ pub mod builder {
     }
 
     impl <const A: bool, const B: bool, const C: bool, const D: bool> FRFinish<A, B, C, D> {
-        pub fn build(self) -> Box<dyn ToWorker + Send + 'static> {
+        pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: NissSwitchType::Never,
                 min_moves: 0,
@@ -299,7 +291,7 @@ pub mod builder {
     }
 
     impl <const A: bool, const B: bool, const C: bool> HTRFinish<A, B, C> {
-        pub fn build(self) -> Box<dyn ToWorker + Send + 'static> {
+        pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: NissSwitchType::Never,
                 min_moves: 0,

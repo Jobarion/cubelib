@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::thread::JoinHandle;
+use log::trace;
 use crate::algs::Algorithm;
 use crate::cube::{Cube333, Transformation333, Turn333};
 use crate::cube::turn::*;
@@ -11,7 +12,7 @@ use crate::solver::df_search::CancelToken;
 use crate::solver::lookup_table::{LookupTable, NissLookupTable};
 use crate::solver::solution::{ApplySolution, Solution, SolutionStep};
 use crate::solver_new::*;
-use crate::solver_new::group::StepPredicate;
+use crate::solver_new::group::{StepPredicate, StepPredicateResult};
 use crate::solver_new::thread_util::*;
 use crate::steps::coord::Coord;
 use crate::steps::step::{PostStepCheck, PreStepCheck};
@@ -153,7 +154,9 @@ struct StepIORunner {
 impl Run<()> for StepIORunner {
     fn run(&mut self) -> () {
         if let Some(rc) = self.rc.take() {
+            trace!("[{}-{}] Started", self.step.get_name().0, self.step.get_name().1);
             self.run_internal(rc);
+            trace!("[{}-{}] Terminated", self.step.get_name().0, self.step.get_name().1);
         }
         drop(self.tx.take());
     }
@@ -239,9 +242,16 @@ impl StepIORunner {
             alg: result.clone(),
             comment: "".to_string(),
         });
-        if !self.predicates.iter()
-            .all(|p|p.check_solution(&input)) {
-            return Ok(());
+        for p in self.predicates.iter() {
+            match p.check_solution(&input) {
+                StepPredicateResult::Accepted => {}
+                StepPredicateResult::Rejected => {
+                    return Ok(())
+                }
+                StepPredicateResult::Closed => {
+                    return Err(crossbeam::channel::SendError(input))
+                }
+            }
         }
         if let Some(tx) = self.tx.as_ref() {
             tx.send(input)

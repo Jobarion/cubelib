@@ -18,8 +18,14 @@ enum StepType {
     Single(Box<dyn ToWorker + Send + 'static>),
 }
 
+pub enum StepPredicateResult {
+    Accepted,
+    Rejected,
+    Closed
+}
+
 pub trait StepPredicate: Send {
-    fn check_solution(&self, solution: &Solution) -> bool;
+    fn check_solution(&self, solution: &Solution) -> StepPredicateResult;
 }
 
 pub struct StepGroup {
@@ -32,7 +38,7 @@ impl StepGroup {
         Self::sequential_with_predicates(steps, vec![])
     }
 
-    pub fn sequential_with_predicates(mut steps: Vec<Box<dyn ToWorker + Send + 'static>>, predicates: Vec<Box<dyn StepPredicate>>) -> Box<dyn ToWorker + Send + 'static> {
+    pub fn sequential_with_predicates(steps: Vec<Box<dyn ToWorker + Send + 'static>>, predicates: Vec<Box<dyn StepPredicate>>) -> Box<dyn ToWorker + Send + 'static> {
         Box::new(Self {
             step_type: StepType::Sequential(steps),
             predicates
@@ -304,7 +310,20 @@ impl Run<()> for InOrderSampler {
             }
             match self.sources[index].try_recv() {
                 Ok(res) => {
-                    if self.predicates.iter().all(|p|p.check_solution(&res)) {
+                    let mut success = true;
+                    for p in self.predicates.iter() {
+                        match p.check_solution(&res) {
+                            StepPredicateResult::Accepted => {}
+                            StepPredicateResult::Rejected => {
+                                success = false;
+                                break;
+                            }
+                            StepPredicateResult::Closed => {
+                                return;
+                            }
+                        }
+                    }
+                    if success {
                         if res.len() > target_length {
                             sel.remove(index);
                             cache[index] = Some(res);

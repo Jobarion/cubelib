@@ -11,55 +11,67 @@ use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
 use crate::solver_new::thread_util::ToWorker;
-use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
-use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
+use crate::steps::fr::coords::{FRUD_WITH_SLICE_SIZE, FRUD_NO_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
+use crate::steps::fr::fr_config::{FR_UD_MOVESET, FRLeaveSlicePruningTable, FRPruningTable};
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
-use crate::steps::htr::htr_config::{HTRPruningTable, HTRSubsetTable};
 
-pub static HTR_TABLES: LazyLock<(HTRPruningTable, HTRSubsetTable)> = LazyLock::new(||gen_htr_with_subsets());
+pub static FR_TABLE: LazyLock<FRPruningTable> = LazyLock::new(||gen_fr());
+pub static FR_LEAVE_SLICE_TABLE: LazyLock<FRLeaveSlicePruningTable> = LazyLock::new(||gen_frls());
 
-const HTR_DRUD_ST_MOVES: &[Turn333] = &[
-    Turn333::U, Turn333::Ui,
-    Turn333::D, Turn333::Di,
+const FRUD_ST_MOVES: &[Turn333] = &[
+    Turn333::U2, Turn333::D2,
 ];
 
-const HTR_DRUD_AUX_MOVES: &[Turn333] = &[
-    Turn333::U2, Turn333::D2,
+const FR_UD_AUX_MOVES: &[Turn333] = &[
     Turn333::F2, Turn333::B2,
     Turn333::L2, Turn333::R2,
 ];
 
-pub const HTR_DRUD_MOVESET: MoveSet = MoveSet::new(HTR_DRUD_ST_MOVES, HTR_DRUD_AUX_MOVES);
+pub const FRUD_MOVESET: MoveSet = MoveSet::new(FRUD_ST_MOVES, FR_UD_AUX_MOVES);
 
-pub struct HTRStep;
-pub type HTRBuilder = builder::HTRBuilderInternal<false, false, false, false>;
+pub struct FRStep;
+pub type FRBuilder = builder::FRBuilderInternal<false, false, false, false, false>;
 
-impl HTRStep {
-    pub fn builder() -> HTRBuilder {
-        HTRBuilder::default()
+impl FRStep {
+    pub fn builder() -> FRBuilder {
+        FRBuilder::default()
     }
 }
 
-impl HTRStep {
-    pub fn new(dfs: DFSParameters, dr_axis: Vec<CubeAxis>) -> Box<dyn ToWorker + Send + 'static> {
-        let mut variants = dr_axis.into_iter()
+impl FRStep {
+    pub fn new(dfs: DFSParameters, fr_axis: Vec<CubeAxis>, leave_slice: bool) -> Box<dyn ToWorker + Send + 'static> {
+        let mut variants = fr_axis.into_iter()
             .map(|dr|match dr {
                 CubeAxis::UD => (vec![], dr.name()),
                 CubeAxis::FB => (vec![Transformation333::X], dr.name()),
                 CubeAxis::LR => (vec![Transformation333::Z], dr.name()),
             })
             .map(|(trans, name)|{
-                let b: Box<dyn ToWorker + Send + 'static> = Box::new(NissPruningTableStep::<HTRDRUD_SIZE, HTRDRUDCoord, DRUDEOFB_SIZE, DRUDEOFBCoord>  {
-                    table: &HTR_TABLES.0,
-                    options: dfs.clone(),
-                    pre_step_trans: trans,
-                    name: name.to_string(),
-                    kind: StepKind::HTR,
-                    post_step_check: vec![],
-                    move_set: &HTR_DRUD_MOVESET,
-                    _pc: Default::default(),
-                });
-                b
+                if leave_slice {
+                    let b: Box<dyn ToWorker + Send + 'static> = Box::new(PruningTableStep::<FRUD_NO_SLICE_SIZE, FRUDNoSliceCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
+                        table: &FR_LEAVE_SLICE_TABLE,
+                        options: dfs.clone(),
+                        pre_step_trans: trans,
+                        name: name.to_string(),
+                        kind: StepKind::FR,
+                        post_step_check: vec![],
+                        move_set: &FRUD_MOVESET,
+                        _pc: Default::default(),
+                    });
+                    b
+                } else {
+                    let b: Box<dyn ToWorker + Send + 'static> = Box::new(PruningTableStep::<FRUD_WITH_SLICE_SIZE, FRUDWithSliceCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
+                        table: &FR_TABLE,
+                        options: dfs.clone(),
+                        pre_step_trans: trans,
+                        name: name.to_string(),
+                        kind: StepKind::FR,
+                        post_step_check: vec![],
+                        move_set: &FRUD_MOVESET,
+                        _pc: Default::default(),
+                    });
+                    b
+                }
             })
             .collect_vec();
         if variants.len() == 1 {
@@ -70,82 +82,98 @@ impl HTRStep {
     }
 }
 
-fn gen_htr_with_subsets() -> (HTRPruningTable, HTRSubsetTable) {
-    info!("Generating HTR pruning table...");
+fn gen_fr() -> FRPruningTable {
+    info!("Generating FR pruning table...");
     #[cfg(not(target_arch = "wasm32"))]
     let time = Instant::now();
-    let mut htr_table = lookup_table::generate(&HTR_DR_UD_MOVESET,
-                                               &|c: &Cube333| HTRDRUDCoord::from(c),
-                                               &|| HTRPruningTable::new(),
-                                               &|table, coord|table.get(coord).0,
-                                               &|table, coord, val|table.set(coord, val));
+    let fr_table = lookup_table::generate(&FR_UD_MOVESET,
+                                              &|c: &Cube333| FRUDWithSliceCoord::from(c),
+                                              &|| FRPruningTable::new(false),
+                                              &|table, coord|table.get(coord),
+                                              &|table, coord, val|table.set(coord, val));
     #[cfg(not(target_arch = "wasm32"))]
     debug!("Took {}ms", time.elapsed().as_millis());
+    fr_table
+}
 
-    info!("Generating HTR subset table...");
+fn gen_frls() -> FRLeaveSlicePruningTable {
+    info!("Generating FRLS pruning table...");
     #[cfg(not(target_arch = "wasm32"))]
     let time = Instant::now();
-    let subset_table = crate::steps::htr::subsets::gen_subset_tables(&mut htr_table);
+    let fr_table = lookup_table::generate(&FR_UD_MOVESET,
+                                              &|c: &Cube333| FRUDNoSliceCoord::from(c),
+                                              &|| FRLeaveSlicePruningTable::new(false),
+                                              &|table, coord|table.get(coord),
+                                              &|table, coord, val|table.set(coord, val));
     #[cfg(not(target_arch = "wasm32"))]
     debug!("Took {}ms", time.elapsed().as_millis());
-    (htr_table, subset_table)
+    fr_table
 }
 
 
 pub mod builder {
     use crate::cube::CubeAxis;
     use crate::defs::NissSwitchType;
-    use crate::solver_new::htr::HTRStep;
+    use crate::solver_new::fr::FRStep;
     use crate::solver_new::step::DFSParameters;
     use crate::solver_new::thread_util::ToWorker;
 
-    pub struct HTRBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool> {
+    pub struct FRBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> {
         _a_max_length: usize,
         _b_max_absolute_length: usize,
         _c_niss: NissSwitchType,
-        _d_dr_axis: Vec<CubeAxis>,
+        _d_fr_axis: Vec<CubeAxis>,
+        _e_leave_slice: bool,
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const D: bool> HTRBuilderInternal<A, B, C, D> {
-        fn convert<const _A: bool, const _B: bool, const _C: bool, const _D: bool>(self) -> HTRBuilderInternal<_A, _B, _C, _D> {
-            HTRBuilderInternal {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> FRBuilderInternal<A, B, C, D, E> {
+        fn convert<const _A: bool, const _B: bool, const _C: bool, const _D: bool, const _E: bool>(self) -> FRBuilderInternal<_A, _B, _C, _D, _E> {
+            FRBuilderInternal {
                 _a_max_length: self._a_max_length,
                 _b_max_absolute_length: self._b_max_absolute_length,
                 _c_niss: self._c_niss,
-                _d_dr_axis: self._d_dr_axis,
+                _d_fr_axis: self._d_fr_axis,
+                _e_leave_slice: self._e_leave_slice,
             }
         }
     }
 
-    impl <const B: bool, const C: bool, const D: bool> HTRBuilderInternal<false, B, C, D> {
-        pub fn max_length(mut self, max_length: usize) -> HTRBuilderInternal<true, B, C, D> {
+    impl <const B: bool, const C: bool, const D: bool, const E: bool> FRBuilderInternal<false, B, C, D, E> {
+        pub fn max_length(mut self, max_length: usize) -> FRBuilderInternal<true, B, C, D, E> {
             self._a_max_length = max_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const C: bool, const D: bool> HTRBuilderInternal<A, false, C, D> {
-        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> HTRBuilderInternal<A, true, C, D> {
+    impl <const A: bool, const C: bool, const D: bool, const E: bool> FRBuilderInternal<A, false, C, D, E> {
+        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> FRBuilderInternal<A, true, C, D, E> {
             self._b_max_absolute_length = max_absolute_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const D: bool> HTRBuilderInternal<A, B, false, D> {
-        pub fn niss(mut self, niss: NissSwitchType) -> HTRBuilderInternal<A, B, true, D> {
+    impl <const A: bool, const B: bool, const D: bool, const E: bool> FRBuilderInternal<A, B, false, D, E> {
+        pub fn niss(mut self, niss: NissSwitchType) -> FRBuilderInternal<A, B, true, D, E> {
             self._c_niss = niss;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool> HTRBuilderInternal<A, B, C, false> {
-        pub fn dr_axis(mut self, eo_axis: Vec<CubeAxis>) -> HTRBuilderInternal<A, B, C, true> {
-            self._d_dr_axis = eo_axis;
+    impl <const A: bool, const B: bool, const C: bool, const E: bool> FRBuilderInternal<A, B, C, false, E> {
+        pub fn axis(mut self, eo_axis: Vec<CubeAxis>) -> FRBuilderInternal<A, B, C, true, E> {
+            self._d_fr_axis = eo_axis;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const D: bool> HTRBuilderInternal<A, B, C, D> {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool> FRBuilderInternal<A, B, C, D, false> {
+        pub fn leave_slice(mut self) -> FRBuilderInternal<A, B, C, D, true> {
+            self._e_leave_slice = true;
+            self.convert()
+        }
+    }
+
+    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> FRBuilderInternal<A, B, C, D, E> {
         pub fn build(self) -> Box<dyn ToWorker + Send + 'static> {
             let dfs = DFSParameters {
                 niss_type: self._c_niss,
@@ -153,22 +181,23 @@ pub mod builder {
                 max_moves: self._a_max_length,
                 absolute_max_moves: Some(self._b_max_absolute_length),
             };
-            HTRStep::new(dfs, self._d_dr_axis)
+            FRStep::new(dfs, self._d_fr_axis, self._e_leave_slice)
         }
     }
 
-    impl HTRBuilderInternal<false, false, false, false> {
+    impl FRBuilderInternal<false, false, false, false, false> {
         pub fn new() -> Self {
             Self {
-                _a_max_length: 14,
+                _a_max_length: 8,
                 _b_max_absolute_length: 24,
                 _c_niss: NissSwitchType::Before,
-                _d_dr_axis: vec![CubeAxis::X, CubeAxis::Y, CubeAxis::Z],
+                _d_fr_axis: vec![CubeAxis::X, CubeAxis::Y, CubeAxis::Z],
+                _e_leave_slice: false,
             }
         }
     }
 
-    impl Default for HTRBuilderInternal<false, false, false, false> {
+    impl Default for FRBuilderInternal<false, false, false, false, false> {
         fn default() -> Self {
             Self::new()
         }

@@ -311,10 +311,16 @@ impl Step for DRTriggerStep {
     }
 }
 
-struct RZPStep {
+pub struct RZPStep {
     dfs: DFSParameters,
     pre_step_trans: Vec<Transformation333>,
     name: String
+}
+
+impl RZPStep {
+    pub fn builder() -> RZPBuilder {
+        RZPBuilder::default()
+    }
 }
 
 impl PreStepCheck for RZPStep {
@@ -396,7 +402,7 @@ mod builder {
     use crate::algs::Algorithm;
     use crate::cube::CubeAxis;
     use crate::defs::NissSwitchType;
-    use crate::solver_new::dr::{DRStep, RZPBuilder};
+    use crate::solver_new::dr::DRStep;
     use crate::solver_new::step::DFSParameters;
     use crate::solver_new::thread_util::ToWorker;
     use crate::steps::util::Subset;

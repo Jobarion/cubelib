@@ -46,7 +46,7 @@ pub fn build_steps(steps: Vec<StepConfig>, tables: &PruningTables333) -> Result<
             #[cfg(feature = "333dr")]
             (Some(StepKind::EO), StepKind::RZP)   => vec![steps::dr::rzp_config::from_step_config(config.clone())].into_iter(),
             #[cfg(feature = "333dr")]
-            (Some(StepKind::EO), StepKind::DR) => {
+            (Some(StepKind::EO) | None, StepKind::DR) => {
                 let dr_table = tables.dr().expect("DR table required");
                 if config.params.contains_key("triggers") {
                     log::warn!("Found explicitly defined DR triggers without RZP. Adding RZP step with default settings.");

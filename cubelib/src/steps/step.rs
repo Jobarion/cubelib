@@ -2,6 +2,7 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::rc::Rc;
+
 use log::trace;
 
 use crate::algs::Algorithm;
@@ -297,7 +298,7 @@ pub fn next_step<
                 let previous_normal = alg.normal_moves.last().cloned();
                 let previous_inverse = alg.inverse_moves.last().cloned();
 
-                trace!("Current solution step {}, depth {depth}, {alg}, normal {}, {previous_normal:?}, {previous_inverse:?}", step.kind, solution.ends_on_normal);
+                trace!("Current solution step {}, depth {depth}, {alg}, normal {}, {previous_normal:?}, {previous_inverse:?} {}", step.kind, solution.ends_on_normal, stage_opts.niss_type);
                 //Only allow the first variant to use the empty solution, otherwise we get lots of duplicates
                 let values = step
                     .step_variants

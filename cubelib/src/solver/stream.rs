@@ -69,10 +69,9 @@ where
                 }
             },
             n => {
-                let alg = self.cached_values[n].clone();
-                if alg.len() <= self.cycle_count {
+                if self.cached_values[n].len() <= self.cycle_count {
                     self.pos += 1;
-                    Some((alg, self.cycle_count))
+                    Some((self.cached_values[n].clone(), self.cycle_count))
                 } else {
                     self.pos = 0;
                     self.cycle_count += 1;

@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicBool, Ordering};
-use log::trace;
+
 use crate::algs::Algorithm;
 use crate::cube::{Cube333, Turn333};
 use crate::cube::turn::{Invertible, InvertibleMut, Transformable, TransformableMut, TurnableMut};
@@ -180,7 +180,7 @@ fn next_dfs_level<'a, S: StepVariant + ?Sized>(
     cancel_token: &'a CancelToken,
 ) -> Box<dyn Iterator<Item = Algorithm> + 'a> {
     let lower_bound = step.heuristic(&cube, depth_left, invert_allowed);
-    trace!("[{}]{}DFS depth {depth_left}, lower bound {lower_bound}, invert {invert_allowed}, {previous_normal:?}, {previous_inverse:?}", step.name(), " ".repeat(10 - depth_left as usize));
+    // trace!("[{}]{}DFS depth {depth_left}, lower bound {lower_bound}, invert {invert_allowed}, {previous_normal:?}, {previous_inverse:?}", step.name(), " ".repeat(10 - depth_left as usize));
     let mut inverse = cube.clone();
     let normal_solutions: Box<dyn Iterator<Item = Algorithm>> = if depth_left == 0 && lower_bound == 0 {
         Box::new(vec![Algorithm::new()].into_iter())
@@ -199,13 +199,13 @@ fn next_dfs_level<'a, S: StepVariant + ?Sized>(
                         .map_or(Transition::any(), |pm| step.move_set(&cube, depth_left).transitions[Into::<usize>::into(pm)].check_move(m))
                 )
             })
-            .map(move |m|{trace!("[{}]{}Considering {}", step.name(), " ".repeat(11 - depth_left as usize), m.0);m})
+            // .map(move |m|{trace!("[{}]{}Considering {}", step.name(), " ".repeat(11 - depth_left as usize), m.0);m})
             .filter(move |(m, transition_type)| if first_move_on_side {
                 previous_normal.map(|pm|!pm.is_same_type(m)).unwrap_or(transition_type.allowed)
             } else {
                 transition_type.allowed
             })
-            .map(move |m|{trace!("[{}]{}Trying {} {} (st)", step.name(), " ".repeat(11 - depth_left as usize), m.0, m.1.can_end);m})
+            // .map(move |m|{trace!("[{}]{}Trying {} {} (st)", step.name(), " ".repeat(11 - depth_left as usize), m.0, m.1.can_end);m})
             .flat_map(move |(m, t)| {
                 cube.turn(m);
                 let result = next_dfs_level(
@@ -238,13 +238,13 @@ fn next_dfs_level<'a, S: StepVariant + ?Sized>(
                             .map_or(Transition::any(), |pm| step.move_set(&cube, depth_left).transitions[Into::<usize>::into(pm)].check_move(m))
                     )
                 })
-                .map(move |m|{trace!("[{}]{}Considering {}", step.name(), " ".repeat(11 - depth_left as usize), m.0);m})
+                // .map(move |m|{trace!("[{}]{}Considering {}", step.name(), " ".repeat(11 - depth_left as usize), m.0);m})
                 .filter(move |(m, transition_type)| if first_move_on_side {
                     previous_normal.map(|pm|!pm.is_same_type(m)).unwrap_or(transition_type.allowed)
                 } else {
                     transition_type.allowed
                 })
-                .map(move |m|{trace!("[{}]{}Trying {} {} (aux)", step.name(), " ".repeat(11 - depth_left as usize), m.0, m.1.can_end);m})
+                // .map(move |m|{trace!("[{}]{}Trying {} {} (aux)", step.name(), " ".repeat(11 - depth_left as usize), m.0, m.1.can_end);m})
                 .flat_map(move |(m, _)| {
                     cube.turn(m);
                     let result = next_dfs_level(

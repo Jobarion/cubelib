@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Instant;
 use std::vec;
@@ -6,6 +7,7 @@ use log::LevelFilter;
 use simple_logger::SimpleLogger;
 
 use cubelib::algs::Algorithm;
+use cubelib::cube::turn::CubeAxis;
 use cubelib::defs::NissSwitchType;
 use cubelib::solver_new::create_worker;
 use cubelib::solver_new::dr::{DRStep, RZPStep};
@@ -23,36 +25,26 @@ fn main() {
 
     let eo_step = StepGroup::parallel(vec![
         EOStep::builder()
-            .max_length(4)
+            .max_length(7)
+            .max_absolute_length(7)
             .niss(NissSwitchType::Always)
+            .eo_axis(vec![CubeAxis::FB])
             .build(),
-        EOStep::builder()
-            .max_length(5)
-            .min_length(5)
-            .niss(NissSwitchType::Before)
-            .build()
+        // EOStep::builder()
+        //     .max_length(5)
+        //     .min_length(5)
+        //     .niss(NissSwitchType::Before)
+        //     .build()
     ]);
 
     let dr_step = DRStep::builder()
-        .max_absolute_length(11)
+        .max_absolute_length(15)
         .niss(NissSwitchType::Before)
-        .rzp(RZPStep::builder()
-            .max_length(3)
-            .max_absolute_length(6)
-        )
-        .triggers(vec![Algorithm::from_str("R U2 R").unwrap(), Algorithm::from_str("R").unwrap()])
-        .build();
-
-    let htr_step = HTRStep::builder()
-        .niss(NissSwitchType::Before)
-        .build();
-
-    let finish = HTRFinishStep::builder()
-        .leave_slice()
+        .axis(HashMap::from([(CubeAxis::UD, vec![CubeAxis::FB])]))
         .build();
 
     let cube = Algorithm::from_str("D2 F R' U2 F2 R2 D2 B2 L B2 R' B2 L B2 D' B D2 U' R F' L'").unwrap().into();
-    let steps = StepGroup::sequential_with_predicates(vec![eo_step, dr_step, htr_step, finish], vec![FilterLastMoveNotPrime::new()]);
+    let steps = StepGroup::sequential_with_predicates(vec![eo_step, dr_step], vec![FilterLastMoveNotPrime::new()]);
 
     let (mut worker, receiver) = create_worker(cube, steps);
     worker.start();

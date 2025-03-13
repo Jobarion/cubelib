@@ -2,8 +2,12 @@ use std::cmp::min;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
+
 use std::thread::JoinHandle;
+
+
 use log::trace;
+
 use crate::algs::Algorithm;
 use crate::cube::{Cube333, Transformation333, Turn333};
 use crate::cube::turn::*;
@@ -172,8 +176,8 @@ impl StepIORunner {
         };
         self.input.push(next);
         self.current_length = self.input[0].len();
+        // TODO clean up this loop
         while !self.cancel_token.is_cancelled() && self.current_length <= self.dfs_parameters.absolute_max_moves.unwrap_or(100) {
-            log::trace!("[{:?}] at length {}", self.step.get_name(), self.current_length);
             match self.process_fetched() {
                 Ok(Some(full_fetch_required_length)) => {
                     while !self.cancel_token.is_cancelled() {
@@ -183,6 +187,8 @@ impl StepIORunner {
                                 self.input.push(next);
                                 if len > full_fetch_required_length {
                                     break
+                                } else {
+                                    _ = self.process_fetched();
                                 }
                             }
                             Err(_) => {
@@ -235,13 +241,13 @@ impl StepIORunner {
     fn submit_solution(&self, input: &Solution, result: Algorithm) -> Result<(), SendError<Solution>>{
         let mut input = input.clone();
         let (kind, variant) = self.step.get_name();
-
         input.add_step(SolutionStep {
             kind,
             variant,
             alg: result.clone(),
             comment: "".to_string(),
         });
+
         for p in self.predicates.iter() {
             match p.check_solution(&input) {
                 StepPredicateResult::Accepted => {}

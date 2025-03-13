@@ -53,7 +53,7 @@ impl FRStep {
                         options: dfs.clone(),
                         pre_step_trans: trans,
                         name: name.to_string(),
-                        kind: StepKind::FR,
+                        kind: StepKind::FRLS,
                         post_step_check: vec![],
                         move_set: &FRUD_MOVESET,
                         _pc: Default::default(),

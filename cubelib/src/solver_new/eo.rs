@@ -41,6 +41,7 @@ impl EOStep {
     }
 
     pub fn new(dfs: DFSParameters, axis: Vec<CubeAxis>) -> StepGroup {
+        debug!("Step eo with options {dfs:?}");
         let variants = axis.into_iter()
             .map(|eo|match eo {
                 CubeAxis::UD => (vec![Transformation333::X], eo.name()),
@@ -78,10 +79,11 @@ fn gen_eo() -> EOPruningTable {
 
 pub mod builder {
     use crate::cube::CubeAxis;
-    use crate::defs::NissSwitchType;
+    use crate::defs::{NissSwitchType, StepKind};
     use crate::solver_new::eo::EOStep;
     use crate::solver_new::group::StepGroup;
     use crate::solver_new::step::DFSParameters;
+    use crate::steps::step::StepConfig;
 
     pub struct EOBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> {
         _a_max_length: usize,
@@ -165,6 +167,44 @@ pub mod builder {
     impl Default for EOBuilderInternal<false, false, false, false, false> {
         fn default() -> Self {
             Self::new()
+        }
+    }
+
+    impl TryFrom<StepConfig> for EOBuilderInternal<false, false, false, false, false> {
+        type Error = ();
+
+        fn try_from(value: StepConfig) -> Result<Self, Self::Error> {
+            if !value.params.is_empty() {
+                return Err(())
+            }
+            if value.kind != StepKind::EO {
+                return Err(())
+            }
+            let mut defaults = Self::default();
+            if let Some(max) = value.max {
+                defaults._a_max_length = max as usize;
+            }
+            if let Some(abs_max) = value.absolute_max {
+                defaults._b_max_absolute_length = abs_max as usize;
+            }
+            if let Some(niss) = value.niss {
+                defaults._c_niss = niss;
+            }
+            if let Some(variants) = value.substeps {
+                let axis: Result<Vec<CubeAxis>, Self::Error> = variants.into_iter()
+                    .map(|variant| match variant.as_str() {
+                        "eoud" | "ud" => Ok(CubeAxis::UD),
+                        "eofb" | "fb" => Ok(CubeAxis::FB),
+                        "eolr" | "lr" => Ok(CubeAxis::LR),
+                        _ => Err(()),
+                    })
+                    .collect();
+                defaults._d_eo_axis = axis?;
+            }
+            if let Some(min) = value.min {
+                defaults._e_min_length = min as usize;
+            }
+            Ok(defaults)
         }
     }
 }

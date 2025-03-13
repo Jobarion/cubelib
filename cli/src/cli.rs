@@ -51,6 +51,16 @@ pub struct SolveCommand {
     pub steps: String,
     #[arg(help = "Scramble to solve (use '-' to read from stdin)")]
     pub scramble: String,
+    #[arg(long = "backend", default_value = "iter-stream", help = "Solver backend to use")]
+    pub backend: SolverBackend,
+}
+
+#[derive(ValueEnum, Clone, Default, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SolverBackend {
+    #[default]
+    IterStream,
+    MultiPathChannel,
 }
 
 #[derive(ValueEnum, Clone, Default, Debug, Deserialize)]

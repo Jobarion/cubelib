@@ -41,6 +41,7 @@ impl HTRStep {
 
 impl HTRStep {
     pub fn new(dfs: DFSParameters, dr_axis: Vec<CubeAxis>) -> StepGroup {
+        debug!("Step htr with options {dfs:?}");
         let variants = dr_axis.into_iter()
             .map(|dr|match dr {
                 CubeAxis::UD => (vec![], dr.name()),
@@ -88,10 +89,11 @@ fn gen_htr_with_subsets() -> (HTRPruningTable, HTRSubsetTable) {
 
 pub mod builder {
     use crate::cube::CubeAxis;
-    use crate::defs::NissSwitchType;
+    use crate::defs::{NissSwitchType, StepKind};
     use crate::solver_new::group::StepGroup;
     use crate::solver_new::htr::HTRStep;
     use crate::solver_new::step::DFSParameters;
+    use crate::steps::step::StepConfig;
 
     pub struct HTRBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool> {
         _a_max_length: usize,
@@ -155,7 +157,7 @@ pub mod builder {
         pub fn new() -> Self {
             Self {
                 _a_max_length: 14,
-                _b_max_absolute_length: 24,
+                _b_max_absolute_length: 30,
                 _c_niss: NissSwitchType::Before,
                 _d_dr_axis: vec![CubeAxis::X, CubeAxis::Y, CubeAxis::Z],
             }
@@ -165,6 +167,41 @@ pub mod builder {
     impl Default for HTRBuilderInternal<false, false, false, false> {
         fn default() -> Self {
             Self::new()
+        }
+    }
+
+    impl TryFrom<StepConfig> for HTRBuilderInternal<false, false, false, false> {
+        type Error = ();
+
+        fn try_from(value: StepConfig) -> Result<Self, Self::Error> {
+            if !value.params.is_empty() {
+                return Err(())
+            }
+            if value.kind != StepKind::HTR {
+                return Err(())
+            }
+            let mut defaults = Self::default();
+            if let Some(max) = value.max {
+                defaults._a_max_length = max as usize;
+            }
+            if let Some(abs_max) = value.absolute_max {
+                defaults._b_max_absolute_length = abs_max as usize;
+            }
+            if let Some(niss) = value.niss {
+                defaults._c_niss = niss;
+            }
+            if let Some(variants) = value.substeps {
+                let axis: Result<Vec<CubeAxis>, Self::Error> = variants.into_iter()
+                    .map(|variant| match variant.as_str() {
+                        "htrud" | "ud" => Ok(CubeAxis::UD),
+                        "htrfb" | "fb" => Ok(CubeAxis::FB),
+                        "htrlr" | "lr" => Ok(CubeAxis::LR),
+                        _ => Err(()),
+                    })
+                    .collect();
+                defaults._d_dr_axis = axis?;
+            }
+            Ok(defaults)
         }
     }
 }

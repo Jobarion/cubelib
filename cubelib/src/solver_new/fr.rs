@@ -39,6 +39,7 @@ impl FRStep {
 
 impl FRStep {
     pub fn new(dfs: DFSParameters, fr_axis: Vec<CubeAxis>, leave_slice: bool) -> StepGroup {
+        debug!("Step fr with options {dfs:?}");
         let variants = fr_axis.into_iter()
             .map(|dr|match dr {
                 CubeAxis::UD => (vec![], dr.name()),
@@ -106,10 +107,11 @@ fn gen_frls() -> FRLeaveSlicePruningTable {
 
 pub mod builder {
     use crate::cube::CubeAxis;
-    use crate::defs::NissSwitchType;
+    use crate::defs::{NissSwitchType, StepKind};
     use crate::solver_new::fr::FRStep;
     use crate::solver_new::group::StepGroup;
     use crate::solver_new::step::DFSParameters;
+    use crate::steps::step::StepConfig;
 
     pub struct FRBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> {
         _a_max_length: usize,
@@ -181,8 +183,8 @@ pub mod builder {
     impl FRBuilderInternal<false, false, false, false, false> {
         pub fn new() -> Self {
             Self {
-                _a_max_length: 8,
-                _b_max_absolute_length: 24,
+                _a_max_length: 10,
+                _b_max_absolute_length: 40,
                 _c_niss: NissSwitchType::Before,
                 _d_fr_axis: vec![CubeAxis::X, CubeAxis::Y, CubeAxis::Z],
                 _e_leave_slice: false,
@@ -193,6 +195,44 @@ pub mod builder {
     impl Default for FRBuilderInternal<false, false, false, false, false> {
         fn default() -> Self {
             Self::new()
+        }
+    }
+
+    impl TryFrom<StepConfig> for FRBuilderInternal<false, false, false, false, false> {
+        type Error = ();
+
+        fn try_from(value: StepConfig) -> Result<Self, Self::Error> {
+            if !value.params.is_empty() {
+                return Err(())
+            }
+            if value.kind != StepKind::FR && value.kind != StepKind::FRLS {
+                return Err(())
+            }
+            let mut defaults = Self::default();
+            if let Some(max) = value.max {
+                defaults._a_max_length = max as usize;
+            }
+            if let Some(abs_max) = value.absolute_max {
+                defaults._b_max_absolute_length = abs_max as usize;
+            }
+            if let Some(niss) = value.niss {
+                defaults._c_niss = niss;
+            }
+            if let Some(variants) = value.substeps {
+                let axis: Result<Vec<CubeAxis>, Self::Error> = variants.into_iter()
+                    .map(|variant| match variant.as_str() {
+                        "frud" | "ud" => Ok(CubeAxis::UD),
+                        "frfb" | "fb" => Ok(CubeAxis::FB),
+                        "frlr" | "lr" => Ok(CubeAxis::LR),
+                        _ => Err(()),
+                    })
+                    .collect();
+                defaults._d_fr_axis = axis?;
+            }
+            if value.kind == StepKind::FRLS {
+                defaults._e_leave_slice = true;
+            }
+            Ok(defaults)
         }
     }
 }

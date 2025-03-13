@@ -172,8 +172,8 @@ impl StepIORunner {
         };
         self.input.push(next);
         self.current_length = self.input[0].len();
-
-        while !self.cancel_token.is_cancelled() && self.current_length <= self.dfs_parameters.absolute_max_moves.unwrap_or(usize::MAX) {
+        while !self.cancel_token.is_cancelled() && self.current_length <= self.dfs_parameters.absolute_max_moves.unwrap_or(100) {
+            log::trace!("[{:?}] at length {}", self.step.get_name(), self.current_length);
             match self.process_fetched() {
                 Ok(Some(full_fetch_required_length)) => {
                     while !self.cancel_token.is_cancelled() {

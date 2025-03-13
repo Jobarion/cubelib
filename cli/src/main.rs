@@ -16,7 +16,7 @@ use log::{error, info};
 use simple_logger::SimpleLogger;
 use cubelib::cube::turn::ApplyAlgorithm;
 
-use crate::cli::{Cli, SolutionFormat, SolveCommand, InvertCommand};
+use crate::cli::{Cli, SolutionFormat, SolveCommand, InvertCommand, SolverBackend};
 
 mod cli;
 
@@ -49,9 +49,10 @@ fn scramble() {
         quality: 100,
         steps: "EO[max=6] > DR > HTR > Finish".to_string(),
         scramble: "".to_string(),
+        backend: SolverBackend::IterStream,
     };
 
-    find_and_print_solutions(cube, cmd);
+    find_and_print_solutions_iter_stream(cube, cmd);
 
 }
 
@@ -78,11 +79,14 @@ fn solve(cmd: SolveCommand) {
     let mut cube = Cube333::default();
     cube.apply_alg(&scramble);
 
-    find_and_print_solutions(cube, cmd);
+    match cmd.backend {
+        SolverBackend::IterStream => find_and_print_solutions_iter_stream(cube, cmd),
+        SolverBackend::MultiPathChannel => find_and_print_solutions_multi_path_channel(cube, cmd),
+    }
+
 }
 
-fn find_and_print_solutions(cube: Cube333, cmd: SolveCommand) {
-
+fn find_and_print_solutions_iter_stream(cube: Cube333, cmd: SolveCommand) {
     let mut tables = PruningTables333::new();
 
     let steps = match cmd.parse_step_configs() {
@@ -146,4 +150,45 @@ fn find_and_print_solutions(cube: Cube333, cmd: SolveCommand) {
     info!("Took {}ms", time.elapsed().as_millis());
 }
 
+fn find_and_print_solutions_multi_path_channel(cube: Cube333, cmd: SolveCommand) {
+    let steps = match cmd.parse_step_configs() {
+        Ok(step_configs) => {
+            match cubelib::solver_new::build_steps(step_configs) {
+                Ok(steps) => steps,
+                Err(e) => {
+                    error!("{e}");
+                    return;
+                }
+            }
+        },
+        Err(e) => {
+            error!("Unable to parse steps config. {e}");
+            return;
+        }
+    };
+
+    info!("Generating solutions\n");
+    let time = Instant::now();
+
+    let (mut worker, rec) = cubelib::solver_new::create_worker(cube, steps);
+    worker.start();
+    let mut count = 0;
+    while cmd.solution_count.is_none() || cmd.solution_count.unwrap() > count {
+        if let Ok(solution) = rec.recv() {
+            match cmd.format {
+                SolutionFormat::Plain =>
+                    println!("{}", Into::<Algorithm>::into(solution)),
+                SolutionFormat::Compact => {
+                    let alg = Into::<Algorithm>::into(solution);
+                    println!("{alg} ({})", alg.len());
+                }
+                SolutionFormat::Detailed =>
+                    println!("{}", solution)
+            }
+            count += 1;
+        }
+    }
+
+    info!("Took {}ms", time.elapsed().as_millis());
+}
 

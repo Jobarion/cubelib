@@ -36,7 +36,7 @@ pub const FINISH_FRUD_MOVESET: MoveSet = MoveSet::new(FINISH_FRUD_ST_MOVES, FINI
 pub const FINISH_HTR_MOVESET: MoveSet = MoveSet::new(FINISH_HTR_ST_MOVES, FINISH_AUX_MOVES);
 
 pub struct FRFinishStep;
-pub type FRFinishBuilder = builder::FRFinish<false, false, false, false>;
+pub type FRFinishBuilder = builder::FRFinishBuilderInternal<false, false, false, false>;
 
 impl FRFinishStep {
     pub fn builder() -> FRFinishBuilder {
@@ -46,6 +46,7 @@ impl FRFinishStep {
 
 impl FRFinishStep {
     pub fn new(dfs: DFSParameters, fr_axis: Vec<CubeAxis>, leave_slice: bool) -> StepGroup {
+        debug!("Step fin with options {dfs:?}");
         let variants = fr_axis.into_iter()
             .map(|dr|match dr {
                 CubeAxis::UD => (vec![], dr.name()),
@@ -83,7 +84,7 @@ impl FRFinishStep {
 }
 
 pub struct HTRFinishStep;
-pub type HTRFinishBuilder = builder::HTRFinish<false, false, false>;
+pub type HTRFinishBuilder = builder::HTRFinishBuilderInternal<false, false, false>;
 
 impl HTRFinishStep {
     pub fn builder() -> HTRFinishBuilder {
@@ -93,6 +94,7 @@ impl HTRFinishStep {
 
 impl HTRFinishStep {
     pub fn new(dfs: DFSParameters, leave_slice: bool) -> StepGroup {
+        debug!("Step fin with options {dfs:?}");
         if leave_slice {
             let variants = [CubeAxis::UD, CubeAxis::LR, CubeAxis::FB].into_iter()
                 .map(|slice|match slice {
@@ -173,21 +175,22 @@ fn gen_htr_ls_finish() -> HTRLeaveSliceFinishPruningTable {
 
 pub mod builder {
     use crate::cube::CubeAxis;
-    use crate::defs::NissSwitchType;
+    use crate::defs::{NissSwitchType, StepKind};
     use crate::solver_new::finish::{FRFinishStep, HTRFinishStep};
     use crate::solver_new::group::StepGroup;
     use crate::solver_new::step::DFSParameters;
+    use crate::steps::step::StepConfig;
 
-    pub struct FRFinish<const A: bool, const B: bool, const C: bool, const D: bool> {
+    pub struct FRFinishBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool> {
         _a_max_length: usize,
         _b_max_absolute_length: usize,
         _c_fr_axis: Vec<CubeAxis>,
         _d_leave_slice: bool,
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const D: bool> FRFinish<A, B, C, D> {
-        fn convert<const _A: bool, const _B: bool, const _C: bool, const _D: bool>(self) -> FRFinish<_A, _B, _C, _D> {
-            FRFinish {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool> FRFinishBuilderInternal<A, B, C, D> {
+        fn convert<const _A: bool, const _B: bool, const _C: bool, const _D: bool>(self) -> FRFinishBuilderInternal<_A, _B, _C, _D> {
+            FRFinishBuilderInternal {
                 _a_max_length: self._a_max_length,
                 _b_max_absolute_length: self._b_max_absolute_length,
                 _c_fr_axis: self._c_fr_axis,
@@ -196,35 +199,35 @@ pub mod builder {
         }
     }
 
-    impl <const B: bool, const C: bool, const D: bool> FRFinish<false, B, C, D> {
-        pub fn max_length(mut self, max_length: usize) -> FRFinish<true, B, C, D> {
+    impl <const B: bool, const C: bool, const D: bool> FRFinishBuilderInternal<false, B, C, D> {
+        pub fn max_length(mut self, max_length: usize) -> FRFinishBuilderInternal<true, B, C, D> {
             self._a_max_length = max_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const C: bool, const D: bool> FRFinish<A, false, C, D> {
-        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> FRFinish<A, true, C, D> {
+    impl <const A: bool, const C: bool, const D: bool> FRFinishBuilderInternal<A, false, C, D> {
+        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> FRFinishBuilderInternal<A, true, C, D> {
             self._b_max_absolute_length = max_absolute_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const D: bool> FRFinish<A, B, false, D> {
-        pub fn fr_axis(mut self, fr_axis: Vec<CubeAxis>) -> FRFinish<A, B, true, D> {
+    impl <const A: bool, const B: bool, const D: bool> FRFinishBuilderInternal<A, B, false, D> {
+        pub fn fr_axis(mut self, fr_axis: Vec<CubeAxis>) -> FRFinishBuilderInternal<A, B, true, D> {
             self._c_fr_axis = fr_axis;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const D: bool> FRFinish<A, B, false, D> {
-        pub fn leave_slice(mut self) -> FRFinish<A, B, true, D> {
+    impl <const A: bool, const B: bool, const D: bool> FRFinishBuilderInternal<A, B, false, D> {
+        pub fn leave_slice(mut self) -> FRFinishBuilderInternal<A, B, true, D> {
             self._d_leave_slice = true;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const D: bool> FRFinish<A, B, C, D> {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool> FRFinishBuilderInternal<A, B, C, D> {
         pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: NissSwitchType::Never,
@@ -236,32 +239,67 @@ pub mod builder {
         }
     }
 
-    impl FRFinish<false, false, false, false> {
+    impl FRFinishBuilderInternal<false, false, false, false> {
         pub fn new() -> Self {
             Self {
-                _a_max_length: 8,
-                _b_max_absolute_length: 24,
+                _a_max_length: 10,
+                _b_max_absolute_length: 50,
                 _c_fr_axis: vec![CubeAxis::X, CubeAxis::Y, CubeAxis::Z],
                 _d_leave_slice: false,
             }
         }
     }
 
-    impl Default for FRFinish<false, false, false, false> {
+    impl Default for FRFinishBuilderInternal<false, false, false, false> {
         fn default() -> Self {
             Self::new()
         }
     }
 
-    pub struct HTRFinish<const A: bool, const B: bool, const C: bool> {
+    impl TryFrom<StepConfig> for FRFinishBuilderInternal<false, false, false, false> {
+        type Error = ();
+
+        fn try_from(value: StepConfig) -> Result<Self, Self::Error> {
+            if !value.params.is_empty() {
+                return Err(())
+            }
+            if value.kind != StepKind::FIN && value.kind != StepKind::FINLS {
+                return Err(())
+            }
+            let mut defaults = Self::default();
+            if let Some(max) = value.max {
+                defaults._a_max_length = max as usize;
+            }
+            if let Some(abs_max) = value.absolute_max {
+                defaults._b_max_absolute_length = abs_max as usize;
+            }
+            if let Some(variants) = value.substeps {
+                let axis: Result<Vec<CubeAxis>, Self::Error> = variants.into_iter()
+                    .map(|variant| match variant.as_str() {
+                        "finishud" | "finud" | "ud" => Ok(CubeAxis::UD),
+                        "finishfd" | "finfb" | "fb" => Ok(CubeAxis::FB),
+                        "finishlr" | "finlr" | "lr" => Ok(CubeAxis::LR),
+                        _ => Err(()),
+                    })
+                    .collect();
+                defaults._c_fr_axis = axis?;
+            }
+            if value.kind == StepKind::FINLS {
+                defaults._d_leave_slice = true;
+            }
+            Ok(defaults)
+        }
+    }
+
+    pub struct HTRFinishBuilderInternal<const A: bool, const B: bool, const C: bool> {
         _a_max_length: usize,
         _b_max_absolute_length: usize,
         _c_leave_slice: bool,
     }
 
-    impl <const A: bool, const B: bool, const C: bool> HTRFinish<A, B, C> {
-        fn convert<const _A: bool, const _B: bool, const _C: bool>(self) -> HTRFinish<_A, _B, _C> {
-            HTRFinish {
+    impl <const A: bool, const B: bool, const C: bool> HTRFinishBuilderInternal<A, B, C> {
+        fn convert<const _A: bool, const _B: bool, const _C: bool>(self) -> HTRFinishBuilderInternal<_A, _B, _C> {
+            HTRFinishBuilderInternal {
                 _a_max_length: self._a_max_length,
                 _b_max_absolute_length: self._b_max_absolute_length,
                 _c_leave_slice: self._c_leave_slice,
@@ -269,28 +307,28 @@ pub mod builder {
         }
     }
 
-    impl <const B: bool, const C: bool> HTRFinish<false, B, C> {
-        pub fn max_length(mut self, max_length: usize) -> HTRFinish<true, B, C> {
+    impl <const B: bool, const C: bool> HTRFinishBuilderInternal<false, B, C> {
+        pub fn max_length(mut self, max_length: usize) -> HTRFinishBuilderInternal<true, B, C> {
             self._a_max_length = max_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const C: bool> HTRFinish<A, false, C> {
-        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> HTRFinish<A, true, C> {
+    impl <const A: bool, const C: bool> HTRFinishBuilderInternal<A, false, C> {
+        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> HTRFinishBuilderInternal<A, true, C> {
             self._b_max_absolute_length = max_absolute_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool> HTRFinish<A, B, false> {
-        pub fn leave_slice(mut self) -> HTRFinish<A, B, true> {
+    impl <const A: bool, const B: bool> HTRFinishBuilderInternal<A, B, false> {
+        pub fn leave_slice(mut self) -> HTRFinishBuilderInternal<A, B, true> {
             self._c_leave_slice = true;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool> HTRFinish<A, B, C> {
+    impl <const A: bool, const B: bool, const C: bool> HTRFinishBuilderInternal<A, B, C> {
         pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: NissSwitchType::Never,
@@ -302,19 +340,43 @@ pub mod builder {
         }
     }
 
-    impl HTRFinish<false, false, false> {
+    impl HTRFinishBuilderInternal<false, false, false> {
         pub fn new() -> Self {
             Self {
-                _a_max_length: 12,
-                _b_max_absolute_length: 24,
+                _a_max_length: 10,
+                _b_max_absolute_length: 50,
                 _c_leave_slice: false,
             }
         }
     }
 
-    impl Default for HTRFinish<false, false, false> {
+    impl Default for HTRFinishBuilderInternal<false, false, false> {
         fn default() -> Self {
             Self::new()
+        }
+    }
+
+    impl TryFrom<StepConfig> for HTRFinishBuilderInternal<false, false, false> {
+        type Error = ();
+
+        fn try_from(value: StepConfig) -> Result<Self, Self::Error> {
+            if !value.params.is_empty() {
+                return Err(())
+            }
+            if value.kind != StepKind::FIN && value.kind != StepKind::FINLS {
+                return Err(())
+            }
+            let mut defaults = Self::default();
+            if let Some(max) = value.max {
+                defaults._a_max_length = max as usize;
+            }
+            if let Some(abs_max) = value.absolute_max {
+                defaults._b_max_absolute_length = abs_max as usize;
+            }
+            if value.kind == StepKind::FINLS {
+                defaults._c_leave_slice = true;
+            }
+            Ok(defaults)
         }
     }
 }

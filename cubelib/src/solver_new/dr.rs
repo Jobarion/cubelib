@@ -69,7 +69,8 @@ impl DRStep {
         DRBuilder::default()
     }
 
-    pub fn new(dfs_parameters: DFSParameters, axis: HashMap<CubeAxis, Vec<CubeAxis>>, subsets: Vec<Subset>) -> StepGroup {
+    pub fn new(dfs: DFSParameters, axis: HashMap<CubeAxis, Vec<CubeAxis>>, subsets: Vec<Subset>) -> StepGroup {
+        debug!("Step dr with options {dfs:?}");
         let variants = axis.into_iter()
             .flat_map(move |(dr, eo)|eo.into_iter().map(move |eo|(eo, dr.clone())))
             .filter_map(|(eo,dr)|match (eo, dr) {
@@ -90,7 +91,7 @@ impl DRStep {
             })
             .map(|((trans, name), psc)| StepGroup::single(Box::new(PruningTableStep::<DRUDEOFB_SIZE, DRUDEOFBCoord, 2048, EOCoordFB> {
                 table: &DR_TABLE,
-                options: dfs_parameters.clone(),
+                options: dfs.clone(),
                 pre_step_trans: trans,
                 post_step_check: psc,
                 move_set: &DRUD_EOFB_MOVESET,
@@ -102,7 +103,9 @@ impl DRStep {
         StepGroup::parallel(variants)
     }
 
-    pub fn new_with_triggers(dfs_parameters: DFSParameters, axis: HashMap<CubeAxis, Vec<CubeAxis>>, subsets: Vec<Subset>, triggers: Vec<Algorithm>, rzp_settings: RZPSettings) -> StepGroup {
+    pub fn new_with_triggers(dfs_dr: DFSParameters, axis: HashMap<CubeAxis, Vec<CubeAxis>>, subsets: Vec<Subset>, triggers: Vec<Algorithm>, rzp_settings: RZPSettings) -> StepGroup {
+        debug!("Step rzp with options {:?}", rzp_settings.dfs);
+        debug!("Step dr with options {dfs_dr:?}");
         let mut trigger_variants = vec![];
         let mut trigger_types: HashMap<(u8, u8), usize> = HashMap::new();
         for trigger in triggers.into_iter() {
@@ -144,7 +147,7 @@ impl DRStep {
                 }));
                 let dr_trigger = StepGroup::single(Box::new(DRTriggerStep {
                     table: &DR_TABLE,
-                    options: dfs_parameters.clone(),
+                    options: dfs_dr.clone(),
                     pre_step_trans: trans,
                     post_step_check: psc,
                     name,
@@ -386,14 +389,14 @@ impl Cube333 {
 
 mod builder {
     use std::collections::HashMap;
-
     use crate::algs::Algorithm;
     use crate::cube::CubeAxis;
-    use crate::defs::NissSwitchType;
+    use crate::defs::{NissSwitchType, StepKind};
     use crate::solver_new::dr::DRStep;
     use crate::solver_new::group::StepGroup;
     use crate::solver_new::step::DFSParameters;
-    use crate::steps::util::Subset;
+    use crate::steps::step::StepConfig;
+    use crate::steps::util::{expand_subset_name, Subset};
 
     pub struct DRBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool, const E: bool, const F: bool, const G: bool> {
         _a_max_length: usize,
@@ -511,8 +514,8 @@ mod builder {
     impl DRBuilderInternal<false, false, false, false, false, false, false> {
         pub fn new() -> Self {
             Self {
-                _a_max_length: 11,
-                _b_max_absolute_length: 13,
+                _a_max_length: 12,
+                _b_max_absolute_length: 20,
                 _c_niss: NissSwitchType::Before,
                 _d_dr_eo_axis: HashMap::from([(CubeAxis::X, vec![CubeAxis::Y, CubeAxis::Z]), (CubeAxis::Y, vec![CubeAxis::X, CubeAxis::Z]), (CubeAxis::Z, vec![CubeAxis::X, CubeAxis::Y])]),
                 _e_subsets: vec![],
@@ -525,6 +528,69 @@ mod builder {
     impl Default for DRBuilderInternal<false, false, false, false, false, false, false> {
         fn default() -> Self {
             Self::new()
+        }
+    }
+
+    impl TryFrom<StepConfig> for DRBuilderInternal<false, false, false, false, false, false, false> {
+        type Error = ();
+
+        fn try_from(mut value: StepConfig) -> Result<Self, Self::Error> {
+            if value.kind != StepKind::DR {
+                return Err(())
+            }
+            let mut defaults = Self::default();
+            if let Some(max) = value.max {
+                defaults._a_max_length = max as usize;
+            }
+            if let Some(abs_max) = value.absolute_max {
+                defaults._b_max_absolute_length = abs_max as usize;
+            }
+            if let Some(niss) = value.niss {
+                defaults._c_niss = niss;
+            }
+            if let Some(variants) = value.substeps {
+                let axis: Result<Vec<(CubeAxis, CubeAxis)>, Self::Error> = variants.into_iter()
+                    .map(|variant| match variant.as_str() {
+                        "ud" | "drud" => Ok(vec![(CubeAxis::UD, CubeAxis::FB), (CubeAxis::UD, CubeAxis::LR)]),
+                        "fb" | "drfb" => Ok(vec![(CubeAxis::FB, CubeAxis::UD), (CubeAxis::FB, CubeAxis::LR)]),
+                        "lr" | "drlr" => Ok(vec![(CubeAxis::LR, CubeAxis::UD), (CubeAxis::LR, CubeAxis::FB)]),
+
+                        "eoud" => Ok(vec![(CubeAxis::FB, CubeAxis::UD), (CubeAxis::LR, CubeAxis::UD)]),
+                        "eofb" => Ok(vec![(CubeAxis::UD, CubeAxis::FB), (CubeAxis::LR, CubeAxis::FB)]),
+                        "eolr" => Ok(vec![(CubeAxis::UD, CubeAxis::FB), (CubeAxis::FB, CubeAxis::LR)]),
+
+                        "drud-eofb" => Ok(vec![(CubeAxis::UD, CubeAxis::FB)]),
+                        "drud-eolr" => Ok(vec![(CubeAxis::UD, CubeAxis::LR)]),
+                        "drfb-eoud" => Ok(vec![(CubeAxis::FB, CubeAxis::UD)]),
+                        "drfb-eolr" => Ok(vec![(CubeAxis::FB, CubeAxis::LR)]),
+                        "drlr-eoud" => Ok(vec![(CubeAxis::LR, CubeAxis::UD)]),
+                        "drlr-eofb" => Ok(vec![(CubeAxis::LR, CubeAxis::FB)]),
+                        _ => Err(()),
+                    })
+                    .flat_map(|x|match x {
+                        Ok(x) => x.into_iter().map(|item|Ok(item)).collect(),
+                        Err(x) => vec![Err(x)],
+                    })
+                    .collect();
+                let mut axis_map = HashMap::new();
+                for (dr, eo) in axis? {
+                    let e = axis_map.entry(dr);
+                    let v = e.or_insert(vec![]);
+                    if !v.contains(&eo) {
+                        v.push(eo);
+                    }
+                }
+                defaults._d_dr_eo_axis = axis_map;
+            }
+            if let Some(subsets) = value.params.remove("subsets") {
+                defaults._e_subsets = subsets.split(",")
+                    .flat_map(expand_subset_name)
+                    .collect();
+            }
+            if !value.params.is_empty() {
+                return Err(())
+            }
+            Ok(defaults)
         }
     }
 
@@ -586,7 +652,7 @@ mod builder {
         pub fn new() -> Self {
             Self {
                 _a_max_length: 3,
-                _b_max_absolute_length: 7,
+                _b_max_absolute_length: 10,
                 _c_niss: NissSwitchType::Never,
             }
         }
@@ -601,6 +667,30 @@ mod builder {
     impl <const A: bool, const B: bool, const C: bool> Into<RZPSettings> for RZPBuilderInternal<A, B, C> {
         fn into(self) -> RZPSettings {
             self.build()
+        }
+    }
+
+    impl TryFrom<StepConfig> for RZPBuilderInternal<false, false, false> {
+        type Error = ();
+
+        fn try_from(value: StepConfig) -> Result<Self, Self::Error> {
+            if value.kind != StepKind::RZP {
+                return Err(())
+            }
+            let mut defaults = Self::default();
+            if !value.params.is_empty() {
+                return Err(())
+            }
+            if let Some(max) = value.max {
+                defaults._a_max_length = max as usize;
+            }
+            if let Some(abs_max) = value.absolute_max {
+                defaults._b_max_absolute_length = abs_max as usize;
+            }
+            if let Some(niss) = value.niss {
+                defaults._c_niss = niss;
+            }
+            Ok(defaults)
         }
     }
 }

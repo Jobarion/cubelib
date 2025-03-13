@@ -381,9 +381,9 @@ mod avx2 {
 
     #[target_feature(enable = "avx2")]
     #[inline]
-    pub(crate) unsafe fn from_bytes(bytes: [u8; 8]) -> CubeCornersOdd {
+    pub(crate) unsafe fn unsafe_from_bytes(bytes: [u8; 8]) -> CubeCornersOdd {
         CubeCornersOdd(unsafe {
-            _mm_setr_epi8( bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], 0, 0, 0, 0, 0, 0, 0,0)
+            _mm_setr_epi8(bytes[0] as i8, bytes[1] as i8, bytes[2] as i8, bytes[3] as i8, bytes[4] as i8, bytes[5] as i8, bytes[6] as i8, bytes[7] as i8, 0, 0, 0, 0, 0, 0, 0,0)
         })
     }
 

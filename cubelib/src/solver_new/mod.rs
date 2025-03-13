@@ -1,11 +1,18 @@
+use std::str::FromStr;
+use crate::algs::Algorithm;
 use crate::cube::{Cube333, Transformation333};
 use crate::defs::StepKind;
 use crate::solver::solution::Solution;
+use crate::solver_new::dr::{DRBuilder, RZPBuilder, RZPStep};
+use crate::solver_new::eo::EOBuilder;
+use crate::solver_new::finish::{FRFinishBuilder, HTRFinishBuilder};
+use crate::solver_new::fr::FRBuilder;
 use crate::solver_new::group::StepGroup;
+use crate::solver_new::htr::HTRBuilder;
 use crate::solver_new::step::{DFSParameters, MoveSet};
 use crate::solver_new::thread_util::{ToWorker, Worker};
 use crate::solver_new::util_steps::FilterDup;
-use crate::steps::step::{PostStepCheck, PreStepCheck};
+use crate::steps::step::{PostStepCheck, PreStepCheck, StepConfig};
 
 pub mod step;
 pub mod eo;
@@ -44,4 +51,51 @@ pub fn create_worker(cube: Cube333, step: StepGroup) -> (Box<dyn Worker<()> + Se
     drop(tx0);
 
     (step.to_worker(cube, rc0, tx1, vec![FilterDup::new()]), rc1)
+}
+
+pub fn build_steps(mut steps: Vec<StepConfig>) -> Result<StepGroup, String> {
+    let mut step_groups = vec![];
+    let mut previous = None;
+    steps.reverse();
+    while !steps.is_empty() {
+        let mut step = steps.pop().unwrap();
+        let mut next_prev = Some(step.kind.clone());
+        step_groups.push(match (previous, step.kind.clone()) {
+            (None, StepKind::EO) => EOBuilder::try_from(step).map_err(|_|"Failed to parse EO step")?.build(),
+            (Some(StepKind::EO), StepKind::RZP) => {
+                let mut dr = steps.pop().ok_or("Expected DR to follow RZP".to_string())?;
+                next_prev = Some(StepKind::DR);
+                let rzp_builder = RZPBuilder::try_from(step).map_err(|_|"Failed to parse RZP step")?;
+                let triggers = dr.params.remove("triggers").ok_or("Found RZP, but DR step has no triggers".to_string())?;
+                DRBuilder::try_from(dr).map_err(|_|"Failed to parse DR step")?
+                    .triggers(triggers.split(",")
+                        .map(Algorithm::from_str)
+                        .collect::<Result<_, _>>()
+                        .map_err(|_|"Unable to parse algorithm")?)
+                    .rzp(rzp_builder)
+                    .build()
+            },
+            (Some(StepKind::EO), StepKind::DR) => {
+                match step.params.remove("triggers") {
+                    None => DRBuilder::try_from(step).map_err(|_|"Failed to parse DR step")?.build(),
+                    Some(triggers) => DRBuilder::try_from(step).map_err(|_|"Failed to parse DR step")?
+                        .triggers(triggers.split(",")
+                            .map(Algorithm::from_str)
+                            .collect::<Result<_, _>>()
+                            .map_err(|_|"Unable to parse algorithm")?)
+                        .rzp(RZPStep::builder())
+                        .build()
+                }
+            },
+            (Some(StepKind::DR), StepKind::HTR) => HTRBuilder::try_from(step).map_err(|_|"Failed to parse HTR step")?.build(),
+            (Some(StepKind::HTR), StepKind::FR) | (Some(StepKind::HTR), StepKind::FRLS)  => FRBuilder::try_from(step).map_err(|_|"Failed to parse FR step")?.build(),
+            (Some(StepKind::FR), StepKind::FIN) => FRFinishBuilder::try_from(step).map_err(|_|"Failed to parse FIN step")?.build(),
+            (Some(StepKind::FRLS), StepKind::FINLS) => FRFinishBuilder::try_from(step).map_err(|_|"Failed to parse FIN step")?.build(),
+            (Some(StepKind::HTR), StepKind::FIN) | (Some(StepKind::HTR), StepKind::FINLS) => HTRFinishBuilder::try_from(step).map_err(|_|"Failed to parse FIR step")?.build(),
+            (None, x) => return Err(format!("{x:?} is not supported as a first step", )),
+            (Some(a), b) => return Err(format!("Step order {a:?} > {b:?} is not supported")),
+        });
+        previous = next_prev;
+    }
+    Ok(StepGroup::sequential(step_groups))
 }

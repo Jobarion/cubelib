@@ -15,7 +15,7 @@ use cubelib::steps::tables::PruningTables333;
 use log::{error, info};
 use simple_logger::SimpleLogger;
 use cubelib::cube::turn::ApplyAlgorithm;
-
+use cubelib::solver_new::util_steps::{FilterDup, FilterLastMoveNotPrime};
 use crate::cli::{Cli, SolutionFormat, SolveCommand, InvertCommand, SolverBackend};
 
 mod cli;
@@ -151,10 +151,11 @@ fn find_and_print_solutions_iter_stream(cube: Cube333, cmd: SolveCommand) {
 }
 
 fn find_and_print_solutions_multi_path_channel(cube: Cube333, cmd: SolveCommand) {
-    let steps = match cmd.parse_step_configs() {
+    let (steps, last_step) = match cmd.parse_step_configs() {
         Ok(step_configs) => {
+            let last = step_configs.last().unwrap().clone().kind;
             match cubelib::solver_new::build_steps(step_configs) {
-                Ok(steps) => steps,
+                Ok(steps) => (steps, last),
                 Err(e) => {
                     error!("{e}");
                     return;
@@ -170,11 +171,29 @@ fn find_and_print_solutions_multi_path_channel(cube: Cube333, cmd: SolveCommand)
     info!("Generating solutions\n");
     let time = Instant::now();
 
-    let (mut worker, rec) = cubelib::solver_new::create_worker(cube, steps);
+    let mut predicates = vec![FilterDup::new()];
+
+    let last_qt_diretion_relevant = match last_step {
+        StepKind::EO | StepKind::RZP | StepKind::DR | StepKind::HTR => false,
+        _ => true
+    };
+
+    if !cmd.all_solutions && !last_qt_diretion_relevant  {
+        predicates.push(FilterLastMoveNotPrime::new());
+    }
+
+    let (mut worker, rec) = cubelib::solver_new::create_worker_with_predicates(cube, steps, predicates);
     worker.start();
+
     let mut count = 0;
     while cmd.solution_count.is_none() || cmd.solution_count.unwrap() > count {
         if let Ok(solution) = rec.recv() {
+            if solution.len() < cmd.min {
+                continue;
+            }
+            if cmd.max.map(|max|solution.len() > max).unwrap_or(false) {
+               break
+            }
             match cmd.format {
                 SolutionFormat::Plain =>
                     println!("{}", Into::<Algorithm>::into(solution)),
@@ -190,5 +209,7 @@ fn find_and_print_solutions_multi_path_channel(cube: Cube333, cmd: SolveCommand)
     }
 
     info!("Took {}ms", time.elapsed().as_millis());
+    drop(rec);
+    worker.stop();
 }
 

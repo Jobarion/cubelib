@@ -400,7 +400,7 @@ mod avx2 {
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_from_bytes(bytes: [u8; 12]) -> CenterEdgeCube {
         CenterEdgeCube(unsafe {
-            _mm_setr_epi8( bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], 0, 0, 0, 0)
+            _mm_setr_epi8(bytes[0] as i8, bytes[1] as i8, bytes[2] as i8, bytes[3] as i8, bytes[4] as i8, bytes[5] as i8, bytes[6] as i8, bytes[7] as i8, bytes[8] as i8, bytes[9] as i8, bytes[10] as i8, bytes[11] as i8, 0, 0, 0, 0)
         })
     }
 

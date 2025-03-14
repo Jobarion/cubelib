@@ -129,9 +129,9 @@ pub mod backend {
 
         let body = serde_json::to_vec(&request).unwrap();
         let mut req = if experimental_backend {
-            Request::post("http://localhost:8049/solve_stream?backend=multi_path_channel", body)
+            Request::post("https://joba.me/cubeapi/solve_stream?backend=multi_path_channel", body)
         } else {
-            Request::post("http://localhost:8049/solve_stream?backend=iter_stream", body)
+            Request::post("https://joba.me/cubeapi/solve_stream?backend=iter_stream", body)
         };
         req.headers.insert("content-type".to_string(), "application/json".to_string());
 

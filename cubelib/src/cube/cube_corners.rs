@@ -239,12 +239,12 @@ impl CubeCornersOdd {
         unsafe { avx2::unsafe_from_bytes(bytes) }
     }
 
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    pub fn random<T: Rng>(parity: bool, rng: &mut T) -> Self {
-        let bytes = random_corners(parity, rng);
-        wasm32::from_bytes(bytes)
-    }
+    // #[inline]
+    // #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    // pub fn random<T: Rng>(parity: bool, rng: &mut T) -> Self {
+    //     let bytes = random_corners(parity, rng);
+    //     wasm32::from_bytes(bytes)
+    // }
 
     #[inline]
     #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
@@ -254,6 +254,7 @@ impl CubeCornersOdd {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn random_corners<T: Rng>(parity: bool, rng: &mut T) -> [u8; 8] {
     let mut corner_bytes: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
     let mut orientation_parity = 0;
@@ -264,12 +265,12 @@ fn random_corners<T: Rng>(parity: bool, rng: &mut T) -> [u8; 8] {
     }
 
     for i in 0..6 {
-        let swap_index = rng.gen_range(i..8);
+        let swap_index = rng.random_range(i..8);
         if swap_index != i {
             corner_bytes.swap(i, swap_index);
             swap_parity = !swap_parity;
         }
-        let orientation = rng.gen_range(0..3);
+        let orientation = rng.random_range(0..3);
         orientation_parity = (orientation_parity + orientation) % 3;
         corner_bytes[i] = get_bytes(corner_bytes[i], orientation);
     }
@@ -277,7 +278,7 @@ fn random_corners<T: Rng>(parity: bool, rng: &mut T) -> [u8; 8] {
     if swap_parity != parity {
         corner_bytes.swap(6, 7);
     }
-    let orientation = rng.gen_range(0..3);
+    let orientation = rng.random_range(0..3);
     orientation_parity = (orientation_parity + orientation) % 3;
     corner_bytes[6] = get_bytes(corner_bytes[6], orientation);
     // Last orientation determined by parity

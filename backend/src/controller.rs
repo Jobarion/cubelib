@@ -1,17 +1,22 @@
 use std::collections::hash_map::DefaultHasher;
+use std::convert::Infallible;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::sync::Arc;
+use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 use actix_web::{HttpResponse, post, Responder, web, HttpRequest};
+use actix_web::web::Query;
 use actix_web_lab::body;
+use actix_web_lab::body::Sender;
 use cubelib::algs::Algorithm;
 use cubelib::cube::*;
 use cubelib::cube::turn::{ApplyAlgorithm, TransformableMut};
 use cubelib::defs::StepKind;
 use cubelib::solver::df_search::CancelToken;
 use cubelib::solver::solution::Solution;
+use cubelib::solver_new::{build_steps, create_worker, TryRecvError};
 use cubelib::steps::coord::Coord;
 use cubelib::steps::dr::coords::DRUDEOFBCoord;
 use cubelib::steps::htr::coords::HTRDRUDCoord;
@@ -21,10 +26,25 @@ use cubelib::steps::step::StepConfig;
 use cubelib::steps::tables::PruningTables333;
 use cubelib_interface::{SolverRequest, SolverResponse};
 use log::{debug, error, info, trace};
+use serde::Deserialize;
 use crate::{AppData, db};
 
+#[derive(Clone, Default, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SolverBackend {
+    #[default]
+    IterStream,
+    MultiPathChannel,
+}
+
+#[derive(Deserialize)]
+pub struct SolveStreamParameters {
+    #[serde(default)]
+    backend: SolverBackend,
+}
+
 #[post("/solve_stream")]
-pub async fn solve_stream(req: HttpRequest, steps: web::Json<SolverRequest>, app_data: web::Data<AppData>) -> impl Responder {
+pub async fn solve_stream(req: HttpRequest, steps: web::Json<SolverRequest>, app_data: web::Data<AppData>, params: Query<SolveStreamParameters>) -> impl Responder {
     let mut hasher = DefaultHasher::new();
     let peer = req.peer_addr().unwrap();
     peer.ip().to_string().hash(&mut hasher);
@@ -53,15 +73,17 @@ pub async fn solve_stream(req: HttpRequest, steps: web::Json<SolverRequest>, app
         }
     }
 
-    info!("Streaming solve request for {scramble}");
+    info!("Streaming solve request for {scramble} using backend {:?}", params.backend);
 
     let mut cube = Cube333::default();
     cube.apply_alg(&scramble);
 
     let cancel_token = Arc::new(CancelToken::default());
-    let solutions = solve_steps_quality_doubling(cube, steps.clone(), app_data.pruning_tables.clone(), cancel_token.clone())
-        .map(|s| Some(SolverResponse { solution: Some(s), done: false }));
 
+    let solutions: Box<dyn Iterator<Item = Solution> + Send> = match params.backend {
+        SolverBackend::IterStream => Box::new(solve_steps_quality_doubling(cube, steps.clone(), app_data.pruning_tables.clone(), cancel_token.clone())),
+        SolverBackend::MultiPathChannel => Box::new(solve_steps_quality_doubling_mpc(cube, steps.clone(), cancel_token.clone())),
+    };
 
     let (mut body_tx, body) = body::channel::<std::convert::Infallible>();
 
@@ -79,11 +101,19 @@ pub async fn solve_stream(req: HttpRequest, steps: web::Json<SolverRequest>, app
                 }
             }
         });
-        for sol in solutions {
+        let mut previous_length = usize::MAX;
+        for mut sol in solutions {
             if cancel_token.is_cancelled() {
                 break;
             }
-            let data = web::Bytes::from(serde_json::to_string(&sol).unwrap());
+            if sol.len() < previous_length {
+                previous_length = sol.len();
+            } else {
+                continue;
+            }
+            add_comments(cube.clone(), &mut sol, app_data.pruning_tables.as_ref());
+            let resp = SolverResponse { solution: Some(sol), done: false };
+            let data = web::Bytes::from(serde_json::to_string(&resp).unwrap());
             if let Err(_) = body_tx.send(data) {
                 break;
             }
@@ -105,8 +135,29 @@ pub async fn solve_stream(req: HttpRequest, steps: web::Json<SolverRequest>, app
     HttpResponse::Ok().body(body)
 }
 
+fn add_comments(mut cube: Cube333, solution: &mut Solution, tables: &PruningTables333) {
+    for step in solution.steps.iter_mut() {
+        cube.apply_alg(&step.alg);
+        match step.kind {
+            StepKind::DR => {
+                let mut cube = cube.clone();
+                for _ in 0..3 {
+                    if DRUDEOFBCoord::from(&cube).val() == 0 {
+                        break;
+                    }
+                    cube.transform(Transformation333::X);
+                    cube.transform(Transformation333::Z);
+                }
+                let subset_id = tables.htr_subset().unwrap().get(HTRDRUDCoord::from(&cube));
+                let subset = &DR_SUBSETS[subset_id as usize];
+                step.comment = subset.to_string();
+            },
+            _ => {}
+        }
+    }
+}
+
 pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>, tables: Arc<PruningTables333>, cancel_token: Arc<CancelToken>) -> impl Iterator<Item = Solution> {
-    let mut prev_len: Option<usize> = None;
     let t1 = tables.clone();
     (5..20usize).into_iter()
         .map(|q| 2u32.pow(q as u32) as usize)
@@ -121,44 +172,41 @@ pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>,
             let best = cubelib::solver::solve_steps(puzzle, &steps, cancel_token.as_ref()).next();
             best
         })
-        .filter(move |sol| {
-            match prev_len {
-                Some(p) => {
-                    if sol.len() < p {
-                        prev_len = Some(sol.len());
-                        true
-                    } else {
-                        false
-                    }
-                },
-                None => {
-                    prev_len = Some(sol.len());
-                    true
-                }
+}
+
+
+pub fn solve_steps_quality_doubling_mpc<'a>(puzzle: Cube333, steps: Vec<StepConfig>, cancel_token: Arc<CancelToken>) -> impl Iterator<Item = Solution> {
+    (5..20usize).into_iter()
+        .map(|q| 2u32.pow(q as u32) as usize)
+        .flat_map(move |quality| {
+            if cancel_token.is_cancelled() {
+                return None;
             }
-        })
-        // Add comments
-        .map(move |mut sol|{
-            let mut cube = puzzle.clone();
-            for step in sol.steps.iter_mut() {
-                cube.apply_alg(&step.alg);
-                match step.kind {
-                    StepKind::DR => {
-                        let mut cube = cube.clone();
-                        for _ in 0..3 {
-                            if DRUDEOFBCoord::from(&cube).val() == 0 {
-                                break;
-                            }
-                            cube.transform(Transformation333::X);
-                            cube.transform(Transformation333::Z);
-                        }
-                        let subset_id = tables.as_ref().clone().htr_subset().unwrap().get(HTRDRUDCoord::from(&cube));
-                        let subset = &DR_SUBSETS[subset_id as usize];
-                        step.comment = subset.to_string();
+            let steps = steps.clone();
+            let mut steps = cubelib::solver_new::build_steps(steps).unwrap();
+            steps.apply_step_limit(quality);
+            let (mut worker, rc) = create_worker(puzzle, steps);
+            worker.start();
+            while !cancel_token.is_cancelled() {
+                match rc.try_recv() {
+                    Ok(sol) => {
+                        drop(rc);
+                        worker.stop();
+                        return Some(sol)
                     },
-                    _ => {}
-                }
+                    Err(TryRecvError::Disconnected) => {
+                        drop(rc);
+                        worker.stop();
+                        return None
+                    },
+                    Err(_) => {
+                        thread::sleep(Duration::from_millis(50));
+                        continue;
+                    },
+                };
             }
-            sol
+            drop(rc);
+            worker.stop();
+            None
         })
 }

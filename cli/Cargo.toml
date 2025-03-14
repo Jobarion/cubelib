@@ -12,13 +12,13 @@ regex = "1.9.5"
 cubelib = { path = "../cubelib", features = ["serde_support", "fs"]}
 serde = { version = "^1.0.188", features = ["derive"] }
 
-rand = "0.9.0-alpha.1"
+rand = "0.9.0"
 
 [dev-dependencies]
 csv = "1.3.0"
 
 [features]
-default = ["finish"]
+default = ["finish", "cubelib/multi-path-channel-solver"]
 eo = ["cubelib/333eo"]
 dr = ["eo", "cubelib/333dr"]
 htr = ["dr", "cubelib/333htr"]

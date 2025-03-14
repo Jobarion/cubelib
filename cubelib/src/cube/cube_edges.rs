@@ -234,12 +234,12 @@ impl CenterEdgeCube {
         unsafe { avx2::unsafe_from_bytes(bytes) }
     }
 
-    #[inline]
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    pub fn random<T: Rng>(parity: bool, rng: &mut T) -> Self {
-        let bytes = random_edges(parity, rng);
-        wasm32::from_bytes(bytes)
-    }
+    // #[inline]
+    // #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
+    // pub fn random<T: Rng>(parity: bool, rng: &mut T) -> Self {
+    //     let bytes = random_edges(parity, rng);
+    //     wasm32::from_bytes(bytes)
+    // }
 
     #[inline]
     #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
@@ -250,6 +250,7 @@ impl CenterEdgeCube {
 
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn random_edges<T: Rng>(parity: bool, rng: &mut T) -> [u8; 12] {
     let mut edge_bytes: [u8; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
     let mut orientation_parity = false;
@@ -271,12 +272,12 @@ fn random_edges<T: Rng>(parity: bool, rng: &mut T) -> [u8; 12] {
     }
 
     for i in 0..10 {
-        let swap_index = rng.gen_range(i..12);
+        let swap_index = rng.random_range(i..12);
         if swap_index != i {
             edge_bytes.swap(i, swap_index);
             swap_parity = !swap_parity;
         }
-        let flipped = if rng.gen_bool(0.5) {
+        let flipped = if rng.random_bool(0.5) {
             orientation_parity = !orientation_parity;
             true
         } else { false };
@@ -287,7 +288,7 @@ fn random_edges<T: Rng>(parity: bool, rng: &mut T) -> [u8; 12] {
     if swap_parity != parity {
         edge_bytes.swap(10, 11);
     }
-    let flipped = if rng.gen_bool(0.5) {
+    let flipped = if rng.random_bool(0.5) {
         orientation_parity = !orientation_parity;
         true
     } else { false };

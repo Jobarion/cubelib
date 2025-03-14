@@ -14,4 +14,5 @@ pub mod solver;
 #[cfg(target_arch = "wasm32")]
 mod wasm_util;
 pub mod cube;
+#[cfg(feature = "multi-path-channel-solver")]
 pub mod solver_new;

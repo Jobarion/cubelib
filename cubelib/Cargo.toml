@@ -8,7 +8,7 @@ itertools = "0.14.0"
 log = { version = "0.4.20", features = ["max_level_trace", "release_max_level_trace"] }
 simple_logger = "5.0.0"
 serde = { version = "^1.0.188", optional = true, features = ["derive"] }
-rand = "0.9.0-alpha.1"
+rand = "0.9.0"
 num-traits = "0.2"
 num-derive = "0.4"
 home = { version = "0.5.9", optional = true }
@@ -20,8 +20,9 @@ crossbeam = { version = "0.8.4", features = ["crossbeam-channel"] }
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["333finish"]
+default = ["333finish", "solver"]
 solver = []
+multi-path-channel-solver = ["solver", "333finish"]
 
 333eo = ["solver"]
 333dr = ["333eo"]

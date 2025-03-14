@@ -429,7 +429,7 @@ pub fn DRSubsetSelection() -> impl IntoView {
 
     let expanded_subset: Signal<Vec<String>> = Signal::derive(move|| expand_subset_name(cur_subset.get().as_str())
         .into_iter()
-        .map(|(s, _)|s.to_string())
+        .map(|s|s.to_string())
         .collect()
     );
 

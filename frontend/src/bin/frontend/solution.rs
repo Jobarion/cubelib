@@ -51,6 +51,7 @@ pub mod backend {
         let fin = use_context::<FinishConfig>().expect("Finish context required");
         let settings = use_context::<SettingsState>().expect("Settings required");
 
+        let settings1 = settings.clone();
         let req_signal = Signal::derive(move||{
             if let Some(alg) = scramble.get() {
                 let steps = get_step_configs(eo.clone(), rzp.clone(), dr.clone(), htr.clone(), fr.clone(), fin.clone(), &settings);
@@ -70,13 +71,13 @@ pub mod backend {
             }
         });
 
-        let prev_req = create_rw_signal::<Option<Option<SolverRequest>>>(None);
+        let prev_req = create_rw_signal::<Option<(Option<SolverRequest>, bool)>>(None);
 
         let solution_data = create_rw_signal(SolutionState::NotFetched);
         let is_done_data = create_rw_signal(true);
         let req_id = create_rw_signal(0usize);
 
-        let _ = watch_debounced_with_options(move || req_signal.get(), move |req, _, _| {
+        let _ = watch_debounced_with_options(move || (req_signal.get(), settings1.experimental_backend().get()), move |req, _, _| {
             let req = req.clone();
             //watch_debounced previous is buggy so we do this
             if let Some(prev) = prev_req.get() {
@@ -85,7 +86,7 @@ pub mod backend {
                 }
             }
             prev_req.set(Some(req.clone()));
-            if let Some(req) = req {
+            if let (Some(req), backend) = req {
                 req_id.update(|x| *x = *x + 1);
                 if req.scramble.is_empty() {
                     solution_data.set(SolutionState::NotFetched);
@@ -93,7 +94,7 @@ pub mod backend {
                 }
                 solution_data.set(SolutionState::Requested);
                 is_done_data.set(false);
-                fetch_solution(req.clone(), req_id.get(), solution_data, is_done_data, req_id);
+                fetch_solution(req.clone(), req_id.get(), solution_data, is_done_data, req_id, backend);
             }
         }, 1000f64, WatchDebouncedOptions::default().immediate(true));
 
@@ -123,11 +124,15 @@ pub mod backend {
         }
     }
 
-    fn fetch_solution(request: SolverRequest, id: usize, solution_callback: RwSignal<SolutionState>, done_callback: RwSignal<bool>, cur_id: RwSignal<usize>) {
+    fn fetch_solution(request: SolverRequest, id: usize, solution_callback: RwSignal<SolutionState>, done_callback: RwSignal<bool>, cur_id: RwSignal<usize>, experimental_backend: bool) {
         let current_bytes = RefCell::<Vec<u8>>::new(vec![]);
 
         let body = serde_json::to_vec(&request).unwrap();
-        let mut req = Request::post("https://joba.me/cubeapi/solve_stream", body);
+        let mut req = if experimental_backend {
+            Request::post("http://localhost:8049/solve_stream?backend=multi_path_channel", body)
+        } else {
+            Request::post("http://localhost:8049/solve_stream?backend=iter_stream", body)
+        };
         req.headers.insert("content-type".to_string(), "application/json".to_string());
 
         ehttp::streaming::fetch(req, move |res: ehttp::Result<ehttp::streaming::Part>| {

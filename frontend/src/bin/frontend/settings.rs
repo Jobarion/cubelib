@@ -10,6 +10,7 @@ use crate::util::use_local_storage;
 #[derive(Clone)]
 pub struct SettingsState {
     advanced: RwSignalTup<bool>,
+    experimental_backend: RwSignalTup<bool>,
     relative_step_length: RwSignalTup<bool>,
     additional_triggers: RwSignalTup<Vec<Algorithm>>
 }
@@ -31,6 +32,14 @@ impl SettingsState {
         self.relative_step_length.0
     }
 
+    pub fn is_experimental_backend(&self) -> bool {
+        self.experimental_backend.0.get()
+    }
+
+    pub fn experimental_backend(&self) -> Signal<bool> {
+        self.experimental_backend.0
+    }
+
     pub fn additional_triggers(&self) -> Signal<Vec<String>> {
         let triggers = self.additional_triggers.0.clone();
         Signal::derive(move||triggers.get()
@@ -45,11 +54,13 @@ impl SettingsState {
     pub fn from_local_storage() -> Self {
         let advanced = use_local_storage("settings-advanced", false);
         let rel_step_len = use_local_storage("settings-rel-step-len", true);
+        let experimental_backend = use_local_storage("settings-experimental-backend", false);
         let additional_triggers = use_local_storage("settings-additional-triggers", Vec::<Algorithm>::new());
         Self {
             advanced,
             relative_step_length: rel_step_len,
             additional_triggers,
+            experimental_backend,
         }
     }
 }
@@ -111,6 +122,14 @@ pub fn SettingsComponent(active: ReadSignal<bool>, set_active: WriteSignal<bool>
                     <Toggle
                         state=settings.relative_step_length.0
                         set_state=settings.relative_step_length.1
+                    />
+                </SettingsOptionSmall>
+                <SettingsOptionSmall
+                    label="Experimental solver backend:"
+                    description="Mallard has two solver implementations. This allows switching to the newer one which is faster and more capable, but may have unknown bugs.">
+                    <Toggle
+                        state=settings.experimental_backend.0
+                        set_state=settings.experimental_backend.1
                     />
                 </SettingsOptionSmall>
                 <div>

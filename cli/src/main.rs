@@ -151,7 +151,7 @@ fn find_and_print_solutions_iter_stream(cube: Cube333, cmd: SolveCommand) {
 }
 
 fn find_and_print_solutions_multi_path_channel(cube: Cube333, cmd: SolveCommand) {
-    let (steps, last_step) = match cmd.parse_step_configs() {
+    let (mut steps, last_step) = match cmd.parse_step_configs() {
         Ok(step_configs) => {
             let last = step_configs.last().unwrap().clone().kind;
             match cubelib::solver_new::build_steps(step_configs) {
@@ -182,29 +182,36 @@ fn find_and_print_solutions_multi_path_channel(cube: Cube333, cmd: SolveCommand)
         predicates.push(FilterLastMoveNotPrime::new());
     }
 
+    if cmd.quality > 0 {
+        steps.apply_step_limit(cmd.quality);
+    }
+
     let (mut worker, rec) = cubelib::solver_new::create_worker_with_predicates(cube, steps, predicates);
     worker.start();
 
     let mut count = 0;
     while cmd.solution_count.is_none() || cmd.solution_count.unwrap() > count {
-        if let Ok(solution) = rec.recv() {
-            if solution.len() < cmd.min {
-                continue;
-            }
-            if cmd.max.map(|max|solution.len() > max).unwrap_or(false) {
-               break
-            }
-            match cmd.format {
-                SolutionFormat::Plain =>
-                    println!("{}", Into::<Algorithm>::into(solution)),
-                SolutionFormat::Compact => {
-                    let alg = Into::<Algorithm>::into(solution);
-                    println!("{alg} ({})", alg.len());
+        match rec.recv() {
+            Ok(solution) => {
+                if solution.len() < cmd.min {
+                    continue;
                 }
-                SolutionFormat::Detailed =>
-                    println!("{}", solution)
-            }
-            count += 1;
+                if cmd.max.map(|max|solution.len() > max).unwrap_or(false) {
+                    break
+                }
+                match cmd.format {
+                    SolutionFormat::Plain =>
+                        println!("{}", Into::<Algorithm>::into(solution)),
+                    SolutionFormat::Compact => {
+                        let alg = Into::<Algorithm>::into(solution);
+                        println!("{alg} ({})", alg.len());
+                    }
+                    SolutionFormat::Detailed =>
+                        println!("{}", solution)
+                }
+                count += 1;
+            },
+            Err(_) => break
         }
     }
 

@@ -550,7 +550,7 @@ mod builder {
             }
             if let Some(variants) = value.substeps {
                 let axis: Result<Vec<(CubeAxis, CubeAxis)>, Self::Error> = variants.into_iter()
-                    .map(|variant| match variant.as_str() {
+                    .map(|variant| match variant.to_lowercase().as_str() {
                         "ud" | "drud" => Ok(vec![(CubeAxis::UD, CubeAxis::FB), (CubeAxis::UD, CubeAxis::LR)]),
                         "fb" | "drfb" => Ok(vec![(CubeAxis::FB, CubeAxis::UD), (CubeAxis::FB, CubeAxis::LR)]),
                         "lr" | "drlr" => Ok(vec![(CubeAxis::LR, CubeAxis::UD), (CubeAxis::LR, CubeAxis::FB)]),

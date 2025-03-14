@@ -192,7 +192,7 @@ pub mod builder {
             }
             if let Some(variants) = value.substeps {
                 let axis: Result<Vec<CubeAxis>, Self::Error> = variants.into_iter()
-                    .map(|variant| match variant.as_str() {
+                    .map(|variant| match variant.to_lowercase().as_str() {
                         "eoud" | "ud" => Ok(CubeAxis::UD),
                         "eofb" | "fb" => Ok(CubeAxis::FB),
                         "eolr" | "lr" => Ok(CubeAxis::LR),

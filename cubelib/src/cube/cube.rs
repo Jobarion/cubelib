@@ -1,6 +1,5 @@
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
-use rand::Rng;
 
 use crate::cube::{CornerCube333, EdgeCube333, Transformation333, Turn333};
 use crate::cube::cube::CornerPosition::*;
@@ -33,7 +32,7 @@ impl Cube333 {
         Cube333 { edges, corners }
     }
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn random<T: Rng>(rng: &mut T) -> Cube333 {
+    pub fn random<T: rand::Rng>(rng: &mut T) -> Cube333 {
         let parity = rng.random_bool(0.5);
         Cube333 {
             edges: EdgeCube333::random(parity, rng),

@@ -1,5 +1,3 @@
-use rand::Rng;
-
 use crate::cube::Corner;
 use crate::cube::turn::{CubeOuterTurn, CubeTransformation, InvertibleMut, TransformableMut, TurnableMut};
 
@@ -234,7 +232,7 @@ impl Default for CubeCornersOdd {
 impl CubeCornersOdd {
     #[inline]
     #[cfg(target_feature = "avx2")]
-    pub fn random<T: Rng>(parity: bool, rng: &mut T) -> Self {
+    pub fn random<T: rand::Rng>(parity: bool, rng: &mut T) -> Self {
         let bytes = random_corners(parity, rng);
         unsafe { avx2::unsafe_from_bytes(bytes) }
     }
@@ -248,14 +246,14 @@ impl CubeCornersOdd {
 
     #[inline]
     #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
-    pub fn random<T: Rng>(parity: bool, rng: &mut T) -> Self {
+    pub fn random<T: rand::Rng>(parity: bool, rng: &mut T) -> Self {
         let bytes = random_corners(parity, rng);
         unsafe { neon::unsafe_from_bytes(bytes) }
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn random_corners<T: Rng>(parity: bool, rng: &mut T) -> [u8; 8] {
+fn random_corners<T: rand::Rng>(parity: bool, rng: &mut T) -> [u8; 8] {
     let mut corner_bytes: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
     let mut orientation_parity = 0;
     let mut swap_parity = false;

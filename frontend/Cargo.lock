@@ -348,8 +348,9 @@ checksum = "1a7964611d71df112cb1730f2ee67324fcf4d0fc6606acbbe9bfe06df124637c"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
+ "js-sys",
  "num-traits",
- "serde",
+ "wasm-bindgen",
  "windows-link",
 ]
 
@@ -727,6 +728,7 @@ name = "frontend"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "chrono",
  "console_error_panic_hook",
  "cubelib",
  "cubelib-interface",
@@ -3377,6 +3379,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e38bc4d79ed67fd075bcc251a1c39b32a1776bbe92e5bef1f0bf1f8c531853b"
 dependencies = [
  "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]

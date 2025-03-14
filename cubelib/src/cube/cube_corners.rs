@@ -243,7 +243,7 @@ impl CubeCornersOdd {
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     pub fn random<T: Rng>(parity: bool, rng: &mut T) -> Self {
         let bytes = random_corners(parity, rng);
-        wasm32a::from_bytes(bytes)
+        wasm32::from_bytes(bytes)
     }
 
     #[inline]
@@ -796,7 +796,7 @@ mod wasm32 {
 
     #[inline]
     pub(crate) fn from_bytes(bytes: [u8; 8]) -> CubeCornersOdd {
-        u8x16(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], 0, 0, 0, 0, 0, 0, 0, 0)
+        CubeCornersOdd(u8x16(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], 0, 0, 0, 0, 0, 0, 0, 0))
     }
 
     #[inline]

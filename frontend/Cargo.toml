@@ -23,7 +23,7 @@ console_error_panic_hook = "0.1.7"
 serde = { version = "1.0.190", features = ["derive"] }
 
 cubelib = { path = "../cubelib", features = ["solver", "serde_support"], default-features = false }
-
+chrono = { version = "0.4.40", default-features = false, features = ["wasmbind", "js-sys", "clock"] }
 
 # Backend
 cubelib-interface = { path = "../interface", optional = true }

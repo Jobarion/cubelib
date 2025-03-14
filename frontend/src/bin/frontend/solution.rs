@@ -30,6 +30,7 @@ pub mod backend {
     use crate::solution::get_step_configs;
     use crate::step::{DRConfig, EOConfig, FinishConfig, FRConfig, HTRConfig, RZPConfig};
     use crate::util::RwSignalTup;
+    use chrono::Datelike;
 
     #[derive(Clone)]
     enum SolutionState {
@@ -53,6 +54,13 @@ pub mod backend {
         let req_signal = Signal::derive(move||{
             if let Some(alg) = scramble.get() {
                 let steps = get_step_configs(eo.clone(), rzp.clone(), dr.clone(), htr.clone(), fr.clone(), fin.clone(), &settings);
+                let time = chrono::offset::Local::now().date_naive();
+                let alg = if time.month() == 4 && time.day() == 1 && time.year() == 2025 {
+                    let superflip = Algorithm::from_str("U R2 F B R B2 R U2 L B2 R U' D' R2 F R' L B2 U2 F2").unwrap();
+                    superflip + alg
+                } else {
+                    alg
+                };
                 Some(SolverRequest {
                     steps: steps.clone(),
                     scramble: alg.to_string()

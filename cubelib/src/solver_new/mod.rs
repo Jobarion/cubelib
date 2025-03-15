@@ -82,13 +82,18 @@ pub fn build_steps(mut steps: Vec<StepConfig>) -> Result<StepGroup, String> {
             (Some(StepKind::EO), StepKind::DR) => {
                 match step.params.remove("triggers") {
                     None => DRBuilder::try_from(step).map_err(|_|"Failed to parse DR step")?.build(),
-                    Some(triggers) => DRBuilder::try_from(step).map_err(|_|"Failed to parse DR step")?
-                        .triggers(triggers.split(",")
-                            .map(Algorithm::from_str)
-                            .collect::<Result<_, _>>()
-                            .map_err(|_|"Unable to parse algorithm")?)
-                        .rzp(RZPStep::builder())
-                        .build()
+                    Some(triggers) => {
+                        let rzp = RZPStep::builder()
+                            .max_length(step.max.unwrap_or(3).min(3) as usize)
+                            .max_absolute_length(step.absolute_max.unwrap_or(6).min(6) as usize);
+                        DRBuilder::try_from(step).map_err(|_|"Failed to parse DR step")?
+                            .triggers(triggers.split(",")
+                                .map(Algorithm::from_str)
+                                .collect::<Result<_, _>>()
+                                .map_err(|_|"Unable to parse algorithm")?)
+                            .rzp(rzp)
+                            .build()
+                    }
                 }
             },
             (Some(StepKind::DR), StepKind::HTR) => HTRBuilder::try_from(step).map_err(|_|"Failed to parse HTR step")?.build(),

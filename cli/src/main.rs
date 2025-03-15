@@ -37,7 +37,7 @@ fn main() {
 }
 
 fn scramble() {
-    let cube = Cube333::random(&mut rand::thread_rng());
+    let cube = Cube333::random(&mut rand::rng());
 
     let cmd = SolveCommand {
         format: SolutionFormat::Plain,
@@ -190,7 +190,12 @@ fn find_and_print_solutions_multi_path_channel(cube: Cube333, cmd: SolveCommand)
     worker.start();
 
     let mut count = 0;
-    while cmd.solution_count.is_none() || cmd.solution_count.unwrap() > count {
+    let max_length = cmd.solution_count.or(if cmd.max.is_some() {
+        None
+    } else {
+        Some(1)
+    });
+    while max_length.is_none() || max_length.unwrap() > count {
         match rec.recv() {
             Ok(solution) => {
                 if solution.len() < cmd.min {

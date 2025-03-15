@@ -23,18 +23,24 @@ fn run_length_tests() {
     for result in reader.deserialize() {
         let record: LengthTestCase = result.expect("A CSV record");
         println!("Testing {} {} {}", record.scramble, record.config, record.length);
-        run_length_test(&record);
+        run_length_test(&record, "iter-stream");
+        run_length_test(&record, "multi-path-channel");
     }
 }
 
-fn run_length_test(test: &LengthTestCase) {
+fn run_length_test(test: &LengthTestCase, backend: &str) {
     let mut path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     path.push("target/release/cubelib-cli.exe");
-    let output = Command::new(path)
+    let output = Command::new(path.clone())
+        .args(["--log", "error"])
+        .arg("solve")
         .arg("--steps")
         .arg(test.config.as_str())
-        .arg("--compact")
-        .arg("--quiet")
+        .args(["--format", "compact"])
+        .args(["--backend", backend])
+        .args(["--quality", "0"])
+        .args(["-n", "1"])
+        .arg("--")
         .arg(test.scramble.as_str())
         .output()
         .expect("Failed to execute command");

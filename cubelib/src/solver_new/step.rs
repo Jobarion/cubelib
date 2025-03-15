@@ -287,7 +287,9 @@ impl StepIORunner {
         if self.step.heuristic(&cube, niss_type != NissSwitchType::Never, depth) == 0 {
             //Only return a solution if we are allowed to return zero length solutions
             if depth == 0 {
-                self.submit_solution(input, Algorithm::new())?;
+                if self.step.is_solution_admissible(&cube, &alg) {
+                    self.submit_solution(input, Algorithm::new())?;
+                }
             }
             return Ok(());
         }

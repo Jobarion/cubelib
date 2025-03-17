@@ -48,7 +48,7 @@ fn scramble() {
         niss: false,
         solution_count: Some(1),
         quality: 100,
-        steps: "EO[max=6] > DR > HTR > Finish".to_string(),
+        steps: "EO[max=7] > DR > HTR".to_string(),
         scramble: "".to_string(),
         backend: SolverBackend::IterStream,
     };

@@ -293,7 +293,7 @@ fn random_edges<T: rand::Rng>(parity: bool, rng: &mut T) -> [u8; 12] {
     } else { false };
     edge_bytes[10] = get_bytes(10, edge_bytes[10], flipped);
     // Last orientation determined by parity
-    edge_bytes[11] = get_bytes(11, edge_bytes[11], !orientation_parity);
+    edge_bytes[11] = get_bytes(11, edge_bytes[11], orientation_parity);
     edge_bytes
 }
 

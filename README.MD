@@ -165,7 +165,7 @@ cubelib invert <scramble>
 
 ## APIs
 There is no API documentation yet. If you're interested in actually using this project please let me know by creating an issue.
-For the most common use cases examples can be found in the [examples](/examples) directory.
+For the most common use cases examples can be found in the [examples](/cubelib/examples) directory.
 
 ## Future work
  - Support directly finishing from HTR or solving DRs without first doing EO.

@@ -119,7 +119,7 @@ impl SolveCommand {
                         return Err(format!("Invalid step name {}", step));
                     }
                     return Ok(StepConfig {
-                        kind: StepKind::from_str(step)?,
+                        kind: StepKind::from_str(step).unwrap(),
                         substeps: None,
                         min: None,
                         max: None,
@@ -137,7 +137,7 @@ impl SolveCommand {
                     let param_start = param_start.unwrap();
                     let name = &step[0..param_start];
                     let mut step_prototype = StepConfig {
-                        kind: StepKind::from_str(name)?,
+                        kind: StepKind::from_str(name).unwrap(),
                         substeps: None,
                         min: None,
                         max: None,

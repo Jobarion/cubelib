@@ -22,7 +22,7 @@ rand = { version = "0.9.0" }
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["333finish", "solver"]
+default = ["333finish", "solver", "multi-path-channel-solver"]
 solver = []
 multi-path-channel-solver = ["solver", "333finish"]
 

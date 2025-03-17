@@ -23,7 +23,7 @@ impl Display for StepKind {
 }
 
 impl FromStr for StepKind {
-    type Err = String;
+    type Err = std::convert::Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {

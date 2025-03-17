@@ -3,8 +3,97 @@ use std::thread::JoinHandle;
 
 use crate::cube::Cube333;
 use crate::solver::solution::Solution;
-use crate::solver_new::{Receiver, Sender, SendError};
+use crate::solver_new::{bounded_channel, Receiver, Sender, SendError, TryRecvError};
 use crate::solver_new::group::StepPredicate;
+use crate::solver_new::util_steps::FilterDup;
+
+pub struct SolverWorker {
+    worker: Box<dyn Worker<()> + Send>,
+    receiver: Receiver<Solution>,
+    state: WorkerState,
+}
+
+impl SolverWorker {
+    pub fn new<T: Into<Box<dyn ToWorker + Send + 'static>>>(worker: T, cube: Cube333) -> Self {
+        Self::new_with_predicates(worker, cube, vec![])
+    }
+
+    pub fn new_with_predicates<T: Into<Box<dyn ToWorker + Send + 'static>>>(worker: T, cube: Cube333, mut pred: Vec<Box<dyn StepPredicate>>) -> Self {
+        let (tx0, rc0) = bounded_channel(1);
+        let (tx1, rc1) = bounded_channel(1);
+
+        tx0.send(Solution::new()).unwrap();
+        drop(tx0);
+        pred.push(FilterDup::new()); // It might be there already, but it's cheap enough, so we don't care
+
+        Self {
+            worker: worker.into().to_worker_box(cube, rc0, tx1, pred),
+            receiver: rc1,
+            state: WorkerState::Initialized,
+        }
+    }
+
+    pub fn try_next(&mut self) -> Result<Solution, TryRecvError> {
+        match self.state {
+            WorkerState::Initialized => {
+                self.worker.start();
+                self.state = WorkerState::Running;
+            },
+            WorkerState::Running => {}
+            WorkerState::Finished => return Err(TryRecvError::Disconnected),
+        }
+
+        match self.receiver.try_recv() {
+            Ok(s) => Ok(s),
+            Err(TryRecvError::Empty) => Err(TryRecvError::Empty),
+            Err(e) => {
+                self.state = WorkerState::Finished;
+                Err(e)
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+enum WorkerState {
+    Initialized,
+    Running,
+    Finished,
+}
+
+impl Iterator for SolverWorker {
+    type Item = Solution;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.state {
+            WorkerState::Initialized => {
+                self.worker.start();
+                self.state = WorkerState::Running;
+            },
+            WorkerState::Running => {}
+            WorkerState::Finished => return None,
+        }
+        match self.receiver.recv() {
+            Ok(s) => Some(s),
+            Err(_) => {
+                self.state = WorkerState::Finished;
+                None
+            }
+        }
+    }
+}
+
+impl Drop for SolverWorker {
+    fn drop(&mut self) {
+        let (_, mut rc) = bounded_channel(1);
+        mem::swap(&mut self.receiver, &mut rc);
+        drop(rc);
+        self.state = WorkerState::Finished;
+        if let Some(join_handle) = self.worker.stop() {
+            join_handle.join().unwrap();
+        }
+    }
+}
 
 pub enum ThreadState<O> {
     None,

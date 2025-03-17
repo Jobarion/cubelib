@@ -4,21 +4,22 @@ use std::time::Instant;
 use clap::Parser;
 use cubelib::algs::Algorithm;
 use cubelib::cube::*;
+use cubelib::cube::turn::ApplyAlgorithm;
 use cubelib::cube::turn::InvertibleMut;
 use cubelib::defs::StepKind;
-
-use cubelib::solver::stream;
 use cubelib::solver::df_search::CancelToken;
 use cubelib::solver::solution::Solution;
+use cubelib::solver::stream;
+use cubelib::solver_new::util_steps::FilterLastMoveNotPrime;
 use cubelib::steps::{eo, solver};
 use cubelib::steps::tables::PruningTables333;
 use log::{error, info};
 use simple_logger::SimpleLogger;
-use cubelib::cube::turn::ApplyAlgorithm;
-use cubelib::solver_new::util_steps::{FilterDup, FilterLastMoveNotPrime};
-use crate::cli::{Cli, SolutionFormat, SolveCommand, InvertCommand, SolverBackend};
+
+use crate::cli::{Cli, InvertCommand, SolutionFormat, SolveCommand, SolverBackend};
 
 mod cli;
+mod steps;
 
 fn main() {
     let cli: Cli = Cli::parse();
@@ -151,17 +152,8 @@ fn find_and_print_solutions_iter_stream(cube: Cube333, cmd: SolveCommand) {
 }
 
 fn find_and_print_solutions_multi_path_channel(cube: Cube333, cmd: SolveCommand) {
-    let (mut steps, last_step) = match cmd.parse_step_configs() {
-        Ok(step_configs) => {
-            let last = step_configs.last().unwrap().clone().kind;
-            match cubelib::solver_new::build_steps(step_configs) {
-                Ok(steps) => (steps, last),
-                Err(e) => {
-                    error!("{e}");
-                    return;
-                }
-            }
-        },
+    let (mut steps, last_step) = match steps::parse_steps(&cmd.steps) {
+        Ok(x) => x,
         Err(e) => {
             error!("Unable to parse steps config. {e}");
             return;
@@ -171,7 +163,7 @@ fn find_and_print_solutions_multi_path_channel(cube: Cube333, cmd: SolveCommand)
     info!("Generating solutions\n");
     let time = Instant::now();
 
-    let mut predicates = vec![FilterDup::new()];
+    let mut predicates = vec![];
 
     let last_qt_diretion_relevant = match last_step {
         StepKind::EO | StepKind::RZP | StepKind::DR | StepKind::HTR => false,
@@ -181,13 +173,13 @@ fn find_and_print_solutions_multi_path_channel(cube: Cube333, cmd: SolveCommand)
     if !cmd.all_solutions && !last_qt_diretion_relevant  {
         predicates.push(FilterLastMoveNotPrime::new());
     }
+    steps.with_predicates(predicates);
 
     if cmd.quality > 0 {
         steps.apply_step_limit(cmd.quality);
     }
 
-    let (mut worker, rec) = cubelib::solver_new::create_worker_with_predicates(cube, steps, predicates);
-    worker.start();
+    let mut worker = steps.into_worker(cube);
 
     let mut count = 0;
     let max_length = cmd.solution_count.or(if cmd.max.is_some() {
@@ -196,8 +188,8 @@ fn find_and_print_solutions_multi_path_channel(cube: Cube333, cmd: SolveCommand)
         Some(1)
     });
     while max_length.is_none() || max_length.unwrap() > count {
-        match rec.recv() {
-            Ok(solution) => {
+        match worker.next() {
+            Some(solution) => {
                 if solution.len() < cmd.min {
                     continue;
                 }
@@ -216,12 +208,10 @@ fn find_and_print_solutions_multi_path_channel(cube: Cube333, cmd: SolveCommand)
                 }
                 count += 1;
             },
-            Err(_) => break
+            None => break
         }
     }
 
     info!("Took {}ms", time.elapsed().as_millis());
-    drop(rec);
-    worker.stop();
 }
 

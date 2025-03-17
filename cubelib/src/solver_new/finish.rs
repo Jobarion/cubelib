@@ -343,7 +343,7 @@ pub mod builder {
     impl HTRFinishBuilderInternal<false, false, false> {
         pub fn new() -> Self {
             Self {
-                _a_max_length: 10,
+                _a_max_length: 14,
                 _b_max_absolute_length: 50,
                 _c_leave_slice: false,
             }

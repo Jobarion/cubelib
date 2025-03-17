@@ -16,7 +16,7 @@ use cubelib::cube::turn::{ApplyAlgorithm, TransformableMut};
 use cubelib::defs::StepKind;
 use cubelib::solver::df_search::CancelToken;
 use cubelib::solver::solution::Solution;
-use cubelib::solver_new::{build_steps, create_worker, TryRecvError};
+use cubelib::solver_new::{build_steps, TryRecvError};
 use cubelib::steps::coord::Coord;
 use cubelib::steps::dr::coords::DRUDEOFBCoord;
 use cubelib::steps::htr::coords::HTRDRUDCoord;
@@ -185,18 +185,13 @@ pub fn solve_steps_quality_doubling_mpc<'a>(puzzle: Cube333, steps: Vec<StepConf
             let steps = steps.clone();
             let mut steps = cubelib::solver_new::build_steps(steps).unwrap();
             steps.apply_step_limit(quality);
-            let (mut worker, rc) = create_worker(puzzle, steps);
-            worker.start();
+            let mut worker = steps.into_worker(puzzle);
             while !cancel_token.is_cancelled() {
-                match rc.try_recv() {
+                match worker.try_next() {
                     Ok(sol) => {
-                        drop(rc);
-                        worker.stop();
                         return Some(sol)
                     },
                     Err(TryRecvError::Disconnected) => {
-                        drop(rc);
-                        worker.stop();
                         return None
                     },
                     Err(_) => {
@@ -205,8 +200,6 @@ pub fn solve_steps_quality_doubling_mpc<'a>(puzzle: Cube333, steps: Vec<StepConf
                     },
                 };
             }
-            drop(rc);
-            worker.stop();
             None
         })
 }

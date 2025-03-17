@@ -13,6 +13,8 @@ cubelib = { path = "../cubelib", features = ["serde_support", "fs"]}
 serde = { version = "^1.0.188", features = ["derive"] }
 
 rand = "0.9.0"
+pest = "2.7.15"
+pest_derive = "2.7.15"
 
 [dev-dependencies]
 csv = "1.3.0"

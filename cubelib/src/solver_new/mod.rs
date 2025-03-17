@@ -2,16 +2,14 @@ use std::str::FromStr;
 use crate::algs::Algorithm;
 use crate::cube::{Cube333, Transformation333};
 use crate::defs::StepKind;
-use crate::solver::solution::Solution;
 use crate::solver_new::dr::{DRBuilder, RZPBuilder, RZPStep};
 use crate::solver_new::eo::EOBuilder;
 use crate::solver_new::finish::{FRFinishBuilder, HTRFinishBuilder};
 use crate::solver_new::fr::FRBuilder;
-use crate::solver_new::group::{StepGroup, StepPredicate};
+use crate::solver_new::group::StepGroup;
 use crate::solver_new::htr::HTRBuilder;
 use crate::solver_new::step::{DFSParameters, MoveSet};
 use crate::solver_new::thread_util::{ToWorker, Worker};
-use crate::solver_new::util_steps::FilterDup;
 use crate::steps::step::{PostStepCheck, PreStepCheck, StepConfig};
 
 pub mod step;
@@ -41,20 +39,6 @@ pub trait Step: PreStepCheck + PostStepCheck {
     fn heuristic(&self, state: &Cube333, can_niss_switch: bool, depth_left: usize) -> usize;
     fn pre_step_trans(&self) -> &'_ Vec<Transformation333>;
     fn get_name(&self) -> (StepKind, String);
-}
-
-pub fn create_worker(cube: Cube333, step: StepGroup) -> (Box<dyn Worker<()> + Send + 'static>, Receiver<Solution>) {
-    create_worker_with_predicates(cube, step, vec![FilterDup::new()])
-}
-
-pub fn create_worker_with_predicates(cube: Cube333, step: StepGroup, pred: Vec<Box<dyn StepPredicate>>) -> (Box<dyn Worker<()> + Send + 'static>, Receiver<Solution>) {
-    let (tx0, rc0) = bounded_channel(1);
-    let (tx1, rc1) = bounded_channel(1);
-
-    tx0.send(Solution::new()).unwrap();
-    drop(tx0);
-
-    (step.to_worker(cube, rc0, tx1, pred), rc1)
 }
 
 pub fn build_steps(mut steps: Vec<StepConfig>) -> Result<StepGroup, String> {

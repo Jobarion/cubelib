@@ -32,23 +32,33 @@ Solution (22): F2 D F2 L2 D' F L2 U2 B2 D' B2 R2 D2 B2 D2 F2 R2 D' B' L D B
 
 There are a couple of options that can be set globally for all steps.
 
-| Argument                           | Description                                                                                                                                                                                                                       | 
-|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|  
-| `-N` `--niss`                      | Enables the usage of NISS. This applies differently to certain steps. Some steps like EO or HTR support using NISS anywhere during the step, for others like DR only a solution fully on the inverse will be searched by default  |
-| `-n <count>`                       | By default only a single solution is returned. Use this option to define the number of solutions that will be returned                                                                                                            |
-| `-m <min>` `--min <min>`           | Return only solutions with a minimum length                                                                                                                                                                                       |
-| `-M <max>` `--max <max>`           | Return only solutions with a maximum length                                                                                                                                                                                       |
-| `-c` `--compact`                   | Don't show intermediate steps, only print the final solution                                                                                                                                                                      |
-| `-p` `--plain`                     | Don't print the length of each solution                                                                                                                                                                                           |
-| `-a` `--all`                       | Print solutions that would otherwise get filtered out. E.g. an EO ending in F'                                                                                                                                                    |
-| `-q <number>` `--quality <number>` | Higher values result in better/shorter solutions, but they take longer to find. Set to `0` for optimal search. The default is `100`                                                                                               |
-| `-v` `--verbose`                   | Print additional information for information and debugging purposes                                                                                                                                                               |
-| `--quiet`                          | Only print solutions and nothing else                                                                                                                                                                                             |
-| `-s` `--steps`                     | Configure the solver pipeline. More information below. Defaults to `EO > RZP > DR[triggers=R,RU2R,RU'R] > HTR > FIN`                                                                                                              | 
+| Argument                           | Description                                                                                                                                                                                                                      | 
+|------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|  
+| `-N` `--niss`                      | Enables the usage of NISS. This applies differently to certain steps. Some steps like EO or HTR support using NISS anywhere during the step, for others like DR only a solution fully on the inverse will be searched by default |
+| `-n <count>`                       | By default only a single solution is returned. Use this option to define the number of solutions that will be returned                                                                                                           |
+| `-m <min>` `--min <min>`           | Return only solutions with a minimum length                                                                                                                                                                                      |
+| `-M <max>` `--max <max>`           | Return only solutions with a maximum length                                                                                                                                                                                      |
+| `-c` `--compact`                   | Don't show intermediate steps, only print the final solution                                                                                                                                                                     |
+| `-p` `--plain`                     | Don't print the length of each solution                                                                                                                                                                                          |
+| `-a` `--all`                       | Print solutions that would otherwise get filtered out. E.g. an EO ending in F'                                                                                                                                                   |
+| `-q <number>` `--quality <number>` | Higher values result in better/shorter solutions, but they take longer to find. Set to `0` for optimal search. The default is `100`                                                                                              |
+| `-v` `--verbose`                   | Print additional information for information and debugging purposes                                                                                                                                                              |
+| `--quiet`                          | Only print solutions and nothing else                                                                                                                                                                                            |
+| `-s` `--steps`                     | Configure the solver pipeline. More information below. Defaults to `EO > RZP > DR[triggers=R,RU2R,RU'R] > HTR > FIN`                                                                                                             | 
+| `--backend`                        | Cubelib supports two solver backends. The old (default) one is `iter-stream`, the newer, faster, but more experimental one is `multi-patch-channel`.                                                                             | 
 
 ## Step configurations
 By default Cubelib always solves EO, then DR, HTR and FR before finishing the solve. This order, and the behaviour of these stages can be changed by providing a custom step configuration.
 A step configuration is a list of steps separated by `>`. The default step configuration is `EO > RZP > DR[triggers=R,RU2R,RU'R] > HTR > FIN`. Each step can be configured by providing additional options. For example, to only look for EOs on UD or FB with a length of 3 to 5 moves, we could write `EO[ud;fb;min=3;max=5]`.
+
+### Complex step configurations
+The `multi-path-channel` backend supports more complex step configurations:
+ - Steps can be chained using the `>` symbol (like before)
+ - Steps can be run in parallel using the `|` symbol. Steps than run in parallel must lead to the same target state.
+ - These features can be nested arbitrarily using brackets.
+
+The config `(EO[max=4;niss=always] | EO[min=5;max=5;niss=before]) > DR > HTR > (FIN[max=6] | (FR > FIN))` would find a solution with either NISS EOs up to length 4, or linear EOs of length 5.
+The finish from HTR would either be a direct one that is up to 6 moves long, or use floppy reduction.
 
 ### Properties supported by all steps
 | Option    | Description                                                                                                                                                     |
@@ -115,7 +125,13 @@ Cubelib does not yet support insertions, so these will have to be done manually.
 #### FIN
 Solves the cube.
 - Variations: -
-- Prerequisite: FR, FRLS or HTR
+- Prerequisite: FR or HTR
+- Default NISS option: `none`
+- 
+#### FINLS
+Solves the cube, leaving any one slice unsolved.
+- Variations: `ud`, `fb`, `lr`.
+- Prerequisite: HTR or FRLS
 - Default NISS option: `none`
 
 ### Examples
@@ -149,6 +165,7 @@ cubelib invert <scramble>
 
 ## APIs
 There is no API documentation yet. If you're interested in actually using this project please let me know by creating an issue.
+For the most common use cases examples can be found in the [examples](/examples) directory.
 
 ## Future work
  - Support directly finishing from HTR or solving DRs without first doing EO.
@@ -158,7 +175,7 @@ There is no API documentation yet. If you're interested in actually using this p
  - Stabilize the API
 
 ## Acknowledgements
- - The tool [Nissy](https://nissy.tronto.net/) developed by Sebastiano Tronto served as an inspiration for this project. While the goals of Cubelib are different than Nissy's, there is also considerable overlap between the two. Consider checking it out especially if you're interested in finding direct optimal solutions for DR / HTR.
+ - The tool [Nissy](https://nissy.tronto.net/) developed by Sebastiano Tronto served as an inspiration for this project. While the goals of Cubelib are different than Nissy's, there is also considerable overlap between the two. Consider checking it out especially if you're interested in finding direct optimal solutions for a scrambled cube or one in DR.
  - This project would not be possible without methods developed by Herbert Kociemba for the Two Step Algorithm and [Cube Explorer](http://kociemba.org/cube.htm).
  - Morwen Thistlethwaite's Algorithm for solving the Rubik's cube is what made modern FMC solving possible. This project is essentially an implementation of a variant of this algorithm.
  - Jaap Scherphuis's description of orbit twists for the transition from Thistlethwaite's G2 to G3 was the only one I could find on this fairly obscure topic, and it was immensely helpful.

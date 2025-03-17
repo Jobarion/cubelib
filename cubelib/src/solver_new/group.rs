@@ -85,6 +85,15 @@ impl StepGroup {
             predicates
         }
     }
+
+    pub fn with_predicates(&mut self, mut preds: Vec<Box<dyn StepPredicate>>) {
+        self.predicates.append(&mut preds);
+    }
+
+    pub fn into_worker(self, cube: Cube333) -> SolverWorker {
+        let b: Box<dyn ToWorker + Send> = Box::new(self);
+        SolverWorker::new(b, cube)
+    }
 }
 
 impl ToWorker for StepGroup {

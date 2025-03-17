@@ -125,6 +125,7 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>) -> Result<(Option<Ste
             // _ => unreachable!()
         }
     }
+    step_prototype.params = params;
     if !variants.is_empty() {
         step_prototype.substeps = Some(variants);
     }

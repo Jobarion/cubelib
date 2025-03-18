@@ -1,8 +1,7 @@
 use std::sync::LazyLock;
-use std::time::Instant;
 
 use itertools::Itertools;
-use log::{debug, info};
+use log::debug;
 
 use crate::cube::*;
 use crate::defs::StepKind;
@@ -64,17 +63,11 @@ impl EOStep {
 }
 
 fn gen_eo() -> EOPruningTable {
-    info!("Generating EO pruning table...");
-    #[cfg(not(target_arch = "wasm32"))]
-    let time = Instant::now();
-    let table = lookup_table::generate(&EO_FB_MOVESET,
-                                       &|c: &crate::cube::Cube333| EOCoordFB::from(c),
-                                       &|| EOPruningTable::new(false),
-                                       &|table, coord|table.get(coord),
-                                       &|table, coord, val|table.set(coord, val));
-    #[cfg(not(target_arch = "wasm32"))]
-    debug!("Took {}ms", time.elapsed().as_millis());
-    table
+    EOPruningTable::load_and_save("eo", ||lookup_table::generate(&EO_FB_MOVESET,
+                                                                 &|c: &crate::cube::Cube333| EOCoordFB::from(c),
+                                                                 &|| EOPruningTable::new(false),
+                                                                 &|table, coord|table.get(coord),
+                                                                 &|table, coord, val|table.set(coord, val)))
 }
 
 pub mod builder {

@@ -10,7 +10,7 @@ use std::io::{Read, Write};
 use std::marker::PhantomData;
 #[cfg(feature = "fs")]
 use home::home_dir;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use num_traits::{ToPrimitive};
 #[cfg(feature = "fs")]
 use num_traits::{FromPrimitive};
@@ -111,6 +111,23 @@ impl<const C_SIZE: usize, C: Coord<C_SIZE>> LookupTable<C_SIZE, C> {
             self.entries[id] = entry
         }
     }
+
+    pub fn load_and_save<F: FnMut() -> LookupTable<C_SIZE, C>>(key: &str, mut gen_f: F) -> Self {
+        match Self::load_from_disk("333", key) {
+            Ok(t) => {
+                debug!("Loaded {key} table from disk");
+                t
+            },
+            Err(_) => {
+                info!("Generating {key} table...");
+                let table = gen_f();
+                if let Err(e) = table.save_to_disk("333", key) {
+                    warn!("Failed to save {key} table. {e}");
+                }
+                table
+            }
+        }
+    }
 }
 
 impl<const C_SIZE: usize, C: Coord<C_SIZE>> NissLookupTable<C_SIZE, C> {
@@ -145,6 +162,23 @@ impl<const C_SIZE: usize, C: Coord<C_SIZE>> NissLookupTable<C_SIZE, C> {
     pub fn set_niss(&mut self, id: C, niss: u8) {
         let id: usize = id.into();
         self.entries[id] = (self.entries[id] & 0x0F) | (niss << 4)
+    }
+
+    pub fn load_and_save<F: FnMut() -> NissLookupTable<C_SIZE, C>>(key: &str, mut gen_f: F) -> Self {
+        match Self::load_from_disk("333", key) {
+            Ok(t) => {
+                debug!("Loaded {key} table from disk");
+                t
+            },
+            Err(_) => {
+                info!("Generating {key} table...");
+                let table = gen_f();
+                if let Err(e) = table.save_to_disk("333", key) {
+                    warn!("Failed to save {key} table. {e}");
+                }
+                table
+            }
+        }
     }
 }
 

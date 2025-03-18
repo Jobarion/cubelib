@@ -1,10 +1,9 @@
 use std::cmp::min;
 use std::collections::HashMap;
 use std::sync::LazyLock;
-use std::time::Instant;
 
 use itertools::Itertools;
-use log::{debug, error, info, warn};
+use log::{debug, warn, error};
 
 use crate::algs::Algorithm;
 use crate::cube::*;
@@ -355,17 +354,11 @@ fn calc_rzp_state(cube: &Cube333) -> (u8, u8) {
 }
 
 fn gen_dr() -> DRPruningTable {
-    info!("Generating DR pruning table...");
-    #[cfg(not(target_arch = "wasm32"))]
-    let time = Instant::now();
-    let table = lookup_table::generate(&DR_UD_EO_FB_MOVESET,
+    DRPruningTable::load_and_save("dr", ||lookup_table::generate(&DR_UD_EO_FB_MOVESET,
                                        &|c: &Cube333| DRUDEOFBCoord::from(c),
                                        &|| DRPruningTable::new(false),
                                        &|table, coord|table.get(coord),
-                                       &|table, coord, val|table.set(coord, val));
-    #[cfg(not(target_arch = "wasm32"))]
-    debug!("Took {}ms", time.elapsed().as_millis());
-    table
+                                       &|table, coord, val|table.set(coord, val)))
 }
 
 impl Cube333 {
@@ -389,6 +382,7 @@ impl Cube333 {
 
 mod builder {
     use std::collections::HashMap;
+
     use crate::algs::Algorithm;
     use crate::cube::CubeAxis;
     use crate::defs::{NissSwitchType, StepKind};

@@ -1,8 +1,7 @@
 use std::sync::LazyLock;
-use std::time::Instant;
 
 use itertools::Itertools;
-use log::{debug, info};
+use log::debug;
 
 use crate::cube::*;
 use crate::defs::StepKind;
@@ -132,45 +131,27 @@ impl HTRFinishStep {
 }
 
 fn gen_fr_finish() -> FRFinishPruningTable {
-    info!("Generating FR finish pruning table...");
-    #[cfg(not(target_arch = "wasm32"))]
-    let time = Instant::now();
-    let fr_table = lookup_table::generate(&FRUD_FINISH_MOVESET,
+    FRFinishPruningTable::load_and_save("frfin", ||lookup_table::generate(&FRUD_FINISH_MOVESET,
                                           &|c: &Cube333| FRUDFinishCoord::from(c),
                                           &|| FRFinishPruningTable::new(false),
                                           &|table, coord|table.get(coord),
-                                          &|table, coord, val|table.set(coord, val));
-    #[cfg(not(target_arch = "wasm32"))]
-    debug!("Took {}ms", time.elapsed().as_millis());
-    fr_table
+                                          &|table, coord, val|table.set(coord, val)))
 }
 
 fn gen_htr_finish() -> HTRFinishPruningTable {
-    info!("Generating FR finish pruning table...");
-    #[cfg(not(target_arch = "wasm32"))]
-    let time = Instant::now();
-    let htr_fin_table = lookup_table::generate(&HTR_FINISH_MOVESET,
+    HTRFinishPruningTable::load_and_save("htrfin", ||lookup_table::generate(&HTR_FINISH_MOVESET,
                                                &|c: &Cube333| HTRFinishCoord::from(c),
                                                &|| HTRFinishPruningTable::new(false),
                                                &|table, coord|table.get(coord),
-                                               &|table, coord, val|table.set(coord, val));
-    #[cfg(not(target_arch = "wasm32"))]
-    debug!("Took {}ms", time.elapsed().as_millis());
-    htr_fin_table
+                                               &|table, coord, val|table.set(coord, val)))
 }
 
 fn gen_htr_ls_finish() -> HTRLeaveSliceFinishPruningTable {
-    info!("Generating FR finish pruning table...");
-    #[cfg(not(target_arch = "wasm32"))]
-    let time = Instant::now();
-    let htr_fin_table = lookup_table::generate(&HTR_FINISH_MOVESET,
+    HTRLeaveSliceFinishPruningTable::load_and_save("htrfinls", ||lookup_table::generate(&HTR_FINISH_MOVESET,
                                                &|c: &Cube333| HTRLeaveSliceFinishCoord::from(c),
                                                &|| HTRLeaveSliceFinishPruningTable::new(false),
                                                &|table, coord|table.get(coord),
-                                               &|table, coord, val|table.set(coord, val));
-    #[cfg(not(target_arch = "wasm32"))]
-    debug!("Took {}ms", time.elapsed().as_millis());
-    htr_fin_table
+                                               &|table, coord, val|table.set(coord, val)))
 }
 
 pub mod builder {

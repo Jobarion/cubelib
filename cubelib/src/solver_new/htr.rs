@@ -1,8 +1,7 @@
 use std::sync::LazyLock;
-use std::time::Instant;
 
 use itertools::Itertools;
-use log::{debug, info};
+use log::debug;
 
 use crate::cube::*;
 use crate::defs::StepKind;
@@ -66,24 +65,13 @@ impl HTRStep {
 }
 
 fn gen_htr_with_subsets() -> (HTRPruningTable, HTRSubsetTable) {
-    info!("Generating HTR pruning table...");
-    #[cfg(not(target_arch = "wasm32"))]
-    let time = Instant::now();
-    let mut htr_table = lookup_table::generate(&HTR_DR_UD_MOVESET,
+    let mut htr_table = HTRPruningTable::load_and_save("htr", ||lookup_table::generate(&HTR_DR_UD_MOVESET,
                                                &|c: &Cube333| HTRDRUDCoord::from(c),
                                                &|| HTRPruningTable::new(),
                                                &|table, coord|table.get(coord).0,
-                                               &|table, coord, val|table.set(coord, val));
-    #[cfg(not(target_arch = "wasm32"))]
-    debug!("Took {}ms", time.elapsed().as_millis());
-
-    info!("Generating HTR subset table...");
-    #[cfg(not(target_arch = "wasm32"))]
-    let time = Instant::now();
-    let subset_table = crate::steps::htr::subsets::gen_subset_tables(&mut htr_table);
-    #[cfg(not(target_arch = "wasm32"))]
-    debug!("Took {}ms", time.elapsed().as_millis());
-    (htr_table, subset_table)
+                                               &|table, coord, val|table.set(coord, val)));
+    let htr_subset_table = HTRSubsetTable::load_and_save("htrsubset", ||crate::steps::htr::subsets::gen_subset_tables(&mut htr_table));
+    (htr_table, htr_subset_table)
 }
 
 

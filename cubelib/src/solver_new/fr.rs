@@ -1,8 +1,7 @@
 use std::sync::LazyLock;
-use std::time::Instant;
 
 use itertools::Itertools;
-use log::{debug, info};
+use log::debug;
 
 use crate::cube::*;
 use crate::defs::StepKind;
@@ -10,7 +9,7 @@ use crate::solver::lookup_table;
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
-use crate::steps::fr::coords::{FRUD_WITH_SLICE_SIZE, FRUD_NO_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
+use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::steps::fr::fr_config::{FR_UD_MOVESET, FRLeaveSlicePruningTable, FRPruningTable};
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
 
@@ -77,31 +76,19 @@ impl FRStep {
 }
 
 fn gen_fr() -> FRPruningTable {
-    info!("Generating FR pruning table...");
-    #[cfg(not(target_arch = "wasm32"))]
-    let time = Instant::now();
-    let fr_table = lookup_table::generate(&FR_UD_MOVESET,
+    FRPruningTable::load_and_save("fr", ||lookup_table::generate(&FR_UD_MOVESET,
                                               &|c: &Cube333| FRUDWithSliceCoord::from(c),
                                               &|| FRPruningTable::new(false),
                                               &|table, coord|table.get(coord),
-                                              &|table, coord, val|table.set(coord, val));
-    #[cfg(not(target_arch = "wasm32"))]
-    debug!("Took {}ms", time.elapsed().as_millis());
-    fr_table
+                                              &|table, coord, val|table.set(coord, val)))
 }
 
 fn gen_frls() -> FRLeaveSlicePruningTable {
-    info!("Generating FRLS pruning table...");
-    #[cfg(not(target_arch = "wasm32"))]
-    let time = Instant::now();
-    let fr_table = lookup_table::generate(&FR_UD_MOVESET,
+    FRLeaveSlicePruningTable::load_and_save("frls", ||lookup_table::generate(&FR_UD_MOVESET,
                                               &|c: &Cube333| FRUDNoSliceCoord::from(c),
                                               &|| FRLeaveSlicePruningTable::new(false),
                                               &|table, coord|table.get(coord),
-                                              &|table, coord, val|table.set(coord, val));
-    #[cfg(not(target_arch = "wasm32"))]
-    debug!("Took {}ms", time.elapsed().as_millis());
-    fr_table
+                                              &|table, coord, val|table.set(coord, val)))
 }
 
 

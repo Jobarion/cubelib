@@ -69,7 +69,7 @@ The finish from HTR would either be a direct one that is up to 6 moves long, or 
 | `max`     | Maximum number of turns for this step, inclusive                                                                                                                |
 | `niss`    | One of `none` (keep the orientation of the previous step), `before` (switching before the step is allowed), and `always` (switching during the step is allowed) |
 | `limit`   | Limit option for this step. See global options above for more information.                                                                                      |
-
+| `max-use` | **Only supported by the multi-path-solver backend**. Limits how often a solution to a previous step can be used in the output of this step. Example: `EO > DR > HTR > FIN[max-use=DR:1]` defines that each finish must use a unique DR. Note that if this property is defined on a non finish step, the resulting output can no longer be guaranteed to be optimal.
 If any of these properties are set, they will override global arguments. Any property not set will default to the global setting, or to (step specific) defaults.
 
 ### Steps

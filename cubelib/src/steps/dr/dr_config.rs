@@ -56,6 +56,12 @@ pub const DR_UD_EO_FB_MOVES: &[Turn333] = &[
     Turn333::new(CubeFace::Back, Direction::Half),
 ];
 
+pub const ARM_UD_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
+    st_moves: DR_UD_EO_FB_STATE_CHANGE_MOVES,
+    aux_moves: HTR_MOVES,
+    transitions: &dr_transitions(CubeFace::Left),
+};
+
 pub const DR_UD_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
     st_moves: DR_UD_EO_FB_STATE_CHANGE_MOVES,
     aux_moves: DR_UD_EO_FB_MOVES,

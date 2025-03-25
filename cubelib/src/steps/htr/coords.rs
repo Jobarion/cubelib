@@ -139,7 +139,7 @@ impl From<&Cube333> for HTRDRUDCoord {
 }
 
 #[cfg(target_feature = "avx2")]
-mod avx2 {
+pub(crate) mod avx2 {
     use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi32, _mm_movemask_epi8, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi8, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_slli_epi16, _mm_slli_epi32, _mm_srli_epi32, _mm_srli_epi64, _mm_sub_epi8};
 
     use crate::cube::{CornerCube333, EdgeCube333};
@@ -282,7 +282,7 @@ mod avx2 {
 
     #[target_feature(enable = "avx2")]
     #[inline]
-    unsafe fn unsorted_coord_4_4_split(value: __m128i) -> u8 {
+    pub(crate) unsafe fn unsorted_coord_4_4_split(value: __m128i) -> u8 {
         let marked = value;
         let unmarked = _mm_cmpeq_epi8(marked, _mm_set1_epi8(0));
 

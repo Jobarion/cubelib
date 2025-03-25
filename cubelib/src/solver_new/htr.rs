@@ -70,7 +70,7 @@ fn gen_htr_with_subsets() -> (HTRPruningTable, HTRSubsetTable) {
                                                &|| HTRPruningTable::new(),
                                                &|table, coord|table.get(coord).0,
                                                &|table, coord, val|table.set(coord, val)));
-    let htr_subset_table = HTRSubsetTable::load_and_save("htrsubset", ||crate::steps::htr::subsets::gen_subset_tables(&mut htr_table));
+    let htr_subset_table = HTRSubsetTable::load_and_save("htr-subset", ||crate::steps::htr::subsets::gen_subset_tables(&mut htr_table));
     (htr_table, htr_subset_table)
 }
 

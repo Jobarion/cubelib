@@ -45,16 +45,16 @@ pub struct SolveStreamParameters {
 
 #[post("/solve_stream")]
 pub async fn solve_stream(req: HttpRequest, steps: web::Json<SolverRequest>, app_data: web::Data<AppData>, params: Query<SolveStreamParameters>) -> impl Responder {
-    let mut hasher = DefaultHasher::new();
-    let peer = req.peer_addr().unwrap();
-    peer.ip().to_string().hash(&mut hasher);
-    serde_json::to_string(&steps).unwrap().hash(&mut hasher);
-    let hash = hasher.finish();
-    let last = app_data.debounce_cache.get_with(hash, ||peer);
-    if last.ip() == peer.ip() && last.port() != peer.port() {
-        debug!("Debounce kill");
-        return HttpResponse::ServiceUnavailable().finish()
-    }
+    // let mut hasher = DefaultHasher::new();
+    // let peer = req.peer_addr().unwrap();
+    // peer.ip().to_string().hash(&mut hasher);
+    // serde_json::to_string(&steps).unwrap().hash(&mut hasher);
+    // let hash = hasher.finish();
+    // let last = app_data.debounce_cache.get_with(hash, ||peer);
+    // if last.ip() == peer.ip() && last.port() != peer.port() {
+    //     debug!("Debounce kill");
+    //     return HttpResponse::ServiceUnavailable().finish()
+    // }
 
     let SolverRequest{ steps, scramble } = steps.0;
     let scramble = Algorithm::from_str(scramble.as_str()).unwrap();

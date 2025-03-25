@@ -1,16 +1,16 @@
 main = _{ SOI ~ (sequence | parallel | group) ~ EOI }
 
-group = _{ step | "(" ~ sequence ~ ")" | "(" ~ parallel ~ ")" }
+group = _{ (step | "(" ~ sequence ~ ")" | "(" ~ parallel ~ ")") }
 
 sequence = { group ~ (">" ~ group)+ }
 parallel = { group ~ ("|" ~ group)+ }
 
-step = { name ~ ("[" ~ parameters ~ "]")?}
-name = { ASCII_ALPHA+ }
+step = { kind ~ ("[" ~ parameters ~ "]")? }
+kind = { ASCII_ALPHA+ }
 parameters = _{ parameter ~ (";" ~ parameter)* }
 parameter = _{ key ~ "=" ~ value | variant }
-key = { ASCII_ALPHA+ }
+key = { (ASCII_ALPHA | "-")+ }
 variant = { ASCII_ALPHA+ }
-value = { (ASCII_ALPHANUMERIC | "," | "'" | " ")+ }
+value = { (ASCII_ALPHANUMERIC | "," | "'" | " " | ":")+ }
 
 WHITESPACE = _{ " " }

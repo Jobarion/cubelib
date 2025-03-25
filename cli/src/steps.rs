@@ -6,8 +6,9 @@ use cubelib::solver_new::dr::{DRBuilder, RZPBuilder, RZPStep};
 use cubelib::solver_new::eo::EOBuilder;
 use cubelib::solver_new::finish::{FRFinishBuilder, HTRFinishBuilder};
 use cubelib::solver_new::fr::FRBuilder;
-use cubelib::solver_new::group::StepGroup;
+use cubelib::solver_new::group::{StepGroup, StepPredicate};
 use cubelib::solver_new::htr::HTRBuilder;
+use cubelib::solver_new::util_steps::{FilterFirstN, FilterFirstNStepVariant};
 use cubelib::steps::step::StepConfig;
 use pest::iterators::Pair;
 use pest::Parser;
@@ -73,10 +74,10 @@ fn generate(p: Pair<Rule>, mut previous: Option<StepConfig>) -> Result<(Option<S
 
 fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>) -> Result<(Option<StepGroup>, StepConfig), String> {
     let mut inner = p.into_inner();
-    let name = inner.next().unwrap();
-    assert_eq!(Rule::name, name.as_rule());
-    let name = name.as_str();
-    let kind = StepKind::from_str(name).unwrap();
+    let kind = inner.next().unwrap();
+    assert_eq!(Rule::kind, kind.as_rule());
+    let kind = kind.as_str();
+    let kind = StepKind::from_str(kind).unwrap();
     let mut variants = vec![];
     let mut params: HashMap<String, String> = HashMap::default();
     let mut step_prototype = StepConfig {
@@ -129,8 +130,11 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>) -> Result<(Option<Ste
     if !variants.is_empty() {
         step_prototype.substeps = Some(variants);
     }
-    let step_prototype_c = step_prototype.clone();
-    let step = match (previous.as_ref().map(|s|s.kind.clone()), kind) {
+    let mut step_prototype_c = step_prototype.clone();
+    let limit = step_prototype.params.remove("step-limit");
+    let max_use = step_prototype.params.remove("max-use");
+
+    let mut step = match (previous.as_ref().map(|s|s.kind.clone()), kind) {
         (None, StepKind::EO) => Some(EOBuilder::try_from(step_prototype).map_err(|_|"Failed to parse EO step")?.build()),
         (Some(StepKind::EO), StepKind::RZP) => None,
         (Some(StepKind::RZP), StepKind::DR) => {
@@ -169,6 +173,32 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>) -> Result<(Option<Ste
         (None, x) => return Err(format!("{x:?} is not supported as a first step", )),
         (Some(a), b) => return Err(format!("Step order {a:?} > {b:?} is not supported")),
     };
+
+    if let Some(step) = step.as_mut() {
+        if let Some(max_use) = max_use {
+            let filters: Result<Vec<Box<dyn StepPredicate>>, String> = max_use.split(",")
+                .flat_map(|x|{
+                    x.split_once(":")
+                        .map(|(a, b)|{
+                            let kind = StepKind::from_str(a).unwrap();
+                            let n = usize::from_str(b).map_err(|_|"Failed to parse max use limit".to_string());
+                            n.map(|n|FilterFirstNStepVariant::new(kind, n))
+                        })
+                })
+                .collect();
+            step.with_predicates(filters?);
+        }
+        if let Some(limit) = limit {
+            step.with_predicates(vec![FilterFirstN::new(usize::from_str(limit.as_str()).map_err(|_|"Failed to parse step limit")?)]);
+        }
+    } else {
+        if let Some(limit) = limit {
+            step_prototype_c.params.insert("step-limit".to_string(), limit);
+        }
+        if let Some(max_use) = max_use {
+            step_prototype_c.params.insert("max-use".to_string(), max_use);
+        }
+    }
 
     Ok((step, step_prototype_c))
 }

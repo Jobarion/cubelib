@@ -300,6 +300,7 @@ impl StepIORunner {
                 Box::new(self.find_solutions_dfs(cube, depth, false, previous_normal, previous_inverse, cancel_token))
             },
             NissSwitchType::Never => {
+                let mut cube = cube.clone();
                 cube.invert();
                 Box::new(self.find_solutions_dfs(cube, depth, false, previous_inverse, previous_normal, cancel_token)
                     .map(|alg| {
@@ -310,6 +311,7 @@ impl StepIORunner {
                     }))
             },
             NissSwitchType::Before => {
+                let mut cube = cube.clone();
                 let normal = self.find_solutions_dfs(cube.clone(), depth, false, previous_normal, previous_inverse, cancel_token);
                 cube.invert();
                 let inverse = self.find_solutions_dfs(cube, depth, false, previous_inverse, previous_normal, cancel_token)
@@ -323,6 +325,7 @@ impl StepIORunner {
             }
             NissSwitchType::Always => {
                 let normal = self.find_solutions_dfs(cube.clone(), depth, true, previous_normal, previous_inverse, cancel_token);
+                let mut cube = cube.clone();
                 cube.invert();
                 let inverse = self.find_solutions_dfs(cube, depth, false, previous_inverse, previous_normal, cancel_token)
                     .map(|alg| {

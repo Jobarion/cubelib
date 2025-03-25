@@ -508,8 +508,8 @@ mod builder {
     impl DRBuilderInternal<false, false, false, false, false, false, false> {
         pub fn new() -> Self {
             Self {
-                _a_max_length: 12,
-                _b_max_absolute_length: 20,
+                _a_max_length: 10,
+                _b_max_absolute_length: 15,
                 _c_niss: NissSwitchType::Before,
                 _d_dr_eo_axis: HashMap::from([(CubeAxis::X, vec![CubeAxis::Y, CubeAxis::Z]), (CubeAxis::Y, vec![CubeAxis::X, CubeAxis::Z]), (CubeAxis::Z, vec![CubeAxis::X, CubeAxis::Y])]),
                 _e_subsets: vec![],

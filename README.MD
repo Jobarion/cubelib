@@ -2,6 +2,8 @@
 Cubelib is a project that aims to provide a robust and feature rich and most importantly _fast_ library for dealing with 3x3 Rubik's cubes.
 See https://joba.me/mallard for a website that's using cubelib to generate human-findable FMC solutions.
 
+**Download the latest release [here](https://github.com/Jobarion/cubelib/releases/latest)** 
+
 ### Goals
 - Provide simple APIs for manipulating Rubik's cubes (turning, rotating, inverting).
 - Implement a solver that can efficiently get Rubik's cubes from one subgroup into another.
@@ -13,7 +15,7 @@ See https://joba.me/mallard for a website that's using cubelib to generate human
 ## CLI Solve
 
 Cubelib aims to define reasonable defaults to make using it as easy as possible.
-To solve a scrambled cube, simply run `cubelib <scramble>`. This will return a single solution, broken down into steps. 
+To solve a scrambled cube, simply run `cubelib solve <scramble>`. This will return a single solution, broken down into steps. 
 
 Because direct, optimal solutions are rarely ever useful, **Cubelib will by default first solve EO, then DR, then HTR, FR and finally the full cube**. It will also try to pick reasonable defaults for each steps, including restricting DRs to commonly known triggers. This is the major difference between Cubelib and other tools.
 

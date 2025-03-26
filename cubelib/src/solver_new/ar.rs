@@ -179,20 +179,20 @@ pub mod builder {
             if let Some(variants) = value.substeps {
                 let axis: Result<Vec<(CubeAxis, CubeAxis)>, Self::Error> = variants.into_iter()
                     .map(|variant| match variant.to_lowercase().as_str() {
-                        "ud" | "armud" => Ok(vec![(CubeAxis::UD, CubeAxis::FB), (CubeAxis::UD, CubeAxis::LR)]),
-                        "fb" | "armfb" => Ok(vec![(CubeAxis::FB, CubeAxis::UD), (CubeAxis::FB, CubeAxis::LR)]),
-                        "lr" | "armlr" => Ok(vec![(CubeAxis::LR, CubeAxis::UD), (CubeAxis::LR, CubeAxis::FB)]),
+                        "ud" | "arud" => Ok(vec![(CubeAxis::UD, CubeAxis::FB), (CubeAxis::UD, CubeAxis::LR)]),
+                        "fb" | "arfb" => Ok(vec![(CubeAxis::FB, CubeAxis::UD), (CubeAxis::FB, CubeAxis::LR)]),
+                        "lr" | "arlr" => Ok(vec![(CubeAxis::LR, CubeAxis::UD), (CubeAxis::LR, CubeAxis::FB)]),
 
                         "eoud" => Ok(vec![(CubeAxis::FB, CubeAxis::UD), (CubeAxis::LR, CubeAxis::UD)]),
                         "eofb" => Ok(vec![(CubeAxis::UD, CubeAxis::FB), (CubeAxis::LR, CubeAxis::FB)]),
                         "eolr" => Ok(vec![(CubeAxis::UD, CubeAxis::FB), (CubeAxis::FB, CubeAxis::LR)]),
 
-                        "armud-eofb" => Ok(vec![(CubeAxis::UD, CubeAxis::FB)]),
-                        "armud-eolr" => Ok(vec![(CubeAxis::UD, CubeAxis::LR)]),
-                        "armfb-eoud" => Ok(vec![(CubeAxis::FB, CubeAxis::UD)]),
-                        "armfb-eolr" => Ok(vec![(CubeAxis::FB, CubeAxis::LR)]),
-                        "armlr-eoud" => Ok(vec![(CubeAxis::LR, CubeAxis::UD)]),
-                        "armlr-eofb" => Ok(vec![(CubeAxis::LR, CubeAxis::FB)]),
+                        "arud-eofb" => Ok(vec![(CubeAxis::UD, CubeAxis::FB)]),
+                        "arud-eolr" => Ok(vec![(CubeAxis::UD, CubeAxis::LR)]),
+                        "arfb-eoud" => Ok(vec![(CubeAxis::FB, CubeAxis::UD)]),
+                        "arfb-eolr" => Ok(vec![(CubeAxis::FB, CubeAxis::LR)]),
+                        "arlr-eoud" => Ok(vec![(CubeAxis::LR, CubeAxis::UD)]),
+                        "arlr-eofb" => Ok(vec![(CubeAxis::LR, CubeAxis::FB)]),
                         _ => Err(()),
                     })
                     .flat_map(|x|match x {

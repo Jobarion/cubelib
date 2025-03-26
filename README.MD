@@ -45,7 +45,7 @@ There are a couple of options that can be set globally for all steps.
 | `-v` `--verbose`                   | Print additional information for information and debugging purposes                                                                                                                                                              |
 | `--quiet`                          | Only print solutions and nothing else                                                                                                                                                                                            |
 | `-s` `--steps`                     | Configure the solver pipeline. More information below. Defaults to `EO > RZP > DR[triggers=R,RU2R,RU'R] > HTR > FIN`                                                                                                             | 
-| `--backend`                        | Cubelib supports two solver backends. The old (default) one is `iter-stream`, the newer, faster, but more experimental one is `multi-patch-channel`.                                                                             | 
+| `--backend`                        | Cubelib supports two solver backends. The old one is `iter-stream`, the newer, faster, but more experimental (default) one is `multi-patch-channel`.                                                                             | 
 
 ## Step configurations
 By default Cubelib always solves EO, then DR, HTR and FR before finishing the solve. This order, and the behaviour of these stages can be changed by providing a custom step configuration.
@@ -86,17 +86,25 @@ Performs random moves
 - Prerequisite: EO
 - Default NISS option: `none`
 
+#### AR / JZP
+Solves
+- Variations:
+  - `ud`, `fb`, `lr`, for AR on that axis with any EO axis.
+  - `arud-eofb`, `arud-eolr`, `arfb-eoud`, `arfb-eolr`, `arlr-eoud`, `arlr-eofb` to be specific about both the AR and EO axis.
+- Prerequisite: EO
+- Default NISS option: `none`
+
 #### DR
 Orients the edges on a second axis, and orients the corners. 
  - Variations: 
    - `ud`, `fb`, `lr`, for DR on that axis with any EO axis. 
    - `drud-eofb`, `drud-eolr`, `drfb-eoud`, `drfb-eolr`, `drlr-eoud`, `drlr-eofb` to be specific about both the DR and EO axis.
- - Prerequisite: EO or RZP
+ - Prerequisite: EO, RZP or AR
  - Default NISS option: `before`
  - Additional options
    - DR can be restricted to specific triggers by setting `triggers=<trigger1>,<trigger2>,...`. 
      E.g. `triggers=RUR,RU2R,R` would allow only those three triggers **in all possible orientations**. (i.e. `L U' L` is allowed, `R U' R` wouldn't. Inverting the last move is also always allowed).
-     This option implicitly adds an RZP step with default options if one wasn't already defined. If you would like to avoid that, define an RZP step manually with `max=0`.
+     This option implicitly adds an RZP step with default options if one wasn't already defined. If you would like to avoid that, define an RZP step manually with `max=0`. Must not be preceded by an AR step
      
 
 #### HTR

@@ -1,6 +1,7 @@
 use crate::cube::{CornerCube333, Cube333, EdgeCube333};
 use crate::steps::coord::Coord;
 use crate::steps::eo::coords::EOCoordFB;
+use crate::steps::htr::coords::CPOrbitUnsortedCoord;
 
 //UD corner orientation
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -14,6 +15,53 @@ impl Coord<2187> for COUDCoord {
 
 impl Into<usize> for COUDCoord {
     fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct ARMUDToDRCOCoord(pub(crate) u8);
+
+impl Into<usize> for ARMUDToDRCOCoord {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Coord<128> for ARMUDToDRCOCoord {
+    fn val(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct ARMUDToDREdgesCoord(pub(crate) u8);
+
+impl Into<usize> for ARMUDToDREdgesCoord {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Coord<70> for ARMUDToDREdgesCoord {
+    fn val(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct ARMUDToDRCoord(pub(crate) u16);
+
+impl Into<usize> for ARMUDToDRCoord {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
+pub const ARM_COORD_SIZE: usize = 70 * 70;
+
+impl Coord<ARM_COORD_SIZE> for ARMUDToDRCoord {
+    fn val(&self) -> usize {
         self.0 as usize
     }
 }
@@ -128,13 +176,37 @@ impl From<&Cube333> for DRUDEOFBCoord {
     }
 }
 
+impl From<&EdgeCube333> for ARMUDToDREdgesCoord {
+    #[cfg(target_feature = "avx2")]
+    fn from(value: &EdgeCube333) -> Self {
+        unsafe { avx2::unsafe_from_ud_slice_unsorted(value.0) }
+    }
+}
+
+impl From<&CornerCube333> for ARMUDToDRCOCoord {
+    #[cfg(target_feature = "avx2")]
+    fn from(value: &CornerCube333) -> Self {
+        unsafe { avx2::unsafe_from_arm_cocoord(value.0) }
+    }
+}
+
+impl From<&Cube333> for ARMUDToDRCoord {
+    #[cfg(target_feature = "avx2")]
+    fn from(value: &Cube333) -> Self {
+        let ud_slice = ARMUDToDREdgesCoord::from(&value.edges).val();
+        let co = CPOrbitUnsortedCoord::from(&value.corners).val(); // This is wrong actually
+        let index = co * ARMUDToDREdgesCoord::size() + ud_slice;
+        ARMUDToDRCoord(index as u16)
+    }
+}
+
 #[cfg(target_feature = "avx2")]
 mod avx2 {
-    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_srli_epi32, _mm_sub_epi8};
+    use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_movemask_epi8, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_srli_epi32, _mm_sub_epi8};
 
     use crate::cube::EdgeCube333;
     use crate::simd_util::avx2::C;
-    use crate::steps::dr::coords::{COUDCoord, UDSliceUnsortedCoord};
+    use crate::steps::dr::coords::{ARMUDToDRCOCoord, ARMUDToDREdgesCoord, COUDCoord, UDSliceUnsortedCoord};
 
     const UD_SLICE_BINOM_0_ARR: [u8; 16] = [
         b(0, 0), b(0, 1), b(0, 2), b(0, 3),
@@ -161,6 +233,24 @@ mod avx2 {
 
     const CO_MUL: __m128i = unsafe { C { a_u16: [1, 3, 9, 27, 81, 243, 729, 0] }.a };
     const CO_SHUFFLE_8_TO_16: __m128i = unsafe { C { a_u8: [0, 0xFF, 1, 0xFF, 2, 0xFF, 3, 0xFF, 4, 0xFF, 5, 0xFF, 6, 0xFF, 7, 0xFF] }.a };
+
+    #[inline]
+    pub(crate) unsafe fn unsafe_from_arm_cocoord(value: __m128i) -> ARMUDToDRCOCoord {
+        let lower = _mm_and_si128(value, _mm_set1_epi8(0x0F));
+        let good_corners = _mm_cmpeq_epi8(lower, _mm_set1_epi8(0));
+        ARMUDToDRCOCoord((_mm_movemask_epi8(good_corners) as u8 ^ 0xFF) & 0x7F)
+    }
+
+    #[inline]
+    pub(crate) unsafe fn unsafe_from_ud_slice_unsorted(value: __m128i) -> ARMUDToDREdgesCoord {
+        let ud_slice_edges = _mm_srli_epi32::<6>(_mm_and_si128(value, _mm_set1_epi8(0b01000000)));
+        let ud_slice_edges = _mm_shuffle_epi8(
+            ud_slice_edges,
+            _mm_setr_epi8(1, 3, 9, 11, 4, 5, 6, 7, -1, -1, -1, -1, -1, -1, -1,-1),
+        );
+
+        ARMUDToDREdgesCoord(crate::steps::htr::coords::avx2::unsorted_coord_4_4_split(ud_slice_edges))
+    }
 
     #[inline]
     pub(crate) unsafe fn unsafe_from_cocoord(value: __m128i) -> COUDCoord {

@@ -10,6 +10,7 @@ use crate::cube::*;
 use crate::cube::turn::{TransformableMut, TurnableMut};
 use crate::defs::StepKind;
 use crate::solver::lookup_table;
+use crate::solver::solution::Solution;
 use crate::solver_new::*;
 use crate::solver_new::dr::builder::RZPSettings;
 use crate::solver_new::group::StepGroup;
@@ -19,13 +20,14 @@ use crate::solver_new::util_cube::CubeState;
 use crate::steps::coord::Coord;
 use crate::steps::dr::co::COCountUD;
 use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
-use crate::steps::dr::dr_config::{DR_UD_EO_FB_MOVESET, DRPruningTable};
+use crate::steps::dr::dr_config::{ARM_UD_EO_FB_MOVESET, ARDRPruningTable, DR_UD_EO_FB_MOVESET, DRPruningTable, HTR_MOVES};
 use crate::steps::eo::coords::{BadEdgeCount, EOCoordFB};
 use crate::steps::htr::coords::HTRDRUDCoord;
 use crate::steps::htr::subsets::{DR_SUBSETS, DRSubsetFilter, Subset};
 use crate::steps::step::PostStepCheck;
 
 pub static DR_TABLE: LazyLock<DRPruningTable> = LazyLock::new(gen_dr);
+pub static AR_DR_TABLE: LazyLock<ARDRPruningTable> = LazyLock::new(gen_ar_dr);
 
 const DRUD_EOFB_ST_MOVES: &[Turn333] = &[
     Turn333::L, Turn333::Li,
@@ -55,8 +57,11 @@ const DRUF_PRE_TRIGGER_AUX_MOVES: &[Turn333] = &[
     Turn333::R2,
 ];
 
-pub type DRBuilder = builder::DRBuilderInternal<false, false, false, false, false, false, false>;
+
+pub type DRBuilder = builder::DRBuilderInternal<false, false, false, false, false, false, false, false>;
 pub type RZPBuilder = builder::RZPBuilderInternal<false, false, false>;
+
+pub const DRUD_ARUD_MOVESET: MoveSet = MoveSet::new(DRUD_EOFB_ST_MOVES, HTR_MOVES);
 pub const DRUD_EOFB_MOVESET: MoveSet = MoveSet::new(DRUD_EOFB_ST_MOVES, DRUD_EOFB_AUX_MOVES);
 pub const DRUD_PRE_TRIGGER_MOVESET: MoveSet = MoveSet::new(DRUF_PRE_TRIGGER_ST_MOVES, DRUF_PRE_TRIGGER_AUX_MOVES);
 pub const DRUD_EOFB_POST_TRIGGER_MOVESET: MoveSet = DRUD_EOFB_MOVESET;
@@ -68,17 +73,17 @@ impl DRStep {
         DRBuilder::default()
     }
 
-    pub fn new(dfs: DFSParameters, axis: HashMap<CubeAxis, Vec<CubeAxis>>, subsets: Vec<Subset>) -> StepGroup {
+    pub fn new(dfs: DFSParameters, axis: HashMap<CubeAxis, Vec<CubeAxis>>, subsets: Vec<Subset>, from_ar: bool) -> StepGroup {
         debug!("Step dr with options {dfs:?}");
         let variants = axis.into_iter()
             .flat_map(move |(dr, eo)|eo.into_iter().map(move |eo|(eo, dr.clone())))
             .filter_map(|(eo,dr)|match (eo, dr) {
-                (CubeAxis::UD, CubeAxis::FB) => Some((vec![Transformation333::X], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::UD, CubeAxis::LR) => Some((vec![Transformation333::X, Transformation333::Z], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::FB, CubeAxis::UD) => Some((vec![], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::FB, CubeAxis::LR) => Some((vec![Transformation333::Z], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::LR, CubeAxis::UD) => Some((vec![Transformation333::Y], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::LR, CubeAxis::FB) => Some((vec![Transformation333::Y, Transformation333::Z], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
+                (CubeAxis::UD, CubeAxis::FB) => Some((dr, vec![Transformation333::X], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
+                (CubeAxis::UD, CubeAxis::LR) => Some((dr, vec![Transformation333::X, Transformation333::Z], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
+                (CubeAxis::FB, CubeAxis::UD) => Some((dr, vec![], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
+                (CubeAxis::FB, CubeAxis::LR) => Some((dr, vec![Transformation333::Z], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
+                (CubeAxis::LR, CubeAxis::UD) => Some((dr, vec![Transformation333::Y], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
+                (CubeAxis::LR, CubeAxis::FB) => Some((dr, vec![Transformation333::Y, Transformation333::Z], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
                 _ => None,
             })
             .map(|x|{
@@ -88,16 +93,29 @@ impl DRStep {
                 }
                 (x, post_checks)
             })
-            .map(|((trans, name), psc)| StepGroup::single(Box::new(PruningTableStep::<DRUDEOFB_SIZE, DRUDEOFBCoord, 2048, EOCoordFB> {
-                table: &DR_TABLE,
-                options: dfs.clone(),
-                pre_step_trans: trans,
-                post_step_check: psc,
-                move_set: &DRUD_EOFB_MOVESET,
-                name,
-                kind: StepKind::DR,
-                _pc: Default::default(),
-            })))
+            .map(|((dr_axis, trans, name), psc)| {
+                if from_ar {
+                    StepGroup::single(Box::new(DRARStep {
+                        table: &DR_TABLE,
+                        axis: dr_axis,
+                        options: dfs.clone(),
+                        pre_step_trans: trans,
+                        post_step_check: psc,
+                        name,
+                    }))
+                } else {
+                    StepGroup::single(Box::new(PruningTableStep::<DRUDEOFB_SIZE, DRUDEOFBCoord, 2048, EOCoordFB> {
+                        table: &AR_DR_TABLE,
+                        options: dfs.clone(),
+                        pre_step_trans: trans,
+                        post_step_check: psc,
+                        move_set: &DRUD_ARUD_MOVESET,
+                        name,
+                        kind: StepKind::DR,
+                        _pc: Default::default(),
+                    }))
+                }
+            })
             .collect_vec();
         StepGroup::parallel(variants)
     }
@@ -202,6 +220,77 @@ impl DRStep {
     }
 }
 
+struct DRARStep {
+    table: &'static ARDRPruningTable,
+    axis: CubeAxis,
+    options: DFSParameters,
+    pre_step_trans: Vec<Transformation333>,
+    name: String,
+    post_step_check: Vec<Box<dyn PostStepCheck + Send + 'static>>,
+}
+
+impl PreStepCheck for DRARStep {
+    fn is_cube_ready(&self, cube: &Cube333, sol: Option<&Solution>) -> bool {
+        if EOCoordFB::from(cube).val() != 0 {
+            return false;
+        }
+        if DRUDEOFBCoord::from(cube).val() == 0 {
+            return true;
+        }
+        if let Some(sol) = sol {
+            let alg: Algorithm = sol.clone().into();
+            return if alg.len() == 0 {
+                true
+            } else {
+                if alg.normal_moves.last().map(|t|t.face.is_on_axis(self.axis)).unwrap_or(false) {
+                    true
+                } else if alg.inverse_moves.last().map(|t|t.face.is_on_axis(self.axis)).unwrap_or(false) {
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+        true
+    }
+}
+
+impl PostStepCheck for DRARStep {
+    fn is_solution_admissible(&self, cube: &Cube333, alg: &Algorithm) -> bool {
+        self.post_step_check.iter()
+            .all(|psc|psc.is_solution_admissible(cube, alg))
+    }
+}
+
+impl Step for DRARStep {
+    fn get_dfs_parameters(&self) -> DFSParameters {
+        self.options.clone()
+    }
+
+    fn get_moveset(&self, _: &Cube333, _: usize) -> &MoveSet {
+        &DRUD_ARUD_MOVESET
+    }
+
+    fn heuristic(&self, state: &Cube333, can_niss_switch: bool, _: usize) -> usize {
+        let coord = DRUDEOFBCoord::from(state);
+        let heuristic = self.table.get(coord) as usize;
+        if can_niss_switch {
+            min(1, heuristic)
+        } else {
+            heuristic
+        }
+    }
+
+    fn pre_step_trans(&self) -> &'_ Vec<Transformation333> {
+        &self.pre_step_trans
+    }
+
+    fn get_name(&self) -> (StepKind, String) {
+        (StepKind::DR, self.name.clone())
+    }
+}
+
+
 struct DRTriggerStep {
     table: &'static DRPruningTable,
     options: DFSParameters,
@@ -213,7 +302,7 @@ struct DRTriggerStep {
 }
 
 impl PreStepCheck for DRTriggerStep {
-    fn is_cube_ready(&self, cube: &Cube333) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
         if EOCoordFB::from(cube).val() != 0 {
             return false;
         }
@@ -314,7 +403,7 @@ impl RZPStep {
 }
 
 impl PreStepCheck for RZPStep {
-    fn is_cube_ready(&self, cube: &Cube333) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
         cube.count_bad_edges_fb() == 0
     }
 }
@@ -355,10 +444,18 @@ fn calc_rzp_state(cube: &Cube333) -> (u8, u8) {
 
 fn gen_dr() -> DRPruningTable {
     DRPruningTable::load_and_save("dr", ||lookup_table::generate(&DR_UD_EO_FB_MOVESET,
-                                       &|c: &Cube333| DRUDEOFBCoord::from(c),
-                                       &|| DRPruningTable::new(false),
-                                       &|table, coord|table.get(coord),
-                                       &|table, coord, val|table.set(coord, val)))
+                                                                 &|c: &Cube333| DRUDEOFBCoord::from(c),
+                                                                 &|| DRPruningTable::new(false),
+                                                                 &|table, coord|table.get(coord),
+                                                                 &|table, coord, val|table.set(coord, val)))
+}
+
+fn gen_ar_dr() -> ARDRPruningTable {
+    DRPruningTable::load_and_save("arm-dr", ||lookup_table::generate(&ARM_UD_EO_FB_MOVESET,
+                                                                     &|c: &Cube333| DRUDEOFBCoord::from(c),
+                                                                     &|| ARDRPruningTable::new(false),
+                                                                     &|table, coord|table.get(coord),
+                                                                     &|table, coord, val|table.set(coord, val)))
 }
 
 impl Cube333 {
@@ -392,7 +489,7 @@ mod builder {
     use crate::steps::step::StepConfig;
     use crate::steps::util::{expand_subset_name, Subset};
 
-    pub struct DRBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool, const E: bool, const F: bool, const G: bool> {
+    pub struct DRBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool, const E: bool, const F: bool, const G: bool, const H: bool> {
         _a_max_length: usize,
         _b_max_absolute_length: usize,
         _c_niss: NissSwitchType,
@@ -400,10 +497,11 @@ mod builder {
         _e_subsets: Vec<Subset>,
         _f_triggers: Vec<Algorithm>,
         _g_rzp_options: Option<RZPSettings>,
+        _h_from_ar: bool,
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool, const F: bool, const G: bool> DRBuilderInternal<A, B, C, D, E, F, G> {
-        fn convert<const _A: bool, const _B: bool, const _C: bool, const _D: bool, const _E: bool, const _F: bool, const _G: bool>(self) -> DRBuilderInternal<_A, _B, _C, _D, _E, _F, _G> {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool, const F: bool, const G: bool, const H: bool> DRBuilderInternal<A, B, C, D, E, F, G, H> {
+        fn convert<const _A: bool, const _B: bool, const _C: bool, const _D: bool, const _E: bool, const _F: bool, const _G: bool, const _H: bool>(self) -> DRBuilderInternal<_A, _B, _C, _D, _E, _F, _G, _H> {
             DRBuilderInternal {
                 _a_max_length: self._a_max_length,
                 _b_max_absolute_length: self._b_max_absolute_length,
@@ -412,54 +510,55 @@ mod builder {
                 _e_subsets: self._e_subsets,
                 _f_triggers: self._f_triggers,
                 _g_rzp_options: self._g_rzp_options,
+                _h_from_ar: self._h_from_ar,
             }
         }
     }
 
-    impl <const B: bool, const C: bool, const D: bool, const E: bool, const F: bool, const G: bool> DRBuilderInternal<false, B, C, D, E, F, G> {
-        pub fn max_length(mut self, max_length: usize) -> DRBuilderInternal<true, B, C, D, E, F, G> {
+    impl <const B: bool, const C: bool, const D: bool, const E: bool, const F: bool, const G: bool, const H: bool> DRBuilderInternal<false, B, C, D, E, F, G, H> {
+        pub fn max_length(mut self, max_length: usize) -> DRBuilderInternal<true, B, C, D, E, F, G, H> {
             self._a_max_length = max_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const C: bool, const D: bool, const E: bool, const F: bool, const G: bool> DRBuilderInternal<A, false, C, D, E, F, G> {
-        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> DRBuilderInternal<A, true, C, D, E, F, G> {
+    impl <const A: bool, const C: bool, const D: bool, const E: bool, const F: bool, const G: bool, const H: bool> DRBuilderInternal<A, false, C, D, E, F, G, H> {
+        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> DRBuilderInternal<A, true, C, D, E, F, G, H> {
             self._b_max_absolute_length = max_absolute_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const D: bool, const E: bool, const F: bool, const G: bool> DRBuilderInternal<A, B, false, D, E, F, G> {
-        pub fn niss(mut self, niss: NissSwitchType) -> DRBuilderInternal<A, B, true, D, E, F, G> {
+    impl <const A: bool, const B: bool, const D: bool, const E: bool, const F: bool, const G: bool, const H: bool> DRBuilderInternal<A, B, false, D, E, F, G, H> {
+        pub fn niss(mut self, niss: NissSwitchType) -> DRBuilderInternal<A, B, true, D, E, F, G, H> {
             self._c_niss = niss;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const E: bool, const F: bool, const G: bool> DRBuilderInternal<A, B, C, false, E, F, G> {
-        pub fn axis(mut self, dr_eo_axis: HashMap<CubeAxis, Vec<CubeAxis>>) -> DRBuilderInternal<A, B, C, true, E, F, G> {
+    impl <const A: bool, const B: bool, const C: bool, const E: bool, const F: bool, const G: bool, const H: bool> DRBuilderInternal<A, B, C, false, E, F, G, H> {
+        pub fn axis(mut self, dr_eo_axis: HashMap<CubeAxis, Vec<CubeAxis>>) -> DRBuilderInternal<A, B, C, true, E, F, G, H> {
             self._d_dr_eo_axis = dr_eo_axis;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const D: bool, const F: bool, const G: bool> DRBuilderInternal<A, B, C, D, false, F, G> {
-        pub fn subsets(mut self, subsets: Vec<Subset>) -> DRBuilderInternal<A, B, C, D, true, F, G> {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool, const F: bool, const G: bool, const H: bool> DRBuilderInternal<A, B, C, D, false, F, G, H> {
+        pub fn subsets(mut self, subsets: Vec<Subset>) -> DRBuilderInternal<A, B, C, D, true, F, G, H> {
             self._e_subsets = subsets;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const E: bool, const D: bool, const F: bool, const G: bool> DRBuilderInternal<A, B, C, D, E, F, G> {
-        pub fn add_subset(mut self, subset: Subset) -> DRBuilderInternal<A, B, C, D, true, F, G> {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool, const F: bool, const G: bool, const H: bool> DRBuilderInternal<A, B, C, D, E, F, G, H> {
+        pub fn add_subset(mut self, subset: Subset) -> DRBuilderInternal<A, B, C, D, true, F, G, H> {
             self._e_subsets.push(subset);
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const E: bool, const D: bool, const F: bool, const G: bool> DRBuilderInternal<A, B, C, D, E, F, G> {
-        pub fn add_subsets<Y: AsRef<Subset>, X: IntoIterator<Item = Y>>(mut self, subsets: X) -> DRBuilderInternal<A, B, C, D, true, F, G> {
+    impl <const A: bool, const B: bool, const C: bool, const E: bool, const D: bool, const F: bool, const G: bool, const H: bool> DRBuilderInternal<A, B, C, D, E, F, G, H> {
+        pub fn add_subsets<Y: AsRef<Subset>, X: IntoIterator<Item = Y>>(mut self, subsets: X) -> DRBuilderInternal<A, B, C, D, true, F, G, H> {
             for subset in subsets.into_iter() {
                 self._e_subsets.push(subset.as_ref().clone());
             }
@@ -467,21 +566,28 @@ mod builder {
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool, const G: bool> DRBuilderInternal<A, B, C, D, E, false, G> {
-        pub fn triggers(mut self, triggers: Vec<Algorithm>) -> DRBuilderInternal<A, B, C, D, E, true, G> {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool, const G: bool, const H: bool> DRBuilderInternal<A, B, C, D, E, false, G, H> {
+        pub fn triggers(mut self, triggers: Vec<Algorithm>) -> DRBuilderInternal<A, B, C, D, E, true, G, H> {
             self._f_triggers = triggers;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool, const F: bool> DRBuilderInternal<A, B, C, D, E, F, false> {
-        pub fn rzp<T: Into<RZPSettings>>(mut self, rzp: T) -> DRBuilderInternal<A, B, C, D, E, F, true> {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool, const F: bool> DRBuilderInternal<A, B, C, D, E, F, false, false> {
+        pub fn rzp<T: Into<RZPSettings>>(mut self, rzp: T) -> DRBuilderInternal<A, B, C, D, E, F, true, false> {
             self._g_rzp_options = Some(rzp.into());
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> DRBuilderInternal<A, B, C, D, E, true, true> {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> DRBuilderInternal<A, B, C, D, E, false, false, false> {
+        pub fn with_arm(mut self) -> DRBuilderInternal<A, B, C, D, E, false, false, true> {
+            self._h_from_ar = true;
+            self.convert()
+        }
+    }
+
+    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> DRBuilderInternal<A, B, C, D, E, true, true, false> {
         pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: self._c_niss,
@@ -493,7 +599,7 @@ mod builder {
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> DRBuilderInternal<A, B, C, D, E, false, false> {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool, const H: bool> DRBuilderInternal<A, B, C, D, E, false, false, H> {
         pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: self._c_niss,
@@ -501,11 +607,11 @@ mod builder {
                 max_moves: self._a_max_length,
                 absolute_max_moves: Some(self._b_max_absolute_length),
             };
-            DRStep::new(dfs, self._d_dr_eo_axis, self._e_subsets)
+            DRStep::new(dfs, self._d_dr_eo_axis, self._e_subsets, self._h_from_ar)
         }
     }
 
-    impl DRBuilderInternal<false, false, false, false, false, false, false> {
+    impl DRBuilderInternal<false, false, false, false, false, false, false, false> {
         pub fn new() -> Self {
             Self {
                 _a_max_length: 10,
@@ -515,17 +621,18 @@ mod builder {
                 _e_subsets: vec![],
                 _f_triggers: vec![],
                 _g_rzp_options: None,
+                _h_from_ar: false,
             }
         }
     }
 
-    impl Default for DRBuilderInternal<false, false, false, false, false, false, false> {
+    impl Default for DRBuilderInternal<false, false, false, false, false, false, false, false> {
         fn default() -> Self {
             Self::new()
         }
     }
 
-    impl TryFrom<StepConfig> for DRBuilderInternal<false, false, false, false, false, false, false> {
+    impl TryFrom<StepConfig> for DRBuilderInternal<false, false, false, false, false, false, false, false> {
         type Error = ();
 
         fn try_from(mut value: StepConfig) -> Result<Self, Self::Error> {

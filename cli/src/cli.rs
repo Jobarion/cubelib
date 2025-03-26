@@ -58,8 +58,8 @@ pub struct SolveCommand {
 #[derive(ValueEnum, Clone, Default, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SolverBackend {
-    #[default]
     IterStream,
+    #[default]
     MultiPathChannel,
 }
 

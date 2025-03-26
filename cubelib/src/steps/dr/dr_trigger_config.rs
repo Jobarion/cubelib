@@ -15,6 +15,7 @@ use crate::cube::turn::{TransformableMut, TurnableMut};
 #[cfg(feature = "333htr")]
 use crate::steps::htr::htr_config::HTRSubsetTable;
 use crate::solver::moveset::TransitionTable333;
+use crate::solver::solution::Solution;
 use crate::steps::dr::dr_config::{DR_UD_EO_FB_MOVES, DR_UD_EO_FB_MOVESET, DR_UD_EO_FB_STATE_CHANGE_MOVES, DRPruningTable, HTR_DR_UD_MOVESET};
 use crate::steps::{MoveSet333, Step333};
 use crate::steps::coord::Coord;
@@ -192,7 +193,7 @@ fn calc_rzp_state(cube: &Cube333) -> (u8, u8) {
 }
 
 impl<'a> PreStepCheck for DRTriggerStepTable<'a> {
-    fn is_cube_ready(&self, c: &Cube333) -> bool {
+    fn is_cube_ready(&self, c: &Cube333, _: Option<&Solution>) -> bool {
         if EOCoordFB::from(c).val() != 0 {
             return false;
         }

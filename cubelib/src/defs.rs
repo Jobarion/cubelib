@@ -7,6 +7,7 @@ use std::string::ToString;
 pub enum StepKind {
     EO,
     RZP,
+    AR,
     DR,
     HTR,
     FR,
@@ -30,6 +31,7 @@ impl FromStr for StepKind {
             "eo" => Ok(Self::EO),
             "dr" => Ok(Self::DR),
             "rzp" => Ok(Self::RZP),
+            "ar" | "jzp" => Ok(Self::AR),
             "htr" => Ok(Self::HTR),
             "fr" => Ok(Self::FR),
             "frls" => Ok(Self::FRLS),
@@ -45,6 +47,7 @@ impl Into<String> for StepKind {
         match self {
             StepKind::EO => "eo".to_string(),
             StepKind::RZP => "rzp".to_string(),
+            StepKind::AR => "arm".to_string(),
             StepKind::DR => "dr".to_string(),
             StepKind::HTR => "htr".to_string(),
             StepKind::FR => "fr".to_string(),

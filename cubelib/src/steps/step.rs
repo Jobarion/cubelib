@@ -87,7 +87,7 @@ pub trait StepVariant: PreStepCheck + PostStepCheck
 }
 
 pub trait PreStepCheck {
-    fn is_cube_ready(&self, cube: &Cube333) -> bool;
+    fn is_cube_ready(&self, cube: &Cube333, sol: Option<&Solution>) -> bool;
 }
 
 pub trait PostStepCheck {
@@ -156,7 +156,7 @@ pub struct DefaultPruningTableStep<
 
 impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: for<'b> From<&'b Cube333> {
 
-    fn is_cube_ready(&self, cube: &Cube333) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
         PC::from(cube).val() == 0
     }
 }

@@ -51,7 +51,7 @@ pub struct SolveCommand {
     pub steps: String,
     #[arg(help = "Scramble to solve (use '-' to read from stdin)")]
     pub scramble: String,
-    #[arg(long = "backend", default_value = "iter-stream", help = "Solver backend to use")]
+    #[arg(long = "backend", default_value = "multi-path-channel", help = "Solver backend to use")]
     pub backend: SolverBackend,
 }
 

@@ -89,7 +89,7 @@ Performs random moves
 - Default NISS option: `none`
 
 #### AR / JZP
-Solves
+Brings the cube into a state from which the cube can be reduced to DR without quarter turns on the DR axis.
 - Variations:
   - `ud`, `fb`, `lr`, for AR on that axis with any EO axis.
   - `arud-eofb`, `arud-eolr`, `arfb-eoud`, `arfb-eolr`, `arlr-eoud`, `arlr-eofb` to be specific about both the AR and EO axis.

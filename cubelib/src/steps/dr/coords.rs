@@ -200,20 +200,11 @@ impl From<&Cube333> for ARMUDToDRCoord {
     }
 }
 
-impl Cube333 {
-    #[cfg(target_feature = "avx2")]
-    pub fn is_arm(&self) -> bool {
-        unsafe {
-            avx2::unsafe_is_arm(self)
-        }
-    }
-}
-
 #[cfg(target_feature = "avx2")]
 mod avx2 {
     use std::arch::x86_64::{__m128i, _mm_add_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_movemask_epi8, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi32, _mm_set1_epi8, _mm_setr_epi32, _mm_setr_epi8, _mm_shuffle_epi32, _mm_shuffle_epi8, _mm_srli_epi32, _mm_sub_epi8};
 
-    use crate::cube::{Cube333, EdgeCube333};
+    use crate::cube::EdgeCube333;
     use crate::simd_util::avx2::C;
     use crate::steps::dr::coords::{ARMUDToDRCOCoord, ARMUDToDREdgesCoord, COUDCoord, UDSliceUnsortedCoord};
 
@@ -259,23 +250,6 @@ mod avx2 {
         );
 
         ARMUDToDREdgesCoord(crate::steps::htr::coords::avx2::unsorted_coord_4_4_split(ud_slice_edges))
-    }
-
-    pub(crate) unsafe fn unsafe_is_arm(cube: &Cube333) -> bool {
-        let co = _mm_and_si128(cube.corners.0, _mm_set1_epi8(0b11));
-        let co_correct = _mm_cmpeq_epi8(co, _mm_set1_epi8(0));
-        let co_arm_good = _mm_cmpeq_epi8(co, _mm_setr_epi8(2, 1, 2, 1, 2, 1, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0));
-        let corners_good = (_mm_movemask_epi8(_mm_or_si128(co_correct, co_arm_good)) as u8) == 0xFF;
-        if !corners_good {
-            return false
-        }
-        let ud_slice_edges = _mm_and_si128(cube.edges.0, _mm_set1_epi8(0b01000000));
-        let e_slice_edges_in_m_slice = _mm_shuffle_epi8(
-            ud_slice_edges,
-            _mm_setr_epi8(0, 2, 8, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        );
-        let e_slice_edges_in_m_slice = _mm_movemask_epi8(_mm_cmpeq_epi8(e_slice_edges_in_m_slice, _mm_set1_epi8(0b01000000))) as u8;
-        (e_slice_edges_in_m_slice & 0x0F) == 0
     }
 
     #[inline]

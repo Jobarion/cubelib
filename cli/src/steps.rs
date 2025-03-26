@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::str::FromStr;
+
 use cubelib::algs::Algorithm;
 use cubelib::defs::{NissSwitchType, StepKind};
+use cubelib::solver_new::ar::ARBuilder;
 use cubelib::solver_new::dr::{DRBuilder, RZPBuilder, RZPStep};
 use cubelib::solver_new::eo::EOBuilder;
 use cubelib::solver_new::finish::{FRFinishBuilder, HTRFinishBuilder};
@@ -146,6 +148,12 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>) -> Result<(Option<Ste
                     .collect::<Result<_, _>>()
                     .map_err(|_|"Unable to parse algorithm")?)
                 .rzp(rzp_builder)
+                .build())
+        },
+        (Some(StepKind::EO), StepKind::AR) => Some(ARBuilder::try_from(step_prototype).map_err(|_|"Failed to parse ARM step")?.build()),
+        (Some(StepKind::AR), StepKind::DR) => {
+            Some(DRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse DR step")?
+                .with_arm()
                 .build())
         },
         (Some(StepKind::EO), StepKind::DR) => {

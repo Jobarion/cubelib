@@ -44,7 +44,7 @@ pub struct NissPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 
 }
 
 impl<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for PruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where PC: for<'c> From<&'c Cube333> {
-    fn is_cube_ready(&self, cube: &Cube333) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
         PC::from(cube).val() == 0
     }
 }
@@ -85,7 +85,7 @@ impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: C
 }
 
 impl<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for NissPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where PC: for<'c> From<&'c Cube333> {
-    fn is_cube_ready(&self, cube: &Cube333) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
         PC::from(cube).val() == 0
     }
 }
@@ -279,7 +279,7 @@ impl StepIORunner {
             previous_normal = previous_normal.map(|m|m.transform(t));
             previous_inverse = previous_inverse.map(|m|m.transform(t));
         }
-        if !self.step.is_cube_ready(&cube) {
+        if !self.step.is_cube_ready(&cube, Some(input)) {
             return Ok(());
         }
 

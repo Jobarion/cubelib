@@ -5,6 +5,7 @@ use crate::defs::*;
 use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::TransitionTable333;
 use crate::cube::*;
+use crate::solver::solution::Solution;
 use crate::steps::{MoveSet333, Step333};
 use crate::steps::eo::coords::{BadEdgeCount, EOCoordFB};
 use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepConfig, StepVariant};
@@ -131,7 +132,7 @@ impl<'a> EOStepTable<'a> {
 }
 
 impl PreStepCheck for EOStepTable<'_> {
-    fn is_cube_ready(&self, _: &Cube333) -> bool {
+    fn is_cube_ready(&self, _: &Cube333, _: Option<&Solution>) -> bool {
         true
     }
 }

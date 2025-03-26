@@ -46,7 +46,7 @@ pub fn dfs_iter<'a, S: StepVariant + ?Sized>(
         previous_inverse = previous_inverse.map(|m|m.transform(t));
     }
 
-    if !step.is_cube_ready(&cube) {
+    if !step.is_cube_ready(&cube, None) {
         return None;
     }
 

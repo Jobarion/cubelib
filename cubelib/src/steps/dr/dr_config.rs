@@ -56,9 +56,24 @@ pub const DR_UD_EO_FB_MOVES: &[Turn333] = &[
     Turn333::new(CubeFace::Back, Direction::Half),
 ];
 
+pub const PRE_ARD_UD_EO_FB_AUX_MOVES: &[Turn333] = &[
+    Turn333::U2,
+    Turn333::D2,
+    Turn333::F2,
+    Turn333::B2,
+    Turn333::L, Turn333::Li, Turn333::L2,
+    Turn333::R, Turn333::Ri, Turn333::R2
+];
+
 pub const ARM_UD_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
     st_moves: DR_UD_EO_FB_STATE_CHANGE_MOVES,
     aux_moves: HTR_MOVES,
+    transitions: &dr_transitions(CubeFace::Left),
+};
+
+pub const PRE_AR_UD_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
+    st_moves: HTR_DR_UD_STATE_CHANGE_MOVES,
+    aux_moves: PRE_ARD_UD_EO_FB_AUX_MOVES,
     transitions: &dr_transitions(CubeFace::Left),
 };
 
@@ -71,6 +86,8 @@ pub const DR_UD_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
 pub type DRDirectPruningTable = LookupTable<{ DRUD_SIZE }, DRUDCoord>;
 pub type DRPruningTable = LookupTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
 pub type DRPruningTableStep<'a> = DefaultPruningTableStep<'a, {DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB>;
+pub type EOARPruningTable = LookupTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
+pub type ARDRPruningTable = LookupTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
 
 pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")] subset_table: &'a HTRSubsetTable, mut config: StepConfig) -> Result<(Step333<'a>, DefaultStepOptions), String> {
     #[cfg(feature = "333htr")]

@@ -8,6 +8,7 @@ use crate::algs::Algorithm;
 use crate::cube::*;
 use crate::cube::Cube333;
 use crate::cube::turn::{ApplyAlgorithm, InvertibleMut, TurnableMut};
+use crate::solver::solution::Solution;
 use crate::steps::coord::Coord;
 use crate::steps::dr::coords::DRUDEOFBCoord;
 use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
@@ -72,7 +73,7 @@ pub fn dr_subset_filter<'a>(subset_table: &'a HTRSubsetTable, subsets: &Vec<Stri
 }
 
 impl PreStepCheck for DRSubsetFilter<'_> {
-    fn is_cube_ready(&self, cube: &Cube333) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
         self.matches_subset(cube)
     }
 }

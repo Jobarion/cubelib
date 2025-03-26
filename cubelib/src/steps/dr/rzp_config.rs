@@ -4,6 +4,7 @@ use crate::algs::Algorithm;
 use crate::cube::*;
 use crate::defs::*;
 use crate::solver::moveset::TransitionTable333;
+use crate::solver::solution::Solution;
 use crate::steps::{dr, MoveSet333, Step333};
 use crate::steps::eo::coords::BadEdgeCount;
 use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepConfig, StepVariant};
@@ -146,7 +147,7 @@ impl<'a> RZPStep<'a> {
 }
 
 impl<'a> PreStepCheck for RZPStep<'a> {
-    fn is_cube_ready(&self, cube: &Cube333) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
         if self.is_any {
             cube.edges.count_bad_edges_ud() == 0 || cube.edges.count_bad_edges_fb() == 0 || cube.edges.count_bad_edges_lr() == 0
         } else {

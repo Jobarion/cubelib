@@ -173,6 +173,19 @@ cubelib invert <scramble>
 ```
 
 
+## Building CLI from source
+Make sure you have [latest stable version](https://www.rust-lang.org/tools/install) of rust installed.
+
+If you are using rustup, it should be as simple as:
+```commandline
+rustup install 1.85.1
+```
+
+And then build the release file:
+```commandline
+cd cli && cargo +1.85.1 build --release
+```
+
 ## APIs
 There is no API documentation yet. If you're interested in actually using this project please let me know by creating an issue.
 For the most common use cases examples can be found in the [examples](/cubelib/examples) directory.

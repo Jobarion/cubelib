@@ -179,7 +179,7 @@ log = "warn"
 [solver]
 quality = 100
 solution_count = 1
-tformat = "detailed"
+format = "detailed"
 all_solutions = false
 min = 0
 steps = "EO > DR > HTR > FIN"

@@ -14,15 +14,16 @@ use cubelib::solver_new::util_steps::{FilterFirstN, FilterFirstNStepVariant};
 use cubelib::steps::step::StepConfig;
 use pest::iterators::Pair;
 use pest::Parser;
+use crate::config::StepOverride;
 
 #[derive(pest_derive::Parser)]
 #[grammar = "steps.pest"]
 struct StepsParser;
 
-pub(crate) fn parse_steps<S: AsRef<str>>(s: S) -> Result<(StepGroup, StepKind), String> {
+pub(crate) fn parse_steps<S: AsRef<str>>(s: S, prototypes: &HashMap<String, StepOverride>) -> Result<(StepGroup, StepKind), String> {
     let main = StepsParser::parse(Rule::main, s.as_ref()).unwrap().next().unwrap();
 
-    let (group, target) = generate(main, None)?;
+    let (group, target) = generate(main, None, prototypes)?;
     if let Some(group) = group {
         Ok((group, target.kind))
     } else {
@@ -30,13 +31,13 @@ pub(crate) fn parse_steps<S: AsRef<str>>(s: S) -> Result<(StepGroup, StepKind), 
     }
 }
 
-fn generate(p: Pair<Rule>, mut previous: Option<StepConfig>) -> Result<(Option<StepGroup>, StepConfig), String> {
+fn generate(p: Pair<Rule>, mut previous: Option<StepConfig>, prototypes: &HashMap<String, StepOverride>) -> Result<(Option<StepGroup>, StepConfig), String> {
     Ok(match p.as_rule() {
-        Rule::step => parse_step(p, previous)?,
+        Rule::step => parse_step(p, previous, prototypes)?,
         Rule::sequence => {
             let mut steps = vec![];
             for inner in p.into_inner() {
-                let (group, p_conf) = generate(inner, previous)?;
+                let (group, p_conf) = generate(inner, previous, prototypes)?;
                 previous = Some(p_conf);
                 if let Some(group) = group {
                     steps.push(group);
@@ -52,7 +53,7 @@ fn generate(p: Pair<Rule>, mut previous: Option<StepConfig>) -> Result<(Option<S
             let mut steps = vec![];
             let mut target: Option<StepConfig> = None;
             for inner in p.into_inner() {
-                let (group, kind) = generate(inner, previous.clone())?;
+                let (group, kind) = generate(inner, previous.clone(), prototypes)?;
                 if let Some(target) = target {
                     assert_eq!(target.kind, kind.kind);
                 }
@@ -74,14 +75,18 @@ fn generate(p: Pair<Rule>, mut previous: Option<StepConfig>) -> Result<(Option<S
     })
 }
 
-fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>) -> Result<(Option<StepGroup>, StepConfig), String> {
+fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<String, StepOverride>) -> Result<(Option<StepGroup>, StepConfig), String> {
     let mut inner = p.into_inner();
     let kind = inner.next().unwrap();
     assert_eq!(Rule::kind, kind.as_rule());
     let kind = kind.as_str();
-    let kind = StepKind::from_str(kind).unwrap();
+    let prototype = prototypes.get(kind);
+    let kind = if let Some(prototype) = prototype {
+        prototype.kind.clone()
+    } else {
+        StepKind::from_str(kind).unwrap()
+    };
     let mut variants = vec![];
-    let mut params: HashMap<String, String> = HashMap::default();
     let mut step_prototype = StepConfig {
         kind: kind.clone(),
         substeps: None,
@@ -94,6 +99,11 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>) -> Result<(Option<Ste
         quality: 0,
         params: HashMap::new()
     };
+    if let Some(prototype) = prototype {
+        for (key, value) in &prototype.parameters {
+            parse_kv(&mut step_prototype, key, value)?;
+        }
+    }
     loop {
         let next = if let Some(next) = inner.next() {
             next
@@ -103,24 +113,9 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>) -> Result<(Option<Ste
         match next.as_rule() {
             Rule::variant => variants.push(next.as_str().to_string()),
             Rule::key => {
-                let key = next.as_str().to_string();
+                let key = next.as_str();
                 let value = inner.next().unwrap().as_str();
-                match key.as_str() {
-                    "limit" => step_prototype.step_limit = Some(usize::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for count. '{x}'"))?),
-                    key @ "min" | key @ "min-rel" => step_prototype.min = Some(u8::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for {key}. '{x}'"))?),
-                    key @ "max" | key @ "max-rel" => step_prototype.max = Some(u8::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for {key}. '{x}'"))?),
-                    "min-abs" => step_prototype.absolute_min = Some(u8::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for min-abs. '{x}'"))?),
-                    "max-abs" => step_prototype.absolute_max = Some(u8::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for max-abs. '{x}'"))?),
-                    "niss" => step_prototype.niss = Some(match value {
-                        "always" | "true" => NissSwitchType::Always,
-                        "before" => NissSwitchType::Before,
-                        "none" | "never" | "false" => NissSwitchType::Never,
-                        x => Err(format!("Invalid NISS type {x}. Expected one of 'always', 'before', 'none'"))?
-                    }),
-                    _ => {
-                        params.insert(key, value.to_string());
-                    },
-                }
+                parse_kv(&mut step_prototype, key, value)?;
             },
             x => {
                 println!("{x:?}")
@@ -128,7 +123,6 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>) -> Result<(Option<Ste
             // _ => unreachable!()
         }
     }
-    step_prototype.params = params;
     if !variants.is_empty() {
         step_prototype.substeps = Some(variants);
     }
@@ -209,4 +203,24 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>) -> Result<(Option<Ste
     }
 
     Ok((step, step_prototype_c))
+}
+
+fn parse_kv(step_prototype: &mut StepConfig, key: &str, value: &str) -> Result<(), String> {
+    match key {
+        "limit" => step_prototype.step_limit = Some(usize::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for count. '{x}'"))?),
+        key @ "min" | key @ "min-rel" => step_prototype.min = Some(u8::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for {key}. '{x}'"))?),
+        key @ "max" | key @ "max-rel" => step_prototype.max = Some(u8::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for {key}. '{x}'"))?),
+        "min-abs" => step_prototype.absolute_min = Some(u8::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for min-abs. '{x}'"))?),
+        "max-abs" => step_prototype.absolute_max = Some(u8::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for max-abs. '{x}'"))?),
+        "niss" => step_prototype.niss = Some(match value {
+            "always" | "true" => NissSwitchType::Always,
+            "before" => NissSwitchType::Before,
+            "none" | "never" | "false" => NissSwitchType::Never,
+            x => Err(format!("Invalid NISS type {x}. Expected one of 'always', 'before', 'none'"))?
+        }),
+        _ => {
+            step_prototype.params.insert(key.to_string(), value.to_string());
+        },
+    }
+    Ok(())
 }

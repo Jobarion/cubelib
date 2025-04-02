@@ -96,7 +96,7 @@ impl DRStep {
             .map(|((dr_axis, trans, name), psc)| {
                 if from_ar {
                     StepGroup::single(Box::new(DRARStep {
-                        table: &DR_TABLE,
+                        table: &AR_DR_TABLE,
                         axis: dr_axis,
                         options: dfs.clone(),
                         pre_step_trans: trans,
@@ -105,11 +105,11 @@ impl DRStep {
                     }))
                 } else {
                     StepGroup::single(Box::new(PruningTableStep::<DRUDEOFB_SIZE, DRUDEOFBCoord, 2048, EOCoordFB> {
-                        table: &AR_DR_TABLE,
+                        table: &DR_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
                         post_step_check: psc,
-                        move_set: &DRUD_ARUD_MOVESET,
+                        move_set: &DRUD_EOFB_MOVESET,
                         name,
                         kind: StepKind::DR,
                         _pc: Default::default(),

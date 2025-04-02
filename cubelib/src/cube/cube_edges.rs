@@ -259,9 +259,9 @@ fn random_edges<T: rand::Rng>(parity: bool, rng: &mut T) -> [u8; 12] {
         let slice = [0, 2, 0, 2, 1, 1, 1, 1, 0, 2, 0, 2]; // 0 = M, 1 = E, 2 = S
         let default_orientation: [u8; 4] = [
             0, // Piece is in its home slice
-            1, // E <-> S
-            2, // E <-> M
+            2, // M <-> E
             4, // M <-> S
+            6, // E <-> S
         ];
         let mut orientation: u8 = default_orientation[(slice[piece_id as usize] ^ slice[position_id as usize]) as usize];
         if flipped {

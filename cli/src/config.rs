@@ -11,6 +11,7 @@ use crate::cli::{LogLevel, SolutionFormat, SolveCommand, SolverBackend};
 
 #[derive(Debug, Deserialize)]
 pub struct CubelibConfig {
+    #[serde(default = "default_log_level")]
     pub log: LogLevel,
     #[serde(rename = "solver")]
     pub solver_config: SolverConfig,

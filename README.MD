@@ -34,20 +34,16 @@ Solution (22): F2 D F2 L2 D' F L2 U2 B2 D' B2 R2 D2 B2 D2 F2 R2 D' B' L D B
 
 There are a couple of options that can be set globally for all steps.
 
-| Argument                           | Description                                                                                                                                                                                                                      | 
-|------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|  
-| `-N` `--niss`                      | Enables the usage of NISS. This applies differently to certain steps. Some steps like EO or HTR support using NISS anywhere during the step, for others like DR only a solution fully on the inverse will be searched by default |
-| `-n <count>`                       | By default only a single solution is returned. Use this option to define the number of solutions that will be returned                                                                                                           |
-| `-m <min>` `--min <min>`           | Return only solutions with a minimum length                                                                                                                                                                                      |
-| `-M <max>` `--max <max>`           | Return only solutions with a maximum length                                                                                                                                                                                      |
-| `-c` `--compact`                   | Don't show intermediate steps, only print the final solution                                                                                                                                                                     |
-| `-p` `--plain`                     | Don't print the length of each solution                                                                                                                                                                                          |
-| `-a` `--all`                       | Print solutions that would otherwise get filtered out. E.g. an EO ending in F'                                                                                                                                                   |
-| `-q <number>` `--quality <number>` | Higher values result in better/shorter solutions, but they take longer to find. Set to `0` for optimal search. The default is `100`                                                                                              |
-| `-v` `--verbose`                   | Print additional information for information and debugging purposes                                                                                                                                                              |
-| `--quiet`                          | Only print solutions and nothing else                                                                                                                                                                                            |
-| `-s` `--steps`                     | Configure the solver pipeline. More information below. Defaults to `EO > RZP > DR[triggers=R,RU2R,RU'R] > HTR > FIN`                                                                                                             | 
-| `--backend`                        | Cubelib supports two solver backends. The old one is `iter-stream`, the newer, faster, but more experimental (default) one is `multi-patch-channel`.                                                                             | 
+| Argument                           | Description                                                                                                                                          | 
+|------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|  
+| `-n <count>`                       | By default only a single solution is returned. Use this option to define the number of solutions that will be returned                               |
+| `-m <min>` `--min <min>`           | Return only solutions with a minimum length                                                                                                          |
+| `-M <max>` `--max <max>`           | Return only solutions with a maximum length                                                                                                          |
+| `--format`                         | The format used to output solutions. Either `detailed` (default), `compact`, `plain`.                                                                |
+| `-a` `--all`                       | Print solutions that would otherwise get filtered out. E.g. an EO ending in F'                                                                       |
+| `-q <number>` `--quality <number>` | Higher values result in better/shorter solutions, but they take longer to find. Set to `0` for optimal search. The default is `100`                  |
+| `-s` `--steps`                     | Configure the solver pipeline. More information below. Defaults to `EO > RZP > DR[triggers=R,RU2R,RU'R] > HTR > FIN`                                 | 
+| `--backend`                        | Cubelib supports two solver backends. The old one is `iter-stream`, the newer, faster, but more experimental (default) one is `multi-patch-channel`. | 
 
 ## Step configurations
 By default Cubelib always solves EO, then DR, HTR and FR before finishing the solve. This order, and the behaviour of these stages can be changed by providing a custom step configuration.
@@ -172,6 +168,40 @@ cubelib scramble
 cubelib invert <scramble>
 ```
 
+## File based Config
+The defaults for the cli commands can be set with a config file. This config file is read from `$HOME/.cubelib/config.toml`.
+The config file is structured like this.
+```toml
+# Global settings
+log = "warn"
+
+# Settings for the solve command
+[solver]
+quality = 100
+solution_count = 1
+tformat = "detailed"
+all_solutions = false
+min = 0
+steps = "EO > DR > HTR > FIN"
+
+# New steps for the solve command
+
+# This sets default triggers to use for the DR step
+[solver.prototypes.DR]
+parent = "DR"
+triggers = "R,RU2R,RUR,RU'R"
+
+# This defines that the finish step only considers one DR by default
+[solver.prototypes.FIN]
+parent = "FIN"
+max-use = "DR:1"
+
+# This defines a new step called "EOSHORT" based on the EO step, that only finds short EOs
+[solver.prototypes.EOSHORT]
+parent = "EO"
+niss = "always"
+max = 4
+```
 
 ## Building CLI from source
 Make sure you have [latest stable version](https://www.rust-lang.org/tools/install) of rust installed.

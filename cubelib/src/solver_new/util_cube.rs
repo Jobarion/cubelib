@@ -7,7 +7,7 @@ use crate::steps::finish::coords::HTRFinishCoord;
 use crate::steps::fr::coords::FRUDWithSliceCoord;
 use crate::steps::htr::coords::HTRDRUDCoord;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum CubeState {
     Scrambled,
     EO(Vec<CubeAxis>),
@@ -50,7 +50,7 @@ impl Cube333 {
         if dr_axis.is_empty() {
             return CubeState::EO(eo_solved_on);
         }
-        if HTRDRUDCoord::from(self).val() != 0 {
+        if dr_axis.len() < 3 || HTRDRUDCoord::from(self).val() != 0 {
             return CubeState::DR(dr_axis);
         }
         if HTRFinishCoord::from(self).val() == 0 {
@@ -69,5 +69,19 @@ impl Cube333 {
             })
             .collect();
         CubeState::FR(fr_axis)
+    }
+}
+
+mod test {
+    use std::str::FromStr;
+    use crate::algs::Algorithm;
+    use crate::cube::Cube333;
+    use crate::cube::turn::CubeAxis;
+    use crate::solver_new::util_cube::CubeState;
+
+    #[test]
+    fn test_dr_no_htr() {
+        let cube: Cube333 = Algorithm::from_str("R U2 F2 U2 R").unwrap().into();
+        assert_eq!(cube.get_cube_state(), CubeState::DR(vec![CubeAxis::LR]));
     }
 }

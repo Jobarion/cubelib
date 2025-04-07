@@ -72,11 +72,11 @@ impl Cube333 {
     }
 }
 
+#[cfg(test)]
 mod test {
     use std::str::FromStr;
     use crate::algs::Algorithm;
-    use crate::cube::Cube333;
-    use crate::cube::turn::CubeAxis;
+    use crate::cube::{Cube333, CubeAxis};
     use crate::solver_new::util_cube::CubeState;
 
     #[test]

@@ -384,7 +384,7 @@ impl FromStr for CubeOuterTurn {
         let face = chars.next().map_or(Err(()), |c| CubeFace::try_from(c))?;
         let turn = match chars.next() {
             Some('2') => Ok(Direction::Half),
-            Some('\'') => Ok(Direction::CounterClockwise),
+            Some('\'') | Some('’') => Ok(Direction::CounterClockwise),
             None => Ok(Direction::Clockwise),
             _ => Err(()),
         }?;

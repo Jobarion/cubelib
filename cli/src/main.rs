@@ -1,6 +1,7 @@
 extern crate core;
 
 use std::collections::HashMap;
+use home::home_dir;
 use std::fs;
 use std::io::ErrorKind;
 use std::str::FromStr;
@@ -33,7 +34,12 @@ fn main() {
 
     let mut messages = vec![];
 
-    let mut config: CubelibConfig = match fs::read_to_string("C:\\Users\\jonas\\.cubelib\\config.toml") {
+    let mut dir = home_dir().unwrap();
+    dir.push(".cubelib");
+    dir.push("config.toml");
+
+    messages.push((LogLevel::Info, format!("Reading config from {dir:?}")));
+    let mut config: CubelibConfig = match fs::read_to_string(dir.to_str().expect("Valid path")) {
         Ok(content) => toml::from_str(&content).unwrap_or_else(|e| {
             messages.push((LogLevel::Error, "Config file contains errors, using defaults.".to_string()));
             messages.push((LogLevel::Error, e.to_string()));

@@ -54,7 +54,7 @@ impl SettingsState {
     pub fn from_local_storage() -> Self {
         let advanced = use_local_storage("settings-advanced", false);
         let rel_step_len = use_local_storage("settings-rel-step-len", true);
-        let experimental_backend = use_local_storage("settings-experimental-backend", false);
+        let experimental_backend = use_local_storage("settings-experimental-backend-1", true);
         let additional_triggers = use_local_storage("settings-additional-triggers", Vec::<Algorithm>::new());
         Self {
             advanced,

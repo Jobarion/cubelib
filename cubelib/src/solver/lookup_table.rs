@@ -112,6 +112,7 @@ impl<const C_SIZE: usize, C: Coord<C_SIZE>> LookupTable<C_SIZE, C> {
         }
     }
 
+    #[cfg(feature = "fs")]
     pub fn load_and_save<F: FnMut() -> LookupTable<C_SIZE, C>>(key: &str, mut gen_f: F) -> Self {
         match Self::load_from_disk("333", key) {
             Ok(t) => {
@@ -164,6 +165,7 @@ impl<const C_SIZE: usize, C: Coord<C_SIZE>> NissLookupTable<C_SIZE, C> {
         self.entries[id] = (self.entries[id] & 0x0F) | (niss << 4)
     }
 
+    #[cfg(feature = "fs")]
     pub fn load_and_save<F: FnMut() -> NissLookupTable<C_SIZE, C>>(key: &str, mut gen_f: F) -> Self {
         match Self::load_from_disk("333", key) {
             Ok(t) => {

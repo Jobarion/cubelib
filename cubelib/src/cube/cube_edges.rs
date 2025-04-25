@@ -1,4 +1,5 @@
-use crate::cube::turn::{CubeOuterTurn, CubeTransformation, Edge, InvertibleMut, TransformableMut, TurnableMut};
+use crate::cube::cube::Symmetry;
+use crate::cube::turn::{ApplySymmetry, CubeOuterTurn, CubeTransformation, Edge, InvertibleMut, TransformableMut, TurnableMut};
 
 //One byte per edge, 4 bits for id, 3 bits for eo (UD/FB/RL), 1 bit free
 //UB UR UF UL FR FL BR BL DF DR DB DL
@@ -109,6 +110,18 @@ impl InvertibleMut for CenterEdgeCube {
     #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
     fn invert(&mut self) {
         unsafe { neon::unsafe_invert(self) }
+    }
+}
+
+impl ApplySymmetry for CenterEdgeCube {
+    fn apply_symmetry<T: AsRef<Symmetry>>(&mut self, s: T) {
+        let s = s.as_ref();
+        for t in s.1.iter().cloned() {
+            self.transform(t);
+        }
+        if s.0 {
+            self.mirror_z();
+        }
     }
 }
 
@@ -246,7 +259,14 @@ impl CenterEdgeCube {
         let bytes = random_edges(parity, rng);
         unsafe { neon::unsafe_from_bytes(bytes) }
     }
+}
 
+impl CenterEdgeCube {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    pub(crate) fn mirror_z(&mut self) {
+        unsafe { avx2::unsafe_mirror_z(self) }
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -451,6 +471,18 @@ mod avx2 {
     }
 
     #[target_feature(enable = "avx2")]
+    pub(crate) unsafe fn unsafe_mirror_z(cube: &mut CenterEdgeCube) {
+        let mirror_mask = _mm_setr_epi8(0, 3, 2, 1, 5, 4, 7, 6, 8, 11, 10, 9, -1, -1, -1, -1);
+        let edges = _mm_shuffle_epi8(cube.0, mirror_mask);
+        let translated_ep = _mm_slli_epi32::<4>(_mm_shuffle_epi8(
+            mirror_mask,
+            _mm_and_si128(_mm_set1_epi8(0xF), _mm_srli_epi32::<4>(edges)),
+        ));
+        let translated_eo = _mm_and_si128(edges, _mm_set1_epi8(0xF));
+        cube.0 = _mm_or_si128(translated_ep, translated_eo);
+    }
+
+    #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_transform(
         cube: &mut CenterEdgeCube,
         axis: CubeAxis,
@@ -477,12 +509,6 @@ mod avx2 {
         cube.0 = _mm_or_si128(ep_translated, eo);
     }
 
-    // TODO[perf]
-    // We could speed this up by a factor of 10 if changed the cube representation to
-    //__m256(normal, inverse) and just swapped the hi and lo parts.
-    //Applying turns should be just as quick as before and would just require other masks
-    //Right now unsafe_invert runs at about 70m ops/s so that's probably never going to be
-    // a bottleneck anyway.
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_invert(cube: &mut CenterEdgeCube) {
         let edge_ids = unsafe {

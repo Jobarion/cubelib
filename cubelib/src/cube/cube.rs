@@ -4,7 +4,7 @@ use std::ops::Deref;
 use crate::cube::{CornerCube333, EdgeCube333, Transformation333, Turn333};
 use crate::cube::cube::CornerPosition::*;
 use crate::cube::cube::EdgePosition::*;
-use crate::cube::turn::{CubeColor, CubeFace, InvertibleMut, TransformableMut, TurnableMut};
+use crate::cube::turn::{ApplySymmetry, CubeColor, CubeFace, InvertibleMut, TransformableMut, TurnableMut};
 
 //http://kociemba.org/math/cubielevel.htm
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -131,6 +131,86 @@ impl Default for Cube333 {
             edges: EdgeCube333::default(),
             corners: CornerCube333::default(),
         }
+    }
+}
+
+pub struct Symmetry(pub(crate) bool, pub(crate) &'static [Transformation333]);
+
+impl Symmetry {
+    pub const U0: Symmetry = Symmetry(false, &[]);
+    pub const U1: Symmetry = Symmetry(false, &[Transformation333::Y]);
+    pub const U2: Symmetry = Symmetry(false, &[Transformation333::Y2]);
+    pub const U3: Symmetry = Symmetry(false, &[Transformation333::Yi]);
+
+    pub const F0: Symmetry = Symmetry(false, &[Transformation333::X]);
+    pub const F1: Symmetry = Symmetry(false, &[Transformation333::X, Transformation333::Y]);
+    pub const F2: Symmetry = Symmetry(false, &[Transformation333::X, Transformation333::Y2]);
+    pub const F3: Symmetry = Symmetry(false, &[Transformation333::X, Transformation333::Yi]);
+
+    pub const B0: Symmetry = Symmetry(false, &[Transformation333::Xi]);
+    pub const B1: Symmetry = Symmetry(false, &[Transformation333::Xi, Transformation333::Y]);
+    pub const B2: Symmetry = Symmetry(false, &[Transformation333::Xi, Transformation333::Y2]);
+    pub const B3: Symmetry = Symmetry(false, &[Transformation333::Xi, Transformation333::Yi]);
+
+    pub const D0: Symmetry = Symmetry(false, &[Transformation333::X2]);
+    pub const D1: Symmetry = Symmetry(false, &[Transformation333::X2, Transformation333::Y]);
+    pub const D2: Symmetry = Symmetry(false, &[Transformation333::X2, Transformation333::Y2]);
+    pub const D3: Symmetry = Symmetry(false, &[Transformation333::X2, Transformation333::Yi]);
+
+    pub const L0: Symmetry = Symmetry(false, &[Transformation333::Z]);
+    pub const L1: Symmetry = Symmetry(false, &[Transformation333::Z, Transformation333::Y]);
+    pub const L2: Symmetry = Symmetry(false, &[Transformation333::Z, Transformation333::Y2]);
+    pub const L3: Symmetry = Symmetry(false, &[Transformation333::Z, Transformation333::Yi]);
+
+    pub const R0: Symmetry = Symmetry(false, &[Transformation333::Zi]);
+    pub const R1: Symmetry = Symmetry(false, &[Transformation333::Zi, Transformation333::Y]);
+    pub const R2: Symmetry = Symmetry(false, &[Transformation333::Zi, Transformation333::Y2]);
+    pub const R3: Symmetry = Symmetry(false, &[Transformation333::Zi, Transformation333::Yi]);
+
+    pub const UM0: Symmetry = Symmetry(true, &[]);
+    pub const UM1: Symmetry = Symmetry(true, &[Transformation333::Y]);
+    pub const UM2: Symmetry = Symmetry(true, &[Transformation333::Y2]);
+    pub const UM3: Symmetry = Symmetry(true, &[Transformation333::Yi]);
+
+    pub const FM0: Symmetry = Symmetry(true, &[Transformation333::X]);
+    pub const FM1: Symmetry = Symmetry(true, &[Transformation333::X, Transformation333::Y]);
+    pub const FM2: Symmetry = Symmetry(true, &[Transformation333::X, Transformation333::Y2]);
+    pub const FM3: Symmetry = Symmetry(true, &[Transformation333::X, Transformation333::Yi]);
+
+    pub const BM0: Symmetry = Symmetry(true, &[Transformation333::Xi]);
+    pub const BM1: Symmetry = Symmetry(true, &[Transformation333::Xi, Transformation333::Y]);
+    pub const BM2: Symmetry = Symmetry(true, &[Transformation333::Xi, Transformation333::Y2]);
+    pub const BM3: Symmetry = Symmetry(true, &[Transformation333::Xi, Transformation333::Yi]);
+
+    pub const DM0: Symmetry = Symmetry(true, &[Transformation333::X2]);
+    pub const DM1: Symmetry = Symmetry(true, &[Transformation333::X2, Transformation333::Y]);
+    pub const DM2: Symmetry = Symmetry(true, &[Transformation333::X2, Transformation333::Y2]);
+    pub const DM3: Symmetry = Symmetry(true, &[Transformation333::X2, Transformation333::Yi]);
+
+    pub const LM0: Symmetry = Symmetry(true, &[Transformation333::Z]);
+    pub const LM1: Symmetry = Symmetry(true, &[Transformation333::Z, Transformation333::Y]);
+    pub const LM2: Symmetry = Symmetry(true, &[Transformation333::Z, Transformation333::Y2]);
+    pub const LM3: Symmetry = Symmetry(true, &[Transformation333::Z, Transformation333::Yi]);
+
+    pub const RM0: Symmetry = Symmetry(true, &[Transformation333::Zi]);
+    pub const RM1: Symmetry = Symmetry(true, &[Transformation333::Zi, Transformation333::Y]);
+    pub const RM2: Symmetry = Symmetry(true, &[Transformation333::Zi, Transformation333::Y2]);
+    pub const RM3: Symmetry = Symmetry(true, &[Transformation333::Zi, Transformation333::Yi]);
+
+    pub const I: Symmetry = Self::U0;
+    pub const M: Symmetry = Self::UM0;
+}
+
+impl AsRef<Symmetry> for Symmetry {
+    fn as_ref(&self) -> &Symmetry {
+        self
+    }
+}
+
+impl ApplySymmetry for Cube333 {
+    fn apply_symmetry<T: AsRef<Symmetry>>(&mut self, s: T) {
+        self.edges.apply_symmetry(&s);
+        self.corners.apply_symmetry(s);
     }
 }
 

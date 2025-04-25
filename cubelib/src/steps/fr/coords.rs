@@ -95,6 +95,8 @@ impl Into<usize> for FRUDWithSliceCoord {
     }
 }
 
+
+
 impl From<&EdgeCube333> for FREdgesCoord {
     #[inline]
     #[cfg(target_feature = "avx2")]

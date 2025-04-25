@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use crate::algs::Algorithm;
 use crate::cube::{Transformation333, Turn333};
-
+use crate::cube::cube::Symmetry;
 use crate::cube::turn::CubeFace::*;
 use crate::cube::turn::Direction::*;
 
@@ -48,6 +48,10 @@ pub trait Invertible {
 
 pub trait ApplyAlgorithm {
     fn apply_alg(&mut self, alg: &Algorithm);
+}
+
+pub trait ApplySymmetry {
+    fn apply_symmetry<T: AsRef<Symmetry>>(&mut self, s: T);
 }
 
 impl<C: TurnableMut + InvertibleMut> ApplyAlgorithm for C {

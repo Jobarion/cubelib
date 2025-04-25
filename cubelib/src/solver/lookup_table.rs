@@ -28,6 +28,18 @@ pub enum TableType {
     Uncompressed = 0u8,
     Compressed = 1u8,
     Niss = 2u8,
+    Sym = 3u8,
+}
+
+pub struct SymTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
+    coord_type: PhantomData<C>,
+    entries: HashMap<usize, u8>,
+}
+
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> EmptyVal for SymTable<C_SIZE, C> {
+    fn empty_val(&self) -> u8 {
+        0xFF
+    }
 }
 
 #[derive(Clone)]
@@ -41,6 +53,26 @@ pub struct LookupTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
 pub struct NissLookupTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
     entries: Box<[u8]>,
     coord_type: PhantomData<C>,
+}
+
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> SymTable<C_SIZE, C> {
+    pub fn new() -> Self {
+        Self {
+            entries: Default::default(),
+            coord_type: Default::default(),
+        }
+    }
+
+    pub fn set(&mut self, min_c: C, val: u8) {
+        self.entries.insert(min_c.val(), val);
+    }
+
+    pub fn get(&self, min_c: C) -> u8 {
+        match self.entries.get(&min_c.val()) {
+            None => self.empty_val(),
+            Some(c) => *c,
+        }
+    }
 }
 
 impl <const C_SIZE: usize, C: Coord<C_SIZE>> Into<Vec<u8>> for &LookupTable<C_SIZE, C> {
@@ -324,7 +356,7 @@ where
         debug!("Found {} variations of the goal state", to_check.len());
     }
     let mut total_checked = 0;
-    for depth in 0..20 {
+    for depth in 0.. {
         total_checked += to_check.len();
         debug!(
             "Checked {:width$}/{} cubes at depth {depth} (new {})",
@@ -373,16 +405,6 @@ where
             visited.insert(coord, cube.clone());
             check_next.push(cube);
         }
-        // for m in Transformation333::ALL {
-        //     let mut cube = cube.clone();
-        //     cube.transform(m);
-        //     let coord = mapper(&cube);
-        //     if visited.contains_key(&coord) {
-        //         continue;
-        //     }
-        //     visited.insert(coord, cube.clone());
-        //     check_next.push(cube);
-        // }
     }
     check_next
 }

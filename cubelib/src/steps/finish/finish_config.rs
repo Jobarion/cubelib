@@ -1,18 +1,26 @@
 use std::rc::Rc;
 
 use itertools::Itertools;
+
 use crate::cube::*;
 use crate::defs::*;
 use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::TransitionTable333;
+use crate::steps::{fr, MoveSet333, Step333};
+use crate::steps::dr::dr_config::DR_UD_EO_FB_MOVES;
 use crate::steps::finish::coords::{FR_FINISH_SIZE, FRUDFinishCoord, HTR_FINISH_SIZE, HTR_LEAVE_SLICE_FINISH_SIZE, HTRFinishCoord, HTRLeaveSliceFinishCoord};
 use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
-use crate::steps::{fr, MoveSet333, Step333};
 use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, Step, StepConfig, StepVariant};
 
 pub const FRUD_FINISH_MOVESET: MoveSet333 = MoveSet333 {
     st_moves: fr::fr_config::FR_UD_AUX_MOVES,
+    aux_moves: &[],
+    transitions: &finish_transitions(),
+};
+
+pub const DR_UD_FINISH_MOVESET: MoveSet333 = MoveSet333 {
+    st_moves: DR_UD_EO_FB_MOVES,
     aux_moves: &[],
     transitions: &finish_transitions(),
 };

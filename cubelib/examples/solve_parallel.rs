@@ -1,6 +1,5 @@
 use std::str::FromStr;
-use log::LevelFilter;
-use simple_logger::SimpleLogger;
+
 use cubelib::algs::Algorithm;
 use cubelib::defs::NissSwitchType;
 use cubelib::solver_new::dr::{DRStep, RZPStep};

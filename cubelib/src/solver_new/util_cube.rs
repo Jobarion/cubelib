@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use crate::cube::{Cube333, CubeAxis, Transformation333};
 use crate::cube::turn::TransformableMut;
 use crate::steps::coord::Coord;
@@ -15,6 +16,55 @@ pub enum CubeState {
     HTR,
     FR(Vec<CubeAxis>),
     Solved
+}
+
+impl CubeState {
+    fn ordinal(&self) -> u8 {
+        match self {
+            CubeState::Scrambled => 0,
+            CubeState::EO(_) => 1,
+            CubeState::DR(_) => 2,
+            CubeState::HTR => 3,
+            CubeState::FR(_) => 4,
+            CubeState::Solved => 5,
+        }
+    }
+}
+
+fn compare_subset<T: Eq>(a: &Vec<T>, b: &Vec<T>) -> Option<Ordering> {
+    if a.len() < b.len() {
+        return compare_subset(b, a).map(Ordering::reverse);
+    }
+    for x in b {
+        if !a.contains(x) {
+            return None;
+        }
+    }
+    if a.len() == b.len() {
+        Some(Ordering::Equal)
+    } else {
+        Some(Ordering::Greater)
+    }
+}
+
+impl PartialOrd for CubeState {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match self.ordinal().cmp(&other.ordinal()) {
+            Ordering::Less => Some(Ordering::Less),
+            Ordering::Equal => {
+                match (self, other) {
+                    (CubeState::Scrambled, _) => Some(Ordering::Equal),
+                    (CubeState::EO(axis0), CubeState::EO(axis1)) => compare_subset(axis0, axis1),
+                    (CubeState::DR(axis0), CubeState::DR(axis1)) => compare_subset(axis0, axis1),
+                    (CubeState::HTR, _) => Some(Ordering::Equal),
+                    (CubeState::FR(axis0), CubeState::FR(axis1)) => compare_subset(axis0, axis1),
+                    (CubeState::Solved, _) => Some(Ordering::Equal),
+                    _ => unreachable!()
+                }
+            },
+            Ordering::Greater => Some(Ordering::Greater),
+        }
+    }
 }
 
 impl Cube333 {

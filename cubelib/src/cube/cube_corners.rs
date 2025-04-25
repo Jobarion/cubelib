@@ -1,5 +1,6 @@
 use crate::cube::Corner;
-use crate::cube::turn::{CubeOuterTurn, CubeTransformation, InvertibleMut, TransformableMut, TurnableMut};
+use crate::cube::cube::Symmetry;
+use crate::cube::turn::{ApplySymmetry, CubeOuterTurn, CubeTransformation, InvertibleMut, TransformableMut, TurnableMut};
 
 //One byte per corner, 3 bits for id, 2 bits free, 3 bits for co (from UD perspective)
 //UBL UBR UFR UFL DFL DFR DBR DBL
@@ -107,6 +108,18 @@ impl InvertibleMut for CubeCornersOdd {
     #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
     fn invert(&mut self) {
         unsafe { neon::unsafe_invert(self) }
+    }
+}
+
+impl ApplySymmetry for CubeCornersOdd {
+    fn apply_symmetry<T: AsRef<Symmetry>>(&mut self, s: T) {
+        let s = s.as_ref();
+        for t in s.1.iter().cloned() {
+            self.transform(t);
+        }
+        if s.0 {
+            self.mirror_z();
+        }
     }
 }
 
@@ -251,6 +264,16 @@ impl CubeCornersOdd {
         unsafe { neon::unsafe_from_bytes(bytes) }
     }
 }
+
+impl CubeCornersOdd {
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    pub(crate) fn mirror_z(&mut self) {
+        unsafe { avx2::unsafe_mirror_z(self) }
+    }
+}
+
+
 
 #[cfg(not(target_arch = "wasm32"))]
 fn random_corners<T: rand::Rng>(parity: bool, rng: &mut T) -> [u8; 8] {
@@ -468,6 +491,21 @@ mod avx2 {
     }
 
     #[target_feature(enable = "avx2")]
+    pub(crate) unsafe fn unsafe_mirror_z(cube: &mut CubeCornersOdd) {
+        let corners = _mm_shuffle_epi8(cube.0, _mm_setr_epi8(1, 0, 3, 2, 5, 4, 7, 6, -1, -1, -1, -1, -1, -1, -1, -1));
+        let tmp = _mm_and_si128(
+            _mm_add_epi8(
+                corners,
+                _mm_setr_epi8( 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0,0),
+            ),
+            _mm_set1_epi8(2),
+        );
+        let flip_mask = _mm_and_si128(_mm_or_si128(tmp, _mm_srli_epi32::<1>(tmp)), _mm_set1_epi8(0b11));
+        let flip_mask = _mm_or_si128(flip_mask, _mm_set1_epi8(0b00100000));
+        cube.0 = _mm_xor_si128(corners, flip_mask);
+    }
+
+    #[target_feature(enable = "avx2")]
     #[inline]
     pub(crate) unsafe fn unsafe_invert(cube: &mut CubeCornersOdd) {
         let corner_ids = unsafe {
@@ -511,6 +549,7 @@ mod avx2 {
 #[cfg(target_feature = "neon")]
 mod neon {
     use std::arch::aarch64::{uint8x16_t, uint8x8_t, vadd_u8, vand_u8, vdup_n_u8, veor_u8, vget_lane_u64, vld1_u8, vmvn_u8, vorr_u8, vqtbl1_u8, vreinterpret_u64_u8, vshl_n_u8, vshr_n_u8, vsub_u8, vtbl1_u8};
+
     use crate::cube::{Corner, CubeAxis, CubeFace, Direction};
     use crate::cube::cube_corners::CubeCornersOdd;
     use crate::simd_util::neon::{C16, C8};

@@ -465,13 +465,16 @@ impl Cube333 {
             CubeState::Scrambled | CubeState::EO(_) => None,
             CubeState::DR(axis) => {
                 let mut cube = self.clone();
-                cube.transform(match axis[0] {
+                cube.transform(match axis {
                     CubeAxis::UD => Transformation333::Y,
                     CubeAxis::FB => Transformation333::X,
                     CubeAxis::LR => Transformation333::Z,
                 });
                 Some(DR_SUBSETS[HTR_TABLES.1.get(HTRDRUDCoord::from(&cube)) as usize])
-            }
+            },
+            CubeState::TripleDR => {
+                Some(DR_SUBSETS[HTR_TABLES.1.get(HTRDRUDCoord::from(self)) as usize])
+            },
             _ => Some(DR_SUBSETS[0])
         }
     }

@@ -11,6 +11,8 @@ pub mod stream;
 pub mod solution;
 pub mod df_search;
 pub mod moveset;
+pub mod move_table;
+
 use crate::solver::df_search::CancelToken;
 use crate::steps::step::{DefaultStepOptions, Step};
 

@@ -432,12 +432,12 @@ impl<T, const N: usize> Index<CubeAxis> for [T; N] {
 
 #[derive(Debug, Clone, Copy)]
 pub enum CubeColor {
-     White = 0,
-     Yellow = 1,
-     Green = 2,
-     Blue = 3,
-     Orange = 4,
-     Red = 5,
+    White = 0,
+    Yellow = 1,
+    Green = 2,
+    Blue = 3,
+    Orange = 4,
+    Red = 5,
 
     None = 6,
 }

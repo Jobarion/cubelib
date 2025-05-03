@@ -20,12 +20,14 @@ pub struct HTRFinishCoord(pub(crate) u32);
 pub struct HTRLeaveSliceFinishCoord(pub(crate) u16);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct DRFinishCoord(pub(crate) u64);
+pub struct DRFinishCoord(pub(crate) CPCoord, pub(crate) DRFinishSliceCoord, pub(crate) DRFinishNonSliceEP);
 
 pub const DR_FINISH_SIZE: usize = 19508428800;
 impl Coord<{DR_FINISH_SIZE}> for DRFinishCoord {
     fn val(&self) -> usize {
-        self.0 as usize
+        self.0.val() * DRFinishSliceCoord::size() * DRFinishNonSliceEP::size() +
+            self.1.val() * DRFinishNonSliceEP::size() +
+            self.2.val()
     }
 }
 
@@ -94,7 +96,7 @@ impl Into<usize> for DRFinishSliceCoord {
 
 impl Into<usize> for DRFinishCoord {
     fn into(self) -> usize {
-        self.0 as usize
+        self.val()
     }
 }
 
@@ -118,9 +120,17 @@ impl From<&Cube333> for DRFinishCoord {
         let cp = CPCoord::from(&value.corners);
         let slice_ep = DRFinishSliceCoord::from(&value.edges);
         let non_slice_ep = DRFinishNonSliceEP::from(&value.edges);
-        DRFinishCoord((cp.val() * DRFinishSliceCoord::size() * DRFinishNonSliceEP::size() +
-                slice_ep.val() * DRFinishNonSliceEP::size() +
-                non_slice_ep.val()) as u64)
+        Self(cp, slice_ep, non_slice_ep)
+    }
+}
+
+impl From<usize> for DRFinishCoord {
+    fn from(value: usize) -> Self {
+        let non_slice_ep = DRFinishNonSliceEP((value % DRFinishNonSliceEP::size()) as u16);
+        let value = value / DRFinishNonSliceEP::size();
+        let slice_ep = DRFinishSliceCoord((value % DRFinishSliceCoord::size()) as u8);
+        let cp = CPCoord((value / DRFinishSliceCoord::size()) as u16);
+        Self(cp, slice_ep, non_slice_ep)
     }
 }
 
@@ -203,7 +213,7 @@ mod avx2 {
     pub(crate) unsafe fn unsafe_from_drfinish_slice_coord(value: &EdgeCube333) -> DRFinishSliceCoord {
         let edges = _mm_shuffle_epi8(value.0, _mm_setr_epi8(-1, 5, 6, 7, -1, -1, 6, 7, -1, -1, -1, 7, -1, -1, -1, -1));
         let higher_left = _mm_shuffle_epi8(value.0, _mm_setr_epi8(-1, 4, 4, 4, -1, -1, 5, 5, -1, -1, -1, 6, -1, -1, -1, -1));
-        let higher_left = _mm_cmpgt_epi8(edges, higher_left);
+        let higher_left = _mm_and_si128(_mm_cmpgt_epi8(edges, higher_left), _mm_set1_epi8(1));
         let sum = _mm_hadd_epi32(higher_left, _mm_set1_epi8(0));
         let sum = _mm_hadd_epi32(sum, _mm_set1_epi8(0));
         let sum = _mm_shuffle_epi8(sum, _mm_setr_epi8(1, -1, 2, -1, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1));

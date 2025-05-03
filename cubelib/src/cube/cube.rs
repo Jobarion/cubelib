@@ -4,6 +4,7 @@ use std::ops::Deref;
 use crate::cube::{CornerCube333, EdgeCube333, Transformation333, Turn333};
 use crate::cube::cube::CornerPosition::*;
 use crate::cube::cube::EdgePosition::*;
+use crate::cube::cube_edges::CenterEdgeCube;
 use crate::cube::turn::{ApplySymmetry, CubeColor, CubeFace, InvertibleMut, TransformableMut, TurnableMut};
 
 //http://kociemba.org/math/cubielevel.htm
@@ -240,6 +241,24 @@ pub enum EdgePosition {
     DR = 9,
     DB = 10,
     DL = 11,
+}
+
+impl Display for CenterEdgeCube {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", Cube333 {
+            edges: self.clone(),
+            corners: Default::default(),
+        })
+    }
+}
+
+impl Display for CornerCube333 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", Cube333 {
+            edges: Default::default(),
+            corners: self.clone(),
+        })
+    }
 }
 
 impl Cube333 {

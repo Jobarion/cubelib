@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 #[cfg(feature = "fs")]
 use std::fs;
@@ -16,8 +16,11 @@ use num_traits::{ToPrimitive};
 use num_traits::{FromPrimitive};
 use crate::cube::*;
 use crate::cube::turn::TurnableMut;
+use crate::solver::move_table::MoveTable;
 use crate::solver::moveset::MoveSet;
 use crate::steps::coord::Coord;
+use crate::steps::finish::coords::{CPCoord, DR_FINISH_SIZE, DRFinishCoord, DRFinishNonSliceEP, DRFinishSliceCoord};
+use crate::steps::finish::finish_config::DR_UD_FINISH_MOVESET;
 
 const VERSION: u8 = 1;
 
@@ -449,4 +452,54 @@ where
         }
     }
     next_cubes
+}
+
+// This table is much larger and requires different methods to generate.
+// Since it's the only one we'll avoid a generic implementation for now
+pub fn generate_dr_finish_table() -> SymTable<{DR_FINISH_SIZE}, DRFinishCoord> {
+    debug!("Generating CP table");
+    let cp_table = MoveTable::<40320, CPCoord>::generate(&DR_UD_FINISH_MOVESET);
+    debug!("Generating Non Slice EP table");
+    let non_slice_ep_table = MoveTable::<40320, DRFinishNonSliceEP>::generate(&DR_UD_FINISH_MOVESET);
+    debug!("Generating Slice EP table");
+    let slice_ep_table = MoveTable::<24, DRFinishSliceCoord>::generate(&DR_UD_FINISH_MOVESET);
+
+    let symmetries = vec![
+        Symmetry::U0, Symmetry::UM0,
+        Symmetry::U1, Symmetry::UM1,
+        Symmetry::U2, Symmetry::UM2,
+        Symmetry::U3, Symmetry::UM3,
+        Symmetry::D0, Symmetry::DM0,
+        Symmetry::D1, Symmetry::DM1,
+        Symmetry::D2, Symmetry::DM2,
+        Symmetry::D3, Symmetry::DM3,
+    ];
+
+    let apply_move = |DRFinishCoord(cp, ep, nep), turn: Turn333| {
+        DRFinishCoord(
+            cp_table.get(cp, turn),
+            slice_ep_table.get(ep, turn),
+            non_slice_ep_table.get(nep, turn)
+        )
+    };
+
+    let mut sym_table = SymTable::new();
+    let mut to_check = HashSet::from([DRFinishCoord::from(&Cube333::default())]);
+    let mut depth = 0;
+    while !to_check.is_empty() {
+        debug!("To check {} at depth {}", to_check.len(), depth);
+        let mut to_check_next = HashSet::default();
+        for coord in to_check {
+            sym_table.set(coord, depth);
+            for turn in DR_UD_FINISH_MOVESET.st_moves {
+                let coord = apply_move(coord, turn.clone());
+                if sym_table.get(coord) == sym_table.empty_val() {
+                    to_check_next.insert(coord);
+                }
+            }
+        }
+        to_check = to_check_next;
+        depth += 1;
+    }
+    sym_table
 }

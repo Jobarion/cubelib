@@ -163,8 +163,9 @@ pub(crate) mod neon {
     }
 
     pub(crate) unsafe fn unsafe_permutation_8(val: uint8x8_t) -> u16 {
+        let val = vcombine_u8(val, vdup_n_u8(0));
         let values_367 = vqtbl1q_u8(
-            vcombine_u8(val, vdup_n_u8(0)),
+            val,
             C16{ a_i8: [3, 7, 6, 3, 7, 6, 3, 7, 6, 7, 6, 7, 6, 7, 6, 7] }.a
         );
         let higher_left_367 = vandq_u8(vcltq_u8(
@@ -182,11 +183,11 @@ pub(crate) mod neon {
         );
         let sum_367 = vaddq_u8(
             sum_367,
-            vqtbl1q_u8(sum_367, C16 { a_i8: [-1, -1, 10, -1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]}.a)
+            vqtbl1q_u8(sum_367, C16 { a_i8: [-1, -1, 12, -1, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]}.a)
         );
 
         let values_1245 = vqtbl1q_u8(
-            vcombine_u8(val, vdup_n_u8(0)),
+            val,
             C16 { a_i8: [1, 2, 2, 4, 4, 4, 5, 4, 5, 5, 5, 5, -1, -1, -1, -1] }.a
         );
         let higher_left_1245 = vandq_u8(vcltq_u8(
@@ -196,7 +197,7 @@ pub(crate) mod neon {
 
         let sum_1245 = vaddq_u8(
             higher_left_1245,
-            vqtbl1q_u8(higher_left_1245, C16 { a_i8: [0, -1, 1, -1, 3, 7, 8, -1, -1, 10, -1, -1, -1, -1, -1, -1]}.a)
+            vqtbl1q_u8(higher_left_1245, C16 { a_i8: [-1, -1, 1, -1, 3, 7, 8, -1, -1, 10, -1, -1, -1, -1, -1, -1]}.a)
         );
         let sum_1245 = vaddq_u8(
             sum_1245,

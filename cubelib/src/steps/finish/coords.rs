@@ -204,7 +204,7 @@ impl From<&CornerCube333> for CPCoord {
 
 #[cfg(target_feature = "avx2")]
 mod avx2 {
-    use std::arch::x86_64::{__m128i, _mm_and_si128, _mm_cmpeq_epi8, _mm_cmpgt_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi16, _mm_hadd_epi32, _mm_movemask_epi8, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi8, _mm_set_epi16, _mm_set_epi64x, _mm_set_epi8, _mm_setr_epi16, _mm_setr_epi8, _mm_shuffle_epi8, _mm_srli_epi32};
+    use std::arch::x86_64::{__m128i, _mm_and_si128, _mm_cmpeq_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi16, _mm_hadd_epi32, _mm_movemask_epi8, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi8, _mm_set_epi16, _mm_set_epi64x, _mm_set_epi8, _mm_setr_epi16, _mm_setr_epi8, _mm_shuffle_epi8, _mm_srli_epi32};
 
     use crate::cube::*;
     use crate::steps::finish::coords::{CPCoord, DRFinishNonSliceEP, DRFinishSliceCoord, FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord};
@@ -213,7 +213,7 @@ mod avx2 {
     pub(crate) unsafe fn unsafe_from_drfinish_slice_coord(value: &EdgeCube333) -> DRFinishSliceCoord {
         let edges = _mm_shuffle_epi8(value.0, _mm_setr_epi8(-1, 5, 6, 7, -1, -1, 6, 7, -1, -1, -1, 7, -1, -1, -1, -1));
         let higher_left = _mm_shuffle_epi8(value.0, _mm_setr_epi8(-1, 4, 4, 4, -1, -1, 5, 5, -1, -1, -1, 6, -1, -1, -1, -1));
-        let higher_left = _mm_and_si128(_mm_cmpgt_epi8(edges, higher_left), _mm_set1_epi8(1));
+        let higher_left = _mm_and_si128(_mm_cmplt_epi8(edges, higher_left), _mm_set1_epi8(1));
         let sum = _mm_hadd_epi32(higher_left, _mm_set1_epi8(0));
         let sum = _mm_hadd_epi32(sum, _mm_set1_epi8(0));
         let sum = _mm_shuffle_epi8(sum, _mm_setr_epi8(1, -1, 2, -1, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1));
@@ -478,6 +478,7 @@ mod avx2 {
 #[cfg(target_feature = "neon")]
 mod neon {
     use std::arch::aarch64::{vaddq_u8, vaddv_u8, vaddvq_u16, vand_u8, vandq_u8, vceq_u8, vclt_u8, vcltq_u8, vcombine_u8, vdup_n_u8, vdupq_n_u8, vget_low_u8, vmulq_u16, vorr_u8, vorrq_u8, vqtbl1_u8, vqtbl1q_u8, vreinterpretq_u16_u8, vshr_n_u8, vshrq_n_u8, vtbl1_u8, vzip1q_u8};
+
     use crate::cube::Cube333;
     use crate::simd_util::neon::{C16, C8, extract_most_significant_bits_u8};
     use crate::steps::finish::coords::{FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord};

@@ -14,6 +14,7 @@ use log::{debug, info, warn};
 use num_traits::{ToPrimitive};
 #[cfg(feature = "fs")]
 use num_traits::{FromPrimitive};
+use crate::algs::Algorithm;
 use crate::cube::*;
 use crate::cube::turn::TurnableMut;
 use crate::solver::move_table::MoveTable;
@@ -457,13 +458,6 @@ where
 // This table is much larger and requires different methods to generate.
 // Since it's the only one we'll avoid a generic implementation for now
 pub fn generate_dr_finish_table() -> SymTable<{DR_FINISH_SIZE}, DRFinishCoord> {
-    debug!("Generating CP table");
-    let cp_table = MoveTable::<40320, CPCoord>::generate(&DR_UD_FINISH_MOVESET);
-    debug!("Generating Non Slice EP table");
-    let non_slice_ep_table = MoveTable::<40320, DRFinishNonSliceEP>::generate(&DR_UD_FINISH_MOVESET);
-    debug!("Generating Slice EP table");
-    let slice_ep_table = MoveTable::<24, DRFinishSliceCoord>::generate(&DR_UD_FINISH_MOVESET);
-
     let symmetries = vec![
         Symmetry::U0, Symmetry::UM0,
         Symmetry::U1, Symmetry::UM1,
@@ -475,6 +469,14 @@ pub fn generate_dr_finish_table() -> SymTable<{DR_FINISH_SIZE}, DRFinishCoord> {
         Symmetry::D3, Symmetry::DM3,
     ];
 
+    debug!("Generating CP table");
+    let cp_table = MoveTable::<40320, CPCoord>::generate_with_symmetries(&DR_UD_FINISH_MOVESET, &symmetries);
+    debug!("Generating Non Slice EP table");
+    let non_slice_ep_table = MoveTable::<40320, DRFinishNonSliceEP>::generate_with_symmetries(&DR_UD_FINISH_MOVESET, &symmetries);
+    debug!("Generating Slice EP table");
+    let slice_ep_table = MoveTable::<24, DRFinishSliceCoord>::generate_with_symmetries(&DR_UD_FINISH_MOVESET, &symmetries);
+
+
     let apply_move = |DRFinishCoord(cp, ep, nep), turn: Turn333| {
         DRFinishCoord(
             cp_table.get(cp, turn),
@@ -484,17 +486,23 @@ pub fn generate_dr_finish_table() -> SymTable<{DR_FINISH_SIZE}, DRFinishCoord> {
     };
 
     let mut sym_table = SymTable::new();
-    let mut to_check = HashSet::from([DRFinishCoord::from(&Cube333::default())]);
+    let mut to_check = HashMap::from([(DRFinishCoord::min_with_symmetries(&Cube333::default(), &symmetries), Algorithm::new())]);
     let mut depth = 0;
     while !to_check.is_empty() {
         debug!("To check {} at depth {}", to_check.len(), depth);
-        let mut to_check_next = HashSet::default();
-        for coord in to_check {
+        if depth > 2 {
+            break;
+        }
+        let mut to_check_next = HashMap::default();
+        for (coord, alg) in to_check {
+            println!("\t{coord:?}: {alg}");
             sym_table.set(coord, depth);
             for turn in DR_UD_FINISH_MOVESET.st_moves {
                 let coord = apply_move(coord, turn.clone());
                 if sym_table.get(coord) == sym_table.empty_val() {
-                    to_check_next.insert(coord);
+                    let mut alg = alg.clone();
+                    alg.normal_moves.push(turn.clone());
+                    to_check_next.insert(coord, alg);
                 }
             }
         }

@@ -47,7 +47,7 @@ impl Into<String> for StepKind {
         match self {
             StepKind::EO => "eo".to_string(),
             StepKind::RZP => "rzp".to_string(),
-            StepKind::AR => "arm".to_string(),
+            StepKind::AR => "ar".to_string(),
             StepKind::DR => "dr".to_string(),
             StepKind::HTR => "htr".to_string(),
             StepKind::FR => "fr".to_string(),

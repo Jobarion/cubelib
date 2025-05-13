@@ -37,9 +37,9 @@ impl ARStep {
 
 impl ARStep {
     pub fn new(dfs: DFSParameters, arm_eo_axis: HashMap<CubeAxis, Vec<CubeAxis>>) -> StepGroup {
-        debug!("Step arm with options {dfs:?}");
+        debug!("Step ar with options {dfs:?}");
         let variants = arm_eo_axis.into_iter()
-            .flat_map(move |(arm, eo)|eo.into_iter().map(move |eo|(eo, arm.clone())))
+            .flat_map(move |(ar, eo)|eo.into_iter().map(move |eo|(eo, ar.clone())))
             .filter_map(|(eo, arm)|match (eo, arm) {
                 (CubeAxis::UD, CubeAxis::FB) => Some((vec![Transformation333::X], format!("{}-eo{}", arm.name(), eo.name()).to_string())),
                 (CubeAxis::UD, CubeAxis::LR) => Some((vec![Transformation333::X, Transformation333::Z], format!("{}-eo{}", arm.name(), eo.name()).to_string())),

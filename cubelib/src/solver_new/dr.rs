@@ -93,11 +93,10 @@ impl DRStep {
                 }
                 (x, post_checks)
             })
-            .map(|((dr_axis, trans, name), psc)| {
+            .map(|((_, trans, name), psc)| {
                 if from_ar {
                     StepGroup::single(Box::new(DRARStep {
                         table: &AR_DR_TABLE,
-                        axis: dr_axis,
                         options: dfs.clone(),
                         pre_step_trans: trans,
                         post_step_check: psc,
@@ -222,7 +221,6 @@ impl DRStep {
 
 struct DRARStep {
     table: &'static ARDRPruningTable,
-    axis: CubeAxis,
     options: DFSParameters,
     pre_step_trans: Vec<Transformation333>,
     name: String,
@@ -230,26 +228,12 @@ struct DRARStep {
 }
 
 impl PreStepCheck for DRARStep {
-    fn is_cube_ready(&self, cube: &Cube333, sol: Option<&Solution>) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
         if EOCoordFB::from(cube).val() != 0 {
             return false;
         }
         if DRUDEOFBCoord::from(cube).val() == 0 {
             return true;
-        }
-        if let Some(sol) = sol {
-            let alg: Algorithm = sol.clone().into();
-            return if alg.len() == 0 {
-                true
-            } else {
-                if alg.normal_moves.last().map(|t|t.face.is_on_axis(self.axis)).unwrap_or(false) {
-                    true
-                } else if alg.inverse_moves.last().map(|t|t.face.is_on_axis(self.axis)).unwrap_or(false) {
-                    true
-                } else {
-                    false
-                }
-            }
         }
         true
     }
@@ -584,7 +568,7 @@ mod builder {
     }
 
     impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> DRBuilderInternal<A, B, C, D, E, false, false, false> {
-        pub fn with_arm(mut self) -> DRBuilderInternal<A, B, C, D, E, false, false, true> {
+        pub fn from_ar(mut self) -> DRBuilderInternal<A, B, C, D, E, false, false, true> {
             self._h_from_ar = true;
             self.convert()
         }

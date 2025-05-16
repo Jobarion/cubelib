@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display, Formatter};
 
 use crate::algs::Algorithm;
 use crate::cube::turn::{InvertibleMut, TurnableMut};
-use crate::defs::StepKind;
+use crate::defs::{StepKind, StepVariant};
 
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Eq, PartialEq)]
@@ -14,8 +14,7 @@ pub struct Solution {
 #[derive(Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub struct SolutionStep {
-    pub kind: StepKind,
-    pub variant: String,
+    pub variant: StepVariant,
     pub alg: Algorithm,
     pub comment: String
 }
@@ -56,10 +55,7 @@ impl Solution {
             while i < self.steps.len() - 1 {
                 let next = self.steps.get(i + 1).unwrap();
                 if next.alg.len() == 0 {
-                    // name.push_str(", ");
-                    // name.push_str(next.0.as_str());
                     step.variant = next.variant.clone();
-                    step.kind = next.kind.clone();
                 } else {
                     break;
                 }
@@ -99,7 +95,7 @@ impl Debug for Solution {
         write!(f, "[")?;
         for n in 0..self.steps.len() {
             let step = self.steps.get(n).unwrap();
-            write!(f, "{}-{}: {}", step.kind, step.variant, step.alg)?;
+            write!(f, "{}: {}", step.variant, step.alg)?;
             if n < self.steps.len() - 1 {
                 write!(f, ", ")?;
             }
@@ -122,26 +118,23 @@ impl Display for Solution {
         let longest_name_length = compact
             .steps
             .iter()
-            .map(|s| s.kind.to_string().len() + s.variant.len() + 1 + if s.comment.is_empty() { 0 } else { s.comment.len() + 3 })
+            .map(|s| s.variant.to_string().len() + if s.comment.is_empty() { 0 } else { s.comment.len() + 3 })
             .max()
             .unwrap_or(0);
 
         for step in compact.steps {
             let alg_length = step.alg.len();
-            let name = if step.variant.is_empty() || step.kind == StepKind::FIN {
-                step.kind.to_string()
+
+            let comment = if step.comment.is_empty() {
+                "".to_string()
             } else {
-                let comment = if step.comment.is_empty() {
-                    "".to_string()
-                } else {
-                    format!(" [{}]", step.comment)
-                };
-                format!("{}-{}{comment}", step.kind.to_string(), step.variant)
+                format!(" [{}]", step.comment)
             };
+            let name = format!("{}{comment}", step.variant.to_string());
             total_moves += alg_length;
             writeln!(f, "{:longest_alg_length$}  // {name:longest_name_length$} ({alg_length}/{total_moves})", step.alg.to_string())?;
         }
-        let final_alg: Algorithm = if self.steps.last().map(|x| x.kind == StepKind::FIN).unwrap_or(false) {
+        let final_alg: Algorithm = if self.steps.last().map(|x| StepKind::from(x.variant) == StepKind::FIN).unwrap_or(false) {
             Into::<Algorithm>::into(self.clone()).to_uninverted()
         } else {
             self.clone().into()

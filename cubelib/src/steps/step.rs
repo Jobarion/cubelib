@@ -83,11 +83,11 @@ pub trait StepVariant: PreStepCheck + PostStepCheck
     fn move_set(&self, cube: &Cube333, depth_left: u8) -> &'_ MoveSet;
     fn pre_step_trans(&self) -> &'_ Vec<Transformation333>;
     fn heuristic(&self, cube: &Cube333, depth_left: u8, can_niss: bool) -> u8;
-    fn name(&self) -> &str;
+    fn get_variant(&self) -> crate::defs::StepVariant;
 }
 
 pub trait PreStepCheck {
-    fn is_cube_ready(&self, cube: &Cube333, sol: Option<&Solution>) -> bool;
+    fn is_cube_ready(&self, cube: &Cube333, sol: Option<crate::defs::StepVariant>) -> bool;
 }
 
 pub trait PostStepCheck {
@@ -148,7 +148,7 @@ pub struct DefaultPruningTableStep<
     move_set: &'a MoveSet,
     pre_trans: Vec<Transformation333>,
     heuristic: Box<dyn Heuristic + 'a>,
-    name: &'a str,
+    variant: crate::defs::StepVariant,
     post_step_checks: Rc<Vec<Box<dyn PostStepCheck + 'a>>>,
     _hc: PhantomData<HC>,
     _pc: PhantomData<PC>,
@@ -156,7 +156,7 @@ pub struct DefaultPruningTableStep<
 
 impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: for<'b> From<&'b Cube333> {
 
-    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<crate::defs::StepVariant>) -> bool {
         PC::from(cube).val() == 0
     }
 }
@@ -189,8 +189,8 @@ StepVariant for DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: 
         self.heuristic.heuristic(cube, can_niss)
     }
 
-    fn name(&self) -> &str {
-        self.name
+    fn get_variant(&self) -> crate::defs::StepVariant {
+        self.variant
     }
 }
 
@@ -207,12 +207,12 @@ DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: for<'b> From<&'b
                pre_trans: Vec<Transformation333>,
                table: &'a LookupTable<HC_SIZE, HC>,
                post_step_checker: Rc<Vec<Box<dyn PostStepCheck + 'a>>>,
-               name: &'a str) -> Self {
+               variant: crate::defs::StepVariant) -> Self {
         DefaultPruningTableStep {
             move_set,
             pre_trans,
             heuristic: Box::new(PruningTableHeuristic::new(table)),
-            name,
+            variant,
             post_step_checks: post_step_checker,
             _hc: PhantomData::default(),
             _pc: PhantomData::default(),
@@ -223,12 +223,12 @@ DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: for<'b> From<&'b
                pre_trans: Vec<Transformation333>,
                table: &'a NissLookupTable<HC_SIZE, HC>,
                post_step_checker: Rc<Vec<Box<dyn PostStepCheck + 'a>>>,
-               name: &'a str) -> Self {
+               variant: crate::defs::StepVariant) -> Self {
         DefaultPruningTableStep {
             move_set,
             pre_trans,
             heuristic: Box::new(NissPruningTableHeuristic::new(table)),
-            name,
+            variant,
             post_step_checks: post_step_checker,
             _hc: PhantomData::default(),
             _pc: PhantomData::default(),
@@ -313,16 +313,15 @@ pub fn next_step<
                             ends_on_normal,
                             cancel_token,
                         )
-                        .map(|alg| (step_variant.name(), alg))
+                        .map(|alg| (step_variant.get_variant(), alg))
                     })
-                    .flat_map(|(name, iter)| iter.map(move |alg| (name, alg)))
-                    .map(move |(variant_name, step_alg)| {
+                    .flat_map(|(variant, iter)| iter.map(move |alg| (variant, alg)))
+                    .map(move |(variant, step_alg)| {
                         let mut sol = solution.clone();
                         if step.is_major || step_alg.len() > 0 {
                             let sol_step = SolutionStep {
-                                kind: step.kind(),
                                 alg: step_alg,
-                                variant: variant_name.to_string(),
+                                variant,
                                 comment: String::default(),
                             };
                             sol.add_step(sol_step);

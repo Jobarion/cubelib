@@ -110,10 +110,11 @@ pub fn fr_no_slice<'a>(table: &'a FRLeaveSlicePruningTable, fr_axis: Vec<CubeAxi
     let step_variants = fr_axis
         .into_iter()
         .flat_map(move |x| {
+            let variant = crate::defs::StepVariant::FRLS(x);
             let x: Option<Box<dyn StepVariant + 'a>> = match x {
-                CubeAxis::UD => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
-                CubeAxis::FB => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), "fb"))),
-                CubeAxis::LR => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), "lr"))),
+                CubeAxis::UD => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![], table, Rc::new(vec![]), variant))),
+                CubeAxis::FB => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), variant))),
+                CubeAxis::LR => Some(Box::new(FRLeaveSlicePruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), variant))),
             };
             x
         })
@@ -125,10 +126,11 @@ pub fn fr<'a>(table: &'a FRPruningTable, fr_axis: Vec<CubeAxis>) -> Step333<'a> 
     let step_variants = fr_axis
         .into_iter()
         .flat_map(move |x| {
+            let variant = crate::defs::StepVariant::FR(x);
             let x: Option<Box<dyn StepVariant + 'a>> = match x {
-                CubeAxis::UD => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
-                CubeAxis::FB => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), "fb"))),
-                CubeAxis::LR => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), "lr"))),
+                CubeAxis::UD => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![], table, Rc::new(vec![]), variant))),
+                CubeAxis::FB => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), variant))),
+                CubeAxis::LR => Some(Box::new(FRPruningTableStep::new(&FR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), variant))),
             };
             x
         })

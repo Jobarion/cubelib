@@ -4,7 +4,6 @@ use crate::algs::Algorithm;
 use crate::cube::*;
 use crate::defs::*;
 use crate::solver::moveset::TransitionTable333;
-use crate::solver::solution::Solution;
 use crate::steps::{dr, MoveSet333, Step333};
 use crate::steps::eo::coords::BadEdgeCount;
 use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepConfig, StepVariant};
@@ -59,7 +58,7 @@ pub const RZP_ANY: MoveSet333 = MoveSet333 {
 pub struct RZPStep<'a> {
     move_set: &'a MoveSet333,
     pre_trans: Vec<Transformation333>,
-    name: &'a str,
+    variant: crate::defs::StepVariant,
     is_any: bool,
 }
 
@@ -86,13 +85,6 @@ pub fn from_step_config<'a>(config: StepConfig) -> Result<(Step333<'a>, DefaultS
     Ok((step, search_opts))
 }
 
-pub fn rzp_any<'a>() -> Step333<'a> {
-    Step::new(vec![
-        Box::new(RZPStep::new_any()),
-    ], StepKind::RZP, false)
-}
-
-
 pub fn rzp<'a>(eo_axis: Vec<CubeAxis>) -> Step333<'a> {
     let step_variants = eo_axis
         .into_iter()
@@ -109,20 +101,14 @@ pub fn rzp<'a>(eo_axis: Vec<CubeAxis>) -> Step333<'a> {
 }
 
 impl<'a> RZPStep<'a> {
-    fn new_any() -> Self {
-        RZPStep {
-            move_set: &RZP_ANY,
-            pre_trans: vec![],
-            name: "",
-            is_any: true,
-        }
-    }
-
     fn new_ud() -> Self {
         RZPStep {
             move_set: &RZP_EO_FB_MOVESET,
             pre_trans: vec![Transformation333::X],
-            name: "ud",
+            variant: crate::defs::StepVariant::RZP {
+                eo_axis: CubeAxis::FB,
+                dr_axis: CubeAxis::UD,
+            },
             is_any: false,
         }
     }
@@ -131,7 +117,10 @@ impl<'a> RZPStep<'a> {
         RZPStep {
             move_set: &RZP_EO_FB_MOVESET,
             pre_trans: vec![],
-            name: "fb",
+            variant: crate::defs::StepVariant::RZP {
+                eo_axis: CubeAxis::LR,
+                dr_axis: CubeAxis::FB,
+            },
             is_any: false,
         }
     }
@@ -140,14 +129,17 @@ impl<'a> RZPStep<'a> {
         RZPStep {
             move_set: &RZP_EO_FB_MOVESET,
             pre_trans: vec![Transformation333::Y],
-            name: "lr",
+            variant: crate::defs::StepVariant::RZP {
+                eo_axis: CubeAxis::UD,
+                dr_axis: CubeAxis::LR,
+            },
             is_any: false,
         }
     }
 }
 
 impl<'a> PreStepCheck for RZPStep<'a> {
-    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<crate::defs::StepVariant>) -> bool {
         if self.is_any {
             cube.edges.count_bad_edges_ud() == 0 || cube.edges.count_bad_edges_fb() == 0 || cube.edges.count_bad_edges_lr() == 0
         } else {
@@ -175,8 +167,8 @@ impl<'a> StepVariant for RZPStep<'a> {
         depth_left //RZP is a special step without a real goal. Filtering by bad edge/corner count is done in subsequent DR steps
     }
 
-    fn name(&self) -> &str {
-        self.name
+    fn get_variant(&self) -> crate::defs::StepVariant {
+        self.variant
     }
 }
 

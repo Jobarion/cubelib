@@ -4,7 +4,7 @@ use itertools::Itertools;
 use log::debug;
 
 use crate::cube::*;
-use crate::defs::StepKind;
+use crate::defs::StepVariant;
 use crate::solver::lookup_table;
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
@@ -40,19 +40,18 @@ impl FRStep {
     pub fn new(dfs: DFSParameters, fr_axis: Vec<CubeAxis>, leave_slice: bool) -> StepGroup {
         debug!("Step fr with options {dfs:?}");
         let variants = fr_axis.into_iter()
-            .map(|dr|match dr {
-                CubeAxis::UD => (vec![], dr.name()),
-                CubeAxis::FB => (vec![Transformation333::X], dr.name()),
-                CubeAxis::LR => (vec![Transformation333::Z], dr.name()),
+            .map(|fr|match fr {
+                CubeAxis::UD => (vec![], fr),
+                CubeAxis::FB => (vec![Transformation333::X], fr),
+                CubeAxis::LR => (vec![Transformation333::Z], fr),
             })
-            .map(|(trans, name)|{
+            .map(|(trans, fr)|{
                 if leave_slice {
                     StepGroup::single(Box::new(PruningTableStep::<FRUD_NO_SLICE_SIZE, FRUDNoSliceCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
                         table: &FR_LEAVE_SLICE_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
-                        name: name.to_string(),
-                        kind: StepKind::FRLS,
+                        variant: StepVariant::FRLS(fr),
                         post_step_check: vec![],
                         move_set: &FRUD_MOVESET,
                         _pc: Default::default(),
@@ -62,8 +61,7 @@ impl FRStep {
                         table: &FR_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
-                        name: name.to_string(),
-                        kind: StepKind::FR,
+                        variant: StepVariant::FR(fr),
                         post_step_check: vec![],
                         move_set: &FRUD_MOVESET,
                         _pc: Default::default(),
@@ -80,7 +78,7 @@ fn gen_fr() -> FRPruningTable {
                                               &|c: &Cube333| FRUDWithSliceCoord::from(c),
                                               &|| FRPruningTable::new(false),
                                               &|table, coord|table.get(coord),
-                                              &|table, coord, val|table.set(coord, val)))
+                                              &|table, coord, val|table.set(coord, val))).0
 }
 
 fn gen_frls() -> FRLeaveSlicePruningTable {
@@ -88,7 +86,7 @@ fn gen_frls() -> FRLeaveSlicePruningTable {
                                               &|c: &Cube333| FRUDNoSliceCoord::from(c),
                                               &|| FRLeaveSlicePruningTable::new(false),
                                               &|table, coord|table.get(coord),
-                                              &|table, coord, val|table.set(coord, val)))
+                                              &|table, coord, val|table.set(coord, val))).0
 }
 
 

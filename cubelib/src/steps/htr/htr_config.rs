@@ -54,10 +54,11 @@ pub fn htr<'a>(table: &'a HTRPruningTable, dr_axis: Vec<CubeAxis>) -> Step333<'a
     let step_variants = dr_axis
         .into_iter()
         .flat_map(move |x| {
+            let variant = crate::defs::StepVariant::HTR(x);
             let x: Option<Box<dyn StepVariant + 'a>> = match x {
-                CubeAxis::UD => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
-                CubeAxis::FB => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), "fb"))),
-                CubeAxis::LR => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), "lr"))),
+                CubeAxis::UD => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![], table, Rc::new(vec![]), variant))),
+                CubeAxis::FB => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), variant))),
+                CubeAxis::LR => Some(Box::new(HTRPruningTableStep::new_niss_table(&HTR_DR_UD_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), variant))),
             };
             x
         })

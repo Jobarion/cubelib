@@ -5,7 +5,6 @@ use crate::defs::*;
 use crate::solver::lookup_table::LookupTable;
 use crate::solver::moveset::TransitionTable333;
 use crate::cube::*;
-use crate::solver::solution::Solution;
 use crate::steps::{MoveSet333, Step333};
 use crate::steps::eo::coords::{BadEdgeCount, EOCoordFB};
 use crate::steps::step::{DefaultStepOptions, PostStepCheck, PreStepCheck, Step, StepConfig, StepVariant};
@@ -48,7 +47,7 @@ pub struct EOStepTable<'a> {
     move_set: &'a MoveSet333,
     pre_trans: Vec<Transformation333>,
     table: &'a EOPruningTable,
-    name: &'a str,
+    variant: crate::defs::StepVariant,
 }
 
 pub fn from_step_config(table: &EOPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
@@ -108,7 +107,7 @@ impl<'a> EOStepTable<'a> {
             move_set: &EO_FB_MOVESET,
             pre_trans: vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)],
             table,
-            name: "ud",
+            variant: crate::defs::StepVariant::EO(CubeAxis::UD),
         }
     }
 
@@ -117,7 +116,7 @@ impl<'a> EOStepTable<'a> {
             move_set: &EO_FB_MOVESET,
             pre_trans: vec![Transformation333::new(CubeAxis::Y, Direction::Clockwise)],
             table,
-            name: "lr",
+            variant: crate::defs::StepVariant::EO(CubeAxis::LR),
         }
     }
 
@@ -126,13 +125,13 @@ impl<'a> EOStepTable<'a> {
             move_set: &EO_FB_MOVESET,
             pre_trans: vec![],
             table,
-            name: "fb",
+            variant: crate::defs::StepVariant::EO(CubeAxis::FB),
         }
     }
 }
 
 impl PreStepCheck for EOStepTable<'_> {
-    fn is_cube_ready(&self, _: &Cube333, _: Option<&Solution>) -> bool {
+    fn is_cube_ready(&self, _: &Cube333, _: Option<crate::defs::StepVariant>) -> bool {
         true
     }
 }
@@ -162,8 +161,8 @@ impl StepVariant for EOStepTable<'_> {
         }
     }
 
-    fn name(&self) -> &str {
-        self.name
+    fn get_variant(&self) -> crate::defs::StepVariant {
+        self.variant
     }
 }
 

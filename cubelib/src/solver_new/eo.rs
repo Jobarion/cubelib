@@ -4,7 +4,7 @@ use itertools::Itertools;
 use log::debug;
 
 use crate::cube::*;
-use crate::defs::StepKind;
+use crate::defs::StepVariant;
 use crate::solver::lookup_table;
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
@@ -43,16 +43,15 @@ impl EOStep {
         debug!("Step eo with options {dfs:?}");
         let variants = axis.into_iter()
             .map(|eo|match eo {
-                CubeAxis::UD => (vec![Transformation333::X], eo.name()),
-                CubeAxis::FB => (vec![], eo.name()),
-                CubeAxis::LR => (vec![Transformation333::Y], eo.name()),
+                CubeAxis::UD => (vec![Transformation333::X], StepVariant::EO(eo)),
+                CubeAxis::FB => (vec![], StepVariant::EO(eo)),
+                CubeAxis::LR => (vec![Transformation333::Y], StepVariant::EO(eo)),
             })
-            .map(|(trans, name)| StepGroup::single(Box::new(PruningTableStep::<2048, EOCoordFB, 0, ZeroCoord>  {
+            .map(|(trans, variant)| StepGroup::single(Box::new(PruningTableStep::<2048, EOCoordFB, 0, ZeroCoord>  {
                 table: &EO_TABLE,
                 options: dfs.clone(),
                 pre_step_trans: trans,
-                name: name.to_string(),
-                kind: StepKind::EO,
+                variant,
                 post_step_check: vec![],
                 move_set: &EOFB_MOVESET,
                 _pc: Default::default(),
@@ -67,7 +66,7 @@ fn gen_eo() -> EOPruningTable {
                                                                  &|c: &crate::cube::Cube333| EOCoordFB::from(c),
                                                                  &|| EOPruningTable::new(false),
                                                                  &|table, coord|table.get(coord),
-                                                                 &|table, coord, val|table.set(coord, val)))
+                                                                 &|table, coord, val|table.set(coord, val))).0
 }
 
 pub mod builder {

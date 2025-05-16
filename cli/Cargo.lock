@@ -319,7 +319,7 @@ dependencies = [
 
 [[package]]
 name = "cubelib-cli"
-version = "1.7.1"
+version = "2.3.2"
 dependencies = [
  "clap",
  "csv",

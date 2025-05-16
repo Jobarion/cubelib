@@ -4,7 +4,7 @@ use itertools::Itertools;
 use log::debug;
 
 use crate::cube::*;
-use crate::defs::StepKind;
+use crate::defs::StepVariant;
 use crate::solver::lookup_table;
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
@@ -47,19 +47,18 @@ impl FRFinishStep {
     pub fn new(dfs: DFSParameters, fr_axis: Vec<CubeAxis>, leave_slice: bool) -> StepGroup {
         debug!("Step fin with options {dfs:?}");
         let variants = fr_axis.into_iter()
-            .map(|dr|match dr {
-                CubeAxis::UD => (vec![], dr.name()),
-                CubeAxis::FB => (vec![Transformation333::X], dr.name()),
-                CubeAxis::LR => (vec![Transformation333::Z], dr.name()),
+            .map(|fr|match fr {
+                CubeAxis::UD => (vec![], fr),
+                CubeAxis::FB => (vec![Transformation333::X], fr),
+                CubeAxis::LR => (vec![Transformation333::Z], fr),
             })
-            .map(|(trans, name)|{
+            .map(|(trans, fr)|{
                 if leave_slice {
                     StepGroup::single(Box::new(PruningTableStep::<FR_FINISH_SIZE, FRUDFinishCoord, FRUD_NO_SLICE_SIZE, FRUDNoSliceCoord>  {
                         table: &FR_FINISH_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
-                        name: name.to_string(),
-                        kind: StepKind::FINLS,
+                        variant: StepVariant::FRFINLS(fr),
                         post_step_check: vec![],
                         move_set: &FINISH_FRUD_MOVESET,
                         _pc: Default::default(),
@@ -69,8 +68,7 @@ impl FRFinishStep {
                         table: &FR_FINISH_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
-                        name: name.to_string(),
-                        kind: StepKind::FIN,
+                        variant: StepVariant::FRFIN(fr),
                         post_step_check: vec![],
                         move_set: &FINISH_FRUD_MOVESET,
                         _pc: Default::default(),
@@ -97,17 +95,16 @@ impl HTRFinishStep {
         if leave_slice {
             let variants = [CubeAxis::UD, CubeAxis::LR, CubeAxis::FB].into_iter()
                 .map(|slice|match slice {
-                    CubeAxis::UD => (vec![], slice.name()),
-                    CubeAxis::FB => (vec![Transformation333::X], slice.name()),
-                    CubeAxis::LR => (vec![Transformation333::Z], slice.name()),
+                    CubeAxis::UD => (vec![], slice),
+                    CubeAxis::FB => (vec![Transformation333::X], slice),
+                    CubeAxis::LR => (vec![Transformation333::Z], slice),
                 })
-                .map(|(trans, name)|{
+                .map(|(trans, slice)|{
                     StepGroup::single(Box::new(PruningTableStep::<HTR_LEAVE_SLICE_FINISH_SIZE, HTRLeaveSliceFinishCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
                         table: &HTR_LEAVE_SLICE_FINISH_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
-                        name: name.to_string(),
-                        kind: StepKind::FINLS,
+                        variant: StepVariant::HTRFINLS(slice),
                         post_step_check: vec![],
                         move_set: &FINISH_HTR_MOVESET,
                         _pc: Default::default(),
@@ -120,8 +117,7 @@ impl HTRFinishStep {
                 table: &HTR_FINISH_TABLE,
                 options: dfs.clone(),
                 pre_step_trans: vec![],
-                name: "".to_string(),
-                kind: StepKind::FIN,
+                variant: StepVariant::HTRFIN,
                 post_step_check: vec![],
                 move_set: &FINISH_HTR_MOVESET,
                 _pc: Default::default(),
@@ -135,7 +131,7 @@ fn gen_fr_finish() -> FRFinishPruningTable {
                                           &|c: &Cube333| FRUDFinishCoord::from(c),
                                           &|| FRFinishPruningTable::new(false),
                                           &|table, coord|table.get(coord),
-                                          &|table, coord, val|table.set(coord, val)))
+                                          &|table, coord, val|table.set(coord, val))).0
 }
 
 fn gen_htr_finish() -> HTRFinishPruningTable {
@@ -143,7 +139,7 @@ fn gen_htr_finish() -> HTRFinishPruningTable {
                                                &|c: &Cube333| HTRFinishCoord::from(c),
                                                &|| HTRFinishPruningTable::new(false),
                                                &|table, coord|table.get(coord),
-                                               &|table, coord, val|table.set(coord, val)))
+                                               &|table, coord, val|table.set(coord, val))).0
 }
 
 fn gen_htr_ls_finish() -> HTRLeaveSliceFinishPruningTable {
@@ -151,7 +147,7 @@ fn gen_htr_ls_finish() -> HTRLeaveSliceFinishPruningTable {
                                                &|c: &Cube333| HTRLeaveSliceFinishCoord::from(c),
                                                &|| HTRLeaveSliceFinishPruningTable::new(false),
                                                &|table, coord|table.get(coord),
-                                               &|table, coord, val|table.set(coord, val)))
+                                               &|table, coord, val|table.set(coord, val))).0
 }
 
 pub mod builder {

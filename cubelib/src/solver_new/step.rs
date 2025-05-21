@@ -433,16 +433,23 @@ impl MoveSet {
         Self {
             st_moves,
             aux_moves,
-            transitions: Self::new_default_transitions(),
+            transitions: Self::new_qt_ordered_transitions(true),
         }
     }
 
+    pub const fn new_with_qt_last_transitions(st_moves: &'static [Turn333], aux_moves: &'static [Turn333]) -> Self {
+        Self {
+            st_moves,
+            aux_moves,
+            transitions: Self::new_qt_ordered_transitions(false),
+        }
+    }
 
     // In order of importance:
     // - No subsequent moves on the same face
     // - For moves on the same axis, quarter moves before half moves
     // - U before D, F before B, L before R
-    pub const fn new_default_transitions() -> [[bool; 18]; 18] {
+    pub const fn new_qt_ordered_transitions(qt_first: bool) -> [[bool; 18]; 18] {
         let mut transitions = [[true; 18]; 18];
         let dirs = [Direction::Clockwise, Direction::CounterClockwise, Direction::Half];
         let priority_faces = [CubeFace::Up, CubeFace::Front, CubeFace::Left];
@@ -460,16 +467,16 @@ impl MoveSet {
                         idx += 1;
                     }
                 } else {
-                    let non_half_dir = if dir_last as usize == Direction::Half as usize {
-                        dir_first
+                    let (dir_first, dir_last) = if (dir_last as usize == Direction::Half as usize) == qt_first {
+                        (dir_first, dir_last)
                     } else {
-                        dir_last
+                        (dir_last, dir_first)
                     };
                     let mut idx = 0;
                     while idx < CubeFace::ALL.len() {
                         let face = CubeFace::ALL[idx];
                         let opposite = face.opposite();
-                        transitions[Turn333::new(face, Direction::Half).to_id()][Turn333::new(opposite, non_half_dir).to_id()] = false;
+                        transitions[Turn333::new(face, dir_last).to_id()][Turn333::new(opposite, dir_first).to_id()] = false;
                         idx += 1;
                     }
                 }

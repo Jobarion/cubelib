@@ -62,6 +62,7 @@ pub type RZPBuilder = builder::RZPBuilderInternal<false, false, false>;
 
 pub const DRUD_ARUD_MOVESET: MoveSet = MoveSet::new(DRUD_EOFB_ST_MOVES, HTR_MOVES);
 pub const DRUD_EOFB_MOVESET: MoveSet = MoveSet::new(DRUD_EOFB_ST_MOVES, DRUD_EOFB_AUX_MOVES);
+pub const DR_TRIGGER_MOVESET: MoveSet = MoveSet::new_with_qt_last_transitions(DRUD_EOFB_ST_MOVES, DRUD_EOFB_AUX_MOVES);
 pub const DRUD_PRE_TRIGGER_MOVESET: MoveSet = MoveSet::new(DRUF_PRE_TRIGGER_ST_MOVES, DRUF_PRE_TRIGGER_AUX_MOVES);
 pub const DRUD_EOFB_POST_TRIGGER_MOVESET: MoveSet = DRUD_EOFB_MOVESET;
 
@@ -349,8 +350,8 @@ impl Step for DRTriggerStep {
     fn get_moveset(&self, state: &Cube333, depth_left: usize) -> &'_ MoveSet {
         let rzp_state = calc_rzp_state(state);
         if let Some(trigger_length) = self.trigger_types.get(&rzp_state) {
-            if *trigger_length >= depth_left {
-                &DRUD_EOFB_MOVESET
+            if (*trigger_length) + 1 >= depth_left {
+                &DR_TRIGGER_MOVESET
             } else {
                 &DRUD_PRE_TRIGGER_MOVESET
             }

@@ -129,7 +129,8 @@ impl DRStep {
                 cube.turn(m.clone());
                 if DR_UD_EO_FB_MOVESET.st_moves.contains(m) {
                     let rzp_state = calc_rzp_state(&cube);
-                    trigger_types.insert(rzp_state, len);
+                    let e = trigger_types.entry(rzp_state).or_default();
+                    *e = (*e).max(len);
                     debug!("Registering {}c/{}e trigger with length {}", rzp_state.0, rzp_state.1, len);
                 }
             }

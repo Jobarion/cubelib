@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::Debug;
 #[cfg(feature = "fs")]
 use std::fs;
@@ -11,17 +11,14 @@ use std::marker::PhantomData;
 #[cfg(feature = "fs")]
 use home::home_dir;
 use log::{debug, info, warn};
+use memmap2::Mmap;
 use num_traits::{ToPrimitive};
 #[cfg(feature = "fs")]
 use num_traits::{FromPrimitive};
-use crate::algs::Algorithm;
 use crate::cube::*;
 use crate::cube::turn::TurnableMut;
-use crate::solver::move_table::MoveTable;
 use crate::solver::moveset::MoveSet;
 use crate::steps::coord::Coord;
-use crate::steps::finish::coords::{CPCoord, DR_FINISH_SIZE, DRFinishCoord, DRFinishNonSliceEP, DRFinishSliceCoord};
-use crate::steps::finish::finish_config::DR_UD_FINISH_MOVESET;
 
 const VERSION: u8 = 1;
 
@@ -36,8 +33,8 @@ pub enum TableType {
 }
 
 pub struct SymTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
-    coord_type: PhantomData<C>,
-    entries: HashMap<usize, u8>,
+    pub(crate) coord_type: PhantomData<C>,
+    pub entries: Mmap,
 }
 
 impl <const C_SIZE: usize, C: Coord<C_SIZE>> EmptyVal for SymTable<C_SIZE, C> {
@@ -60,21 +57,31 @@ pub struct NissLookupTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
 }
 
 impl <const C_SIZE: usize, C: Coord<C_SIZE>> SymTable<C_SIZE, C> {
-    pub fn new() -> Self {
-        Self {
-            entries: Default::default(),
-            coord_type: Default::default(),
+    pub fn get(&self, target: C) -> u8 {
+        let mut size = self.entries.len() / 5;
+        let mut base = 0;
+        let target = target.val() as u32;
+        while size > 1 {
+            let half = size / 2;
+            let mid = base + half;
+            let mid_idx = mid * 5;
+            let c = u32::from_le_bytes(self.entries[mid_idx..(mid_idx+4)].try_into().unwrap());
+            if c == target {
+                return self.entries[mid_idx + 4]
+            }
+            base = if c < target {
+                mid
+            } else {
+                base
+            };
+            size -= half;
         }
-    }
-
-    pub fn set(&mut self, min_c: C, val: u8) {
-        self.entries.insert(min_c.val(), val);
-    }
-
-    pub fn get(&self, min_c: C) -> u8 {
-        match self.entries.get(&min_c.val()) {
-            None => self.empty_val(),
-            Some(c) => *c,
+        let base_idx = base * 5;
+        let c = u32::from_le_bytes(self.entries[base_idx..(base_idx+4)].try_into().unwrap());
+        if c == target {
+            self.entries[base_idx + 4]
+        } else {
+            0xFF
         }
     }
 }
@@ -307,6 +314,33 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for NissLookupTable<C_
 }
 
 #[cfg(feature = "fs")]
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for SymTable<C_SIZE, C> {
+    fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, String>
+    where
+        Self: Sized,
+    {
+        let mut dir = home_dir().unwrap();
+        dir.push(".cubelib");
+        dir.push("tables");
+        dir.push(puzzle_id);
+        dir.push(format!("{table_type}.tbl"));
+        debug!("Loading {puzzle_id} {table_type} table from {dir:?}");
+        let file = File::open(dir).map_err(|e|e.to_string())?;
+        let mmap = unsafe {
+            Mmap::map(&file)
+        }.map_err(|e|e.to_string())?;
+        Ok(Self {
+            entries: mmap,
+            coord_type: Default::default()
+        })
+    }
+
+    fn load(_: Box<Vec<u8>>) -> Result<Self, String> {
+        unimplemented!()
+    }
+}
+
+#[cfg(feature = "fs")]
 impl <T> SaveToDisk for T where for<'a> &'a T: Into<Vec<u8>> {
     fn save_to_disk(&self, puzzle_id: &str, table_type: &str) -> std::io::Result<()> {
         let mut dir = home_dir().unwrap();
@@ -455,59 +489,41 @@ where
     next_cubes
 }
 
-// This table is much larger and requires different methods to generate.
-// Since it's the only one we'll avoid a generic implementation for now
-pub fn generate_dr_finish_table() -> SymTable<{DR_FINISH_SIZE}, DRFinishCoord> {
-    let symmetries = vec![
-        Symmetry::U0, Symmetry::UM0,
-        Symmetry::U1, Symmetry::UM1,
-        Symmetry::U2, Symmetry::UM2,
-        Symmetry::U3, Symmetry::UM3,
-        Symmetry::D0, Symmetry::DM0,
-        Symmetry::D1, Symmetry::DM1,
-        Symmetry::D2, Symmetry::DM2,
-        Symmetry::D3, Symmetry::DM3,
-    ];
-
-    debug!("Generating CP table");
-    let cp_table = MoveTable::<40320, CPCoord>::generate_with_symmetries(&DR_UD_FINISH_MOVESET, &symmetries);
-    debug!("Generating Non Slice EP table");
-    let non_slice_ep_table = MoveTable::<40320, DRFinishNonSliceEP>::generate_with_symmetries(&DR_UD_FINISH_MOVESET, &symmetries);
-    debug!("Generating Slice EP table");
-    let slice_ep_table = MoveTable::<24, DRFinishSliceCoord>::generate_with_symmetries(&DR_UD_FINISH_MOVESET, &symmetries);
-
-
-    let apply_move = |DRFinishCoord(cp, ep, nep), turn: Turn333| {
-        DRFinishCoord(
-            cp_table.get(cp, turn),
-            slice_ep_table.get(ep, turn),
-            non_slice_ep_table.get(nep, turn)
-        )
-    };
-
-    let mut sym_table = SymTable::new();
-    let mut to_check = HashMap::from([(DRFinishCoord::min_with_symmetries(&Cube333::default(), &symmetries), Algorithm::new())]);
-    let mut depth = 0;
-    while !to_check.is_empty() {
-        debug!("To check {} at depth {}", to_check.len(), depth);
-        if depth > 2 {
-            break;
-        }
-        let mut to_check_next = HashMap::default();
-        for (coord, alg) in to_check {
-            println!("\t{coord:?}: {alg}");
-            sym_table.set(coord, depth);
-            for turn in DR_UD_FINISH_MOVESET.st_moves {
-                let coord = apply_move(coord, turn.clone());
-                if sym_table.get(coord) == sym_table.empty_val() {
-                    let mut alg = alg.clone();
-                    alg.normal_moves.push(turn.clone());
-                    to_check_next.insert(coord, alg);
-                }
-            }
-        }
-        to_check = to_check_next;
-        depth += 1;
-    }
-    sym_table
-}
+// // This table is much larger and requires different methods to generate.
+// // Since it's the only one we'll avoid a generic implementation for now
+// pub fn generate_dr_finish_table() -> SymTable<{DR_FINISH_SIZE}, DRFinishCoord> {
+//     let symmetries = vec![
+//         Symmetry::U0, Symmetry::UM0,
+//         Symmetry::U1, Symmetry::UM1,
+//         Symmetry::U2, Symmetry::UM2,
+//         Symmetry::U3, Symmetry::UM3,
+//         Symmetry::D0, Symmetry::DM0,
+//         Symmetry::D1, Symmetry::DM1,
+//         Symmetry::D2, Symmetry::DM2,
+//         Symmetry::D3, Symmetry::DM3,
+//     ];
+//
+//     let mut sym_table = SymTable::new();
+//     let mut to_check = HashSet::from([DRFinishCoord::from(0)]);
+//     let mut depth = 0;
+//     while !to_check.is_empty() {
+//         to_check.retain(|coord|sym_table.get(coord.clone()) == sym_table.empty_val());
+//         debug!("To check {} at depth {}", to_check.len(), depth);
+//         let mut to_check_next = HashSet::default();
+//         for coord in to_check {
+//             let mut cube = Into::<Cube333>::into(&coord);
+//             sym_table.set(coord, depth);
+//             for turn in DR_UD_FINISH_MOVESET.st_moves {
+//                 cube.turn(turn.clone());
+//                 let coord = DRFinishCoord::min_with_symmetries(&cube, &symmetries);
+//                 if sym_table.get(coord) == sym_table.empty_val() {
+//                     to_check_next.insert(coord);
+//                 }
+//                 cube.turn(turn.invert());
+//             }
+//         }
+//         to_check = to_check_next;
+//         depth += 1;
+//     }
+//     sym_table
+// }

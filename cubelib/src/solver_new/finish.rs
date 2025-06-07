@@ -6,10 +6,13 @@ use log::debug;
 use crate::cube::*;
 use crate::defs::StepKind;
 use crate::solver::lookup_table;
+use crate::solver::lookup_table::{LoadFromDisk, SymTable};
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
-use crate::steps::finish::coords::{FR_FINISH_SIZE, FRUDFinishCoord, HTR_FINISH_SIZE, HTR_LEAVE_SLICE_FINISH_SIZE, HTRFinishCoord, HTRLeaveSliceFinishCoord};
+use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
+use crate::steps::dr::dr_config::DR_UD_EO_FB_MOVES;
+use crate::steps::finish::coords::{DR_FINISH_SIZE, DRFinishCoord, FR_FINISH_SIZE, FRUDFinishCoord, HTR_FINISH_SIZE, HTR_LEAVE_SLICE_FINISH_SIZE, HTRFinishCoord, HTRLeaveSliceFinishCoord};
 use crate::steps::finish::finish_config::{FRFinishPruningTable, FRUD_FINISH_MOVESET, HTR_FINISH_MOVESET, HTRFinishPruningTable, HTRLeaveSliceFinishPruningTable};
 use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
@@ -17,6 +20,20 @@ use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
 pub static FR_FINISH_TABLE: LazyLock<FRFinishPruningTable> = LazyLock::new(||gen_fr_finish());
 pub static HTR_FINISH_TABLE: LazyLock<HTRFinishPruningTable> = LazyLock::new(||gen_htr_finish());
 pub static HTR_LEAVE_SLICE_FINISH_TABLE: LazyLock<HTRLeaveSliceFinishPruningTable> = LazyLock::new(||gen_htr_ls_finish());
+pub static DR_FINISH_TABLE: LazyLock<DRFinishPruningTable> = LazyLock::new(||load_dr_finish());
+
+pub type DRFinishPruningTable = SymTable<{ DR_FINISH_SIZE }, DRFinishCoord>;
+
+const DR_SYMMETRIES: &[Symmetry] = &[
+    Symmetry::U0, Symmetry::UM0,
+    Symmetry::U1, Symmetry::UM1,
+    Symmetry::U2, Symmetry::UM2,
+    Symmetry::U3, Symmetry::UM3,
+    Symmetry::D0, Symmetry::DM0,
+    Symmetry::D1, Symmetry::DM1,
+    Symmetry::D2, Symmetry::DM2,
+    Symmetry::D3, Symmetry::DM3,
+];
 
 const FINISH_FRUD_ST_MOVES: &[Turn333] = &[
     Turn333::F2, Turn333::B2,
@@ -33,6 +50,7 @@ const FINISH_AUX_MOVES: &[Turn333] = &[];
 
 pub const FINISH_FRUD_MOVESET: MoveSet = MoveSet::new(FINISH_FRUD_ST_MOVES, FINISH_AUX_MOVES);
 pub const FINISH_HTR_MOVESET: MoveSet = MoveSet::new(FINISH_HTR_ST_MOVES, FINISH_AUX_MOVES);
+pub const FINISH_DR_MOVESET: MoveSet = MoveSet::new(DR_UD_EO_FB_MOVES, &[]);
 
 pub struct FRFinishStep;
 pub type FRFinishBuilder = builder::FRFinishBuilderInternal<false, false, false, false>;
@@ -76,6 +94,42 @@ impl FRFinishStep {
                         _pc: Default::default(),
                     }))
                 }
+            })
+            .collect_vec();
+        StepGroup::parallel(variants)
+    }
+}
+
+pub struct DRFinishStep;
+pub type DRFinishBuilder = builder::DRFinishBuilderInternal<false, false, false>;
+
+impl DRFinishStep {
+    pub fn builder() -> DRFinishBuilder {
+        DRFinishBuilder::default()
+    }
+}
+
+impl DRFinishStep {
+    pub fn new(dfs: DFSParameters, dr_axis: Vec<CubeAxis>) -> StepGroup {
+        debug!("Step fin with options {dfs:?}");
+        let variants = dr_axis.into_iter()
+            .map(|dr|match dr {
+                CubeAxis::UD => (vec![], dr.name()),
+                CubeAxis::FB => (vec![Transformation333::X], dr.name()),
+                CubeAxis::LR => (vec![Transformation333::Z], dr.name()),
+            })
+            .map(|(trans, name)|{
+                StepGroup::single(Box::new(SymPruningTableStep::<{ DR_FINISH_SIZE }, DRFinishCoord, { DRUDEOFB_SIZE }, DRUDEOFBCoord>  {
+                    table: &DR_FINISH_TABLE,
+                    symmetries: DR_SYMMETRIES,
+                    options: dfs.clone(),
+                    pre_step_trans: trans,
+                    name: name.to_string(),
+                    kind: StepKind::FIN,
+                    post_step_check: vec![],
+                    move_set: &FINISH_DR_MOVESET,
+                    _pc: Default::default(),
+                }))
             })
             .collect_vec();
         StepGroup::parallel(variants)
@@ -154,10 +208,14 @@ fn gen_htr_ls_finish() -> HTRLeaveSliceFinishPruningTable {
                                                &|table, coord, val|table.set(coord, val)))
 }
 
+fn load_dr_finish() -> DRFinishPruningTable {
+    SymTable::load_from_disk("333", "drfin").unwrap()
+}
+
 pub mod builder {
     use crate::cube::CubeAxis;
     use crate::defs::{NissSwitchType, StepKind};
-    use crate::solver_new::finish::{FRFinishStep, HTRFinishStep};
+    use crate::solver_new::finish::{DRFinishStep, FRFinishStep, HTRFinishStep};
     use crate::solver_new::group::StepGroup;
     use crate::solver_new::step::DFSParameters;
     use crate::steps::step::StepConfig;
@@ -357,6 +415,95 @@ pub mod builder {
             if value.kind == StepKind::FINLS {
                 defaults._c_leave_slice = true;
             }
+            Ok(defaults)
+        }
+    }
+    pub struct DRFinishBuilderInternal<const A: bool, const B: bool, const C: bool> {
+        _a_max_length: usize,
+        _b_max_absolute_length: usize,
+        // _c_leave_slice: bool,
+    }
+
+    impl <const A: bool, const B: bool, const C: bool> DRFinishBuilderInternal<A, B, C> {
+        fn convert<const _A: bool, const _B: bool, const _C: bool>(self) -> DRFinishBuilderInternal<_A, _B, _C> {
+            DRFinishBuilderInternal {
+                _a_max_length: self._a_max_length,
+                _b_max_absolute_length: self._b_max_absolute_length,
+                // _c_leave_slice: self._c_leave_slice,
+            }
+        }
+    }
+
+    impl <const B: bool, const C: bool> DRFinishBuilderInternal<false, B, C> {
+        pub fn max_length(mut self, max_length: usize) -> DRFinishBuilderInternal<true, B, C> {
+            self._a_max_length = max_length;
+            self.convert()
+        }
+    }
+
+    impl <const A: bool, const C: bool> DRFinishBuilderInternal<A, false, C> {
+        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> DRFinishBuilderInternal<A, true, C> {
+            self._b_max_absolute_length = max_absolute_length;
+            self.convert()
+        }
+    }
+
+    impl <const A: bool, const B: bool> DRFinishBuilderInternal<A, B, false> {
+        pub fn leave_slice(self) -> DRFinishBuilderInternal<A, B, true> {
+            unimplemented!("Not implemented")
+            // self._c_leave_slice = true;
+            // self.convert()
+        }
+    }
+
+    impl <const A: bool, const B: bool, const C: bool> DRFinishBuilderInternal<A, B, C> {
+        pub fn build(self) -> StepGroup {
+            let dfs = DFSParameters {
+                niss_type: NissSwitchType::Never,
+                min_moves: 0,
+                max_moves: self._a_max_length,
+                absolute_max_moves: Some(self._b_max_absolute_length),
+            };
+            DRFinishStep::new(dfs, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR])
+        }
+    }
+
+    impl DRFinishBuilderInternal<false, false, false> {
+        pub fn new() -> Self {
+            Self {
+                _a_max_length: 14,
+                _b_max_absolute_length: 50,
+                // _c_leave_slice: false,
+            }
+        }
+    }
+
+    impl Default for DRFinishBuilderInternal<false, false, false> {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl TryFrom<StepConfig> for DRFinishBuilderInternal<false, false, false> {
+        type Error = ();
+
+        fn try_from(value: StepConfig) -> Result<Self, Self::Error> {
+            if !value.params.is_empty() {
+                return Err(())
+            }
+            if value.kind != StepKind::FIN {// && value.kind != StepKind::FINLS {
+                return Err(())
+            }
+            let mut defaults = Self::default();
+            if let Some(max) = value.max {
+                defaults._a_max_length = max as usize;
+            }
+            if let Some(abs_max) = value.absolute_max {
+                defaults._b_max_absolute_length = abs_max as usize;
+            }
+            // if value.kind == StepKind::FINLS {
+            //     defaults._c_leave_slice = true;
+            // }
             Ok(defaults)
         }
     }

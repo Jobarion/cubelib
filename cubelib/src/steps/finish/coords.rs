@@ -22,7 +22,7 @@ pub struct HTRLeaveSliceFinishCoord(pub(crate) u16);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DRFinishCoord(pub(crate) CPCoord, pub(crate) DRFinishSliceCoord, pub(crate) DRFinishNonSliceEP);
 
-pub const DR_FINISH_SIZE: usize = 19508428800;
+pub const DR_FINISH_SIZE: usize = 39_016_857_600;//19_508_428_800;
 impl Coord<{DR_FINISH_SIZE}> for DRFinishCoord {
     fn val(&self) -> usize {
         self.0.val() * DRFinishSliceCoord::size() * DRFinishNonSliceEP::size() +
@@ -203,11 +203,73 @@ impl From<&CornerCube333> for CPCoord {
 }
 
 #[cfg(target_feature = "avx2")]
-mod avx2 {
-    use std::arch::x86_64::{__m128i, _mm_and_si128, _mm_cmpeq_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi16, _mm_hadd_epi32, _mm_movemask_epi8, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi8, _mm_set_epi16, _mm_set_epi64x, _mm_set_epi8, _mm_setr_epi16, _mm_setr_epi8, _mm_shuffle_epi8, _mm_srli_epi32};
+impl Into<Cube333> for &DRFinishCoord {
+    fn into(self) -> Cube333 {
+        unsafe { avx2::unsafe_inverse_cube_from_drfinish(self) }
+    }
+}
 
+// Not optimized at all
+fn inverse_permutation_n<const N: usize>(perm: u16) -> [u8; N] {
+    assert!(N <= 8);
+    let fac = [1, 2, 6, 24, 120, 720, 5040, 40320];
+    let mut factors = [0;N];
+    for i in 1..N {
+        factors[i] = perm % fac[i] / fac[i-1];
+    }
+    let mut values = [0u8;N];
+    let mut found = [false;N];
+    for i in (0..N).rev() {
+        let mut j = N - 1;
+        while found[j] {
+            j -= 1;
+        }
+        while factors[i] > 0 {
+            j -= 1;
+            factors[i] -= 1;
+            while found[j] {
+                j -= 1;
+            }
+        }
+        values[i] = j as u8;
+        found[j] = true;
+    }
+
+    values
+}
+
+#[cfg(target_feature = "avx2")]
+mod avx2 {
+    use std::arch::x86_64::{__m128i, _mm_and_si128, _mm_cmpeq_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi16, _mm_hadd_epi32, _mm_load_si128, _mm_movemask_epi8, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi8, _mm_set_epi16, _mm_set_epi64x, _mm_set_epi8, _mm_setr_epi16, _mm_setr_epi8, _mm_shuffle_epi8, _mm_slli_epi32, _mm_srli_epi32};
     use crate::cube::*;
-    use crate::steps::finish::coords::{CPCoord, DRFinishNonSliceEP, DRFinishSliceCoord, FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord};
+    use crate::steps::finish::coords::{CPCoord, DRFinishCoord, DRFinishNonSliceEP, DRFinishSliceCoord, FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord, inverse_permutation_n};
+
+    #[target_feature(enable = "avx2")]
+    pub(crate) unsafe fn unsafe_inverse_cube_from_drfinish(value: &DRFinishCoord) -> Cube333 {
+        let cp = inverse_permutation_n::<8>(value.0.0);
+        let cp_data = [cp.as_slice(), &[0;8]].concat();
+        let val = _mm_load_si128(cp_data.as_ptr() as *const __m128i);
+        let corners = CornerCube333::new(_mm_slli_epi32::<5>(val));
+
+        let mut non_slice_edges = inverse_permutation_n::<8>(value.2.0);
+        for i in 0..8 {
+            if non_slice_edges[i] >= 4 {
+                non_slice_edges[i] += 4;
+            }
+        }
+        let mut slice_edges = inverse_permutation_n::<4>(value.1.0 as u16);
+        for i in 0..4 {
+            slice_edges[i] += 4;
+        }
+        let ep_data = [
+            [&non_slice_edges[0..4], &slice_edges].concat(),
+            [&non_slice_edges[4..8], &[0;4]].concat(),
+        ].concat();
+
+        let val = _mm_load_si128(ep_data.as_ptr() as *const __m128i);
+        let edges = EdgeCube333::new(_mm_slli_epi32::<4>(val));
+        Cube333::new(edges, corners)
+    }
 
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_from_drfinish_slice_coord(value: &EdgeCube333) -> DRFinishSliceCoord {

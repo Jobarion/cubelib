@@ -6,7 +6,6 @@ use crate::cube::{Symmetry, Turn333};
 use crate::cube::turn::{ApplySymmetry, Invertible, TurnableMut};
 use crate::solver::moveset::MoveSet;
 use crate::steps::coord::Coord;
-use crate::steps::finish::coords::DRFinishSliceCoord;
 
 pub struct MoveTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
     move_index: HashMap<Turn333, usize>,

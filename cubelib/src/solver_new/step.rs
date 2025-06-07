@@ -9,11 +9,11 @@ use std::thread::JoinHandle;
 use log::trace;
 
 use crate::algs::Algorithm;
-use crate::cube::{Cube333, Transformation333, Turn333};
+use crate::cube::{Cube333, Symmetry, Transformation333, Turn333};
 use crate::cube::turn::*;
 use crate::defs::{NissSwitchType, StepKind};
 use crate::solver::df_search::CancelToken;
-use crate::solver::lookup_table::{LookupTable, NissLookupTable};
+use crate::solver::lookup_table::{LookupTable, NissLookupTable, SymTable};
 use crate::solver::solution::{ApplySolution, Solution, SolutionStep};
 use crate::solver_new::*;
 use crate::solver_new::group::{StepPredicate, StepPredicateResult};
@@ -34,6 +34,18 @@ pub struct PruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'sta
 
 pub struct NissPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'static, const PC_SIZE: usize, PC: Coord<PC_SIZE> + 'static> {
     pub table: &'b NissLookupTable<C_SIZE, C>,
+    pub options: DFSParameters,
+    pub pre_step_trans: Vec<Transformation333>,
+    pub name: String,
+    pub kind: StepKind,
+    pub post_step_check: Vec<Box<dyn PostStepCheck + Send + 'static>>,
+    pub move_set: &'a MoveSet,
+    pub _pc: PhantomData<PC>,
+}
+
+pub struct SymPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'static, const PC_SIZE: usize, PC: Coord<PC_SIZE> + 'static> {
+    pub table: &'b SymTable<C_SIZE, C>,
+    pub symmetries: &'a [Symmetry],
     pub options: DFSParameters,
     pub pre_step_trans: Vec<Transformation333>,
     pub name: String,
@@ -113,6 +125,47 @@ impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: C
             niss as usize
         } else {
             val as usize
+        }
+    }
+
+    fn pre_step_trans(&self) -> &'_ Vec<Transformation333> {
+        &self.pre_step_trans
+    }
+
+    fn get_name(&self) -> (StepKind, String) {
+        (self.kind.clone(), self.name.clone())
+    }
+}
+
+impl<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for SymPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where PC: for<'c> From<&'c Cube333> {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
+        PC::from(cube).val() == 0
+    }
+}
+
+impl<'a, 'b,const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PostStepCheck for SymPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> {
+    fn is_solution_admissible(&self, cube: &Cube333, alg: &Algorithm) -> bool {
+        self.post_step_check.iter()
+            .all(|psc|psc.is_solution_admissible(cube, alg))
+    }
+}
+
+impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> Step for SymPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where C: for<'c> From<&'c Cube333>, PC: for<'d> From<&'d Cube333>  {
+    fn get_dfs_parameters(&self) -> DFSParameters {
+        self.options.clone()
+    }
+
+    fn get_moveset(&self, _: &Cube333, _: usize) -> &'a MoveSet {
+        self.move_set
+    }
+
+    fn heuristic(&self, state: &Cube333, can_niss_switch: bool, _: usize) -> usize {
+        let coord = C::min_with_symmetries(state, self.symmetries);
+        let heuristic = self.table.get(coord) as usize;
+        if can_niss_switch {
+            min(1, heuristic)
+        } else {
+            heuristic
         }
     }
 
@@ -361,7 +414,6 @@ impl StepIORunner {
         } else if lower_bound == 0 || lower_bound > depth {
             return Box::new(vec![].into_iter());
         }
-
         let values: Box<dyn Iterator<Item = Algorithm>> = Box::new(self.step.get_moveset(&cube, depth).get_allowed_moves(prev, depth)
             .flat_map(move |(turn, can_invert)|{
                 cube.turn(turn);

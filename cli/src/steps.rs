@@ -6,7 +6,7 @@ use cubelib::defs::{NissSwitchType, StepKind};
 use cubelib::solver_new::ar::ARBuilder;
 use cubelib::solver_new::dr::{DRBuilder, RZPBuilder, RZPStep};
 use cubelib::solver_new::eo::EOBuilder;
-use cubelib::solver_new::finish::{FRFinishBuilder, HTRFinishBuilder};
+use cubelib::solver_new::finish::{DRFinishBuilder, FRFinishBuilder, HTRFinishBuilder};
 use cubelib::solver_new::fr::FRBuilder;
 use cubelib::solver_new::group::{StepGroup, StepPredicate};
 use cubelib::solver_new::htr::HTRBuilder;
@@ -169,6 +169,7 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
         },
         (Some(StepKind::DR), StepKind::HTR) => Some(HTRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse HTR step")?.build()),
         (Some(StepKind::HTR), StepKind::FR) | (Some(StepKind::HTR), StepKind::FRLS)  => Some(FRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FR step")?.build()),
+        (Some(StepKind::DR), StepKind::FIN) => Some(DRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build()),
         (Some(StepKind::FR), StepKind::FIN) => Some(FRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build()),
         (Some(StepKind::FRLS), StepKind::FINLS) => Some(FRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build()),
         (Some(StepKind::HTR), StepKind::FIN) | (Some(StepKind::HTR), StepKind::FINLS) => Some(HTRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIR step")?.build()),

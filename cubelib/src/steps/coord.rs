@@ -13,8 +13,8 @@ pub trait Coord<const SIZE: usize>: Into<usize> + Copy + Clone + Eq + PartialEq 
     fn wrap(self) -> CoordWrapper<SIZE, Self> {
         CoordWrapper(self)
     }
-    fn min_with_symmetries<T: ApplySymmetry + Clone>(t: &T, symmetries: &Vec<Symmetry>) -> Self where for<'a> Self: From<&'a T> {
-        symmetries.iter()
+    fn min_with_symmetries<'a, T: ApplySymmetry + Clone, V: IntoIterator<Item = &'a Symmetry>>(t: &'a T, symmetries: V) -> Self where for<'b> Self: From<&'b T> {
+        symmetries.into_iter()
             .map(|s|{
                 let mut t = t.clone();
                 t.apply_symmetry(s);

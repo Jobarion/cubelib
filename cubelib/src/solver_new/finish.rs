@@ -112,18 +112,17 @@ impl DRFinishStep {
         debug!("Step fin with options {dfs:?}");
         let variants = dr_axis.into_iter()
             .map(|dr|match dr {
-                CubeAxis::UD => (vec![], dr.name()),
-                CubeAxis::FB => (vec![Transformation333::X], dr.name()),
-                CubeAxis::LR => (vec![Transformation333::Z], dr.name()),
+                CubeAxis::UD => (vec![], dr),
+                CubeAxis::FB => (vec![Transformation333::X], dr),
+                CubeAxis::LR => (vec![Transformation333::Z], dr),
             })
-            .map(|(trans, name)|{
+            .map(|(trans, axis)|{
                 StepGroup::single(Box::new(SymPruningTableStep::<{ DR_FINISH_SIZE }, DRFinishCoord, { DRUDEOFB_SIZE }, DRUDEOFBCoord>  {
                     table: &DR_FINISH_TABLE,
                     symmetries: DR_SYMMETRIES,
                     options: dfs.clone(),
                     pre_step_trans: trans,
-                    name: name.to_string(),
-                    kind: StepKind::FIN,
+                    variant: StepVariant::DRFIN(axis),
                     post_step_check: vec![],
                     move_set: &FINISH_DR_MOVESET,
                     _pc: Default::default(),

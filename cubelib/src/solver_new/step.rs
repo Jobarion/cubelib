@@ -46,8 +46,7 @@ pub struct SymPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + '
     pub symmetries: &'a [Symmetry],
     pub options: DFSParameters,
     pub pre_step_trans: Vec<Transformation333>,
-    pub name: String,
-    pub kind: StepKind,
+    pub variant: StepVariant,
     pub post_step_check: Vec<Box<dyn PostStepCheck + Send + 'static>>,
     pub move_set: &'a MoveSet,
     pub _pc: PhantomData<PC>,
@@ -141,7 +140,7 @@ impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: C
 }
 
 impl<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for SymPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where PC: for<'c> From<&'c Cube333> {
-    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<StepVariant>) -> bool {
         PC::from(cube).val() == 0
     }
 }
@@ -176,8 +175,8 @@ impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: C
         &self.pre_step_trans
     }
 
-    fn get_name(&self) -> (StepKind, String) {
-        (self.kind.clone(), self.name.clone())
+    fn get_variant(&self) -> StepVariant {
+        self.variant
     }
 }
 

@@ -40,7 +40,8 @@ pub enum StepVariant {
     FRFIN(CubeAxis),
     FRFINLS(CubeAxis),
     HTRFIN,
-    HTRFINLS(CubeAxis)
+    HTRFINLS(CubeAxis),
+    DRFIN(CubeAxis),
 }
 
 impl StepVariant {
@@ -88,7 +89,8 @@ impl Display for StepVariant {
             StepVariant::FRFIN(fr) => write!(f, "fin-{}", fr.name()),
             StepVariant::FRFINLS(fr) => write!(f, "finls-fr{}", fr.name()),
             StepVariant::HTRFIN => write!(f, "fin"),
-            StepVariant::HTRFINLS(ls) => write!(f, "finls{}", ls.name())
+            StepVariant::HTRFINLS(ls) => write!(f, "finls{}", ls.name()),
+            StepVariant::DRFIN(dr) => write!(f, "fin-{}", dr.name()),
         }
     }
 }
@@ -106,7 +108,8 @@ impl From<StepVariant> for StepKind {
             StepVariant::FRFIN(_) => Self::FIN,
             StepVariant::FRFINLS(_) => Self::FINLS,
             StepVariant::HTRFIN => Self::FIN,
-            StepVariant::HTRFINLS(_) => Self::FINLS
+            StepVariant::HTRFINLS(_) => Self::FINLS,
+            StepVariant::DRFIN(_) => Self::FIN,
         }
     }
 }

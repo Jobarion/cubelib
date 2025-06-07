@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use crate::algs::Algorithm;
 use crate::cube::{Cube333, Transformation333};
-use crate::defs::StepKind;
+use crate::defs::{StepKind, StepVariant};
 use crate::solver_new::dr::{DRBuilder, RZPBuilder, RZPStep};
 use crate::solver_new::eo::EOBuilder;
 use crate::solver_new::finish::{FRFinishBuilder, HTRFinishBuilder};
@@ -39,7 +39,7 @@ pub trait Step: PreStepCheck + PostStepCheck {
     fn get_moveset(&self, state: &Cube333, depth_left: usize) -> &'_ MoveSet;
     fn heuristic(&self, state: &Cube333, can_niss_switch: bool, depth_left: usize) -> usize;
     fn pre_step_trans(&self) -> &'_ Vec<Transformation333>;
-    fn get_name(&self) -> (StepKind, String);
+    fn get_variant(&self) -> StepVariant;
 }
 
 pub fn build_steps(mut steps: Vec<StepConfig>) -> Result<StepGroup, String> {

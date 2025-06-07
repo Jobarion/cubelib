@@ -20,7 +20,7 @@ use crate::cube::turn::TurnableMut;
 use crate::solver::moveset::MoveSet;
 use crate::steps::coord::Coord;
 
-const VERSION: u8 = 1;
+const VERSION: u8 = 2;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[repr(u8)]
@@ -156,11 +156,11 @@ impl<const C_SIZE: usize, C: Coord<C_SIZE>> LookupTable<C_SIZE, C> {
     }
 
     #[cfg(feature = "fs")]
-    pub fn load_and_save<F: FnMut() -> LookupTable<C_SIZE, C>>(key: &str, mut gen_f: F) -> Self {
+    pub fn load_and_save<F: FnMut() -> LookupTable<C_SIZE, C>>(key: &str, mut gen_f: F) -> (Self, bool) {
         match Self::load_from_disk("333", key) {
             Ok(t) => {
                 debug!("Loaded {key} table from disk");
-                t
+                (t, false)
             },
             Err(_) => {
                 info!("Generating {key} table...");
@@ -168,7 +168,7 @@ impl<const C_SIZE: usize, C: Coord<C_SIZE>> LookupTable<C_SIZE, C> {
                 if let Err(e) = table.save_to_disk("333", key) {
                     warn!("Failed to save {key} table. {e}");
                 }
-                table
+                (table, true)
             }
         }
     }

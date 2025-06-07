@@ -12,7 +12,8 @@ use crate::steps::htr::coords::HTRDRUDCoord;
 pub enum CubeState {
     Scrambled,
     EO(Vec<CubeAxis>),
-    DR(Vec<CubeAxis>),
+    DR(CubeAxis),
+    TripleDR,
     HTR,
     FR(Vec<CubeAxis>),
     Solved
@@ -24,9 +25,10 @@ impl CubeState {
             CubeState::Scrambled => 0,
             CubeState::EO(_) => 1,
             CubeState::DR(_) => 2,
-            CubeState::HTR => 3,
-            CubeState::FR(_) => 4,
-            CubeState::Solved => 5,
+            CubeState::TripleDR => 3,
+            CubeState::HTR => 4,
+            CubeState::FR(_) => 5,
+            CubeState::Solved => 6,
         }
     }
 }
@@ -55,7 +57,9 @@ impl PartialOrd for CubeState {
                 match (self, other) {
                     (CubeState::Scrambled, _) => Some(Ordering::Equal),
                     (CubeState::EO(axis0), CubeState::EO(axis1)) => compare_subset(axis0, axis1),
-                    (CubeState::DR(axis0), CubeState::DR(axis1)) => compare_subset(axis0, axis1),
+                    (CubeState::DR(axis0), CubeState::DR(axis1)) if axis0 == axis1 => Some(Ordering::Equal),
+                    (CubeState::DR(_), CubeState::DR(_)) => None,
+                    (CubeState::TripleDR, _) => Some(Ordering::Equal),
                     (CubeState::HTR, _) => Some(Ordering::Equal),
                     (CubeState::FR(axis0), CubeState::FR(axis1)) => compare_subset(axis0, axis1),
                     (CubeState::Solved, _) => Some(Ordering::Equal),
@@ -97,11 +101,15 @@ impl Cube333 {
                 }
             })
             .collect();
+        assert_ne!(2, dr_axis.len());
         if dr_axis.is_empty() {
             return CubeState::EO(eo_solved_on);
         }
-        if dr_axis.len() < 3 || HTRDRUDCoord::from(self).val() != 0 {
-            return CubeState::DR(dr_axis);
+        if dr_axis.len() == 1 || HTRDRUDCoord::from(self).val() != 0 {
+            return CubeState::DR(dr_axis[0]);
+        }
+        if dr_axis.len() == 3 {
+            return CubeState::TripleDR;
         }
         if HTRFinishCoord::from(self).val() == 0 {
             return CubeState::Solved;

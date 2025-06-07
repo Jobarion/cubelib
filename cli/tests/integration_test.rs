@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::process::Command;
 use std::str::FromStr;
-
+use std::time::{Duration, Instant};
 use cubelib::algs::Algorithm;
 use serde::Deserialize;
 
@@ -10,7 +10,8 @@ struct LengthTestCase {
     scramble: String,
     config: String,
     length: isize,
-    timeout_millis: u32
+    timeout_millis: u32,
+    mpc_only: bool,
 }
 
 #[test]
@@ -23,7 +24,9 @@ fn run_length_tests() {
     for result in reader.deserialize() {
         let record: LengthTestCase = result.expect("A CSV record");
         println!("Testing {} {} {}", record.scramble, record.config, record.length);
-        run_length_test(&record, "iter-stream");
+        if !record.mpc_only {
+            run_length_test(&record, "iter-stream");
+        }
         run_length_test(&record, "multi-path-channel");
     }
 }
@@ -31,6 +34,7 @@ fn run_length_tests() {
 fn run_length_test(test: &LengthTestCase, backend: &str) {
     let mut path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     path.push("target/release/cubelib-cli.exe");
+    let start = Instant::now();
     let output = Command::new(path.clone())
         .args(["--log", "error"])
         .arg("solve")
@@ -45,6 +49,7 @@ fn run_length_test(test: &LengthTestCase, backend: &str) {
         .output()
         .expect("Failed to execute command");
     let alg_string = String::from_utf8(output.stdout).expect("Expected valid UTF-8");
+    assert!(start.elapsed() < Duration::from_millis(test.timeout_millis as u64), "Test took too long");
     let alg_string = alg_string.trim().to_string();
     let parts = alg_string.rsplit_once("(");
     println!("Solution: {alg_string}");

@@ -10,7 +10,7 @@ kind = { ASCII_ALPHA+ }
 parameters = _{ parameter ~ (";" ~ parameter)* }
 parameter = _{ key ~ "=" ~ value | variant }
 key = { (ASCII_ALPHA | "-")+ }
-variant = { ASCII_ALPHA+ }
+variant = { (ASCII_ALPHA | "-")+ }
 value = { (ASCII_ALPHANUMERIC | "," | "'" | " " | ":")+ }
 
 WHITESPACE = _{ " " }

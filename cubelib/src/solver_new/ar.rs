@@ -5,7 +5,7 @@ use itertools::Itertools;
 use log::debug;
 
 use crate::cube::*;
-use crate::defs::StepKind;
+use crate::defs::StepVariant;
 use crate::solver::lookup_table;
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
@@ -37,26 +37,25 @@ impl ARStep {
 
 impl ARStep {
     pub fn new(dfs: DFSParameters, arm_eo_axis: HashMap<CubeAxis, Vec<CubeAxis>>) -> StepGroup {
-        debug!("Step arm with options {dfs:?}");
+        debug!("Step ar with options {dfs:?}");
         let variants = arm_eo_axis.into_iter()
-            .flat_map(move |(arm, eo)|eo.into_iter().map(move |eo|(eo, arm.clone())))
-            .filter_map(|(eo, arm)|match (eo, arm) {
-                (CubeAxis::UD, CubeAxis::FB) => Some((vec![Transformation333::X], format!("{}-eo{}", arm.name(), eo.name()).to_string())),
-                (CubeAxis::UD, CubeAxis::LR) => Some((vec![Transformation333::X, Transformation333::Z], format!("{}-eo{}", arm.name(), eo.name()).to_string())),
-                (CubeAxis::FB, CubeAxis::UD) => Some((vec![], format!("{}-eo{}", arm.name(), eo.name()).to_string())),
-                (CubeAxis::FB, CubeAxis::LR) => Some((vec![Transformation333::Z], format!("{}-eo{}", arm.name(), eo.name()).to_string())),
-                (CubeAxis::LR, CubeAxis::UD) => Some((vec![Transformation333::Y], format!("{}-eo{}", arm.name(), eo.name()).to_string())),
-                (CubeAxis::LR, CubeAxis::FB) => Some((vec![Transformation333::Y, Transformation333::Z], format!("{}-eo{}", arm.name(), eo.name()).to_string())),
+            .flat_map(move |(ar, eo)|eo.into_iter().map(move |eo|(eo, ar.clone())))
+            .filter_map(|(eo, ar)|match (eo, ar) {
+                (CubeAxis::UD, CubeAxis::FB) => Some((vec![Transformation333::X], StepVariant::AR { eo_axis: eo, dr_axis: ar })),
+                (CubeAxis::UD, CubeAxis::LR) => Some((vec![Transformation333::X, Transformation333::Z], StepVariant::AR { eo_axis: eo, dr_axis: ar })),
+                (CubeAxis::FB, CubeAxis::UD) => Some((vec![], StepVariant::AR { eo_axis: eo, dr_axis: ar })),
+                (CubeAxis::FB, CubeAxis::LR) => Some((vec![Transformation333::Z], StepVariant::AR { eo_axis: eo, dr_axis: ar })),
+                (CubeAxis::LR, CubeAxis::UD) => Some((vec![Transformation333::Y], StepVariant::AR { eo_axis: eo, dr_axis: ar })),
+                (CubeAxis::LR, CubeAxis::FB) => Some((vec![Transformation333::Y, Transformation333::Z], StepVariant::AR { eo_axis: eo, dr_axis: ar })),
                 _ => None,
             })
-            .map(|(trans, name)| StepGroup::single(Box::new(PruningTableStep::<DRUDEOFB_SIZE, DRUDEOFBCoord, 2048, EOCoordFB> {
+            .map(|(trans, variant)| StepGroup::single(Box::new(PruningTableStep::<DRUDEOFB_SIZE, DRUDEOFBCoord, 2048, EOCoordFB> {
                     table: &EO_ARM_TABLE,
                     options: dfs.clone(),
                     pre_step_trans: trans,
                     post_step_check: vec![],
                     move_set: &ARUD_EOFB_MOVESET,
-                    name,
-                    kind: StepKind::AR,
+                    variant,
                     _pc: Default::default(),
             })))
             .collect_vec();
@@ -69,7 +68,7 @@ fn gen_eo_ar() -> EOARPruningTable {
                                                                        &|c: &Cube333| DRUDEOFBCoord::from(c),
                                                                        &|| EOARPruningTable::new(false),
                                                                        &|table, coord|table.get(coord),
-                                                                       &|table, coord, val|table.set(coord, val)))
+                                                                       &|table, coord, val|table.set(coord, val))).0
 }
 
 pub mod builder {

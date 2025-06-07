@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::string::ToString;
+use crate::cube::CubeAxis;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
@@ -17,9 +18,96 @@ pub enum StepKind {
     Other(String)
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
+pub enum StepVariant {
+    EO(CubeAxis),
+    RZP {
+        eo_axis: CubeAxis,
+        dr_axis: CubeAxis
+    },
+    AR {
+        eo_axis: CubeAxis,
+        dr_axis: CubeAxis
+    },
+    DR {
+        eo_axis: CubeAxis,
+        dr_axis: CubeAxis
+    },
+    HTR(CubeAxis),
+    FR(CubeAxis),
+    FRLS(CubeAxis),
+    FRFIN(CubeAxis),
+    FRFINLS(CubeAxis),
+    HTRFIN,
+    HTRFINLS(CubeAxis)
+}
+
+impl StepVariant {
+    pub(crate) fn can_solve_next(&self, other: &Self) -> bool {
+        match (self, other) {
+            (StepVariant::EO(x), StepVariant::DR { eo_axis, .. }) if eo_axis == x => true,
+            (StepVariant::EO(x), StepVariant::RZP { eo_axis, .. }) if eo_axis == x => true,
+            (StepVariant::EO(x), StepVariant::AR { eo_axis, .. }) if eo_axis == x => true,
+            (
+                StepVariant::RZP { dr_axis: rzp_dr_axis, eo_axis: rzp_eo_axis },
+                StepVariant::DR { dr_axis, eo_axis }
+            ) if dr_axis == rzp_dr_axis && eo_axis == rzp_eo_axis => true,
+            (
+                StepVariant::AR { dr_axis: rzp_dr_axis, eo_axis: rzp_eo_axis },
+                StepVariant::DR { dr_axis, eo_axis }
+            ) if dr_axis == rzp_dr_axis && eo_axis == rzp_eo_axis => true,
+            (StepVariant::DR { dr_axis, .. }, StepVariant::HTR(htr_axis)) if dr_axis == htr_axis => true,
+            (StepVariant::HTR(_), StepVariant::FR(_)) => true,
+            (StepVariant::HTR(_), StepVariant::FRLS(_)) => true,
+            (StepVariant::HTR(_), StepVariant::HTRFIN) => true,
+            (StepVariant::HTR(_), StepVariant::HTRFINLS(_)) => true,
+            (StepVariant::FR(x), StepVariant::FRFIN(y)) if x == y => true,
+            (StepVariant::FRLS(x), StepVariant::FRFINLS(y)) if x == y => true,
+            _ => false
+        }
+    }
+}
+
 impl Display for StepKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", Into::<String>::into(self.clone()))
+    }
+}
+
+impl Display for StepVariant {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StepVariant::EO(eo) => write!(f, "eo{}", eo.name()),
+            StepVariant::RZP { eo_axis, dr_axis } => write!(f, "rzp{}-eo{}", dr_axis.name(), eo_axis.name()),
+            StepVariant::AR { eo_axis, dr_axis } => write!(f, "ar{}-eo{}", dr_axis.name(), eo_axis.name()),
+            StepVariant::DR { eo_axis, dr_axis } => write!(f, "dr{}-eo{}", dr_axis.name(), eo_axis.name()),
+            StepVariant::HTR(dr) => write!(f, "htr-dr{}", dr.name()),
+            StepVariant::FR(fr) => write!(f, "fr{}", fr.name()),
+            StepVariant::FRLS(fr) => write!(f, "frls{}", fr.name()),
+            StepVariant::FRFIN(fr) => write!(f, "fin-{}", fr.name()),
+            StepVariant::FRFINLS(fr) => write!(f, "finls-fr{}", fr.name()),
+            StepVariant::HTRFIN => write!(f, "fin"),
+            StepVariant::HTRFINLS(ls) => write!(f, "finls{}", ls.name())
+        }
+    }
+}
+
+impl From<StepVariant> for StepKind {
+    fn from(value: StepVariant) -> Self {
+        match value {
+            StepVariant::EO(_) => Self::EO,
+            StepVariant::RZP { .. } => Self::RZP,
+            StepVariant::AR { .. } => Self::AR,
+            StepVariant::DR { .. } => Self::DR,
+            StepVariant::HTR(_) => Self::HTR,
+            StepVariant::FR(_) => Self::FR,
+            StepVariant::FRLS(_) => Self::FRLS,
+            StepVariant::FRFIN(_) => Self::FIN,
+            StepVariant::FRFINLS(_) => Self::FINLS,
+            StepVariant::HTRFIN => Self::FIN,
+            StepVariant::HTRFINLS(_) => Self::FINLS
+        }
     }
 }
 
@@ -47,7 +135,7 @@ impl Into<String> for StepKind {
         match self {
             StepKind::EO => "eo".to_string(),
             StepKind::RZP => "rzp".to_string(),
-            StepKind::AR => "arm".to_string(),
+            StepKind::AR => "ar".to_string(),
             StepKind::DR => "dr".to_string(),
             StepKind::HTR => "htr".to_string(),
             StepKind::FR => "fr".to_string(),

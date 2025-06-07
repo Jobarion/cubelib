@@ -138,7 +138,7 @@ pub async fn solve_stream(req: HttpRequest, steps: web::Json<SolverRequest>, app
 fn add_comments(mut cube: Cube333, solution: &mut Solution, tables: &PruningTables333) {
     for step in solution.steps.iter_mut() {
         cube.apply_alg(&step.alg);
-        match step.kind {
+        match Into::<StepKind>::into(step.variant) {
             StepKind::DR => {
                 let mut cube = cube.clone();
                 for _ in 0..3 {

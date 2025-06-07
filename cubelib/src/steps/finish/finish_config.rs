@@ -168,10 +168,11 @@ pub fn fr_finish<'a>(table: &'a FRFinishPruningTable, fr_axis: Vec<CubeAxis>) ->
     let step_variants = fr_axis
         .into_iter()
         .flat_map(move |x| {
+            let variant = crate::defs::StepVariant::FRFIN(x);
             let x: Option<Box<dyn StepVariant + 'a>> = match x {
-                CubeAxis::UD => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![], table, Rc::new(vec![]), ""))),
-                CubeAxis::FB => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), ""))),
-                CubeAxis::LR => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), ""))),
+                CubeAxis::UD => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![], table, Rc::new(vec![]), variant))),
+                CubeAxis::FB => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), variant))),
+                CubeAxis::LR => Some(Box::new(FRFinishPruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), variant))),
             };
             x
         })
@@ -181,7 +182,7 @@ pub fn fr_finish<'a>(table: &'a FRFinishPruningTable, fr_axis: Vec<CubeAxis>) ->
 
 pub fn htr_finish(table: &HTRFinishPruningTable) -> Step333 {
     Step::new(vec![
-        Box::new(HTRFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![], table, Rc::new(vec![]), ""))
+        Box::new(HTRFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![], table, Rc::new(vec![]), crate::defs::StepVariant::HTRFIN))
     ], StepKind::FIN, true)
 }
 
@@ -193,10 +194,11 @@ pub fn htr_finish_leave_slice<'a>(table: &'a HTRLeaveSliceFinishPruningTable, sl
     let step_variants = slice_axis
         .into_iter()
         .flat_map(move |x| {
+            let variant = crate::defs::StepVariant::HTRFINLS(x);
             let x: Option<Box<dyn StepVariant + 'a>> = match x {
-                CubeAxis::UD => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
-                CubeAxis::FB => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), "fb"))),
-                CubeAxis::LR => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), "lr"))),
+                CubeAxis::UD => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![], table, Rc::new(vec![]), variant))),
+                CubeAxis::FB => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), variant))),
+                CubeAxis::LR => Some(Box::new(HTRLeaveSliceFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), variant))),
             };
             x
         })
@@ -213,10 +215,11 @@ pub fn fr_finish_leave_slice<'a>(table: &'a FRFinishPruningTable, fr_axis: Vec<C
     let step_variants = fr_axis
         .into_iter()
         .flat_map(move |x| {
+            let variant = crate::defs::StepVariant::FRFINLS(x);
             let x: Option<Box<dyn StepVariant + 'a>> = match x {
-                CubeAxis::UD => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![], table, Rc::new(vec![]), "ud"))),
-                CubeAxis::FB => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), "fb"))),
-                CubeAxis::LR => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), "lr"))),
+                CubeAxis::UD => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![], table, Rc::new(vec![]), variant))),
+                CubeAxis::FB => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::X, Direction::Clockwise)], table, Rc::new(vec![]), variant))),
+                CubeAxis::LR => Some(Box::new(FRFinishLeaveSlicePruningTableStep::new(&FRUD_FINISH_MOVESET, vec![Transformation333::new(CubeAxis::Z, Direction::Clockwise)], table, Rc::new(vec![]), variant))),
             };
             x
         })

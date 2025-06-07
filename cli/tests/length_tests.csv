@@ -1,16 +1,18 @@
-scramble|config|length|timeout_millis
-R' U' F L U2 F2 U2 R2 D2 B' F' R2 F R2 U2 L2 U' B R B' L U B' R' U' F|EO[max=4;niss=always]|4|10
-R' U' F U2 L2 R2 U' L2 D' U R2 B U2 R B' L' F2 U2 L D R F' U2 R' U' F (R' D' F U) (L F) (R2 F2 R B)|EO[max=0]>DR[max=0]|0|10
-R' U' F U2 L2 R2 U' L2 D' U R2 B U2 R B' L' F2 U2 L D R F' U2 R' U' F (R' D' F U) (L F) (R2 F2 R B)|EO[max=0]>DR[max=0;triggers=R]|0|10
-R U|EO[max=0]>DR[max=0;triggers=R]|-1|10
-U R2 F B R B2 R U2 L B2 R U' D'  R2 F R' L B2 U2 F2 D F U R D (L' F2 D U2 B' L)|EO[max=0]>DR[max=0;triggers=R;niss=always]|0|10
-R' U' F D U2 R2 B2 U B2 F2 R2 F' U F2 U2 R' B U L D2 U2 B2 R' U' F|EO[max=3;niss=always]>RZP[max=1;niss=before]>DR[max=3;triggers=R;niss=before]|7|10
-R' U' F R D2 F2 B2 L' U' D2 L2 U R F2 D2 R2 L2 U F2 D2 R' U' F (F' L B' D L B2 U' L2 U' L F2 L D2 R')|EO[niss=always;max=1] > DR[max=0] > HTR[niss=before] > FIN|8|100
-R|EO > DR[triggers=RU2R]|0|10
-R|EO > DR[subsets=0]|1|10
-R|EO > DR[subsets=1]|0|10
-L F2 U2 F2 U2 F|EO[max=1] > DR[ud;triggers=RU2R]|8|10
-L F2 U2 F2 U2 F|EO[max=1] > DR[ud]|6|10
-R' U' F U2 L U B2 L2 F L' B' U' F D2 B2 R' B2 R2 B2 L' D2 R F2 R' U' F (F2 L2 F)|EO[fb;max=1] > RZP[niss=before;max=2] > DR[lr;niss=before;max=5;triggers=RF2U2R]|8|100
-R' U' F U2 L U B2 L2 F L' B' U' F D2 B2 R' B2 R2 B2 L' D2 R F2 R' U' F|EO[niss=always;fb] > RZP[niss=before;min=2;max=2] > DR[niss=before;triggers=RF2U2R]|11|100
-R' F2 B'|EO[niss=never;fb] > DR[ud;niss=never]|3|10
+scramble|config|length|timeout_millis|mpc_only
+R' U' F L U2 F2 U2 R2 D2 B' F' R2 F R2 U2 L2 U' B R B' L U B' R' U' F|EO[max=4;niss=always]|4|100|false
+R' U' F U2 L2 R2 U' L2 D' U R2 B U2 R B' L' F2 U2 L D R F' U2 R' U' F (R' D' F U) (L F) (R2 F2 R B)|EO[max=0]>DR[max=0]|0|100|false
+R' U' F U2 L2 R2 U' L2 D' U R2 B U2 R B' L' F2 U2 L D R F' U2 R' U' F (R' D' F U) (L F) (R2 F2 R B)|EO[max=0]>DR[max=0;triggers=R]|0|100|false
+R U|EO[max=0]>DR[max=0;triggers=R]|-1|100|false
+U R2 F B R B2 R U2 L B2 R U' D'  R2 F R' L B2 U2 F2 D F U R D (L' F2 D U2 B' L)|EO[max=0]>DR[max=0;triggers=R;niss=always]|0|100|false
+R' U' F D U2 R2 B2 U B2 F2 R2 F' U F2 U2 R' B U L D2 U2 B2 R' U' F|EO[max=3;niss=always]>RZP[max=1;niss=before]>DR[max=3;triggers=R;niss=before]|7|100|false
+R' U' F R D2 F2 B2 L' U' D2 L2 U R F2 D2 R2 L2 U F2 D2 R' U' F (F' L B' D L B2 U' L2 U' L F2 L D2 R')|EO[niss=always;max=1] > DR[max=0] > HTR[niss=before] > FIN|8|100|false
+R|EO > DR[triggers=RU2R]|0|100|false
+R|EO > DR[subsets=0]|1|100|false
+R|EO > DR[subsets=1]|0|100|false
+L F2 U2 F2 U2 F|EO[max=1;niss=never] > DR[ud;triggers=RU2R;niss=never]|8|100|false
+L F2 U2 F2 U2 F|EO[max=1;niss=never] > DR[ud;niss=never]|6|100|false
+R' U' F U2 L U B2 L2 F L' B' U' F D2 B2 R' B2 R2 B2 L' D2 R F2 R' U' F (F2 L2 F)|EO[fb;max=1] > RZP[niss=before;max=2] > DR[lr;niss=before;max=5;triggers=RF2U2R]|8|100|false
+R' U' F U2 L U B2 L2 F L' B' U' F D2 B2 R' B2 R2 B2 L' D2 R F2 R' U' F|EO[niss=always;fb] > RZP[niss=before;min=2;max=2;max-abs=6] > DR[niss=before;triggers=RF2U2R]|11|100|false
+R' F2 B'|EO[niss=never;fb] > DR[ud;niss=never]|3|100|false
+R' U' F L' U2 B U' L U2 D B2 R U' D2 R2 D2 R2 B2 R2 D R2 U' F' R' U' F|EO[min=4;max=4;niss=always] > AR[max=0] > DR|11|1000|true
+R' U' F U2 R2 F' U2 F2 U R2 F2 R2 B2 D2 B2 R' D L D B R2 U' R' U' F (L' F' B R' B') U'|EO[max=0] > RZP[max=0] > DR[triggers=RUR]|4|100|false

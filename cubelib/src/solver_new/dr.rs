@@ -8,9 +8,8 @@ use log::{debug, warn, error};
 use crate::algs::Algorithm;
 use crate::cube::*;
 use crate::cube::turn::{TransformableMut, TurnableMut};
-use crate::defs::StepKind;
+use crate::defs::StepVariant;
 use crate::solver::lookup_table;
-use crate::solver::solution::Solution;
 use crate::solver_new::*;
 use crate::solver_new::dr::builder::RZPSettings;
 use crate::solver_new::group::StepGroup;
@@ -63,6 +62,7 @@ pub type RZPBuilder = builder::RZPBuilderInternal<false, false, false>;
 
 pub const DRUD_ARUD_MOVESET: MoveSet = MoveSet::new(DRUD_EOFB_ST_MOVES, HTR_MOVES);
 pub const DRUD_EOFB_MOVESET: MoveSet = MoveSet::new(DRUD_EOFB_ST_MOVES, DRUD_EOFB_AUX_MOVES);
+pub const DR_TRIGGER_MOVESET: MoveSet = MoveSet::new_with_qt_last_transitions(DRUD_EOFB_ST_MOVES, DRUD_EOFB_AUX_MOVES);
 pub const DRUD_PRE_TRIGGER_MOVESET: MoveSet = MoveSet::new(DRUF_PRE_TRIGGER_ST_MOVES, DRUF_PRE_TRIGGER_AUX_MOVES);
 pub const DRUD_EOFB_POST_TRIGGER_MOVESET: MoveSet = DRUD_EOFB_MOVESET;
 
@@ -78,12 +78,12 @@ impl DRStep {
         let variants = axis.into_iter()
             .flat_map(move |(dr, eo)|eo.into_iter().map(move |eo|(eo, dr.clone())))
             .filter_map(|(eo,dr)|match (eo, dr) {
-                (CubeAxis::UD, CubeAxis::FB) => Some((dr, vec![Transformation333::X], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::UD, CubeAxis::LR) => Some((dr, vec![Transformation333::X, Transformation333::Z], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::FB, CubeAxis::UD) => Some((dr, vec![], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::FB, CubeAxis::LR) => Some((dr, vec![Transformation333::Z], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::LR, CubeAxis::UD) => Some((dr, vec![Transformation333::Y], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::LR, CubeAxis::FB) => Some((dr, vec![Transformation333::Y, Transformation333::Z], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
+                (CubeAxis::UD, CubeAxis::FB) => Some((dr, vec![Transformation333::X], StepVariant::DR { eo_axis: eo, dr_axis: dr })),
+                (CubeAxis::UD, CubeAxis::LR) => Some((dr, vec![Transformation333::X, Transformation333::Z], StepVariant::DR { eo_axis: eo, dr_axis: dr })),
+                (CubeAxis::FB, CubeAxis::UD) => Some((dr, vec![], StepVariant::DR { eo_axis: eo, dr_axis: dr })),
+                (CubeAxis::FB, CubeAxis::LR) => Some((dr, vec![Transformation333::Z], StepVariant::DR { eo_axis: eo, dr_axis: dr })),
+                (CubeAxis::LR, CubeAxis::UD) => Some((dr, vec![Transformation333::Y], StepVariant::DR { eo_axis: eo, dr_axis: dr })),
+                (CubeAxis::LR, CubeAxis::FB) => Some((dr, vec![Transformation333::Y, Transformation333::Z], StepVariant::DR { eo_axis: eo, dr_axis: dr })),
                 _ => None,
             })
             .map(|x|{
@@ -93,15 +93,14 @@ impl DRStep {
                 }
                 (x, post_checks)
             })
-            .map(|((dr_axis, trans, name), psc)| {
+            .map(|((_, trans, variant), psc)| {
                 if from_ar {
                     StepGroup::single(Box::new(DRARStep {
                         table: &AR_DR_TABLE,
-                        axis: dr_axis,
                         options: dfs.clone(),
                         pre_step_trans: trans,
                         post_step_check: psc,
-                        name,
+                        variant,
                     }))
                 } else {
                     StepGroup::single(Box::new(PruningTableStep::<DRUDEOFB_SIZE, DRUDEOFBCoord, 2048, EOCoordFB> {
@@ -110,8 +109,7 @@ impl DRStep {
                         pre_step_trans: trans,
                         post_step_check: psc,
                         move_set: &DRUD_EOFB_MOVESET,
-                        name,
-                        kind: StepKind::DR,
+                        variant,
                         _pc: Default::default(),
                     }))
                 }
@@ -131,7 +129,8 @@ impl DRStep {
                 cube.turn(m.clone());
                 if DR_UD_EO_FB_MOVESET.st_moves.contains(m) {
                     let rzp_state = calc_rzp_state(&cube);
-                    trigger_types.insert(rzp_state, len);
+                    let e = trigger_types.entry(rzp_state).or_default();
+                    *e = (*e).max(len);
                     debug!("Registering {}c/{}e trigger with length {}", rzp_state.0, rzp_state.1, len);
                 }
             }
@@ -141,12 +140,12 @@ impl DRStep {
         let variants = axis.into_iter()
             .flat_map(move |(dr, eo)|eo.into_iter().map(move |eo|(eo, dr.clone())))
             .filter_map(|(eo,dr)|match (eo, dr) {
-                (CubeAxis::UD, CubeAxis::FB) => Some((vec![Transformation333::X], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::UD, CubeAxis::LR) => Some((vec![Transformation333::X, Transformation333::Z], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::FB, CubeAxis::UD) => Some((vec![], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::FB, CubeAxis::LR) => Some((vec![Transformation333::Z], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::LR, CubeAxis::UD) => Some((vec![Transformation333::Y], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
-                (CubeAxis::LR, CubeAxis::FB) => Some((vec![Transformation333::Y, Transformation333::Z], format!("{}-eo{}", dr.name(), eo.name()).to_string())),
+                (CubeAxis::UD, CubeAxis::FB) => Some((vec![Transformation333::X], (eo, dr))),
+                (CubeAxis::UD, CubeAxis::LR) => Some((vec![Transformation333::X, Transformation333::Z], (eo, dr))),
+                (CubeAxis::FB, CubeAxis::UD) => Some((vec![], (eo, dr))),
+                (CubeAxis::FB, CubeAxis::LR) => Some((vec![Transformation333::Z], (eo, dr))),
+                (CubeAxis::LR, CubeAxis::UD) => Some((vec![Transformation333::Y], (eo, dr))),
+                (CubeAxis::LR, CubeAxis::FB) => Some((vec![Transformation333::Y, Transformation333::Z], (eo, dr))),
                 _ => None,
             })
             .map(|x|{
@@ -156,18 +155,24 @@ impl DRStep {
                 }
                 (x, post_checks)
             })
-            .map(|((trans, name), psc)|{
+            .map(|((trans, (eo, dr)), psc)|{
                 let rzp = StepGroup::single(Box::new(RZPStep {
                     dfs: rzp_settings.dfs.clone(),
                     pre_step_trans: trans.clone(),
-                    name: name.clone(),
+                    variant: StepVariant::RZP {
+                        eo_axis: eo,
+                        dr_axis: dr,
+                    },
                 }));
                 let dr_trigger = StepGroup::single(Box::new(DRTriggerStep {
                     table: &DR_TABLE,
                     options: dfs_dr.clone(),
                     pre_step_trans: trans,
                     post_step_check: psc,
-                    name,
+                    variant: StepVariant::DR {
+                        eo_axis: eo,
+                        dr_axis: dr,
+                    },
                     trigger_variants: trigger_variants.clone(),
                     trigger_types: trigger_types.clone(),
                 }));
@@ -222,34 +227,19 @@ impl DRStep {
 
 struct DRARStep {
     table: &'static ARDRPruningTable,
-    axis: CubeAxis,
     options: DFSParameters,
     pre_step_trans: Vec<Transformation333>,
-    name: String,
+    variant: StepVariant,
     post_step_check: Vec<Box<dyn PostStepCheck + Send + 'static>>,
 }
 
 impl PreStepCheck for DRARStep {
-    fn is_cube_ready(&self, cube: &Cube333, sol: Option<&Solution>) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<StepVariant>) -> bool {
         if EOCoordFB::from(cube).val() != 0 {
             return false;
         }
         if DRUDEOFBCoord::from(cube).val() == 0 {
             return true;
-        }
-        if let Some(sol) = sol {
-            let alg: Algorithm = sol.clone().into();
-            return if alg.len() == 0 {
-                true
-            } else {
-                if alg.normal_moves.last().map(|t|t.face.is_on_axis(self.axis)).unwrap_or(false) {
-                    true
-                } else if alg.inverse_moves.last().map(|t|t.face.is_on_axis(self.axis)).unwrap_or(false) {
-                    true
-                } else {
-                    false
-                }
-            }
         }
         true
     }
@@ -285,8 +275,8 @@ impl Step for DRARStep {
         &self.pre_step_trans
     }
 
-    fn get_name(&self) -> (StepKind, String) {
-        (StepKind::DR, self.name.clone())
+    fn get_variant(&self) -> StepVariant {
+        self.variant
     }
 }
 
@@ -295,14 +285,14 @@ struct DRTriggerStep {
     table: &'static DRPruningTable,
     options: DFSParameters,
     pre_step_trans: Vec<Transformation333>,
-    name: String,
+    variant: StepVariant,
     post_step_check: Vec<Box<dyn PostStepCheck + Send + 'static>>,
     trigger_types: HashMap<(u8, u8), usize>,
     trigger_variants: Vec<Vec<Turn333>>,
 }
 
 impl PreStepCheck for DRTriggerStep {
-    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<StepVariant>) -> bool {
         if EOCoordFB::from(cube).val() != 0 {
             return false;
         }
@@ -361,8 +351,8 @@ impl Step for DRTriggerStep {
     fn get_moveset(&self, state: &Cube333, depth_left: usize) -> &'_ MoveSet {
         let rzp_state = calc_rzp_state(state);
         if let Some(trigger_length) = self.trigger_types.get(&rzp_state) {
-            if *trigger_length >= depth_left {
-                &DRUD_EOFB_MOVESET
+            if (*trigger_length) + 1 >= depth_left {
+                &DR_TRIGGER_MOVESET
             } else {
                 &DRUD_PRE_TRIGGER_MOVESET
             }
@@ -385,15 +375,15 @@ impl Step for DRTriggerStep {
         &self.pre_step_trans
     }
 
-    fn get_name(&self) -> (StepKind, String) {
-        (StepKind::DR, self.name.clone())
+    fn get_variant(&self) -> StepVariant {
+        self.variant
     }
 }
 
 pub struct RZPStep {
     dfs: DFSParameters,
     pre_step_trans: Vec<Transformation333>,
-    name: String
+    variant: StepVariant
 }
 
 impl RZPStep {
@@ -403,7 +393,7 @@ impl RZPStep {
 }
 
 impl PreStepCheck for RZPStep {
-    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<StepVariant>) -> bool {
         cube.count_bad_edges_fb() == 0
     }
 }
@@ -431,8 +421,8 @@ impl Step for RZPStep {
         &self.pre_step_trans
     }
 
-    fn get_name(&self) -> (StepKind, String) {
-        (StepKind::RZP, self.name.clone())
+    fn get_variant(&self) -> StepVariant {
+        self.variant
     }
 }
 
@@ -447,7 +437,7 @@ fn gen_dr() -> DRPruningTable {
                                                                  &|c: &Cube333| DRUDEOFBCoord::from(c),
                                                                  &|| DRPruningTable::new(false),
                                                                  &|table, coord|table.get(coord),
-                                                                 &|table, coord, val|table.set(coord, val)))
+                                                                 &|table, coord, val|table.set(coord, val))).0
 }
 
 fn gen_ar_dr() -> ARDRPruningTable {
@@ -455,7 +445,7 @@ fn gen_ar_dr() -> ARDRPruningTable {
                                                                      &|c: &Cube333| DRUDEOFBCoord::from(c),
                                                                      &|| ARDRPruningTable::new(false),
                                                                      &|table, coord|table.get(coord),
-                                                                     &|table, coord, val|table.set(coord, val)))
+                                                                     &|table, coord, val|table.set(coord, val))).0
 }
 
 impl Cube333 {
@@ -465,13 +455,16 @@ impl Cube333 {
             CubeState::Scrambled | CubeState::EO(_) => None,
             CubeState::DR(axis) => {
                 let mut cube = self.clone();
-                cube.transform(match axis[0] {
+                cube.transform(match axis {
                     CubeAxis::UD => Transformation333::Y,
                     CubeAxis::FB => Transformation333::X,
                     CubeAxis::LR => Transformation333::Z,
                 });
                 Some(DR_SUBSETS[HTR_TABLES.1.get(HTRDRUDCoord::from(&cube)) as usize])
-            }
+            },
+            CubeState::TripleDR => {
+                Some(DR_SUBSETS[HTR_TABLES.1.get(HTRDRUDCoord::from(self)) as usize])
+            },
             _ => Some(DR_SUBSETS[0])
         }
     }
@@ -581,7 +574,7 @@ mod builder {
     }
 
     impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> DRBuilderInternal<A, B, C, D, E, false, false, false> {
-        pub fn with_arm(mut self) -> DRBuilderInternal<A, B, C, D, E, false, false, true> {
+        pub fn from_ar(mut self) -> DRBuilderInternal<A, B, C, D, E, false, false, true> {
             self._h_from_ar = true;
             self.convert()
         }

@@ -15,7 +15,6 @@ use crate::cube::turn::{TransformableMut, TurnableMut};
 #[cfg(feature = "333htr")]
 use crate::steps::htr::htr_config::HTRSubsetTable;
 use crate::solver::moveset::TransitionTable333;
-use crate::solver::solution::Solution;
 use crate::steps::dr::dr_config::{DR_UD_EO_FB_MOVES, DR_UD_EO_FB_MOVESET, DR_UD_EO_FB_STATE_CHANGE_MOVES, DRPruningTable, HTR_DR_UD_MOVESET};
 use crate::steps::{MoveSet333, Step333};
 use crate::steps::coord::Coord;
@@ -37,7 +36,7 @@ pub struct DRTriggerStepTable<'a> {
     trigger_types: HashMap<(u8, u8), u8>,
     trigger_variants: Vec<Vec<Turn333>>,
     post_step_checks: Rc<Vec<Box<dyn PostStepCheck + 'a>>>,
-    name: &'a str,
+    variant: crate::defs::StepVariant,
 }
 
 pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")] subset_table: &'a HTRSubsetTable, mut config: StepConfig) -> Result<(Step333<'a>, DefaultStepOptions), String> {
@@ -140,14 +139,15 @@ fn dr_step_variants<'a>(
     eo_axis
         .into_iter()
         .flat_map(|eo| dr_axis.clone().into_iter().map(move |dr| (eo, dr)))
-        .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant>> = match x {
-                (CubeAxis::UD, CubeAxis::FB) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation333::X], table, triggers.clone(), psc.clone(), "fb-eoud"))),
-                (CubeAxis::UD, CubeAxis::LR) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation333::X, Transformation333::Z], table, triggers.clone(), psc.clone(), "lr-eoud"))),
-                (CubeAxis::FB, CubeAxis::UD) => Some(Box::new(DRTriggerStepTable::new(vec![], table, triggers.clone(), psc.clone(), "ud-eofb"))),
-                (CubeAxis::FB, CubeAxis::LR) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation333::Z], table, triggers.clone(), psc.clone(), "lr-eofb"))),
-                (CubeAxis::LR, CubeAxis::UD) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation333::Y], table, triggers.clone(), psc.clone(), "ud-eolr"))),
-                (CubeAxis::LR, CubeAxis::FB) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation333::Y, Transformation333::Z], table, triggers.clone(), psc.clone(), "fb-eolr"))),
+        .flat_map(move |(eo, dr)| {
+            let variant = crate::defs::StepVariant::DR { eo_axis: eo, dr_axis: dr };
+            let x: Option<Box<dyn StepVariant>> = match (eo, dr) {
+                (CubeAxis::UD, CubeAxis::FB) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation333::X], table, triggers.clone(), psc.clone(), variant))),
+                (CubeAxis::UD, CubeAxis::LR) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation333::X, Transformation333::Z], table, triggers.clone(), psc.clone(), variant))),
+                (CubeAxis::FB, CubeAxis::UD) => Some(Box::new(DRTriggerStepTable::new(vec![], table, triggers.clone(), psc.clone(), variant))),
+                (CubeAxis::FB, CubeAxis::LR) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation333::Z], table, triggers.clone(), psc.clone(), variant))),
+                (CubeAxis::LR, CubeAxis::UD) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation333::Y], table, triggers.clone(), psc.clone(), variant))),
+                (CubeAxis::LR, CubeAxis::FB) => Some(Box::new(DRTriggerStepTable::new(vec![Transformation333::Y, Transformation333::Z], table, triggers.clone(), psc.clone(), variant))),
                 _ => None,
             };
             x
@@ -157,7 +157,7 @@ fn dr_step_variants<'a>(
 
 impl<'a> DRTriggerStepTable<'a> {
 
-    fn new(pre_trans: Vec<Transformation333>, table: &'a DRPruningTable, triggers: Vec<Algorithm>, post_step_checks: Rc<Vec<Box<dyn PostStepCheck + 'a>>>, name: &'a str) -> Self {
+    fn new(pre_trans: Vec<Transformation333>, table: &'a DRPruningTable, triggers: Vec<Algorithm>, post_step_checks: Rc<Vec<Box<dyn PostStepCheck + 'a>>>, variant: crate::defs::StepVariant) -> Self {
         let mut trigger_variants = vec![];
         let mut trigger_types: HashMap<(u8, u8), u8> = HashMap::new();
         for trigger in triggers.into_iter() {
@@ -181,7 +181,7 @@ impl<'a> DRTriggerStepTable<'a> {
             trigger_types,
             trigger_variants,
             post_step_checks,
-            name
+            variant
         }
     }
 }
@@ -193,7 +193,7 @@ fn calc_rzp_state(cube: &Cube333) -> (u8, u8) {
 }
 
 impl<'a> PreStepCheck for DRTriggerStepTable<'a> {
-    fn is_cube_ready(&self, c: &Cube333, _: Option<&Solution>) -> bool {
+    fn is_cube_ready(&self, c: &Cube333, _: Option<crate::defs::StepVariant>) -> bool {
         if EOCoordFB::from(c).val() != 0 {
             return false;
         }
@@ -244,8 +244,8 @@ impl<'a> StepVariant for DRTriggerStepTable<'a> {
         }
     }
 
-    fn name(&self) -> &str {
-        self.name
+    fn get_variant(&self) -> crate::defs::StepVariant {
+        self.variant
     }
 }
 

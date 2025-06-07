@@ -4,8 +4,9 @@ use itertools::Itertools;
 use log::debug;
 
 use crate::cube::*;
-use crate::defs::StepKind;
+use crate::defs::StepVariant;
 use crate::solver::lookup_table;
+use crate::solver::lookup_table::SaveToDisk;
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
@@ -43,17 +44,16 @@ impl HTRStep {
         debug!("Step htr with options {dfs:?}");
         let variants = dr_axis.into_iter()
             .map(|dr|match dr {
-                CubeAxis::UD => (vec![], dr.name()),
-                CubeAxis::FB => (vec![Transformation333::X], dr.name()),
-                CubeAxis::LR => (vec![Transformation333::Z], dr.name()),
+                CubeAxis::UD => (vec![], dr),
+                CubeAxis::FB => (vec![Transformation333::X], dr),
+                CubeAxis::LR => (vec![Transformation333::Z], dr),
             })
-            .map(|(trans, name)|{
+            .map(|(trans, dr)|{
                 StepGroup::single(Box::new(NissPruningTableStep::<HTRDRUD_SIZE, HTRDRUDCoord, DRUDEOFB_SIZE, DRUDEOFBCoord>  {
                     table: &HTR_TABLES.0,
                     options: dfs.clone(),
                     pre_step_trans: trans,
-                    name: name.to_string(),
-                    kind: StepKind::HTR,
+                    variant: StepVariant::HTR(dr),
                     post_step_check: vec![],
                     move_set: &HTR_DRUD_MOVESET,
                     _pc: Default::default(),
@@ -70,7 +70,10 @@ fn gen_htr_with_subsets() -> (HTRPruningTable, HTRSubsetTable) {
                                                &|| HTRPruningTable::new(),
                                                &|table, coord|table.get(coord).0,
                                                &|table, coord, val|table.set(coord, val)));
-    let htr_subset_table = HTRSubsetTable::load_and_save("htr-subset", ||crate::steps::htr::subsets::gen_subset_tables(&mut htr_table));
+    let (htr_subset_table, generated) = HTRSubsetTable::load_and_save("htr-subset", ||crate::steps::htr::subsets::gen_subset_tables(&mut htr_table));
+    if generated {
+        _ = htr_table.save_to_disk("333", "htr");
+    }
     (htr_table, htr_subset_table)
 }
 

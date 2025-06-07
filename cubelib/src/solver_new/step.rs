@@ -11,7 +11,7 @@ use log::trace;
 use crate::algs::Algorithm;
 use crate::cube::{Cube333, Symmetry, Transformation333, Turn333};
 use crate::cube::turn::*;
-use crate::defs::{NissSwitchType, StepKind};
+use crate::defs::{NissSwitchType, StepVariant};
 use crate::solver::df_search::CancelToken;
 use crate::solver::lookup_table::{LookupTable, NissLookupTable, SymTable};
 use crate::solver::solution::{ApplySolution, Solution, SolutionStep};
@@ -25,8 +25,7 @@ pub struct PruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'sta
     pub table: &'b LookupTable<C_SIZE, C>,
     pub options: DFSParameters,
     pub pre_step_trans: Vec<Transformation333>,
-    pub name: String,
-    pub kind: StepKind,
+    pub variant: StepVariant,
     pub post_step_check: Vec<Box<dyn PostStepCheck + Send + 'static>>,
     pub move_set: &'a MoveSet,
     pub _pc: PhantomData<PC>,
@@ -36,8 +35,7 @@ pub struct NissPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 
     pub table: &'b NissLookupTable<C_SIZE, C>,
     pub options: DFSParameters,
     pub pre_step_trans: Vec<Transformation333>,
-    pub name: String,
-    pub kind: StepKind,
+    pub variant: StepVariant,
     pub post_step_check: Vec<Box<dyn PostStepCheck + Send + 'static>>,
     pub move_set: &'a MoveSet,
     pub _pc: PhantomData<PC>,
@@ -56,7 +54,12 @@ pub struct SymPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + '
 }
 
 impl<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for PruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where PC: for<'c> From<&'c Cube333> {
-    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, previous: Option<StepVariant>) -> bool {
+        if let Some(previous) = previous {
+            if !previous.can_solve_next(&self.variant) {
+                return false
+            }
+        }
         PC::from(cube).val() == 0
     }
 }
@@ -91,13 +94,13 @@ impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: C
         &self.pre_step_trans
     }
 
-    fn get_name(&self) -> (StepKind, String) {
-        (self.kind.clone(), self.name.clone())
+    fn get_variant(&self) -> StepVariant {
+        self.variant
     }
 }
 
 impl<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for NissPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where PC: for<'c> From<&'c Cube333> {
-    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<StepVariant>) -> bool {
         PC::from(cube).val() == 0
     }
 }
@@ -132,8 +135,8 @@ impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: C
         &self.pre_step_trans
     }
 
-    fn get_name(&self) -> (StepKind, String) {
-        (self.kind.clone(), self.name.clone())
+    fn get_variant(&self) -> StepVariant {
+        self.variant
     }
 }
 
@@ -211,9 +214,9 @@ struct StepIORunner {
 impl Run<()> for StepIORunner {
     fn run(&mut self) -> () {
         if let Some(rc) = self.rc.take() {
-            trace!("[{}-{}] Started", self.step.get_name().0, self.step.get_name().1);
+            trace!("[{}] Started", self.step.get_variant());
             self.run_internal(rc);
-            trace!("[{}-{}] Terminated", self.step.get_name().0, self.step.get_name().1);
+            trace!("[{}] Terminated", self.step.get_variant());
         }
         drop(self.tx.take());
     }
@@ -229,7 +232,6 @@ impl StepIORunner {
         };
         self.input.push(next);
         self.current_length = self.input[0].len();
-        // TODO clean up this loop
         while !self.cancel_token.is_cancelled() && self.current_length <= self.dfs_parameters.absolute_max_moves.unwrap_or(100) {
             match self.process_fetched() {
                 Ok(Some(full_fetch_required_length)) => {
@@ -293,10 +295,8 @@ impl StepIORunner {
 
     fn submit_solution(&self, input: &Solution, result: Algorithm) -> Result<(), SendError<Solution>>{
         let mut input = input.clone();
-        let (kind, variant) = self.step.get_name();
         input.add_step(SolutionStep {
-            kind,
-            variant,
+            variant: self.step.get_variant(),
             alg: result.clone(),
             comment: "".to_string(),
         });
@@ -332,7 +332,7 @@ impl StepIORunner {
             previous_normal = previous_normal.map(|m|m.transform(t));
             previous_inverse = previous_inverse.map(|m|m.transform(t));
         }
-        if !self.step.is_cube_ready(&cube, Some(input)) {
+        if !self.step.is_cube_ready(&cube, input.steps.last().map(|s|s.variant)) {
             return Ok(());
         }
 
@@ -485,16 +485,23 @@ impl MoveSet {
         Self {
             st_moves,
             aux_moves,
-            transitions: Self::new_default_transitions(),
+            transitions: Self::new_qt_ordered_transitions(true),
         }
     }
 
+    pub const fn new_with_qt_last_transitions(st_moves: &'static [Turn333], aux_moves: &'static [Turn333]) -> Self {
+        Self {
+            st_moves,
+            aux_moves,
+            transitions: Self::new_qt_ordered_transitions(false),
+        }
+    }
 
     // In order of importance:
     // - No subsequent moves on the same face
     // - For moves on the same axis, quarter moves before half moves
     // - U before D, F before B, L before R
-    pub const fn new_default_transitions() -> [[bool; 18]; 18] {
+    pub const fn new_qt_ordered_transitions(qt_first: bool) -> [[bool; 18]; 18] {
         let mut transitions = [[true; 18]; 18];
         let dirs = [Direction::Clockwise, Direction::CounterClockwise, Direction::Half];
         let priority_faces = [CubeFace::Up, CubeFace::Front, CubeFace::Left];
@@ -512,16 +519,16 @@ impl MoveSet {
                         idx += 1;
                     }
                 } else {
-                    let non_half_dir = if dir_last as usize == Direction::Half as usize {
-                        dir_first
+                    let (dir_first, dir_last) = if (dir_last as usize == Direction::Half as usize) == qt_first {
+                        (dir_first, dir_last)
                     } else {
-                        dir_last
+                        (dir_last, dir_first)
                     };
                     let mut idx = 0;
                     while idx < CubeFace::ALL.len() {
                         let face = CubeFace::ALL[idx];
                         let opposite = face.opposite();
-                        transitions[Turn333::new(face, Direction::Half).to_id()][Turn333::new(opposite, non_half_dir).to_id()] = false;
+                        transitions[Turn333::new(face, dir_last).to_id()][Turn333::new(opposite, dir_first).to_id()] = false;
                         idx += 1;
                     }
                 }

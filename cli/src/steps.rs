@@ -147,7 +147,7 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
         (Some(StepKind::EO), StepKind::AR) => Some(ARBuilder::try_from(step_prototype).map_err(|_|"Failed to parse ARM step")?.build()),
         (Some(StepKind::AR), StepKind::DR) => {
             Some(DRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse DR step")?
-                .with_arm()
+                .from_ar()
                 .build())
         },
         (Some(StepKind::EO), StepKind::DR) => {

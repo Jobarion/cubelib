@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 leptos = { version = "0.5.2", features = ["csr"] }
-leptonic = { git = "https://github.com/ydirson/leptonic.git", branch = "leptonic-0.5" }
+leptonic = "0.3.0"
 leptos-use = { version = "0.8.2", features = ["storage"]}
 leptos_icons = { version = "0.1.0", features = [
     "IoSettingsOutline",
@@ -16,14 +16,13 @@ leptos_icons = { version = "0.1.0", features = [
     "IoRefreshOutline",
     "IoShareOutline"
 ] }
-web-sys = "0.3.64"
+web-sys = "=0.3.69"
 log = "0.4.20"
 wasm-log = "0.3.1"
 console_error_panic_hook = "0.1.7"
 serde = { version = "1.0.190", features = ["derive"] }
 
 cubelib = { path = "../cubelib", features = ["solver", "serde_support"], default-features = false }
-chrono = { version = "0.4.40", default-features = false, features = ["wasmbind", "js-sys", "clock"] }
 
 # Backend
 cubelib-interface = { path = "../interface", optional = true }
@@ -34,9 +33,9 @@ ehttp = { version = "0.3.1", features = ["streaming"], optional = true }
 gloo-worker = { version = "0.5", features = ["futures"], optional = true }
 serde_closure = { version = "0.3", optional = true }
 serde_bytes = { version = "0.11", optional = true }
-serde-wasm-bindgen = { version = "0.6.5", optional = true }
+serde-wasm-bindgen = { version = "0.6.1", optional = true }
 idb = { version = "0.4.1", optional = true }
-wasm-bindgen = { version = "^0.2.87", optional = true }
+wasm-bindgen = { version = "=0.2.92", optional = true }
 tokio-util = { version = "0.7.10", optional = true, features = ["io"] }
 time = "0.3.37"
 url = "2.5.4"

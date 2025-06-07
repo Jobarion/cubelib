@@ -5,7 +5,7 @@ use serde::Deserialize;
 #[derive(Parser)]
 #[command(name = "Cubelib")]
 #[command(author = "Jonas Balsfulland <cubelib@joba.me>")]
-#[command(version = "1.2")]
+#[command(version)]
 pub struct Cli {
     #[arg(short, long = "log", help = "Log level")]
     pub log: Option<LogLevel>,

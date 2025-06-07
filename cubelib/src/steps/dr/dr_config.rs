@@ -151,15 +151,19 @@ pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")
 fn dr_step_variants<'a>(table: &'a DRPruningTable, eo_axis: Vec<CubeAxis>, dr_axis: Vec<CubeAxis>, psc: Rc<Vec<Box<dyn PostStepCheck + 'a>>>) -> Vec<Box<dyn StepVariant + 'a>> {
     eo_axis
         .into_iter()
-        .flat_map(|eo| dr_axis.clone().into_iter().map(move |dr| (eo, dr)))
-        .flat_map(move |x| {
-            let x: Option<Box<dyn StepVariant>> = match x {
-                (CubeAxis::UD, CubeAxis::FB) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::X], table, psc.clone(), "fb-eoud"))),
-                (CubeAxis::UD, CubeAxis::LR) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::X, Transformation333::Z], table, psc.clone(), "lr-eoud"))),
-                (CubeAxis::FB, CubeAxis::UD) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![], table, psc.clone(), "ud-eofb"))),
-                (CubeAxis::FB, CubeAxis::LR) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::Z], table, psc.clone(), "lr-eofb"))),
-                (CubeAxis::LR, CubeAxis::UD) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::Y], table, psc.clone(), "ud-eolr"))),
-                (CubeAxis::LR, CubeAxis::FB) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::Y, Transformation333::Z], table, psc.clone(), "fb-eolr"))),
+        .flat_map(|eo| dr_axis.clone().into_iter().map(move |dr| (dr, eo)))
+        .flat_map(move |(dr, eo)| {
+            let variant = crate::defs::StepVariant::DR{
+                eo_axis: eo,
+                dr_axis: dr,
+            };
+            let x: Option<Box<dyn StepVariant>> = match (eo, dr) {
+                (CubeAxis::UD, CubeAxis::FB) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::X], table, psc.clone(), variant))),
+                (CubeAxis::UD, CubeAxis::LR) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::X, Transformation333::Z], table, psc.clone(), variant))),
+                (CubeAxis::FB, CubeAxis::UD) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![], table, psc.clone(), variant))),
+                (CubeAxis::FB, CubeAxis::LR) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::Z], table, psc.clone(), variant))),
+                (CubeAxis::LR, CubeAxis::UD) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::Y], table, psc.clone(), variant))),
+                (CubeAxis::LR, CubeAxis::FB) => Some(Box::new(DRPruningTableStep::new(&DR_UD_EO_FB_MOVESET, vec![Transformation333::Y, Transformation333::Z], table, psc.clone(), variant))),
                 (_eo, _dr) => None,
             };
             x

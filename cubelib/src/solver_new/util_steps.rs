@@ -113,7 +113,7 @@ impl StepPredicate for FilterFirstNStepVariant {
         let mut found = false;
         for step in &solution.steps {
             alg_up_to_kind = alg_up_to_kind + step.alg.clone();
-            if step.kind == self.kind {
+            if StepKind::from(step.variant) == self.kind {
                 found = true;
                 break;
             }

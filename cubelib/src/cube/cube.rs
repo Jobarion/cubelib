@@ -208,6 +208,7 @@ impl AsRef<Symmetry> for Symmetry {
     }
 }
 
+#[cfg(target_feature = "avx2")]
 impl ApplySymmetry for Cube333 {
     fn apply_symmetry<T: AsRef<Symmetry>>(&mut self, s: T) {
         self.edges.apply_symmetry(&s);

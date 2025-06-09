@@ -13,7 +13,6 @@ use crate::util::{RwSignalTup, use_local_storage};
 
 #[derive(Clone)]
 pub struct EOConfig {
-    pub enabled: (Signal<bool>, Callback<bool>),
     pub min_abs: RwSignalTup<u8>,
     pub max_abs: RwSignalTup<u8>,
     pub niss: RwSignalTup<NissSwitchType>,
@@ -76,9 +75,8 @@ pub struct FinishConfig {
 }
 
 impl EOConfig {
-    pub fn from_local_storage(enabled: (Signal<bool>, Callback<bool>)) -> Self {
+    pub fn from_local_storage() -> Self {
         Self {
-            enabled,
             min_abs: use_local_storage("eo-min-abs", 0),
             max_abs: use_local_storage("eo-max-abs", 5),
             niss: use_local_storage("eo-niss", NissSwitchType::Always),

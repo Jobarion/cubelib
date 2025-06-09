@@ -263,7 +263,8 @@ fn parse_step_configs_iter_stream(conf: &SolverConfig) -> Result<Vec<StepConfig>
 }
 
 fn find_and_print_solutions_multi_path_channel(cube: Cube333, config: SolverConfig) {
-    let (mut steps, last_step) = match steps::parse_steps(&config.steps, &config.get_merged_overrides()) {
+    let cube_state = cube.get_cube_state();
+    let (mut steps, last_step) = match steps::parse_steps(&config.steps, &config.get_merged_overrides(), cube_state) {
         Ok(x) => x,
         Err(e) => {
             error!("Unable to parse steps config. {e}");

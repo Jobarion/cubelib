@@ -10,8 +10,10 @@ use cubelib::solver_new::finish::{DRFinishBuilder, FRFinishBuilder, HTRFinishBui
 use cubelib::solver_new::fr::FRBuilder;
 use cubelib::solver_new::group::{StepGroup, StepPredicate};
 use cubelib::solver_new::htr::HTRBuilder;
+use cubelib::solver_new::util_cube::CubeState;
 use cubelib::solver_new::util_steps::{FilterFirstN, FilterFirstNStepVariant};
 use cubelib::steps::step::StepConfig;
+use log::debug;
 use pest::iterators::Pair;
 use pest::Parser;
 use crate::config::StepOverride;
@@ -20,10 +22,10 @@ use crate::config::StepOverride;
 #[grammar = "steps.pest"]
 struct StepsParser;
 
-pub(crate) fn parse_steps<S: AsRef<str>>(s: S, prototypes: &HashMap<String, StepOverride>) -> Result<(StepGroup, StepKind), String> {
+pub(crate) fn parse_steps<S: AsRef<str>>(s: S, prototypes: &HashMap<String, StepOverride>, cube_state: CubeState) -> Result<(StepGroup, StepKind), String> {
     let main = StepsParser::parse(Rule::main, s.as_ref()).unwrap().next().unwrap();
 
-    let (group, target) = generate(main, None, prototypes)?;
+    let (group, target) = generate(main, None, prototypes, cube_state)?;
     if let Some(group) = group {
         Ok((group, target.kind))
     } else {
@@ -31,13 +33,13 @@ pub(crate) fn parse_steps<S: AsRef<str>>(s: S, prototypes: &HashMap<String, Step
     }
 }
 
-fn generate(p: Pair<Rule>, mut previous: Option<StepConfig>, prototypes: &HashMap<String, StepOverride>) -> Result<(Option<StepGroup>, StepConfig), String> {
+fn generate(p: Pair<Rule>, mut previous: Option<StepConfig>, prototypes: &HashMap<String, StepOverride>, cube_state: CubeState) -> Result<(Option<StepGroup>, StepConfig), String> {
     Ok(match p.as_rule() {
-        Rule::step => parse_step(p, previous, prototypes)?,
+        Rule::step => parse_step(p, previous, prototypes, cube_state)?,
         Rule::sequence => {
             let mut steps = vec![];
             for inner in p.into_inner() {
-                let (group, p_conf) = generate(inner, previous, prototypes)?;
+                let (group, p_conf) = generate(inner, previous, prototypes, cube_state.clone())?;
                 previous = Some(p_conf);
                 if let Some(group) = group {
                     steps.push(group);
@@ -53,7 +55,7 @@ fn generate(p: Pair<Rule>, mut previous: Option<StepConfig>, prototypes: &HashMa
             let mut steps = vec![];
             let mut target: Option<StepConfig> = None;
             for inner in p.into_inner() {
-                let (group, kind) = generate(inner, previous.clone(), prototypes)?;
+                let (group, kind) = generate(inner, previous.clone(), prototypes, cube_state.clone())?;
                 if let Some(target) = target {
                     assert_eq!(target.kind, kind.kind);
                 }
@@ -75,7 +77,7 @@ fn generate(p: Pair<Rule>, mut previous: Option<StepConfig>, prototypes: &HashMa
     })
 }
 
-fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<String, StepOverride>) -> Result<(Option<StepGroup>, StepConfig), String> {
+fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<String, StepOverride>, cube_state: CubeState) -> Result<(Option<StepGroup>, StepConfig), String> {
     let mut inner = p.into_inner();
     let kind = inner.next().unwrap();
     assert_eq!(Rule::kind, kind.as_rule());
@@ -130,7 +132,23 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
     let limit = step_prototype.params.remove("step-limit");
     let max_use = step_prototype.params.remove("max-use");
 
-    let mut step = match (previous.as_ref().map(|s|s.kind.clone()), kind) {
+    let mut previous_kind = previous.as_ref().map(|s|s.kind.clone());
+    debug!("{:?} -> {} (current state is {:?})", previous_kind, kind, cube_state);
+    if previous_kind.is_none() {
+        previous_kind = match cube_state {
+            CubeState::EO(_) => Some(StepKind::EO),
+            CubeState::DR(_) => Some(StepKind::DR),
+            CubeState::TripleDR => Some(StepKind::DR),
+            CubeState::HTR => Some(StepKind::HTR),
+            CubeState::FR(_) => Some(StepKind::FR),
+            CubeState::Solved => Some(StepKind::FIN),
+            _ => None,
+        };
+        if let Some(k) = previous_kind.as_ref() {
+            debug!("Replacing previous state with {}", k);
+        }
+    }
+    let mut step = match (previous_kind, kind) {
         (None, StepKind::EO) => Some(EOBuilder::try_from(step_prototype).map_err(|_|"Failed to parse EO step")?.build()),
         (Some(StepKind::EO), StepKind::RZP) => None,
         (Some(StepKind::RZP), StepKind::DR) => {

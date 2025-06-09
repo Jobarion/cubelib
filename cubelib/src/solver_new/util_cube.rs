@@ -20,16 +20,49 @@ pub enum CubeState {
 }
 
 impl CubeState {
+
+    const ORD_SCRAMBLED: u8 = 0;
+    const ORD_EO: u8 = 1;
+    const ORD_DR: u8 = 2;
+    const ORD_TRIPLE_DR: u8 = 3;
+    const ORD_HTR: u8 = 4;
+    const ORD_FR: u8 = 5;
+    const ORD_SOLVED: u8 = 6;
+
     fn ordinal(&self) -> u8 {
         match self {
-            CubeState::Scrambled => 0,
-            CubeState::EO(_) => 1,
-            CubeState::DR(_) => 2,
-            CubeState::TripleDR => 3,
-            CubeState::HTR => 4,
-            CubeState::FR(_) => 5,
-            CubeState::Solved => 6,
+            CubeState::Scrambled => Self::ORD_SCRAMBLED,
+            CubeState::EO(_) => Self::ORD_EO,
+            CubeState::DR(_) => Self::ORD_DR,
+            CubeState::TripleDR => Self::ORD_TRIPLE_DR,
+            CubeState::HTR => Self::ORD_HTR,
+            CubeState::FR(_) => Self::ORD_FR,
+            CubeState::Solved => Self::ORD_SOLVED,
         }
+    }
+
+    pub fn is_eo(&self) -> bool {
+        self.ordinal() >= Self::ORD_EO
+    }
+
+    pub fn is_dr(&self) -> bool {
+        self.ordinal() >= Self::ORD_DR
+    }
+
+    pub fn is_triple_dr(&self) -> bool {
+        self.ordinal() >= Self::ORD_TRIPLE_DR
+    }
+
+    pub fn is_htr(&self) -> bool {
+        self.ordinal() >= Self::ORD_HTR
+    }
+
+    pub fn is_fr(&self) -> bool {
+        self.ordinal() >= Self::ORD_FR
+    }
+
+    pub fn is_solved(&self) -> bool {
+        self.ordinal() >= Self::ORD_SOLVED
     }
 }
 
@@ -105,10 +138,10 @@ impl Cube333 {
         if dr_axis.is_empty() {
             return CubeState::EO(eo_solved_on);
         }
-        if dr_axis.len() == 1 || HTRDRUDCoord::from(self).val() != 0 {
+        if dr_axis.len() == 1 {
             return CubeState::DR(dr_axis[0]);
         }
-        if dr_axis.len() == 3 {
+        if dr_axis.len() == 3 && HTRDRUDCoord::from(self).val() != 0 {
             return CubeState::TripleDR;
         }
         if HTRFinishCoord::from(self).val() == 0 {
@@ -126,6 +159,9 @@ impl Cube333 {
                 }
             })
             .collect();
+        if fr_axis.is_empty() {
+            return CubeState::HTR;
+        }
         CubeState::FR(fr_axis)
     }
 }

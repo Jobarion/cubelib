@@ -113,6 +113,7 @@ impl InvertibleMut for CenterEdgeCube {
     }
 }
 
+#[cfg(target_feature = "avx2")]
 impl ApplySymmetry for CenterEdgeCube {
     fn apply_symmetry<T: AsRef<Symmetry>>(&mut self, s: T) {
         let s = s.as_ref();
@@ -266,6 +267,12 @@ impl CenterEdgeCube {
     #[cfg(target_feature = "avx2")]
     pub(crate) fn mirror_z(&mut self) {
         unsafe { avx2::unsafe_mirror_z(self) }
+    }
+
+    #[inline]
+    #[cfg(target_feature = "neon")]
+    pub(crate) fn mirror_z(&mut self) {
+        unsafe { neon::unsafe_mirror_z(self) }
     }
 }
 
@@ -621,6 +628,17 @@ mod neon {
         unsafe { C16 { a_u8: [0b0000, 0xFF, 0b0100, 0xFF, 0b0010, 0xFF, 0b0110, 0xFF, 0b1000, 0xFF, 0b1100, 0xFF, 0b1010, 0xFF, 0b1110, 0xFF, ], }.a }, //X
         unsafe { C16 { a_u8: [0b0000, 0xFF, 0b1000, 0xFF, 0b0100, 0xFF, 0b1100, 0xFF, 0b0010, 0xFF, 0b1010, 0xFF, 0b0110, 0xFF, 0b1110, 0xFF, ], }.a }, //X
     ];
+
+    pub(crate) unsafe fn unsafe_mirror_z(cube: &mut CenterEdgeCube) {
+        let mirror_mask = C16 { a_i8: [0, 3, 2, 1, 5, 4, 7, 6, 8, 11, 10, 9, -1, -1, -1, -1]}.a;
+        let edges = vqtbl1q_u8(cube.0, mirror_mask);
+        let translated_ep = vshlq_n_u8::<4>(vqtbl1q_u8(
+            mirror_mask,
+            vandq_u8(vdupq_n_u8(0xF), vshrq_n_u8::<4>(edges)),
+        ));
+        let translated_eo = vandq_u8(edges, vdupq_n_u8(0xF));
+        cube.0 = vorrq_u8(translated_ep, translated_eo);
+    }
 
     pub(crate) unsafe fn unsafe_get_edges_raw(cube: &CenterEdgeCube) -> [u64; 2] {
         let mut a_arr = AlignedU64([0u64; 2]).0;

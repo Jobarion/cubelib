@@ -111,6 +111,7 @@ impl InvertibleMut for CubeCornersOdd {
     }
 }
 
+#[cfg(target_feature = "avx2")]
 impl ApplySymmetry for CubeCornersOdd {
     fn apply_symmetry<T: AsRef<Symmetry>>(&mut self, s: T) {
         let s = s.as_ref();
@@ -270,6 +271,12 @@ impl CubeCornersOdd {
     #[cfg(target_feature = "avx2")]
     pub(crate) fn mirror_z(&mut self) {
         unsafe { avx2::unsafe_mirror_z(self) }
+    }
+
+    #[inline]
+    #[cfg(target_feature = "neon")]
+    pub(crate) fn mirror_z(&mut self) {
+        unsafe { neon::unsafe_mirror_z(self) }
     }
 }
 
@@ -548,7 +555,7 @@ mod avx2 {
 
 #[cfg(target_feature = "neon")]
 mod neon {
-    use std::arch::aarch64::{uint8x16_t, uint8x8_t, vadd_u8, vand_u8, vdup_n_u8, veor_u8, vget_lane_u64, vld1_u8, vmvn_u8, vorr_u8, vqtbl1_u8, vreinterpret_u64_u8, vshl_n_u8, vshr_n_u8, vsub_u8, vtbl1_u8};
+    use std::arch::aarch64::{uint8x16_t, uint8x8_t, vadd_u8, vand_u8, vdup_n_u8, veor_u8, vget_lane_u64, vld1_u8, vmvn_u8, vorr_u8, vorrq_u8, vqtbl1_u8, vreinterpret_u64_u8, vshl_n_u8, vshr_n_u8, vsub_u8, vtbl1_u8};
 
     use crate::cube::{Corner, CubeAxis, CubeFace, Direction};
     use crate::cube::cube_corners::CubeCornersOdd;
@@ -705,6 +712,17 @@ mod neon {
             co
         };
         cube.0 = vorr_u8(cp_translated, co);
+    }
+
+    pub(crate) unsafe fn unsafe_mirror_z(cube: &mut CubeCornersOdd) {
+        let corners = vtbl1_u8(cube.0, C8{a_u8: [1, 0, 3, 2, 5, 4, 7, 6]}.a);
+        let tmp = vand_u8(
+            vadd_u8(corners, vdup_n_u8(1)),
+            vdup_n_u8(2),
+        );
+        let flip_mask = vand_u8(vorr_u8(tmp, vshr_n_u8::<1>(tmp)), vdup_n_u8(0b11));
+        let flip_mask = vorr_u8(flip_mask, vdup_n_u8(0b00100000));
+        cube.0 = veor_u8(corners, flip_mask);
     }
 
     pub(crate) unsafe fn unsafe_invert(cube: &mut CubeCornersOdd) {

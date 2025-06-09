@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 use std::panic;
-
+use std::rc::Rc;
 use base64::Engine;
 use base64::prelude::BASE64_URL_SAFE;
 use leptonic::prelude::*;
 use leptos::*;
 use leptos_icons::IoIcon;
 use log::Level;
-
 use crate::cube::ScrambleComponent;
 use crate::settings::{SettingsComponent, SettingsState};
 use crate::solution::SolutionComponent;
@@ -42,30 +41,66 @@ fn FMCAppContainer() -> impl IntoView {
     let scramble = util::use_local_storage("scramble", "".to_string());
     provide_context(scramble.clone());
 
-    let enabled_states = build_toggle_chain::<3>("enabled");
+    let dr_signal_raw = util::use_local_storage("enabled-dr", true);
+    let htr_signal_raw = util::use_local_storage("enabled-htr", true);
+    let fr_signal_raw = util::use_local_storage("enabled-fr", true);
+    let fin_signal_raw = util::use_local_storage("enabled-fin", true);
 
-    let eo_enabled = create_rw_signal(true);
-    let eo = EOConfig::from_local_storage((Signal::derive(move||eo_enabled.get()), Callback::new(move|e|eo_enabled.set(e))));
+    let dr_signal = (
+        Signal::derive(move||dr_signal_raw.0.get()),
+        Callback::new(move |state: bool| {
+            if !state {
+                htr_signal_raw.1.set(false);
+                fr_signal_raw.1.set(false);
+                fin_signal_raw.1.set(false);
+            }
+            dr_signal_raw.1.set(state);
+        }),
+        dr_signal_raw.2
+    );
+
+    let htr_signal = (
+        Signal::derive(move||htr_signal_raw.0.get() && dr_signal_raw.0.get()),
+        Callback::new(move |state: bool| {
+            if state {
+                dr_signal_raw.1.set(true);
+            } else {
+                fr_signal_raw.1.set(false);
+            }
+            htr_signal_raw.1.set(state);
+        }),
+        htr_signal_raw.2
+    );
+
+    let fr_signal = (
+        Signal::derive(move||fr_signal_raw.0.get() && htr_signal_raw.0.get() && dr_signal_raw.0.get()),
+        Callback::new(move|state: bool|{
+            if state {
+                dr_signal_raw.1.set(true);
+                htr_signal_raw.1.set(true);
+            }
+            fr_signal_raw.1.set(state);
+        }),
+        fr_signal_raw.2
+    );
+
+    let fin_signal = (
+        Signal::derive(move||fin_signal_raw.0.get() && dr_signal_raw.0.get()),
+        Callback::new(move|state: bool|{
+            if state {
+                dr_signal_raw.1.set(true);
+            }
+            fr_signal_raw.1.set(state);
+        }),
+        fin_signal_raw.2
+    );
+
+    let eo = EOConfig::from_local_storage();
     let rzp = RZPConfig::from_local_storage();
-    let dr = DRConfig::from_local_storage(enabled_states[0]);
-    let htr = HTRConfig::from_local_storage(enabled_states[1]);
-
-    let fin = FinishConfig::from_local_storage(enabled_states[2]);
-
-    let fr_signal = util::use_local_storage("enabled-fr", false);
-
-    let enabled_states_1 = enabled_states[1].clone();
-    let fr_signal = (Signal::derive(move || fr_signal.0.get() && enabled_states_1.0.get()), Callback::new(move |state| {
-        if state {
-            enabled_states[0].1.call(true);
-            enabled_states[1].1.call(true);
-            fr_signal.1.set(true);
-        } else {
-            fr_signal.1.set(false);
-        }
-    }));
-
-    let fr = FRConfig::from_local_storage(fr_signal);
+    let dr = DRConfig::from_local_storage((dr_signal.0, dr_signal.1));
+    let htr = HTRConfig::from_local_storage((htr_signal.0, htr_signal.1));
+    let fr = FRConfig::from_local_storage((fr_signal.0, fr_signal.1));
+    let fin = FinishConfig::from_local_storage((fin_signal.0, fin_signal.1));
 
     provide_context(eo.clone());
     provide_context(rzp.clone());

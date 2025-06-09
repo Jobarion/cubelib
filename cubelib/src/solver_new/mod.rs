@@ -4,7 +4,7 @@ use crate::cube::{Cube333, Transformation333};
 use crate::defs::{StepKind, StepVariant};
 use crate::solver_new::dr::{DRBuilder, RZPBuilder, RZPStep};
 use crate::solver_new::eo::EOBuilder;
-use crate::solver_new::finish::{FRFinishBuilder, HTRFinishBuilder};
+use crate::solver_new::finish::{DRFinishBuilder, FRFinishBuilder, HTRFinishBuilder};
 use crate::solver_new::fr::FRBuilder;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::htr::HTRBuilder;
@@ -85,7 +85,8 @@ pub fn build_steps(mut steps: Vec<StepConfig>) -> Result<StepGroup, String> {
             (Some(StepKind::HTR), StepKind::FR) | (Some(StepKind::HTR), StepKind::FRLS)  => FRBuilder::try_from(step).map_err(|_|"Failed to parse FR step")?.build(),
             (Some(StepKind::FR), StepKind::FIN) => FRFinishBuilder::try_from(step).map_err(|_|"Failed to parse FIN step")?.build(),
             (Some(StepKind::FRLS), StepKind::FINLS) => FRFinishBuilder::try_from(step).map_err(|_|"Failed to parse FIN step")?.build(),
-            (Some(StepKind::HTR), StepKind::FIN) | (Some(StepKind::HTR), StepKind::FINLS) => HTRFinishBuilder::try_from(step).map_err(|_|"Failed to parse FIR step")?.build(),
+            (Some(StepKind::HTR), StepKind::FIN) | (Some(StepKind::HTR), StepKind::FINLS) => HTRFinishBuilder::try_from(step).map_err(|_|"Failed to parse FIN step")?.build(),
+            (Some(StepKind::DR), StepKind::FIN) => DRFinishBuilder::try_from(step).map_err(|_|"Failed to parse FIN step")?.build(),
             (None, x) => return Err(format!("{x:?} is not supported as a first step", )),
             (Some(a), b) => return Err(format!("Step order {a:?} > {b:?} is not supported")),
         });

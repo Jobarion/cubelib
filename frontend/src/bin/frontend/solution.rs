@@ -63,13 +63,13 @@ pub mod backend {
             }
         });
 
-        let prev_req = create_rw_signal::<Option<(Option<SolverRequest>, bool)>>(None);
+        let prev_req = create_rw_signal::<Option<Option<SolverRequest>>>(None);
 
         let solution_data = create_rw_signal(SolutionState::NotFetched);
         let is_done_data = create_rw_signal(true);
         let req_id = create_rw_signal(0usize);
 
-        let _ = watch_debounced_with_options(move || (req_signal.get(), settings1.experimental_backend().get()), move |req, _, _| {
+        let _ = watch_debounced_with_options(move || (req_signal.get()), move |req, _, _| {
             let req = req.clone();
             //watch_debounced previous is buggy so we do this
             if let Some(prev) = prev_req.get() {
@@ -78,7 +78,7 @@ pub mod backend {
                 }
             }
             prev_req.set(Some(req.clone()));
-            if let (Some(req), backend) = req {
+            if let Some(req) = req {
                 req_id.update(|x| *x = *x + 1);
                 if req.scramble.is_empty() {
                     solution_data.set(SolutionState::NotFetched);
@@ -86,7 +86,7 @@ pub mod backend {
                 }
                 solution_data.set(SolutionState::Requested);
                 is_done_data.set(false);
-                fetch_solution(req.clone(), req_id.get(), solution_data, is_done_data, req_id, backend);
+                fetch_solution(req.clone(), req_id.get(), solution_data, is_done_data, req_id);
             }
         }, 1000f64, WatchDebouncedOptions::default().immediate(true));
 
@@ -116,15 +116,11 @@ pub mod backend {
         }
     }
 
-    fn fetch_solution(request: SolverRequest, id: usize, solution_callback: RwSignal<SolutionState>, done_callback: RwSignal<bool>, cur_id: RwSignal<usize>, experimental_backend: bool) {
+    fn fetch_solution(request: SolverRequest, id: usize, solution_callback: RwSignal<SolutionState>, done_callback: RwSignal<bool>, cur_id: RwSignal<usize>) {
         let current_bytes = RefCell::<Vec<u8>>::new(vec![]);
 
         let body = serde_json::to_vec(&request).unwrap();
-        let mut req = if experimental_backend {
-            Request::post("https://joba.me/cubeapi/solve_stream?backend=multi_path_channel", body)
-        } else {
-            Request::post("https://joba.me/cubeapi/solve_stream?backend=iter_stream", body)
-        };
+        let mut req = Request::post("http://localhost:8049/solve_stream?backend=multi_path_channel", body);
         req.headers.insert("content-type".to_string(), "application/json".to_string());
 
         ehttp::streaming::fetch(req, move |res: ehttp::Result<ehttp::streaming::Part>| {
@@ -263,20 +259,18 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
     let advanced = settings.is_advanced();
     let default_variants = Some(vec!["ud".to_string(), "fb".to_string(), "lr".to_string()]);
     let mut steps_config = vec![];
-    if eo.enabled.0.get() {
-        steps_config.push(StepConfig {
-            kind: StepKind::EO,
-            substeps: if advanced { Some(variants_to_string(eo.variants.0.get())) } else { default_variants.clone() },
-            min: Some(eo.min_abs.0.get()),
-            max: Some(eo.max_abs.0.get()),
-            absolute_min: None,
-            absolute_max: None,
-            step_limit: None,
-            quality: 10000,
-            niss: Some(eo.niss.0.get()),
-            params: Default::default(),
-        });
-    }
+    steps_config.push(StepConfig {
+        kind: StepKind::EO,
+        substeps: if advanced { Some(variants_to_string(eo.variants.0.get())) } else { default_variants.clone() },
+        min: Some(eo.min_abs.0.get()),
+        max: Some(eo.max_abs.0.get()),
+        absolute_min: None,
+        absolute_max: None,
+        step_limit: None,
+        quality: 10000,
+        niss: Some(eo.niss.0.get()),
+        params: Default::default(),
+    });
     if dr.enabled.0.get() {
         let mut params = HashMap::new();
         if !dr.subsets.0.get().is_empty() {

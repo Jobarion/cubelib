@@ -190,7 +190,15 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
         (Some(StepKind::DR), StepKind::FIN) => Some(DRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build()),
         (Some(StepKind::FR), StepKind::FIN) => Some(FRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build()),
         (Some(StepKind::FRLS), StepKind::FINLS) => Some(FRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build()),
-        (Some(StepKind::HTR), StepKind::FIN) | (Some(StepKind::HTR), StepKind::FINLS) => Some(HTRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIR step")?.build()),
+        (Some(StepKind::HTR), StepKind::FIN) | (Some(StepKind::HTR), StepKind::FINLS) => {
+            let dr_breaking = step_prototype.params.remove("htr-breaking").map(|x|bool::from_str(x.to_lowercase().as_str()).unwrap_or(false)).unwrap_or(false);
+            if dr_breaking {
+                debug!("Using HTR breaking finish");
+                Some(DRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build())
+            } else {
+                Some(HTRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build())
+            }
+        },
         (None, x) => return Err(format!("{x:?} is not supported as a first step", )),
         (Some(a), b) => return Err(format!("Step order {a:?} > {b:?} is not supported")),
     };

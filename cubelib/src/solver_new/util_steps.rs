@@ -48,7 +48,13 @@ impl FilterFirstNStepVariant {
 
 impl StepPredicate for FilterDup {
     fn check_solution(&self, solution: &Solution) -> StepPredicateResult {
-        if self.0.borrow_mut().insert(solution.clone().into()) {
+        let uninverted = solution.steps.last().map(|x|StepKind::from(x.variant) == StepKind::FIN).is_some();
+        let mut alg: Algorithm = solution.clone().into();
+        if uninverted {
+            alg = alg.to_uninverted();
+        }
+
+        if self.0.borrow_mut().insert(alg.canonicalize()) {
             StepPredicateResult::Accepted
         } else {
             StepPredicateResult::Rejected

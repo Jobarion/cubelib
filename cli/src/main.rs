@@ -15,7 +15,7 @@ use cubelib::defs::{NissSwitchType, StepKind};
 use cubelib::solver::df_search::CancelToken;
 use cubelib::solver::solution::Solution;
 use cubelib::solver::stream;
-use cubelib::solver_new::util_steps::FilterLastMoveNotPrime;
+use cubelib::solver_new::util_steps::{FilterDup, FilterLastMoveNotPrime};
 use cubelib::steps::{eo, solver};
 use cubelib::steps::step::StepConfig;
 use cubelib::steps::tables::PruningTables333;
@@ -285,6 +285,7 @@ fn find_and_print_solutions_multi_path_channel(cube: Cube333, config: SolverConf
     if !config.all_solutions && !last_qt_diretion_relevant  {
         predicates.push(FilterLastMoveNotPrime::new());
     }
+    predicates.push(FilterDup::new());
     steps.with_predicates(predicates);
 
     if config.quality > 0 {

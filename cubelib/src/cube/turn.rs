@@ -199,6 +199,26 @@ impl CubeFace {
     }
 }
 
+impl Into<CubeAxis> for CubeFace {
+    fn into(self) -> CubeAxis {
+        match self {
+            Up | Down => CubeAxis::UD,
+            Front | Back => CubeAxis::FB,
+            Left | Right => CubeAxis::LR
+        }
+    }
+}
+
+impl CubeAxis {
+    pub fn get_faces(&self) -> (CubeFace, CubeFace) {
+        match *self {
+            CubeAxis::UD => (Up, Down),
+            CubeAxis::FB => (Front, Back),
+            CubeAxis::LR => (Left, Right),
+        }
+    }
+}
+
 impl TryFrom<char> for CubeFace {
     type Error = ();
 
@@ -293,6 +313,24 @@ impl Direction {
             Clockwise => CounterClockwise,
             CounterClockwise => Clockwise,
             Half => Half,
+        }
+    }
+
+    pub fn from_qt(qt: u8) -> Option<Self> {
+        match qt % 4 {
+            0 => None,
+            1 => Some(Clockwise),
+            2 => Some(Half),
+            3 => Some(CounterClockwise),
+            _ => unreachable!()
+        }
+    }
+
+    pub fn to_qt(&self) -> u8 {
+        match self {
+            Clockwise => 1,
+            Half => 2,
+            CounterClockwise => 3,
         }
     }
 }

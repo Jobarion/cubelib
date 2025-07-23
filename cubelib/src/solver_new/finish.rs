@@ -6,7 +6,7 @@ use log::debug;
 use crate::cube::*;
 use crate::defs::StepVariant;
 use crate::solver::lookup_table;
-use crate::solver::lookup_table::{LoadFromDisk, SymTable};
+use crate::solver::lookup_table::{LoadFromDisk, MmapBinarySearchTable};
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
@@ -22,7 +22,7 @@ pub static HTR_FINISH_TABLE: LazyLock<HTRFinishPruningTable> = LazyLock::new(||g
 pub static HTR_LEAVE_SLICE_FINISH_TABLE: LazyLock<HTRLeaveSliceFinishPruningTable> = LazyLock::new(||gen_htr_ls_finish());
 pub static DR_FINISH_TABLE: LazyLock<DRFinishPruningTable> = LazyLock::new(||load_dr_finish());
 
-pub type DRFinishPruningTable = SymTable<{ DR_FINISH_SIZE }, DRFinishCoord>;
+pub type DRFinishPruningTable = MmapBinarySearchTable<{ DR_FINISH_SIZE }, DRFinishCoord>;
 
 const DR_SYMMETRIES: &[Symmetry] = &[
     Symmetry::U0, Symmetry::UM0,
@@ -99,7 +99,7 @@ impl FRFinishStep {
 }
 
 pub struct DRFinishStep;
-pub type DRFinishBuilder = builder::DRFinishBuilderInternal<false, false, false>;
+pub type DRFinishBuilder = builder::DRFinishBuilderInternal<false, false, false, false>;
 
 impl DRFinishStep {
     pub fn builder() -> DRFinishBuilder {
@@ -204,7 +204,7 @@ fn gen_htr_ls_finish() -> HTRLeaveSliceFinishPruningTable {
 }
 
 fn load_dr_finish() -> DRFinishPruningTable {
-    SymTable::load_from_disk("333", "drfin").unwrap()
+    MmapBinarySearchTable::load_from_disk("333", "drfin").unwrap()
 }
 
 pub mod builder {
@@ -268,6 +268,7 @@ pub mod builder {
                 min_moves: 0,
                 max_moves: self._a_max_length,
                 absolute_max_moves: Some(self._b_max_absolute_length),
+                ignore_previous_step_restrictions: false,
             };
             FRFinishStep::new(dfs, self._c_fr_axis, self._d_leave_slice)
         }
@@ -369,6 +370,7 @@ pub mod builder {
                 min_moves: 0,
                 max_moves: self._a_max_length,
                 absolute_max_moves: Some(self._b_max_absolute_length),
+                ignore_previous_step_restrictions: false,
             };
             HTRFinishStep::new(dfs, self._c_leave_slice)
         }
@@ -413,73 +415,84 @@ pub mod builder {
             Ok(defaults)
         }
     }
-    pub struct DRFinishBuilderInternal<const A: bool, const B: bool, const C: bool> {
+    pub struct DRFinishBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool> {
         _a_max_length: usize,
         _b_max_absolute_length: usize,
         // _c_leave_slice: bool,
+        _d_from_htr: bool,
     }
 
-    impl <const A: bool, const B: bool, const C: bool> DRFinishBuilderInternal<A, B, C> {
-        fn convert<const _A: bool, const _B: bool, const _C: bool>(self) -> DRFinishBuilderInternal<_A, _B, _C> {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool> DRFinishBuilderInternal<A, B, C, D> {
+        fn convert<const _A: bool, const _B: bool, const _C: bool, const _D: bool>(self) -> DRFinishBuilderInternal<_A, _B, _C, _D> {
             DRFinishBuilderInternal {
                 _a_max_length: self._a_max_length,
                 _b_max_absolute_length: self._b_max_absolute_length,
                 // _c_leave_slice: self._c_leave_slice,
+                _d_from_htr: self._d_from_htr,
             }
         }
     }
 
-    impl <const B: bool, const C: bool> DRFinishBuilderInternal<false, B, C> {
-        pub fn max_length(mut self, max_length: usize) -> DRFinishBuilderInternal<true, B, C> {
+    impl <const B: bool, const C: bool, const D: bool> DRFinishBuilderInternal<false, B, C, D> {
+        pub fn max_length(mut self, max_length: usize) -> DRFinishBuilderInternal<true, B, C, D> {
             self._a_max_length = max_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const C: bool> DRFinishBuilderInternal<A, false, C> {
-        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> DRFinishBuilderInternal<A, true, C> {
+    impl <const A: bool, const C: bool, const D: bool> DRFinishBuilderInternal<A, false, C, D> {
+        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> DRFinishBuilderInternal<A, true, C, D> {
             self._b_max_absolute_length = max_absolute_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool> DRFinishBuilderInternal<A, B, false> {
-        pub fn leave_slice(self) -> DRFinishBuilderInternal<A, B, true> {
+    impl <const A: bool, const B: bool, const D: bool> DRFinishBuilderInternal<A, B, false, D> {
+        pub fn leave_slice(self) -> DRFinishBuilderInternal<A, B, true, D> {
             unimplemented!("Not implemented")
             // self._c_leave_slice = true;
             // self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool> DRFinishBuilderInternal<A, B, C> {
+    impl <const A: bool, const B: bool, const C: bool> DRFinishBuilderInternal<A, B, C, false> {
+        pub fn from_htr(mut self) -> DRFinishBuilderInternal<A, B, C, true> {
+            self._d_from_htr = true;
+            self.convert()
+        }
+    }
+
+    impl <const A: bool, const B: bool, const C: bool, const D: bool> DRFinishBuilderInternal<A, B, C, D> {
         pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: NissSwitchType::Never,
                 min_moves: 0,
                 max_moves: self._a_max_length,
                 absolute_max_moves: Some(self._b_max_absolute_length),
+                ignore_previous_step_restrictions: self._d_from_htr,
             };
             DRFinishStep::new(dfs, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR])
         }
     }
 
-    impl DRFinishBuilderInternal<false, false, false> {
+    impl DRFinishBuilderInternal<false, false, false, false> {
         pub fn new() -> Self {
             Self {
                 _a_max_length: 14,
                 _b_max_absolute_length: 50,
                 // _c_leave_slice: false,
+                _d_from_htr: false,
             }
         }
     }
 
-    impl Default for DRFinishBuilderInternal<false, false, false> {
+    impl Default for DRFinishBuilderInternal<false, false, false, false> {
         fn default() -> Self {
             Self::new()
         }
     }
 
-    impl TryFrom<StepConfig> for DRFinishBuilderInternal<false, false, false> {
+    impl TryFrom<StepConfig> for DRFinishBuilderInternal<false, false, false, false> {
         type Error = ();
 
         fn try_from(value: StepConfig) -> Result<Self, Self::Error> {

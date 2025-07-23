@@ -315,6 +315,7 @@ dependencies = [
  "serde",
  "serde_with",
  "simple_logger",
+ "sorted-insert",
  "tinyset",
 ]
 
@@ -869,6 +870,12 @@ dependencies = [
  "time",
  "windows-sys 0.48.0",
 ]
+
+[[package]]
+name = "sorted-insert"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eec75fe132d95908f1c030f93630bc20b76f3ebaeca789a6180553b770ddcd39"
 
 [[package]]
 name = "strsim"

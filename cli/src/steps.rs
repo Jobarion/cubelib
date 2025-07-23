@@ -149,7 +149,7 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
         }
     }
     let mut step = match (previous_kind, kind) {
-        (None, StepKind::EO) => Some(EOBuilder::try_from(step_prototype).map_err(|_|"Failed to parse EO step")?.build()),
+        (_, StepKind::EO) => Some(EOBuilder::try_from(step_prototype).map_err(|_|"Failed to parse EO step")?.build()),
         (Some(StepKind::EO), StepKind::RZP) => None,
         (Some(StepKind::RZP), StepKind::DR) => {
             let triggers = step_prototype.params.remove("triggers").ok_or("Found RZP, but DR step has no triggers".to_string())?;
@@ -187,14 +187,19 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
         },
         (Some(StepKind::DR), StepKind::HTR) => Some(HTRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse HTR step")?.build()),
         (Some(StepKind::HTR), StepKind::FR) | (Some(StepKind::HTR), StepKind::FRLS)  => Some(FRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FR step")?.build()),
-        (Some(StepKind::DR), StepKind::FIN) => Some(DRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build()),
+        (Some(StepKind::DR), StepKind::FIN) => {
+            step_prototype.params.remove("htr-breaking");
+            Some(DRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build())
+        },
         (Some(StepKind::FR), StepKind::FIN) => Some(FRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build()),
         (Some(StepKind::FRLS), StepKind::FINLS) => Some(FRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build()),
         (Some(StepKind::HTR), StepKind::FIN) | (Some(StepKind::HTR), StepKind::FINLS) => {
             let dr_breaking = step_prototype.params.remove("htr-breaking").map(|x|bool::from_str(x.to_lowercase().as_str()).unwrap_or(false)).unwrap_or(false);
             if dr_breaking {
                 debug!("Using HTR breaking finish");
-                Some(DRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build())
+                Some(DRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?
+                    .from_htr()
+                    .build())
             } else {
                 Some(HTRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build())
             }

@@ -139,6 +139,7 @@ pub mod builder {
                 min_moves: self._e_min_length,
                 max_moves: self._a_max_length,
                 absolute_max_moves: Some(self._b_max_absolute_length),
+                ignore_previous_step_restrictions: false,
             };
             EOStep::new(dfs, self._d_eo_axis)
         }

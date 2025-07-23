@@ -25,7 +25,11 @@ impl Solution {
     }
 
     pub fn len(&self) -> usize {
-        self.steps.iter().map(|e| e.alg.len()).sum::<usize>()
+        if let Some(StepKind::FIN) = self.steps.last().map(|x|StepKind::from(x.variant)) {
+            Into::<Algorithm>::into(self.clone()).to_uninverted()
+        } else {
+            Into::<Algorithm>::into(self.clone())
+        }.canonicalize().len()
     }
 
     pub fn add_step(&mut self, step: SolutionStep) {
@@ -108,7 +112,6 @@ impl Display for Solution {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         // let compact = self.clone().compact();
         let compact = self.clone();
-        let mut total_moves = 0;
         let longest_alg_length = compact
             .steps
             .iter()
@@ -122,28 +125,34 @@ impl Display for Solution {
             .max()
             .unwrap_or(0);
 
-        for step in compact.steps {
+        let mut collected_alg = Algorithm::new();
+        for (idx, step) in compact.steps.iter().enumerate() {
             let alg_length = step.alg.len();
-
+            let previous_length = collected_alg.len();
+            collected_alg = if idx + 1 == compact.steps.len() && StepKind::from(step.variant) == StepKind::FIN {
+                (collected_alg + step.alg.clone()).to_uninverted()
+            } else {
+                collected_alg + step.alg.clone()
+            }.canonicalize();
+            let cancelled_moves = previous_length + alg_length - collected_alg.len();
             let comment = if step.comment.is_empty() {
                 "".to_string()
             } else {
                 format!(" [{}]", step.comment)
             };
+            let length_comment = if cancelled_moves == 0 {
+                format!("({alg_length}/{})", collected_alg.len())
+            } else {
+                format!("({alg_length}-{cancelled_moves}/{})", collected_alg.len())
+            };
             let name = format!("{}{comment}", step.variant.to_string());
-            total_moves += alg_length;
-            writeln!(f, "{:longest_alg_length$}  // {name:longest_name_length$} ({alg_length}/{total_moves})", step.alg.to_string())?;
+            writeln!(f, "{:longest_alg_length$}  // {name:longest_name_length$} {length_comment}", step.alg.to_string())?;
         }
-        let final_alg: Algorithm = if self.steps.last().map(|x| StepKind::from(x.variant) == StepKind::FIN).unwrap_or(false) {
-            Into::<Algorithm>::into(self.clone()).to_uninverted()
-        } else {
-            self.clone().into()
-        };
         writeln!(
             f,
             "Solution ({}): {}",
-            total_moves,
-            final_alg
+            collected_alg.len(),
+            collected_alg
         )
     }
 }

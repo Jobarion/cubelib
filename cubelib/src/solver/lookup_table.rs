@@ -10,13 +10,14 @@ use std::io::{Read, Write};
 use std::marker::PhantomData;
 #[cfg(feature = "fs")]
 use home::home_dir;
+use itertools::Itertools;
 use log::{debug, info, warn};
 use memmap2::Mmap;
 use num_traits::{ToPrimitive};
 #[cfg(feature = "fs")]
 use num_traits::{FromPrimitive};
 use crate::cube::*;
-use crate::cube::turn::TurnableMut;
+use crate::cube::turn::{Invertible, TurnableMut};
 use crate::solver::moveset::MoveSet;
 use crate::steps::coord::Coord;
 
@@ -32,12 +33,12 @@ pub enum TableType {
     Sym = 3u8,
 }
 
-pub struct SymTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
+pub struct MmapBinarySearchTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
     pub(crate) coord_type: PhantomData<C>,
     pub entries: Mmap,
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> EmptyVal for SymTable<C_SIZE, C> {
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> EmptyVal for MmapBinarySearchTable<C_SIZE, C> {
     fn empty_val(&self) -> u8 {
         0xFF
     }
@@ -56,7 +57,7 @@ pub struct NissLookupTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
     coord_type: PhantomData<C>,
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> SymTable<C_SIZE, C> {
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> MmapBinarySearchTable<C_SIZE, C> {
     pub fn get(&self, target: C) -> u8 {
         let mut size = self.entries.len() / 5;
         let mut base = 0;
@@ -314,7 +315,7 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for NissLookupTable<C_
 }
 
 #[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for SymTable<C_SIZE, C> {
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for MmapBinarySearchTable<C_SIZE, C> {
     fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, String>
     where
         Self: Sized,
@@ -489,41 +490,50 @@ where
     next_cubes
 }
 
-// // This table is much larger and requires different methods to generate.
-// // Since it's the only one we'll avoid a generic implementation for now
-// pub fn generate_dr_finish_table() -> SymTable<{DR_FINISH_SIZE}, DRFinishCoord> {
-//     let symmetries = vec![
-//         Symmetry::U0, Symmetry::UM0,
-//         Symmetry::U1, Symmetry::UM1,
-//         Symmetry::U2, Symmetry::UM2,
-//         Symmetry::U3, Symmetry::UM3,
-//         Symmetry::D0, Symmetry::DM0,
-//         Symmetry::D1, Symmetry::DM1,
-//         Symmetry::D2, Symmetry::DM2,
-//         Symmetry::D3, Symmetry::DM3,
-//     ];
-//
-//     let mut sym_table = SymTable::new();
-//     let mut to_check = HashSet::from([DRFinishCoord::from(0)]);
-//     let mut depth = 0;
-//     while !to_check.is_empty() {
-//         to_check.retain(|coord|sym_table.get(coord.clone()) == sym_table.empty_val());
-//         debug!("To check {} at depth {}", to_check.len(), depth);
-//         let mut to_check_next = HashSet::default();
-//         for coord in to_check {
-//             let mut cube = Into::<Cube333>::into(&coord);
-//             sym_table.set(coord, depth);
-//             for turn in DR_UD_FINISH_MOVESET.st_moves {
-//                 cube.turn(turn.clone());
-//                 let coord = DRFinishCoord::min_with_symmetries(&cube, &symmetries);
-//                 if sym_table.get(coord) == sym_table.empty_val() {
-//                     to_check_next.insert(coord);
-//                 }
-//                 cube.turn(turn.invert());
-//             }
-//         }
-//         to_check = to_check_next;
-//         depth += 1;
-//     }
-//     sym_table
-// }
+// This table is much larger and requires different methods to generate.
+// Since it's the only one we'll avoid a generic implementation for now
+pub fn generate_dr_finish_table<
+    const COORD_SIZE: usize,
+    CoordParam: Coord<COORD_SIZE> + for<'a> From<&'a Cube333> + From<usize> + Copy + Hash + Eq + Debug>(
+    symmetries: Vec<Symmetry>, move_set: MoveSet, mut file: File) -> std::io::Result<MmapBinarySearchTable<COORD_SIZE, CoordParam>> where for<'a> &'a CoordParam: Into<Cube333>  {
+
+    let mut hash_table: HashMap<CoordParam, u8> = HashMap::new();
+    let mut to_check = std::collections::HashSet::from([CoordParam::from(0)]);
+    let mut depth = 0;
+    while !to_check.is_empty() {
+        to_check.retain(|coord| hash_table.get(coord).is_none());
+        debug!("To check {} at depth {}", to_check.len(), depth);
+        let mut to_check_next = std::collections::HashSet::default();
+        for coord in to_check {
+            let mut cube = Into::<Cube333>::into(&coord);
+            hash_table.insert(coord, depth);
+            for turn in move_set.st_moves.iter().chain(move_set.aux_moves.iter()) {
+                cube.turn(turn.clone());
+                let coord = CoordParam::min_with_symmetries(&cube, &symmetries);
+                if hash_table.get(&coord).is_none() {
+                    to_check_next.insert(coord);
+                }
+                cube.turn(turn.invert());
+            }
+        }
+        to_check = to_check_next;
+        depth += 1;
+    }
+    debug!("Collecting table");
+    let mut ordered_tuples = hash_table.into_iter().collect_vec();
+    debug!("Sorting");
+    ordered_tuples.sort_by(|(a, _), (b, _)|a.val().cmp(&b.val()));
+    debug!("Saving table");
+    for idx in 0..ordered_tuples.len() {
+        if idx % 1000 == 0 {
+            println!("{idx}");
+        }
+        let (c, d) = ordered_tuples[idx];
+        file.write_all((c.val() as u32).to_le_bytes().as_slice())?;
+        file.write_all(&[d])?;
+    }
+    Ok(MmapBinarySearchTable {
+        coord_type: Default::default(),
+        entries: unsafe { Mmap::map(&file) }?,
+    })
+}

@@ -176,6 +176,6 @@ mod test {
     #[test]
     fn test_dr_no_htr() {
         let cube: Cube333 = Algorithm::from_str("R U2 F2 U2 R").unwrap().into();
-        assert_eq!(cube.get_cube_state(), CubeState::DR(vec![CubeAxis::LR]));
+        assert_eq!(cube.get_cube_state(), CubeState::DR(CubeAxis::LR));
     }
 }

@@ -32,6 +32,7 @@ fn run_length_tests() {
 }
 
 fn run_length_test(test: &LengthTestCase, backend: &str) {
+    println!("Backend {backend}");
     let mut path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     path.push("target/release/cubelib-cli.exe");
     let start = Instant::now();

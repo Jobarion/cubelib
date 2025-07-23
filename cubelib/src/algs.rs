@@ -138,6 +138,55 @@ impl Algorithm {
     }
 }
 
+impl Algorithm {
+    pub fn canonicalize(self) -> Self {
+        fn canonicalize_vec(turns: Vec<Turn333>) -> Vec<Turn333> {
+            if turns.is_empty() {
+                return turns;
+            }
+            let mut canonical = vec![];
+            let mut previous_axis_opt = None;
+            let mut previous_direction_0 = 0;
+            let mut previous_direction_1 = 0;
+            for Turn333 {face, dir} in turns {
+                if let Some(previous_axis) = previous_axis_opt {
+                    if !face.is_on_axis(previous_axis) {
+                        let (face_0, face_1) = previous_axis.get_faces();
+                        if let Some(direction_0) = Direction::from_qt(previous_direction_0) {
+                            canonical.push(Turn333 { face: face_0, dir: direction_0 });
+                        }
+                        if let Some(direction_1) = Direction::from_qt(previous_direction_1) {
+                            canonical.push(Turn333 { face: face_1, dir: direction_1 });
+                        }
+                        previous_direction_0 = 0;
+                        previous_direction_1 = 0;
+                    }
+                }
+                previous_axis_opt = Some(face.into());
+                if face == Into::<CubeAxis>::into(face).get_faces().0 {
+                    previous_direction_0 += dir.to_qt();
+                } else {
+                    previous_direction_1 += dir.to_qt();
+                }
+            }
+            if let Some(previous_axis) = previous_axis_opt {
+                let (face_0, face_1) = previous_axis.get_faces();
+                if let Some(direction_0) = Direction::from_qt(previous_direction_0) {
+                    canonical.push(Turn333 { face: face_0, dir: direction_0 });
+                }
+                if let Some(direction_1) = Direction::from_qt(previous_direction_1) {
+                    canonical.push(Turn333 { face: face_1, dir: direction_1 });
+                }
+            }
+            canonical
+        }
+        Self {
+            normal_moves: canonicalize_vec(self.normal_moves),
+            inverse_moves: canonicalize_vec(self.inverse_moves),
+        }
+    }
+}
+
 impl FromStr for Algorithm {
     type Err = ();
 
@@ -203,5 +252,17 @@ impl TransformableMut for Algorithm {
             .iter()
             .map(|m| m.transform(t))
             .collect_vec();
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::str::FromStr;
+    use crate::algs::Algorithm;
+
+    #[test]
+    fn test_canonicalize() {
+        let alg = Algorithm::from_str("U2 D2 U2 R R F F' L R B F R L").unwrap().canonicalize();
+        assert_eq!("D2 R2 L R F B L R", alg.to_string())
     }
 }

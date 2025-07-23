@@ -133,6 +133,7 @@ pub mod builder {
                 min_moves: 0,
                 max_moves: self._a_max_length,
                 absolute_max_moves: Some(self._b_max_absolute_length),
+                ignore_previous_step_restrictions: false,
             };
             ARStep::new(dfs, self._d_ar_eo_axis)
         }

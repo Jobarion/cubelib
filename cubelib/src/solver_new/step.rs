@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::cmp::min;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -7,14 +8,14 @@ use std::thread::JoinHandle;
 
 
 use log::trace;
-
+use sorted_insert::{SortedInsertBinaryBy};
 use crate::algs::Algorithm;
 use crate::cube::{Cube333, Symmetry, Transformation333, Turn333};
 use crate::cube::turn::*;
 use crate::defs::{NissSwitchType, StepVariant};
 use crate::solver::df_search::CancelToken;
-use crate::solver::lookup_table::{LookupTable, NissLookupTable, SymTable};
-use crate::solver::solution::{ApplySolution, Solution, SolutionStep};
+use crate::solver::lookup_table::{LookupTable, NissLookupTable, MmapBinarySearchTable};
+use crate::solver::solution::{Solution, SolutionStep};
 use crate::solver_new::*;
 use crate::solver_new::group::{StepPredicate, StepPredicateResult};
 use crate::solver_new::thread_util::*;
@@ -42,7 +43,7 @@ pub struct NissPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 
 }
 
 pub struct SymPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'static, const PC_SIZE: usize, PC: Coord<PC_SIZE> + 'static> {
-    pub table: &'b SymTable<C_SIZE, C>,
+    pub table: &'b MmapBinarySearchTable<C_SIZE, C>,
     pub symmetries: &'a [Symmetry],
     pub options: DFSParameters,
     pub pre_step_trans: Vec<Transformation333>,
@@ -201,6 +202,7 @@ struct StepIORunner {
     rc: Option<Receiver<Solution>>,
     tx: Option<Sender<Solution>>,
     input: Vec<Solution>,
+    output_buffer: RefCell<Vec<Solution>>, // Only used for steps that produce solutions out of order
     dfs_parameters: DFSParameters,
     current_length: usize,
     current_position: usize,
@@ -232,6 +234,17 @@ impl StepIORunner {
         self.input.push(next);
         self.current_length = self.input[0].len();
         while !self.cancel_token.is_cancelled() && self.current_length <= self.dfs_parameters.absolute_max_moves.unwrap_or(100) {
+            loop {
+                let output_buffer = self.output_buffer.get_mut();
+                if let Some(sol) = output_buffer.pop_if(|x|x.len() <= self.current_length) {
+                    trace!("[{}] Flushed buffered solution of length {}\nTest: {}", self.step.get_variant(), sol.len(), sol);
+                    if let Err(_) = self.process_solution(sol) {
+                        return
+                    }
+                } else {
+                    break
+                }
+            }
             match self.process_fetched() {
                 Ok(Some(full_fetch_required_length)) => {
                     while !self.cancel_token.is_cancelled() {
@@ -278,7 +291,35 @@ impl StepIORunner {
                 self.current_position += 1;
                 continue
             }
-            self.find_solutions(self.cube_state.clone(), &self.input[self.current_position], depth, self.dfs_parameters.niss_type)?;
+            let input = &self.input[self.current_position];
+            let can_cancel_with_previous = if let StepVariant::DRFIN(_) = self.step.get_variant() {
+                if let Some(StepVariant::HTR(_)) = input.steps.last().map(|x|x.variant) {
+                    let mut needs_extension = false;
+                    for step in &input.steps {
+                        if input.ends_on_normal() && !step.alg.inverse_moves.is_empty() {
+                            needs_extension = true;
+                            break;
+                        } else if !input.ends_on_normal() && !step.alg.normal_moves.is_empty() {
+                            needs_extension = true;
+                            break;
+                        }
+                    }
+                    needs_extension
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+            if can_cancel_with_previous {
+                if depth == 0 {
+                    self.find_solutions(self.cube_state.clone(), input, depth, self.dfs_parameters.niss_type)?;
+                    self.find_solutions(self.cube_state.clone(), input, depth + 1, self.dfs_parameters.niss_type)?;
+                }
+                self.find_solutions(self.cube_state.clone(), input, depth + 2, self.dfs_parameters.niss_type)?;
+            } else {
+                self.find_solutions(self.cube_state.clone(), input, depth, self.dfs_parameters.niss_type)?;
+            }
             self.current_position += 1;
         }
 
@@ -299,7 +340,16 @@ impl StepIORunner {
             alg: result.clone(),
             comment: "".to_string(),
         });
+        if self.current_length < input.len() {
+            self.output_buffer.borrow_mut().sorted_insert_binary_by(input.clone(), |a, b|b.len().cmp(&a.len()));
+            trace!("Received solution of length {} out of order (current length: {})", input.len(), self.current_length);
+            return Ok(())
+        }
 
+        self.process_solution(input)
+    }
+
+    fn process_solution(&self, input: Solution) -> Result<(), SendError<Solution>>{
         for p in self.predicates.iter() {
             match p.check_solution(&input) {
                 StepPredicateResult::Accepted => {}
@@ -320,10 +370,14 @@ impl StepIORunner {
 
     // Finds solutions that exactly match the depth parameter. Does _not_ look for shorter ones
     pub fn find_solutions(&self, mut cube: Cube333, input: &Solution, depth: usize, niss_type: NissSwitchType) -> Result<(), SendError<Solution>> {
-        cube.apply_solution(input);
         let alg: Algorithm = input.clone().into();
-        let mut previous_normal = alg.normal_moves.last().cloned();
-        let mut previous_inverse = alg.inverse_moves.last().cloned();
+        cube.apply_alg(&alg);
+
+        let (mut previous_normal, mut previous_inverse) = if self.dfs_parameters.ignore_previous_step_restrictions {
+            (None, None)
+        } else {
+            (alg.normal_moves.last().cloned(), alg.inverse_moves.last().cloned())
+        };
         let start_on_normal = input.ends_on_normal;
 
         for t in self.step.pre_step_trans().iter().cloned() {
@@ -453,6 +507,7 @@ impl <S: Step + Send + 'static> ToWorker for S {
                 rc: Some(rc),
                 tx: Some(tx),
                 input: vec![],
+                output_buffer: RefCell::new(vec![]),
                 dfs_parameters: self.get_dfs_parameters(),
                 current_length: 0,
                 current_position: 0,
@@ -471,6 +526,7 @@ pub struct DFSParameters {
     pub min_moves: usize,
     pub max_moves: usize,
     pub absolute_max_moves: Option<usize>,
+    pub ignore_previous_step_restrictions: bool,
 }
 
 pub struct MoveSet {
@@ -484,15 +540,15 @@ impl MoveSet {
         Self {
             st_moves,
             aux_moves,
-            transitions: Self::new_qt_ordered_transitions(true),
+            transitions: Self::new_default_transitions(true),
         }
     }
 
-    pub const fn new_with_qt_last_transitions(st_moves: &'static [Turn333], aux_moves: &'static [Turn333]) -> Self {
+    pub const fn new_unordered(st_moves: &'static [Turn333], aux_moves: &'static [Turn333]) -> Self {
         Self {
             st_moves,
             aux_moves,
-            transitions: Self::new_qt_ordered_transitions(false),
+            transitions: Self::new_default_transitions(false),
         }
     }
 
@@ -500,7 +556,7 @@ impl MoveSet {
     // - No subsequent moves on the same face
     // - For moves on the same axis, quarter moves before half moves
     // - U before D, F before B, L before R
-    pub const fn new_qt_ordered_transitions(qt_first: bool) -> [[bool; 18]; 18] {
+    const fn new_default_transitions(ordered: bool) -> [[bool; 18]; 18] {
         let mut transitions = [[true; 18]; 18];
         let dirs = [Direction::Clockwise, Direction::CounterClockwise, Direction::Half];
         let priority_faces = [CubeFace::Up, CubeFace::Front, CubeFace::Left];
@@ -510,24 +566,13 @@ impl MoveSet {
             let mut idx_last = 0;
             while idx_last < dirs.len() {
                 let dir_last = dirs[idx_last];
-                if (dir_first as usize == Direction::Half as usize && dir_last as usize == Direction::Half as usize) || (dir_first as usize != Direction::Half as usize && dir_last as usize != Direction::Half as usize) {
+                // Enforce face order
+                if ordered {
                     let mut idx = 0;
                     while idx < priority_faces.len() {
                         let face = priority_faces[idx];
-                        transitions[Turn333::new(face.opposite(), dir_first).to_id()][Turn333::new(face, dir_last).to_id()] = false;
-                        idx += 1;
-                    }
-                } else {
-                    let (dir_first, dir_last) = if (dir_last as usize == Direction::Half as usize) == qt_first {
-                        (dir_first, dir_last)
-                    } else {
-                        (dir_last, dir_first)
-                    };
-                    let mut idx = 0;
-                    while idx < CubeFace::ALL.len() {
-                        let face = CubeFace::ALL[idx];
                         let opposite = face.opposite();
-                        transitions[Turn333::new(face, dir_last).to_id()][Turn333::new(opposite, dir_first).to_id()] = false;
+                        transitions[Turn333::new(face, dir_first).to_id()][Turn333::new(opposite, dir_last).to_id()] = false;
                         idx += 1;
                     }
                 }

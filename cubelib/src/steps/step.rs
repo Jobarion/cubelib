@@ -1,5 +1,5 @@
 use std::cmp::min;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -35,6 +35,7 @@ pub struct StepConfig {
     pub quality: usize,
     #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
     pub niss: Option<NissSwitchType>,
+    pub excluded: HashSet<Algorithm>,
     pub params: HashMap<String, String>,
 }
 
@@ -51,6 +52,7 @@ impl StepConfig {
             niss: None,
             quality: 100,
             params: Default::default(),
+            excluded: HashSet::default(),
         }
     }
 }

@@ -11,6 +11,7 @@ use crate::solver_new::htr::HTRBuilder;
 use crate::solver_new::step::{DFSParameters, MoveSet};
 use crate::solver_new::thread_util::{ToWorker, Worker};
 use crate::steps::step::{PostStepCheck, PreStepCheck, StepConfig};
+use crate::solver_new::util_steps::FilterExcluded;
 
 pub mod step;
 pub mod eo;
@@ -49,20 +50,26 @@ pub fn build_steps(mut steps: Vec<StepConfig>) -> Result<StepGroup, String> {
     while !steps.is_empty() {
         let mut step = steps.pop().unwrap();
         let mut next_prev = Some(step.kind.clone());
-        step_groups.push(match (previous, step.kind.clone()) {
+        let excluded = step.excluded.clone();
+        let mut step_group = match (previous, step.kind.clone()) {
             (None, StepKind::EO) => EOBuilder::try_from(step).map_err(|_|"Failed to parse EO step")?.build(),
             (Some(StepKind::EO), StepKind::RZP) => {
                 let mut dr = steps.pop().ok_or("Expected DR to follow RZP".to_string())?;
                 next_prev = Some(StepKind::DR);
                 let rzp_builder = RZPBuilder::try_from(step).map_err(|_|"Failed to parse RZP step")?;
                 let triggers = dr.params.remove("triggers").ok_or("Found RZP, but DR step has no triggers".to_string())?;
-                DRBuilder::try_from(dr).map_err(|_|"Failed to parse DR step")?
+                let dr_excluded = dr.excluded.clone();
+                let mut dr_step = DRBuilder::try_from(dr).map_err(|_|"Failed to parse DR step")?
                     .triggers(triggers.split(",")
                         .map(Algorithm::from_str)
                         .collect::<Result<_, _>>()
                         .map_err(|_|"Unable to parse algorithm")?)
                     .rzp(rzp_builder)
-                    .build()
+                    .build();
+                if !dr_excluded.is_empty() {
+                    dr_step.with_predicates(vec![FilterExcluded::new(dr_excluded)]);
+                }
+                dr_step
             },
             (Some(StepKind::EO), StepKind::DR) => {
                 match step.params.remove("triggers") {
@@ -89,7 +96,11 @@ pub fn build_steps(mut steps: Vec<StepConfig>) -> Result<StepGroup, String> {
             (Some(StepKind::DR), StepKind::FIN) => DRFinishBuilder::try_from(step).map_err(|_|"Failed to parse FIN step")?.build(),
             (None, x) => return Err(format!("{x:?} is not supported as a first step", )),
             (Some(a), b) => return Err(format!("Step order {a:?} > {b:?} is not supported")),
-        });
+        };
+        if !excluded.is_empty() {
+            step_group.with_predicates(vec![FilterExcluded::new(excluded)]);
+        }
+        step_groups.push(step_group);
         previous = next_prev;
     }
     Ok(StepGroup::sequential(step_groups))

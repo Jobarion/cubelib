@@ -18,6 +18,41 @@ pub struct FilterFirstNStepVariant {
     found: RefCell<HashMap<Algorithm, usize>>,
 }
 
+pub struct FilterExcluded(HashSet<Algorithm>);
+
+impl FilterExcluded {
+    pub fn new(excluded: HashSet<Algorithm>) -> Box<dyn StepPredicate> {
+        Box::new(Self(excluded.into_iter()
+            .map(to_last_move_non_prime_alg)
+            .collect()))
+    }
+}
+
+impl StepPredicate for FilterExcluded {
+    fn check_solution(&self, solution: &Solution) -> StepPredicateResult {
+        let qt_filter = if let Some(kind) = solution.steps.last().map(|x|StepKind::from(x.variant)) {
+            match kind {
+                StepKind::EO | StepKind::RZP | StepKind::DR | StepKind::HTR => true,
+                _ => false,
+            }
+        } else {
+            false
+        };
+        let solution_alg: Algorithm = solution.clone().into();
+        let solution_alg = if qt_filter {
+            to_last_move_non_prime_alg(solution_alg)
+        } else {
+            solution_alg
+        };
+
+        if self.0.contains(&solution_alg) {
+            StepPredicateResult::Rejected
+        } else {
+            StepPredicateResult::Accepted
+        }
+    }
+}
+
 impl FilterDup {
     pub fn new() -> Box<dyn StepPredicate> {
         Box::new(Self(RefCell::new(Default::default())))

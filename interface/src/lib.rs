@@ -1,3 +1,6 @@
+use std::collections::{HashMap, HashSet};
+use cubelib::algs::Algorithm;
+use cubelib::defs::StepKind;
 use cubelib::solver::solution::Solution;
 use cubelib::steps::step::StepConfig;
 use serde::{Deserialize, Serialize};

@@ -490,50 +490,50 @@ where
     next_cubes
 }
 
-// This table is much larger and requires different methods to generate.
-// Since it's the only one we'll avoid a generic implementation for now
-pub fn generate_dr_finish_table<
-    const COORD_SIZE: usize,
-    CoordParam: Coord<COORD_SIZE> + for<'a> From<&'a Cube333> + From<usize> + Copy + Hash + Eq + Debug>(
-    symmetries: Vec<Symmetry>, move_set: MoveSet, mut file: File) -> std::io::Result<MmapBinarySearchTable<COORD_SIZE, CoordParam>> where for<'a> &'a CoordParam: Into<Cube333>  {
-
-    let mut hash_table: HashMap<CoordParam, u8> = HashMap::new();
-    let mut to_check = std::collections::HashSet::from([CoordParam::from(0)]);
-    let mut depth = 0;
-    while !to_check.is_empty() {
-        to_check.retain(|coord| hash_table.get(coord).is_none());
-        debug!("To check {} at depth {}", to_check.len(), depth);
-        let mut to_check_next = std::collections::HashSet::default();
-        for coord in to_check {
-            let mut cube = Into::<Cube333>::into(&coord);
-            hash_table.insert(coord, depth);
-            for turn in move_set.st_moves.iter().chain(move_set.aux_moves.iter()) {
-                cube.turn(turn.clone());
-                let coord = CoordParam::min_with_symmetries(&cube, &symmetries);
-                if hash_table.get(&coord).is_none() {
-                    to_check_next.insert(coord);
-                }
-                cube.turn(turn.invert());
-            }
-        }
-        to_check = to_check_next;
-        depth += 1;
-    }
-    debug!("Collecting table");
-    let mut ordered_tuples = hash_table.into_iter().collect_vec();
-    debug!("Sorting");
-    ordered_tuples.sort_by(|(a, _), (b, _)|a.val().cmp(&b.val()));
-    debug!("Saving table");
-    for idx in 0..ordered_tuples.len() {
-        if idx % 1000 == 0 {
-            println!("{idx}");
-        }
-        let (c, d) = ordered_tuples[idx];
-        file.write_all((c.val() as u32).to_le_bytes().as_slice())?;
-        file.write_all(&[d])?;
-    }
-    Ok(MmapBinarySearchTable {
-        coord_type: Default::default(),
-        entries: unsafe { Mmap::map(&file) }?,
-    })
-}
+// // This table is much larger and requires different methods to generate.
+// // Since it's the only one we'll avoid a generic implementation for now
+// pub fn generate_dr_finish_table<
+//     const COORD_SIZE: usize,
+//     CoordParam: Coord<COORD_SIZE> + for<'a> From<&'a Cube333> + From<usize> + Copy + Hash + Eq + Debug>(
+//     symmetries: Vec<Symmetry>, move_set: MoveSet, mut file: File) -> std::io::Result<MmapBinarySearchTable<COORD_SIZE, CoordParam>> where for<'a> &'a CoordParam: Into<Cube333>  {
+//
+//     let mut hash_table: HashMap<CoordParam, u8> = HashMap::new();
+//     let mut to_check = std::collections::HashSet::from([CoordParam::from(0)]);
+//     let mut depth = 0;
+//     while !to_check.is_empty() {
+//         to_check.retain(|coord| hash_table.get(coord).is_none());
+//         debug!("To check {} at depth {}", to_check.len(), depth);
+//         let mut to_check_next = std::collections::HashSet::default();
+//         for coord in to_check {
+//             let mut cube = Into::<Cube333>::into(&coord);
+//             hash_table.insert(coord, depth);
+//             for turn in move_set.st_moves.iter().chain(move_set.aux_moves.iter()) {
+//                 cube.turn(turn.clone());
+//                 let coord = CoordParam::min_with_symmetries(&cube, &symmetries);
+//                 if hash_table.get(&coord).is_none() {
+//                     to_check_next.insert(coord);
+//                 }
+//                 cube.turn(turn.invert());
+//             }
+//         }
+//         to_check = to_check_next;
+//         depth += 1;
+//     }
+//     debug!("Collecting table");
+//     let mut ordered_tuples = hash_table.into_iter().collect_vec();
+//     debug!("Sorting");
+//     ordered_tuples.sort_by(|(a, _), (b, _)|a.val().cmp(&b.val()));
+//     debug!("Saving table");
+//     for idx in 0..ordered_tuples.len() {
+//         if idx % 1000 == 0 {
+//             println!("{idx}");
+//         }
+//         let (c, d) = ordered_tuples[idx];
+//         file.write_all((c.val() as u32).to_le_bytes().as_slice())?;
+//         file.write_all(&[d])?;
+//     }
+//     Ok(MmapBinarySearchTable {
+//         coord_type: Default::default(),
+//         entries: unsafe { Mmap::map(&file) }?,
+//     })
+// }

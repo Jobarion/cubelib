@@ -11,7 +11,6 @@ use crate::cube::ScrambleComponent;
 use crate::settings::{SettingsComponent, SettingsState};
 use crate::solution::SolutionComponent;
 use crate::step::*;
-use crate::util::build_toggle_chain;
 
 mod cube;
 mod step;
@@ -90,7 +89,7 @@ fn FMCAppContainer() -> impl IntoView {
             if state {
                 dr_signal_raw.1.set(true);
             }
-            fr_signal_raw.1.set(state);
+            fin_signal_raw.1.set(state);
         }),
         fin_signal_raw.2
     );
@@ -101,6 +100,14 @@ fn FMCAppContainer() -> impl IntoView {
     let htr = HTRConfig::from_local_storage((htr_signal.0, htr_signal.1));
     let fr = FRConfig::from_local_storage((fr_signal.0, fr_signal.1));
     let fin = FinishConfig::from_local_storage((fin_signal.0, fin_signal.1));
+
+    watch(move||scramble.0.get(), move|_, _, _|{
+        eo.excluded.1.set(Default::default());
+        dr.excluded.1.set(Default::default());
+        htr.excluded.1.set(Default::default());
+        fr.excluded.1.set(Default::default());
+        fin.excluded.1.set(Default::default());
+    }, false);
 
     provide_context(eo.clone());
     provide_context(rzp.clone());

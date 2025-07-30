@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-
+use cubelib::algs::Algorithm;
 use cubelib::defs::NissSwitchType;
 use cubelib::steps::util::{DR_SUBSETS, expand_subset_name};
 use cubelib::cube::*;
@@ -16,7 +16,8 @@ pub struct EOConfig {
     pub min_abs: RwSignalTup<u8>,
     pub max_abs: RwSignalTup<u8>,
     pub niss: RwSignalTup<NissSwitchType>,
-    pub variants: RwSignalTup<Vec<CubeAxis>>
+    pub variants: RwSignalTup<Vec<CubeAxis>>,
+    pub excluded: RwSignalTup<HashSet<Algorithm>>,
 }
 
 #[derive(Clone)]
@@ -40,6 +41,7 @@ pub struct DRConfig {
     pub triggers: RwSignalTup<Vec<String>>,
     pub subsets: RwSignalTup<Vec<String>>,
     pub enforce_triggers: RwSignalTup<bool>,
+    pub excluded: RwSignalTup<HashSet<Algorithm>>,
 }
 
 #[derive(Clone)]
@@ -51,6 +53,7 @@ pub struct HTRConfig {
     pub max_rel: RwSignalTup<u8>,
     pub niss: RwSignalTup<NissSwitchType>,
     pub variants: RwSignalTup<Vec<CubeAxis>>,
+    pub excluded: RwSignalTup<HashSet<Algorithm>>,
 }
 
 #[derive(Clone)]
@@ -61,7 +64,8 @@ pub struct FRConfig {
     pub min_rel: RwSignalTup<u8>,
     pub max_rel: RwSignalTup<u8>,
     pub niss: RwSignalTup<NissSwitchType>,
-    pub variants: RwSignalTup<Vec<CubeAxis>>
+    pub variants: RwSignalTup<Vec<CubeAxis>>,
+    pub excluded: RwSignalTup<HashSet<Algorithm>>,
 }
 
 #[derive(Clone)]
@@ -72,6 +76,7 @@ pub struct FinishConfig {
     pub min_rel: RwSignalTup<u8>,
     pub max_rel: RwSignalTup<u8>,
     pub leave_slice: RwSignalTup<bool>,
+    pub excluded: RwSignalTup<HashSet<Algorithm>>,
 }
 
 impl EOConfig {
@@ -81,6 +86,7 @@ impl EOConfig {
             max_abs: use_local_storage("eo-max-abs", 5),
             niss: use_local_storage("eo-niss", NissSwitchType::Always),
             variants: use_local_storage("eo-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
+            excluded: use_local_storage("eo-excluded", HashSet::new()),
         }
     }
 
@@ -93,6 +99,8 @@ impl EOConfig {
         self.max_abs.2();
         self.niss.2();
         self.variants.2();
+        self.excluded.2();
+        self.excluded.1.set(HashSet::new());
     }
 }
 
@@ -108,7 +116,8 @@ impl DRConfig {
             variants: use_local_storage("dr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
             triggers: use_local_storage("dr-triggers", vec!["R".to_string(), "R U2 R".to_string(), "R F2 R".to_string(), "R U R".to_string(), "R U' R".to_string()]),
             subsets: use_local_storage("htr-subsets", vec![]), // Legacy name
-            enforce_triggers: use_local_storage("dr-use-triggers", true)
+            enforce_triggers: use_local_storage("dr-use-triggers", true),
+            excluded: use_local_storage("dr-excluded", HashSet::new()),
         }
     }
 
@@ -129,6 +138,8 @@ impl DRConfig {
         self.triggers.2();
         self.subsets.2();
         self.enforce_triggers.2();
+        self.excluded.2();
+        self.excluded.1.set(HashSet::new());
     }
 }
 
@@ -167,6 +178,7 @@ impl HTRConfig {
             max_abs: use_local_storage("htr-max-abs", 20),
             niss: use_local_storage("htr-niss", NissSwitchType::Before),
             variants: use_local_storage("htr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
+            excluded: use_local_storage("htr-excluded", HashSet::new()),
         }
     }
 
@@ -183,6 +195,8 @@ impl HTRConfig {
         self.max_rel.2();
         self.niss.2();
         self.variants.2();
+        self.excluded.2();
+        self.excluded.1.set(HashSet::new());
     }
 }
 
@@ -196,6 +210,7 @@ impl FRConfig {
             max_abs: use_local_storage("fin-max-abs", 26),
             niss: use_local_storage("fr-niss", NissSwitchType::Before),
             variants: use_local_storage("fr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
+            excluded: use_local_storage("fr-excluded", HashSet::new()),
         }
     }
 
@@ -212,6 +227,8 @@ impl FRConfig {
         self.max_rel.2();
         self.niss.2();
         self.variants.2();
+        self.excluded.2();
+        self.excluded.1.set(HashSet::new());
     }
 }
 
@@ -224,6 +241,7 @@ impl FinishConfig {
             min_abs: use_local_storage("fin-min-abs", 0),
             max_abs: use_local_storage("fin-max-abs", 30),
             leave_slice: use_local_storage("fin-ls", false),
+            excluded: use_local_storage("fin-excluded", HashSet::new()),
         }
     }
 
@@ -238,6 +256,8 @@ impl FinishConfig {
         self.min_rel.2();
         self.max_rel.2();
         self.leave_slice.2();
+        self.excluded.2();
+        self.excluded.1.set(HashSet::new());
     }
 }
 

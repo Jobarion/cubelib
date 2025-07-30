@@ -14,7 +14,8 @@ leptos_icons = { version = "0.1.0", features = [
     "IoCloseOutline",
     "IoAddOutline",
     "IoRefreshOutline",
-    "IoShareOutline"
+    "IoShareOutline",
+    "IoTrashOutline",
 ] }
 web-sys = "=0.3.69"
 log = "0.4.20"

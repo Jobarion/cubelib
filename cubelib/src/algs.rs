@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Display, Formatter, Write};
 use std::ops::Add;
 use std::str::FromStr;
 
@@ -7,12 +7,38 @@ use crate::cube::*;
 use crate::cube::turn::{ApplyAlgorithm, Invertible, InvertibleMut, Transformable, TransformableMut, TurnableMut};
 
 #[derive(PartialEq, Eq, Hash)]
-//This is a pretty bad serialization format. We can do better if Turn is FromStr, but right now that's not enforced.
-//Implementing (De)Serialize only when Turn is FromStr breaks Solution and SolutionStep right now.
-#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub struct Algorithm {
     pub normal_moves: Vec<Turn333>,
     pub inverse_moves: Vec<Turn333>,
+}
+
+impl serde::ser::Serialize for Algorithm {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::ser::Serializer {
+        serializer.serialize_str(self.to_string().as_str())
+    }
+}
+
+struct AlgorithmVisitor;
+
+impl<'de> serde::de::Visitor<'de> for AlgorithmVisitor {
+    type Value = Algorithm;
+
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+        formatter.write_str("a valid 3x3x3 algorithm")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> where E: serde::de::Error {
+        Algorithm::from_str(value).map_err(|e|E::custom("invalid algorithm"))
+    }
+}
+
+impl<'de> serde::de::Deserialize<'de> for Algorithm {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(AlgorithmVisitor)
+    }
 }
 
 impl Into<Cube333> for Algorithm {

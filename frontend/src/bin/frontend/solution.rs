@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-
+use std::collections::{HashMap, HashSet};
+use cubelib::algs::Algorithm;
 use cubelib::defs::*;
 use cubelib::cube::*;
 use cubelib::steps::step::StepConfig;
@@ -16,14 +16,18 @@ use crate::step::{DRConfig, EOConfig, FinishConfig, FRConfig, HTRConfig, RZPConf
 #[cfg(feature = "backend")]
 pub mod backend {
     use std::cell::RefCell;
+    use std::collections::{HashMap, HashSet};
     use std::str::FromStr;
 
     use cubelib::algs::Algorithm;
-    use cubelib::solver::solution::Solution;
+    use cubelib::defs::StepKind;
+    use cubelib::solver::solution::{Solution, SolutionStep};
     use cubelib_interface::{SolverRequest, SolverResponse};
     use ehttp::Request;
+    use leptonic::Out::WriteSignal;
     use leptonic::prelude::*;
     use leptos::*;
+    use leptos_icons::IoIcon;
     use leptos_use::{watch_debounced_with_options, WatchDebouncedOptions};
 
     use crate::settings::SettingsState;
@@ -40,7 +44,6 @@ pub mod backend {
 
     #[component]
     pub fn SolutionComponent() -> impl IntoView {
-
         let scramble = Signal::derive(move || Algorithm::from_str(use_context::<RwSignalTup<String>>().expect("Scramble context required").0.get().as_str()).ok());
         let eo = use_context::<EOConfig>().expect("EO context required");
         let rzp = use_context::<RZPConfig>().expect("RZP context required");
@@ -51,17 +54,25 @@ pub mod backend {
         let settings = use_context::<SettingsState>().expect("Settings required");
 
         let settings1 = settings.clone();
-        let req_signal = Signal::derive(move||{
-            if let Some(alg) = scramble.get() {
-                let steps = get_step_configs(eo.clone(), rzp.clone(), dr.clone(), htr.clone(), fr.clone(), fin.clone(), &settings);
-                Some(SolverRequest {
-                    steps: steps.clone(),
-                    scramble: alg.to_string()
-                })
-            } else {
-                None
-            }
-        });
+        let req_signal = {
+            let eo = eo.clone();
+            let rzp = rzp.clone();
+            let dr = dr.clone();
+            let htr = htr.clone();
+            let fr = fr.clone();
+            let fin = fin.clone();
+            Signal::derive(move||{
+                if let Some(alg) = scramble.get() {
+                    let steps = get_step_configs(eo.clone(), rzp.clone(), dr.clone(), htr.clone(), fr.clone(), fin.clone(), &settings);
+                    Some(SolverRequest {
+                        steps: steps.clone(),
+                        scramble: alg.to_string(),
+                    })
+                } else {
+                    None
+                }
+            })
+        };
 
         let prev_req = create_rw_signal::<Option<Option<SolverRequest>>>(None);
 
@@ -89,38 +100,125 @@ pub mod backend {
                 fetch_solution(req.clone(), req_id.get(), solution_data, is_done_data, req_id);
             }
         }, 1000f64, WatchDebouncedOptions::default().immediate(true));
+        let eo_step = find_step(solution_data.into(), StepKind::EO);
+        let dr_step = find_step(solution_data.into(), StepKind::DR);
+        let htr_step = find_step(solution_data.into(), StepKind::HTR);
+        let fr_step = find_step(solution_data.into(), StepKind::FR);
+        let fin_step = find_step(solution_data.into(), StepKind::FIN);
 
         view! {
             {move ||
                 match solution_data.get() {
                     SolutionState::Found(Ok(s)) => view! {
                         <Code>{format!("{}", s)}</Code>
-                    },
+                    }.into_view(),
                     SolutionState::Found(Err(err)) => view! {
                         <Code>{format!("Error fetching request: {}", err)}</Code>
-                    },
+                    }.into_view(),
                     SolutionState::Requested if is_done_data.get() => view! { //Kind of a hack :(
                         <Code>"No solution found"</Code>
-                    },
+                    }.into_view(),
                     SolutionState::Requested => view! {
                         <Code>"Fetching solution..."</Code>
-                    },
+                    }.into_view(),
                     SolutionState::NotFetched => view! {
                         <Code>"Please enter a scramble"</Code>
-                    }
+                    }.into_view()
                 }
             }
             <div class:hidden=move || is_done_data.get()>
                 <ProgressBar progress=create_signal(None).0 />
             </div>
+            <h2>Exclude Solutions</h2>
+            {move||{
+                view!{
+                    <Tabs mount=Mount::Once>
+                        <Tab name="eo" label=view! {<span class=move||{if eo_step.get().is_some() { "" } else { "no-solution" }}>"EO"</span>}.into_view()>
+                            <SolutionExcludeTab step_data=eo_step get_excluded=eo.excluded.0 set_excluded=eo.excluded.1 />
+                        </Tab>
+                        <Tab name="dr" label=view! {<span class=move||{if dr_step.get().is_some() { "" } else { "no-solution" }}>"DR"</span>}.into_view()>
+                            <SolutionExcludeTab step_data=dr_step get_excluded=dr.excluded.0 set_excluded=dr.excluded.1/>
+                        </Tab>
+                        <Tab name="htr" label=view! {<span class=move||{if htr_step.get().is_some() { "" } else { "no-solution" }}>"HTR"</span>}.into_view()>
+                            <SolutionExcludeTab step_data=htr_step get_excluded=htr.excluded.0 set_excluded=htr.excluded.1/>
+                        </Tab>
+                        <Tab name="fr" label=view! {<span class=move||{if fr_step.get().is_some() { "" } else { "no-solution" }}>"FR"</span>}.into_view()>
+                            <SolutionExcludeTab step_data=fr_step get_excluded=fr.excluded.0 set_excluded=fr.excluded.1/>
+                        </Tab>
+                        <Tab name="fin" label=view! {<span class=move||{if fin_step.get().is_some() { "" } else { "no-solution" }}>"Finish"</span>}.into_view()>
+                            <SolutionExcludeTab step_data=fin_step get_excluded=fin.excluded.0 set_excluded=fin.excluded.1/>
+                        </Tab>
+                    </Tabs>
+                }.into_view()
+            }}
         }
+    }
+
+    #[component]
+    fn SolutionExcludeTab(step_data: Signal<Option<(SolutionStep, Algorithm)>>, get_excluded: Signal<HashSet<Algorithm>>, set_excluded: leptos::WriteSignal<HashSet<Algorithm>>) -> impl IntoView {
+        view! {
+            {move||if let Some((ss, alg)) = step_data.get() {
+                view! {
+                    <Button on_click=move|_|{
+                        set_excluded.update(|list|{
+                            list.insert(alg.clone());
+                        });
+                    }>{format!("Exclude: {}", ss.alg)}</Button>
+                    // <label>{format!("Current solution: {}", ss.alg)}</label>
+                }.into_view()
+            } else {
+                view! {
+                    <label>The current solution does not contain this step</label>
+                }.into_view()
+            }}
+            <h2>Excluded solutions</h2>
+            <ul>
+                {move||get_excluded.get().into_iter()
+                    .map(|n| {
+                        let n_1 = n.clone();
+                        view! {
+                        <li>
+                            <button on:click=move|_|set_excluded.update(|set|{set.remove(&n_1);})
+                                class="icon-button"
+                                style:float="left"
+                                style:font-size="15px">
+                                <Icon icon=IoIcon::IoTrashOutline/>
+                            </button>{n.to_string()}
+                        </li>
+                    }})
+                    .collect_view()}
+            </ul>
+        }
+    }
+
+    fn find_step(sd: Signal<SolutionState>, kind: StepKind) -> Signal<Option<(SolutionStep, Algorithm)>> {
+        Signal::derive(move||{
+            if let SolutionState::Found(Ok(sol)) = sd.get() {
+                let step_idx = sol.steps.iter().enumerate().find(|(_, x)|StepKind::from(x.variant) == kind).map(|(x, _)|x);
+                if let Some(step_idx) = step_idx {
+                    let full_alg = sol.steps.iter().take(step_idx + 1)
+                        .map(|s|s.alg.clone())
+                        .fold(Algorithm::new(), |mut acc, s|{
+                            acc = acc + s;
+                            acc
+                        });
+                    let step = sol.steps[step_idx].clone();
+                    Some((step, full_alg))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
     }
 
     fn fetch_solution(request: SolverRequest, id: usize, solution_callback: RwSignal<SolutionState>, done_callback: RwSignal<bool>, cur_id: RwSignal<usize>) {
         let current_bytes = RefCell::<Vec<u8>>::new(vec![]);
 
         let body = serde_json::to_vec(&request).unwrap();
-        let mut req = Request::post("https://joba.me/cubeapi/solve_stream?backend=multi_path_channel", body);
+        // let mut req = Request::post("https://joba.me/cubeapi/solve_stream?backend=multi_path_channel", body);
+        let mut req = Request::post("http://localhost:8049/solve_stream?backend=multi_path_channel", body);
         req.headers.insert("content-type".to_string(), "application/json".to_string());
 
         ehttp::streaming::fetch(req, move |res: ehttp::Result<ehttp::streaming::Part>| {
@@ -177,81 +275,10 @@ pub mod backend {
     }
 }
 
-#[cfg(feature = "wasm_solver")]
-pub mod wasm_solver {
-    use std::rc::Rc;
-    use std::str::FromStr;
-
-    use cubelib::algs::Algorithm;
-    use cubelib::cube::*;
-    use cubelib::cube::turn::ApplyAlgorithm;
-    use gloo_worker::Spawnable;
-    use leptonic::prelude::*;
-    use leptos::*;
-    use leptos_use::watch_debounced;
-
-    use frontend::worker::{FMCSolver, WorkerResponse};
-
-    use crate::solution::get_step_configs;
-    use crate::step::{DRConfig, EOConfig, FinishConfig, FRConfig, HTRConfig, RZPConfig};
-
-    #[component]
-    pub fn SolutionComponent() -> impl IntoView {
-
-        let scramble = Signal::derive(move || Algorithm::from_str(use_context::<RwSignal<String>>().expect("Scramble context required").get().as_str()).ok());
-        let eo = use_context::<EOConfig>().expect("EO context required");
-        let rzp = use_context::<RZPConfig>().expect("RZP context required");
-        let dr = use_context::<DRConfig>().expect("DR context required");
-        let htr = use_context::<HTRConfig>().expect("HTR context required");
-        let fr = use_context::<FRConfig>().expect("FR context required");
-        let fin = use_context::<FinishConfig>().expect("Finish context required");
-
-        let solver_request = Signal::derive(move || {
-            let mut cube = Cube333::default();
-            cube.apply_alg(&scramble.get().unwrap_or(Algorithm::new()));
-            (cube, get_step_configs(eo, rzp, dr, htr, fr, fin))
-        });
-
-        let bridge = FMCSolver::spawner()
-            .spawn("./cube/worker.js");
-
-        let bridge = create_rw_signal(Rc::new(bridge));
-        let bridge_data = create_rw_signal::<Option<WorkerResponse>>(None);
-
-        watch_debounced(move || solver_request.get(), move |conf, _, _| {
-            //TODO check if conf is still valid for the current solution and just skip generating a new one if it is.
-            bridge_data.set(None);
-            let bridge_handle = FMCSolver::spawner()
-                .callback(move |data| {
-                    bridge_data.set(Some(data));
-                })
-                .spawn("./cube/worker.js");
-            bridge_handle.send(conf.clone());
-            bridge.set(Rc::new(bridge_handle));
-        }, 500.0);
-
-        view! {
-            {move ||
-                match bridge_data.get() {
-                    Some(WorkerResponse::Solved(s)) => view! {
-                        <Code>{format!("{s}")}</Code>
-                    },
-                    Some(WorkerResponse::NoSolution) => view! {
-                        <Code>{format!("No solution")}</Code>
-                    },
-                    Some(WorkerResponse::InvalidStepConfig) => view! {
-                        <Code>{format!("Invalid step config (this is a bug)")}</Code>
-                    },
-                    Some(WorkerResponse::UnknownError) => view! {
-                        <Code>{format!("Unknown error")}</Code>
-                    },
-                    None => view! {
-                        <Code>"Calculating solution..."</Code>
-                    }
-                }
-            }
-        }
-    }
+#[derive(Clone, PartialEq, Eq)]
+struct SolverRequestData {
+    step_configs: Vec<StepConfig>,
+    excluded: HashMap<StepKind, HashSet<Algorithm>>,
 }
 
 fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, fr: FRConfig, fin: FinishConfig, settings: &SettingsState) -> Vec<StepConfig> {
@@ -270,6 +297,7 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
         quality: 10000,
         niss: Some(eo.niss.0.get()),
         params: Default::default(),
+        excluded: eo.excluded.0.get(),
     });
     if dr.enabled.0.get() {
         let mut params = HashMap::new();
@@ -288,6 +316,7 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
                 quality: 10000,
                 niss: Some(rzp.niss.0.get()),
                 params: Default::default(),
+                excluded: HashSet::new(),
             });
             params.insert("triggers".to_string(), dr.triggers.0.get().join(","));
             steps_config.push(StepConfig {
@@ -301,6 +330,7 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
                 quality: 10000,
                 niss: Some(dr.niss.0.get()),
                 params,
+                excluded: dr.excluded.0.get(),
             });
         } else {
             steps_config.push(StepConfig {
@@ -314,6 +344,7 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
                 quality: 10000,
                 niss: Some(dr.niss.0.get()),
                 params,
+                excluded: dr.excluded.0.get(),
             });
         }
     }
@@ -329,6 +360,7 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
             quality: 10000,
             niss: Some(htr.niss.0.get()),
             params: Default::default(),
+            excluded: htr.excluded.0.get(),
         });
     }
     if fr.enabled.0.get() {
@@ -347,6 +379,7 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
             quality: 10000,
             niss: Some(fr.niss.0.get()),
             params: Default::default(),
+            excluded: fr.excluded.0.get(),
         });
     }
     if fin.enabled.0.get() {
@@ -365,7 +398,9 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
             quality: 10000,
             niss: Some(NissSwitchType::Never),
             params: Default::default(),
+            excluded: fin.excluded.0.get(),
         });
+
     }
     steps_config
 }

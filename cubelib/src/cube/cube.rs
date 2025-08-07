@@ -135,6 +135,7 @@ impl Default for Cube333 {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct Symmetry(pub(crate) bool, pub(crate) &'static [Transformation333]);
 
 impl Symmetry {

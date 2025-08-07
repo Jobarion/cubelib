@@ -10,6 +10,7 @@ use crate::cube::*;
 use crate::cube::turn::{TransformableMut, TurnableMut};
 use crate::defs::StepVariant;
 use crate::solver::lookup_table;
+use crate::solver::lookup_table::{DepthEstimate, ArrayTable};
 use crate::solver_new::*;
 use crate::solver_new::dr::builder::RZPSettings;
 use crate::solver_new::group::StepGroup;
@@ -19,13 +20,15 @@ use crate::solver_new::util_cube::CubeState;
 use crate::steps::coord::Coord;
 use crate::steps::dr::co::COCountUD;
 use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
-use crate::steps::dr::dr_config::{ARM_UD_EO_FB_MOVESET, ARDRPruningTable, DR_UD_EO_FB_MOVESET, DRPruningTable, HTR_MOVES};
+use crate::steps::dr::dr_config::{ARM_UD_EO_FB_MOVESET, DR_UD_EO_FB_MOVESET, HTR_MOVES};
 use crate::steps::eo::coords::{BadEdgeCount, EOCoordFB};
 use crate::steps::htr::coords::HTRDRUDCoord;
 use crate::steps::htr::subsets::{DR_SUBSETS, DRSubsetFilter, Subset};
 use crate::steps::step::PostStepCheck;
 
+pub type DRPruningTable = Box<dyn DepthEstimate<{DRUDEOFB_SIZE}, DRUDEOFBCoord>>;
 pub static DR_TABLE: LazyLock<DRPruningTable> = LazyLock::new(gen_dr);
+pub type ARDRPruningTable = Box<dyn DepthEstimate<{DRUDEOFB_SIZE}, DRUDEOFBCoord>>;
 pub static AR_DR_TABLE: LazyLock<ARDRPruningTable> = LazyLock::new(gen_ar_dr);
 
 const DRUD_EOFB_ST_MOVES: &[Turn333] = &[
@@ -433,19 +436,19 @@ fn calc_rzp_state(cube: &Cube333) -> (u8, u8) {
 }
 
 fn gen_dr() -> DRPruningTable {
-    DRPruningTable::load_and_save("dr", ||lookup_table::generate(&DR_UD_EO_FB_MOVESET,
-                                                                 &|c: &Cube333| DRUDEOFBCoord::from(c),
-                                                                 &|| DRPruningTable::new(false),
-                                                                 &|table, coord|table.get(coord),
-                                                                 &|table, coord, val|table.set(coord, val))).0
+    Box::new(ArrayTable::load_and_save("dr", ||lookup_table::generate(&DR_UD_EO_FB_MOVESET,
+                                                                      &|c: &Cube333| DRUDEOFBCoord::from(c),
+                                                                      &|| ArrayTable::new(false),
+                                                                      &|table, coord|table.get(coord),
+                                                                      &|table, coord, val|table.set(coord, val))).0)
 }
 
 fn gen_ar_dr() -> ARDRPruningTable {
-    DRPruningTable::load_and_save("arm-dr", ||lookup_table::generate(&ARM_UD_EO_FB_MOVESET,
-                                                                     &|c: &Cube333| DRUDEOFBCoord::from(c),
-                                                                     &|| ARDRPruningTable::new(false),
-                                                                     &|table, coord|table.get(coord),
-                                                                     &|table, coord, val|table.set(coord, val))).0
+    Box::new(ArrayTable::load_and_save("arm-dr", ||lookup_table::generate(&ARM_UD_EO_FB_MOVESET,
+                                                                          &|c: &Cube333| DRUDEOFBCoord::from(c),
+                                                                          &|| ArrayTable::new(false),
+                                                                          &|table, coord|table.get(coord),
+                                                                          &|table, coord, val|table.set(coord, val))).0)
 }
 
 impl Cube333 {

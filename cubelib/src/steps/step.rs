@@ -10,7 +10,7 @@ use crate::cube::turn::ApplyAlgorithm;
 use crate::defs::*;
 use crate::cube::*;
 use crate::solver::df_search::{CancelToken, dfs_iter};
-use crate::solver::lookup_table::{LookupTable, NissLookupTable};
+use crate::solver::lookup_table::{DepthEstimate, ArrayTable, NissDepthEstimate, NissLookupTable};
 use crate::solver::moveset::MoveSet;
 use crate::solver::solution::{Solution, SolutionStep};
 use crate::solver::stream;
@@ -101,7 +101,7 @@ trait Heuristic {
 }
 
 struct NissPruningTableHeuristic<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>>(&'a NissLookupTable<HC_SIZE, HC>);
-struct PruningTableHeuristic<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>>(&'a LookupTable<HC_SIZE, HC>);
+struct PruningTableHeuristic<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>>(&'a ArrayTable<HC_SIZE, HC>);
 
 impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>> NissPruningTableHeuristic<'a, HC_SIZE, HC> {
     fn new(table: &'a NissLookupTable<HC_SIZE, HC>) -> Self {
@@ -110,7 +110,7 @@ impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>> NissPruningTableHeuristic<'a
 }
 
 impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>> PruningTableHeuristic<'a, HC_SIZE, HC> {
-    fn new(table: &'a LookupTable<HC_SIZE, HC>) -> Self {
+    fn new(table: &'a ArrayTable<HC_SIZE, HC>) -> Self {
         Self(table)
     }
 }
@@ -130,7 +130,7 @@ impl <const HC_SIZE: usize, HC: Coord<HC_SIZE>> Heuristic for PruningTableHeuris
 impl <const HC_SIZE: usize, HC: Coord<HC_SIZE>> Heuristic for NissPruningTableHeuristic<'_, HC_SIZE, HC> where HC: for<'a> From<&'a Cube333> {
     fn heuristic(&self, cube: &Cube333, can_niss: bool) -> u8 {
         let coord = HC::from(cube);
-        let (val, niss) = self.0.get(coord);
+        let (val, niss) = self.0.get_niss_estimate(coord);
         if can_niss && val != 0 {
             niss
         } else {
@@ -207,7 +207,7 @@ DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: for<'b> From<&'b
 
     pub fn new(move_set: &'a MoveSet,
                pre_trans: Vec<Transformation333>,
-               table: &'a LookupTable<HC_SIZE, HC>,
+               table: &'a ArrayTable<HC_SIZE, HC>,
                post_step_checker: Rc<Vec<Box<dyn PostStepCheck + 'a>>>,
                variant: crate::defs::StepVariant) -> Self {
         DefaultPruningTableStep {

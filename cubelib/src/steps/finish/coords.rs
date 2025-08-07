@@ -20,21 +20,23 @@ pub struct HTRFinishCoord(pub(crate) u32);
 pub struct HTRLeaveSliceFinishCoord(pub(crate) u16);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct DRFinishCoord(pub(crate) CPCoord, pub(crate) DRFinishSliceCoord, pub(crate) DRFinishNonSliceEP);
+pub struct DRFinishCoord(pub(crate) CPCoord, pub(crate) DRFinishNonSliceEP, pub(crate) DRFinishSliceCoord);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DRLeaveSliceFinishCoord(pub(crate) CPCoord, pub(crate) DRFinishNonSliceEP);
 
-pub const DR_FINISH_SIZE: usize = 39_016_857_600;//19_508_428_800;
+pub const DR_FINISH_SIZE: usize = 40320 * 40320 * 24 / 2;
 impl Coord<{DR_FINISH_SIZE}> for DRFinishCoord {
     fn val(&self) -> usize {
-        self.0.val() * DRFinishSliceCoord::size() * DRFinishNonSliceEP::size() +
-            self.1.val() * DRFinishNonSliceEP::size() +
-            self.2.val()
+        let raw_val = self.0.val() * DRFinishSliceCoord::size() * DRFinishNonSliceEP::size() +
+            self.1.val() * DRFinishSliceCoord::size() +
+            self.2.val();
+        raw_val >> 1
     }
 }
 
-impl Coord<{ DR_FINISH_SIZE }> for DRLeaveSliceFinishCoord {
+pub const DR_FINISH_LS_SIZE: usize = 40320 * 40320;
+impl Coord<{ DR_FINISH_LS_SIZE }> for DRLeaveSliceFinishCoord {
     fn val(&self) -> usize {
         self.0.val() * DRFinishNonSliceEP::size() +
             self.1.val()
@@ -136,17 +138,22 @@ impl From<&Cube333> for DRFinishCoord {
         let cp = CPCoord::from(&value.corners);
         let slice_ep = DRFinishSliceCoord::from(&value.edges);
         let non_slice_ep = DRFinishNonSliceEP::from(&value.edges);
-        Self(cp, slice_ep, non_slice_ep)
+        Self(cp, non_slice_ep, slice_ep)
     }
 }
 
 impl From<usize> for DRFinishCoord {
     fn from(value: usize) -> Self {
+        let value = value << 1;
+        let mut slice_ep = DRFinishSliceCoord((value % DRFinishSliceCoord::size()) as u8);
+        let value = value / DRFinishSliceCoord::size();
         let non_slice_ep = DRFinishNonSliceEP((value % DRFinishNonSliceEP::size()) as u16);
-        let value = value / DRFinishNonSliceEP::size();
-        let slice_ep = DRFinishSliceCoord((value % DRFinishSliceCoord::size()) as u8);
-        let cp = CPCoord((value / DRFinishSliceCoord::size()) as u16);
-        Self(cp, slice_ep, non_slice_ep)
+        let cp = CPCoord((value / DRFinishNonSliceEP::size()) as u16);
+        let slice_ep_parity = !cp.parity_even() as u8 ^ !non_slice_ep.parity_even() as u8 ^ !slice_ep.parity_even() as u8;
+        if slice_ep_parity & 1 == 1 {
+            slice_ep.0 = slice_ep.0 ^ 1;
+        }
+        Self(cp, non_slice_ep, slice_ep)
     }
 }
 
@@ -249,6 +256,34 @@ impl Into<Cube333> for &DRLeaveSliceFinishCoord {
     }
 }
 
+impl CPCoord {
+    pub fn parity_even(&self) -> bool {
+        inverse_permutation_n_parity_even::<8>(self.0)
+    }
+}
+
+impl DRFinishNonSliceEP {
+    pub fn parity_even(&self) -> bool {
+        inverse_permutation_n_parity_even::<8>(self.0)
+    }
+}
+
+impl DRFinishSliceCoord {
+    pub fn parity_even(&self) -> bool {
+        inverse_permutation_n_parity_even::<4>(self.0 as u16)
+    }
+}
+
+fn inverse_permutation_n_parity_even<const N: usize>(perm: u16) -> bool {
+    assert!(N <= 8);
+    let fac = [1, 2, 6, 24, 120, 720, 5040, 40320];
+    let mut parity = false;
+    for i in 1..N {
+        parity = !(parity ^ ((perm % fac[i] / fac[i-1]) & 1 == 1));
+    }
+    parity
+}
+
 // Not optimized at all
 fn inverse_permutation_n<const N: usize>(perm: u16) -> [u8; N] {
     assert!(N <= 8);
@@ -291,13 +326,13 @@ mod avx2 {
         let val = _mm_load_si128(cp_data.as_ptr() as *const __m128i);
         let corners = CornerCube333::new(_mm_slli_epi32::<5>(val));
 
-        let mut non_slice_edges = inverse_permutation_n::<8>(value.2.0);
+        let mut non_slice_edges = inverse_permutation_n::<8>(value.1.0);
         for i in 0..8 {
             if non_slice_edges[i] >= 4 {
                 non_slice_edges[i] += 4;
             }
         }
-        let mut slice_edges = inverse_permutation_n::<4>(value.1.0 as u16);
+        let mut slice_edges = inverse_permutation_n::<4>(value.2.0 as u16);
         for i in 0..4 {
             slice_edges[i] += 4;
         }

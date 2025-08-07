@@ -5,8 +5,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use std::thread::JoinHandle;
-
-
 use log::trace;
 use sorted_insert::{SortedInsertBinaryBy};
 use crate::algs::Algorithm;
@@ -14,7 +12,7 @@ use crate::cube::{Cube333, Symmetry, Transformation333, Turn333};
 use crate::cube::turn::*;
 use crate::defs::{NissSwitchType, StepVariant};
 use crate::solver::df_search::CancelToken;
-use crate::solver::lookup_table::{LookupTable, NissLookupTable, MmapBinarySearchTable};
+use crate::solver::lookup_table::{DepthEstimate, NissDepthEstimate};
 use crate::solver::solution::{Solution, SolutionStep};
 use crate::solver_new::*;
 use crate::solver_new::group::{StepPredicate, StepPredicateResult};
@@ -23,7 +21,7 @@ use crate::steps::coord::Coord;
 use crate::steps::step::{PostStepCheck, PreStepCheck};
 
 pub struct PruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'static, const PC_SIZE: usize, PC: Coord<PC_SIZE> + 'static> {
-    pub table: &'b LookupTable<C_SIZE, C>,
+    pub table: &'b Box<dyn DepthEstimate<C_SIZE, C>>,
     pub options: DFSParameters,
     pub pre_step_trans: Vec<Transformation333>,
     pub variant: StepVariant,
@@ -33,7 +31,7 @@ pub struct PruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'sta
 }
 
 pub struct NissPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'static, const PC_SIZE: usize, PC: Coord<PC_SIZE> + 'static> {
-    pub table: &'b NissLookupTable<C_SIZE, C>,
+    pub table: &'b Box<dyn NissDepthEstimate<C_SIZE, C>>,
     pub options: DFSParameters,
     pub pre_step_trans: Vec<Transformation333>,
     pub variant: StepVariant,
@@ -43,7 +41,7 @@ pub struct NissPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 
 }
 
 pub struct SymPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'static, const PC_SIZE: usize, PC: Coord<PC_SIZE> + 'static> {
-    pub table: &'b MmapBinarySearchTable<C_SIZE, C>,
+    pub table: &'b Box<dyn DepthEstimate<C_SIZE, C>>,
     pub symmetries: &'a [Symmetry],
     pub options: DFSParameters,
     pub pre_step_trans: Vec<Transformation333>,
@@ -123,7 +121,7 @@ impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: C
 
     fn heuristic(&self, state: &Cube333, can_niss_switch: bool, _: usize) -> usize {
         let coord = C::from(state);
-        let (val, niss) = self.table.get(coord);
+        let (val, niss) = self.table.get_niss_estimate(coord);
         if can_niss_switch && val != 0 {
             niss as usize
         } else {

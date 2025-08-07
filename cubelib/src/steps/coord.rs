@@ -5,7 +5,7 @@ use std::ops::Deref;
 use crate::cube::Symmetry;
 use crate::cube::turn::ApplySymmetry;
 
-pub trait Coord<const SIZE: usize>: Into<usize> + Copy + Clone + Eq + PartialEq + Hash + Debug {
+pub trait Coord<const SIZE: usize>: Into<usize> + Copy + Clone + Eq + PartialEq + Hash + Debug + Send + Sync {
     fn size() -> usize {
         SIZE
     }

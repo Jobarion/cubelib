@@ -11,6 +11,7 @@ use crate::cube::turn::{ApplyAlgorithm, InvertibleMut, TurnableMut};
 use crate::defs::StepVariant;
 use crate::steps::coord::Coord;
 use crate::steps::dr::coords::DRUDEOFBCoord;
+use crate::solver::lookup_table::{DepthEstimate, NissDepthEstimate};
 use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
 use crate::steps::htr::coords::HTRDRUDCoord;
 use crate::steps::htr::htr_config::{HTRPruningTable, HTRSubsetTable};
@@ -186,7 +187,7 @@ fn fill_table(htr_table: &mut HTRPruningTable, subset_table: &mut HTRSubsetTable
                     cube
                 }) {
                 let coord = HTRDRUDCoord::from(&cube);
-                let (_, niss) = htr_table.get(coord);
+                let (_, niss) = htr_table.get_niss_estimate(coord);
                 if niss != htr_table.empty_val() {
                     continue;
                 }

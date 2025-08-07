@@ -1,3 +1,4 @@
+#![feature(lock_value_accessors)]
 extern crate core;
 
 #[macro_use]

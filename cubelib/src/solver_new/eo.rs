@@ -6,14 +6,16 @@ use log::debug;
 use crate::cube::*;
 use crate::defs::StepVariant;
 use crate::solver::lookup_table;
+use crate::solver::lookup_table::{DepthEstimate, ArrayTable};
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
 use crate::steps::coord::ZeroCoord;
 use crate::steps::eo::coords::EOCoordFB;
-use crate::steps::eo::eo_config::{EO_FB_MOVESET, EOPruningTable};
+use crate::steps::eo::eo_config::{EO_FB_MOVESET};
 
 pub static EO_TABLE: LazyLock<EOPruningTable> = LazyLock::new(gen_eo);
+pub type EOPruningTable = Box<dyn DepthEstimate<2048, EOCoordFB>>;
 
 const EOFB_ST_MOVES: &[Turn333] = &[
     Turn333::F, Turn333::Fi,
@@ -62,11 +64,11 @@ impl EOStep {
 }
 
 fn gen_eo() -> EOPruningTable {
-    EOPruningTable::load_and_save("eo", ||lookup_table::generate(&EO_FB_MOVESET,
-                                                                 &|c: &crate::cube::Cube333| EOCoordFB::from(c),
-                                                                 &|| EOPruningTable::new(false),
-                                                                 &|table, coord|table.get(coord),
-                                                                 &|table, coord, val|table.set(coord, val))).0
+    Box::new(ArrayTable::load_and_save("eo", ||lookup_table::generate(&EO_FB_MOVESET,
+                                                                      &|c: &crate::cube::Cube333| EOCoordFB::from(c),
+                                                                      &|| ArrayTable::new(false),
+                                                                      &|table, coord|table.get(coord),
+                                                                      &|table, coord, val|table.set(coord, val))).0)
 }
 
 pub mod builder {

@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display, Formatter, Write};
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::Add;
 use std::str::FromStr;
 
@@ -12,14 +12,17 @@ pub struct Algorithm {
     pub inverse_moves: Vec<Turn333>,
 }
 
+#[cfg(feature = "serde_support")]
 impl serde::ser::Serialize for Algorithm {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::ser::Serializer {
         serializer.serialize_str(self.to_string().as_str())
     }
 }
 
+#[cfg(feature = "serde_support")]
 struct AlgorithmVisitor;
 
+#[cfg(feature = "serde_support")]
 impl<'de> serde::de::Visitor<'de> for AlgorithmVisitor {
     type Value = Algorithm;
 
@@ -28,10 +31,11 @@ impl<'de> serde::de::Visitor<'de> for AlgorithmVisitor {
     }
 
     fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> where E: serde::de::Error {
-        Algorithm::from_str(value).map_err(|e|E::custom("invalid algorithm"))
+        Algorithm::from_str(value).map_err(|_|E::custom("invalid algorithm"))
     }
 }
 
+#[cfg(feature = "serde_support")]
 impl<'de> serde::de::Deserialize<'de> for Algorithm {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

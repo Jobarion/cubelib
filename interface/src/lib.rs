@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::iter::Map;
 use cubelib::algs::Algorithm;
 use cubelib::defs::StepKind;
 use cubelib::solver::solution::Solution;

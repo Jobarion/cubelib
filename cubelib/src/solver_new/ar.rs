@@ -7,14 +7,16 @@ use log::debug;
 use crate::cube::*;
 use crate::defs::StepVariant;
 use crate::solver::lookup_table;
+use crate::solver::lookup_table::{DepthEstimate, ArrayTable};
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
 use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
-use crate::steps::dr::dr_config::{EOARPruningTable, HTR_DR_UD_STATE_CHANGE_MOVES, PRE_AR_UD_EO_FB_MOVESET};
+use crate::steps::dr::dr_config::{HTR_DR_UD_STATE_CHANGE_MOVES, PRE_AR_UD_EO_FB_MOVESET};
 use crate::steps::eo::coords::EOCoordFB;
 
 pub static EO_ARM_TABLE: LazyLock<EOARPruningTable> = LazyLock::new(gen_eo_ar);
+pub type EOARPruningTable = Box<dyn DepthEstimate<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>>;
 
 const PRE_AR_UD_EO_FB_AUX_MOVES: &[Turn333] = &[
     Turn333::U2,
@@ -64,11 +66,11 @@ impl ARStep {
 }
 
 fn gen_eo_ar() -> EOARPruningTable {
-    EOARPruningTable::load_and_save("eo-arm", ||lookup_table::generate(&PRE_AR_UD_EO_FB_MOVESET,
-                                                                       &|c: &Cube333| DRUDEOFBCoord::from(c),
-                                                                       &|| EOARPruningTable::new(false),
-                                                                       &|table, coord|table.get(coord),
-                                                                       &|table, coord, val|table.set(coord, val))).0
+    Box::new(ArrayTable::load_and_save("eo-arm", ||lookup_table::generate(&PRE_AR_UD_EO_FB_MOVESET,
+                                                                          &|c: &Cube333| DRUDEOFBCoord::from(c),
+                                                                          &|| ArrayTable::new(false),
+                                                                          &|table, coord|table.get(coord),
+                                                                          &|table, coord, val|table.set(coord, val))).0)
 }
 
 pub mod builder {

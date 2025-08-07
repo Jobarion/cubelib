@@ -6,25 +6,29 @@ use log::debug;
 use crate::cube::*;
 use crate::defs::StepVariant;
 use crate::solver::lookup_table;
-use crate::solver::lookup_table::{LoadFromDisk, MmapBinarySearchTable};
+use crate::solver::lookup_table::{LoadFromDisk, ArrayTable, DepthEstimate};
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
 use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
 use crate::steps::dr::dr_config::DR_UD_EO_FB_MOVES;
 use crate::steps::finish::coords::{DR_FINISH_SIZE, DRFinishCoord, FR_FINISH_SIZE, FRUDFinishCoord, HTR_FINISH_SIZE, HTR_LEAVE_SLICE_FINISH_SIZE, HTRFinishCoord, HTRLeaveSliceFinishCoord};
-use crate::steps::finish::finish_config::{FRFinishPruningTable, FRUD_FINISH_MOVESET, HTR_FINISH_MOVESET, HTRFinishPruningTable, HTRLeaveSliceFinishPruningTable};
+use crate::steps::finish::finish_config::{FRUD_FINISH_MOVESET, HTR_FINISH_MOVESET};
 use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
 
 pub static FR_FINISH_TABLE: LazyLock<FRFinishPruningTable> = LazyLock::new(||gen_fr_finish());
+pub type FRFinishPruningTable = Box<dyn DepthEstimate<{FR_FINISH_SIZE}, FRUDFinishCoord>>;
 pub static HTR_FINISH_TABLE: LazyLock<HTRFinishPruningTable> = LazyLock::new(||gen_htr_finish());
+pub type HTRFinishPruningTable = Box<dyn DepthEstimate<{HTR_FINISH_SIZE}, HTRFinishCoord>>;
 pub static HTR_LEAVE_SLICE_FINISH_TABLE: LazyLock<HTRLeaveSliceFinishPruningTable> = LazyLock::new(||gen_htr_ls_finish());
+pub type HTRLeaveSliceFinishPruningTable = Box<dyn DepthEstimate<{HTR_LEAVE_SLICE_FINISH_SIZE}, HTRLeaveSliceFinishCoord>>;
 pub static DR_FINISH_TABLE: LazyLock<DRFinishPruningTable> = LazyLock::new(||load_dr_finish());
+pub type DRFinishPruningTable = Box<dyn DepthEstimate<{DR_FINISH_SIZE}, DRFinishCoord>>;
 
-pub type DRFinishPruningTable = MmapBinarySearchTable<{ DR_FINISH_SIZE }, DRFinishCoord>;
+pub type HashedDRFinishPruningTable = ArrayTable<{ DR_FINISH_SIZE }, DRFinishCoord>;
 
-const DR_SYMMETRIES: &[Symmetry] = &[
+pub const DR_SYMMETRIES: &[Symmetry] = &[
     Symmetry::U0, Symmetry::UM0,
     Symmetry::U1, Symmetry::UM1,
     Symmetry::U2, Symmetry::UM2,
@@ -117,9 +121,8 @@ impl DRFinishStep {
                 CubeAxis::LR => (vec![Transformation333::Z], dr),
             })
             .map(|(trans, axis)|{
-                StepGroup::single(Box::new(SymPruningTableStep::<{ DR_FINISH_SIZE }, DRFinishCoord, { DRUDEOFB_SIZE }, DRUDEOFBCoord>  {
+                StepGroup::single(Box::new(PruningTableStep::<{ DR_FINISH_SIZE }, DRFinishCoord, { DRUDEOFB_SIZE }, DRUDEOFBCoord>  {
                     table: &DR_FINISH_TABLE,
-                    symmetries: DR_SYMMETRIES,
                     options: dfs.clone(),
                     pre_step_trans: trans,
                     variant: StepVariant::DRFIN(axis),
@@ -180,31 +183,31 @@ impl HTRFinishStep {
 }
 
 fn gen_fr_finish() -> FRFinishPruningTable {
-    FRFinishPruningTable::load_and_save("frfin", ||lookup_table::generate(&FRUD_FINISH_MOVESET,
-                                          &|c: &Cube333| FRUDFinishCoord::from(c),
-                                          &|| FRFinishPruningTable::new(false),
-                                          &|table, coord|table.get(coord),
-                                          &|table, coord, val|table.set(coord, val))).0
+    Box::new(ArrayTable::load_and_save("frfin", ||lookup_table::generate(&FRUD_FINISH_MOVESET,
+                                                                         &|c: &Cube333| FRUDFinishCoord::from(c),
+                                                                         &|| ArrayTable::new(false),
+                                                                         &|table, coord|table.get(coord),
+                                                                         &|table, coord, val|table.set(coord, val))).0)
 }
 
 fn gen_htr_finish() -> HTRFinishPruningTable {
-    HTRFinishPruningTable::load_and_save("htrfin", ||lookup_table::generate(&HTR_FINISH_MOVESET,
-                                               &|c: &Cube333| HTRFinishCoord::from(c),
-                                               &|| HTRFinishPruningTable::new(false),
-                                               &|table, coord|table.get(coord),
-                                               &|table, coord, val|table.set(coord, val))).0
+    Box::new(ArrayTable::load_and_save("htrfin", ||lookup_table::generate(&HTR_FINISH_MOVESET,
+                                                                          &|c: &Cube333| HTRFinishCoord::from(c),
+                                                                          &|| ArrayTable::new(false),
+                                                                          &|table, coord|table.get(coord),
+                                                                          &|table, coord, val|table.set(coord, val))).0)
 }
 
 fn gen_htr_ls_finish() -> HTRLeaveSliceFinishPruningTable {
-    HTRLeaveSliceFinishPruningTable::load_and_save("htrfinls", ||lookup_table::generate(&HTR_FINISH_MOVESET,
-                                               &|c: &Cube333| HTRLeaveSliceFinishCoord::from(c),
-                                               &|| HTRLeaveSliceFinishPruningTable::new(false),
-                                               &|table, coord|table.get(coord),
-                                               &|table, coord, val|table.set(coord, val))).0
+    Box::new(ArrayTable::load_and_save("htrfinls", ||lookup_table::generate(&HTR_FINISH_MOVESET,
+                                                                            &|c: &Cube333| HTRLeaveSliceFinishCoord::from(c),
+                                                                            &|| ArrayTable::new(false),
+                                                                            &|table, coord|table.get(coord),
+                                                                            &|table, coord, val|table.set(coord, val))).0)
 }
 
 fn load_dr_finish() -> DRFinishPruningTable {
-    MmapBinarySearchTable::load_from_disk("333", "drfin").unwrap()
+    Box::new(ArrayTable::load_from_disk("333", "drfin").unwrap())
 }
 
 pub mod builder {

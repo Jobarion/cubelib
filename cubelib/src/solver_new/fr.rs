@@ -6,15 +6,18 @@ use log::debug;
 use crate::cube::*;
 use crate::defs::StepVariant;
 use crate::solver::lookup_table;
+use crate::solver::lookup_table::{DepthEstimate, ArrayTable};
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
 use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
-use crate::steps::fr::fr_config::{FR_UD_MOVESET, FRLeaveSlicePruningTable, FRPruningTable};
+use crate::steps::fr::fr_config::{FR_UD_MOVESET};
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
 
 pub static FR_TABLE: LazyLock<FRPruningTable> = LazyLock::new(||gen_fr());
+pub type FRPruningTable = Box<dyn DepthEstimate<{FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord>>;
 pub static FR_LEAVE_SLICE_TABLE: LazyLock<FRLeaveSlicePruningTable> = LazyLock::new(||gen_frls());
+pub type FRLeaveSlicePruningTable = Box<dyn DepthEstimate<{FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord>>;
 
 const FRUD_ST_MOVES: &[Turn333] = &[
     Turn333::U2, Turn333::D2,
@@ -74,19 +77,19 @@ impl FRStep {
 }
 
 fn gen_fr() -> FRPruningTable {
-    FRPruningTable::load_and_save("fr", ||lookup_table::generate(&FR_UD_MOVESET,
-                                              &|c: &Cube333| FRUDWithSliceCoord::from(c),
-                                              &|| FRPruningTable::new(false),
-                                              &|table, coord|table.get(coord),
-                                              &|table, coord, val|table.set(coord, val))).0
+    Box::new(ArrayTable::load_and_save("fr", ||lookup_table::generate(&FR_UD_MOVESET,
+                                                                      &|c: &Cube333| FRUDWithSliceCoord::from(c),
+                                                                      &|| ArrayTable::new(false),
+                                                                      &|table, coord|table.get(coord),
+                                                                      &|table, coord, val|table.set(coord, val))).0)
 }
 
 fn gen_frls() -> FRLeaveSlicePruningTable {
-    FRLeaveSlicePruningTable::load_and_save("frls", ||lookup_table::generate(&FR_UD_MOVESET,
-                                              &|c: &Cube333| FRUDNoSliceCoord::from(c),
-                                              &|| FRLeaveSlicePruningTable::new(false),
-                                              &|table, coord|table.get(coord),
-                                              &|table, coord, val|table.set(coord, val))).0
+    Box::new(ArrayTable::load_and_save("frls", ||lookup_table::generate(&FR_UD_MOVESET,
+                                                                        &|c: &Cube333| FRUDNoSliceCoord::from(c),
+                                                                        &|| ArrayTable::new(false),
+                                                                        &|table, coord|table.get(coord),
+                                                                        &|table, coord, val|table.set(coord, val))).0)
 }
 
 

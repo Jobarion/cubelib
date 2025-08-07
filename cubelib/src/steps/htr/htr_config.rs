@@ -3,7 +3,7 @@ use std::rc::Rc;
 use itertools::Itertools;
 use crate::cube::*;
 use crate::defs::*;
-use crate::solver::lookup_table::{LookupTable, NissLookupTable};
+use crate::solver::lookup_table::{ArrayTable, NissLookupTable};
 use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
 pub(crate) use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
@@ -11,7 +11,7 @@ use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, Step, Step
 use crate::steps::Step333;
 
 pub type HTRPruningTable = NissLookupTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
-pub type HTRSubsetTable = LookupTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
+pub type HTRSubsetTable = ArrayTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
 pub type HTRPruningTableStep<'a> = DefaultPruningTableStep<'a, {HTRDRUD_SIZE}, HTRDRUDCoord, {DRUDEOFB_SIZE}, DRUDEOFBCoord>;
 
 pub fn from_step_config(table: &HTRPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {

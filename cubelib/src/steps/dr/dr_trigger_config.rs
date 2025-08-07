@@ -14,6 +14,7 @@ use crate::cube::*;
 use crate::cube::turn::{TransformableMut, TurnableMut};
 #[cfg(feature = "333htr")]
 use crate::steps::htr::htr_config::HTRSubsetTable;
+use crate::solver::lookup_table::DepthEstimate;
 use crate::solver::moveset::TransitionTable333;
 use crate::steps::dr::dr_config::{DR_UD_EO_FB_MOVES, DR_UD_EO_FB_MOVESET, DR_UD_EO_FB_STATE_CHANGE_MOVES, DRPruningTable, HTR_DR_UD_MOVESET};
 use crate::steps::{MoveSet333, Step333};

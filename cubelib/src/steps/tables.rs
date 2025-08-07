@@ -28,7 +28,8 @@ use crate::steps::htr::coords::HTRDRUDCoord;
 use crate::steps::htr::htr_config::{HTR_DR_UD_MOVESET, HTRPruningTable, HTRSubsetTable};
 use crate::solver::lookup_table;
 #[cfg(feature = "fs")]
-use crate::solver::lookup_table::{LoadFromDisk, SaveToDisk, LookupTable, NissLookupTable};
+use crate::solver::lookup_table::{LoadFromDisk, SaveToDisk, ArrayTable, NissLookupTable};
+use crate::solver::lookup_table::DepthEstimate;
 #[cfg(feature = "fs")]
 use crate::steps::coord::Coord;
 
@@ -188,7 +189,7 @@ impl PruningTables333 {
     }
 
     #[cfg(feature = "fs")]
-    pub fn load_and_gen_normal<const C_SIZE: usize, C: Coord<C_SIZE>>(key: &str, val: &mut Option<LookupTable<C_SIZE, C>>, gen_f: &dyn Fn() -> LookupTable<C_SIZE, C>, load_f: &dyn Fn() -> Result<LookupTable<C_SIZE, C>, String>) -> bool {
+    pub fn load_and_gen_normal<const C_SIZE: usize, C: Coord<C_SIZE>>(key: &str, val: &mut Option<ArrayTable<C_SIZE, C>>, gen_f: &dyn Fn() -> ArrayTable<C_SIZE, C>, load_f: &dyn Fn() -> Result<ArrayTable<C_SIZE, C>, String>) -> bool {
         if val.is_none() {
             let res = load_f();
             match res {
@@ -232,7 +233,7 @@ impl PruningTables333 {
     }
 
     #[cfg(feature = "fs")]
-    pub fn load_and_save_normal<const C_SIZE: usize, C: Coord<C_SIZE>>(&mut self, key: &str, mut_f: &dyn Fn(&mut Self) -> &mut Option<LookupTable<C_SIZE, C>>, gen_f: &dyn Fn() -> LookupTable<C_SIZE, C>, load_f: &dyn Fn() -> Result<LookupTable<C_SIZE, C>, String>) -> bool {
+    pub fn load_and_save_normal<const C_SIZE: usize, C: Coord<C_SIZE>>(&mut self, key: &str, mut_f: &dyn Fn(&mut Self) -> &mut Option<ArrayTable<C_SIZE, C>>, gen_f: &dyn Fn() -> ArrayTable<C_SIZE, C>, load_f: &dyn Fn() -> Result<ArrayTable<C_SIZE, C>, String>) -> bool {
         let should_save = Self::load_and_gen_normal(key, mut_f(self), gen_f, load_f);
         if should_save {
             if let Err(e) = self.save(key) {
@@ -454,7 +455,7 @@ fn gen_htr() -> HTRPruningTable {
     let table = lookup_table::generate(&HTR_DR_UD_MOVESET,
                                            &|c: &crate::cube::Cube333| HTRDRUDCoord::from(c),
                                            &|| HTRPruningTable::new(),
-                                           &|table, coord|table.get(coord).0,
+                                           &|table, coord|table.get(coord),
                                            &|table, coord, val|table.set(coord, val));
     #[cfg(not(target_arch = "wasm32"))]
     debug!("Took {}ms", time.elapsed().as_millis());

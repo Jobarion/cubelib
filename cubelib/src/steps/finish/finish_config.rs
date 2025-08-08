@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::cube::*;
 use crate::defs::*;
-use crate::solver::lookup_table::ArrayTable;
+use crate::solver::lookup_table::InMemoryIndexTable;
 use crate::solver::moveset::TransitionTable333;
 use crate::steps::{fr, MoveSet333, Step333};
 use crate::steps::dr::dr_config::DR_UD_EO_FB_MOVES;
@@ -37,15 +37,15 @@ pub const HTR_FINISH_MOVESET: MoveSet333 = MoveSet333 {
     ],
     transitions: &finish_transitions(),
 };
-pub type FRFinishPruningTable = ArrayTable<{ FR_FINISH_SIZE }, FRUDFinishCoord>;
+pub type FRFinishPruningTable = InMemoryIndexTable<{ FR_FINISH_SIZE }, FRUDFinishCoord>;
 pub type FRFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord>;
 
 pub type FRFinishLeaveSlicePruningTableStep<'a> = DefaultPruningTableStep::<'a, { FR_FINISH_SIZE }, FRUDFinishCoord, {FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord>;
 
-pub type HTRFinishPruningTable = ArrayTable<{ HTR_FINISH_SIZE }, HTRFinishCoord>;
+pub type HTRFinishPruningTable = InMemoryIndexTable<{ HTR_FINISH_SIZE }, HTRFinishCoord>;
 pub type HTRFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { HTR_FINISH_SIZE }, HTRFinishCoord, { HTRDRUD_SIZE }, HTRDRUDCoord>;
 
-pub type HTRLeaveSliceFinishPruningTable = ArrayTable<{ HTR_LEAVE_SLICE_FINISH_SIZE }, HTRLeaveSliceFinishCoord>;
+pub type HTRLeaveSliceFinishPruningTable = InMemoryIndexTable<{ HTR_LEAVE_SLICE_FINISH_SIZE }, HTRLeaveSliceFinishCoord>;
 pub type HTRLeaveSliceFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { HTR_LEAVE_SLICE_FINISH_SIZE }, HTRLeaveSliceFinishCoord, { HTRDRUD_SIZE }, HTRDRUDCoord>;
 
 pub fn from_step_config_fr(table: &FRFinishPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {

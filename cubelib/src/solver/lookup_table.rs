@@ -1,27 +1,20 @@
 use std::collections::HashMap;
-use std::fmt::Debug;
-#[cfg(feature = "fs")]
-use std::fs;
+use std::fmt::{Debug, Display, Formatter};
 #[cfg(feature = "fs")]
 use std::fs::File;
 use std::hash::Hash;
 #[cfg(feature = "fs")]
 use std::io::{Read, Write};
 use std::marker::PhantomData;
-use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
-use std::sync::RwLock;
-use std::time::{Duration, Instant};
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 #[cfg(feature = "fs")]
 use home::home_dir;
-use itertools::Itertools;
 use log::{debug, info, warn};
-use memmap2::Mmap;
-use num_traits::{ToPrimitive};
+use memmap2::{Mmap, MmapOptions};
 #[cfg(feature = "fs")]
 use num_traits::{FromPrimitive};
 use crate::cube::*;
 use crate::cube::turn::{Invertible, TurnableMut};
-use rayon::prelude::*;
 use crate::solver::moveset::MoveSet;
 use crate::steps::coord::Coord;
 use crate::steps::MoveSet333;
@@ -36,11 +29,9 @@ pub trait NissDepthEstimate<const C_SIZE: usize, C: Coord<C_SIZE>>: Send + Sync 
     fn get_niss_estimate(&self, target: C) -> (u8, u8);
 }
 
-// impl <const C_SIZE: usize, C: Coord<C_SIZE>, NDE: NissDepthEstimate<C_SIZE, C>> DepthEstimate<C_SIZE, C> for NDE {
-//     fn get(&self, target: C) -> u8 {
-//         self.get_niss_estimate(target).0
-//     }
-// }
+pub type InMemoryIndexTable<const C_SIZE: usize, C: Coord<C_SIZE>> = IndexTable<C_SIZE, C, [u8], Vec<u8>>;
+pub type MemoryMappedIndexTable<const C_SIZE: usize, C: Coord<C_SIZE>> = IndexTable<C_SIZE, C, [u8], Mmap>;
+pub type InMemoryNissIndexTable<const C_SIZE: usize, C: Coord<C_SIZE>> = NissIndexTable<C_SIZE, C, [u8], Vec<u8>>;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[repr(u8)]
@@ -49,190 +40,89 @@ pub enum TableType {
     Uncompressed = 0u8,
     Compressed = 1u8,
     Niss = 2u8,
-    Sym = 3u8,
+    Sym = 3u8, // unused
 }
 
-pub struct HashTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
-    entries: HashMap<usize, u8>,
-    coord_type: PhantomData<C>,
+struct TableHeader {
+    version: u8,
+    table_type: TableType,
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> HashTable<C_SIZE, C> {
-    pub fn new() -> Self {
-        Self {
-            entries: Default::default(),
-            coord_type: Default::default(),
-        }
+impl TableHeader {
+    const fn size() -> u64 {
+        2
     }
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> EmptyVal for HashTable<C_SIZE, C> {
-    fn empty_val(&self) -> u8 {
-        0xFF
+impl TryFrom<[u8; 2]> for TableHeader {
+    type Error = TableError;
+
+    fn try_from(value: [u8; 2]) -> Result<Self, Self::Error> {
+        Ok(Self {
+            version: value[0],
+            table_type: TableType::from_u8(value[1]).ok_or(TableError::InvalidHeader)?
+        })
     }
 }
 
-pub struct MmapBinarySearchTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
-    pub(crate) coord_type: PhantomData<C>,
-    pub entries: Mmap,
-}
-
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> EmptyVal for MmapBinarySearchTable<C_SIZE, C> {
-    fn empty_val(&self) -> u8 {
-        0xFF
+impl Into<[u8; 2]> for TableHeader {
+    fn into(self) -> [u8; 2] {
+        [self.version, self.table_type as u8]
     }
 }
 
-#[derive(Clone)]
-pub struct ArrayTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
-    pub(crate) entries: Box<[u8]>,
+pub struct IndexTable<const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> {
+    data: F,
     coord_type: PhantomData<C>,
     compressed: bool,
 }
 
-#[derive(Clone)]
-pub struct NissLookupTable<const C_SIZE: usize, C: Coord<C_SIZE>> {
-    entries: Box<[u8]>,
-    coord_type: PhantomData<C>,
+pub struct NissIndexTable<const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> {
+    table: IndexTable<C_SIZE, C, T, F>,
+}
+#[derive(Debug)]
+pub enum TableError {
+    OutdatedVersion,
+    InvalidHeader,
+    InvalidFormat,
+    IOError(std::io::Error)
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> Into<Vec<u8>> for &ArrayTable<C_SIZE, C> {
-    fn into(self) -> Vec<u8> {
-        let table_type = if self.compressed {
-            TableType::Compressed
-        } else {
-            TableType::Uncompressed
-        };
-        let mut ser = vec![VERSION, table_type.to_u8().unwrap()];
-        ser.extend(self.entries.iter());
-        ser
-    }
-}
-
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> Into<Vec<u8>> for &NissLookupTable<C_SIZE, C> {
-    fn into(self) -> Vec<u8> {
-        let mut ser = vec![VERSION, TableType::Niss.to_u8().unwrap()];
-        ser.extend(self.entries.iter());
-        ser
-    }
-}
-
-impl<const C_SIZE: usize, C: Coord<C_SIZE>> DepthEstimate<C_SIZE, C> for HashTable<C_SIZE, C> {
-    fn get(&self, id: C) -> u8 {
-        self.entries.get(&id.val()).cloned().unwrap_or(self.empty_val())
-    }
-}
-
-impl<const C_SIZE: usize, C: Coord<C_SIZE>> DepthEstimate<C_SIZE, C> for ArrayTable<C_SIZE, C> {
-    fn get(&self, id: C) -> u8 {
-        self.get_direct(id)
-    }
-}
-
-impl<const C_SIZE: usize, C: Coord<C_SIZE>> DepthEstimate<C_SIZE, C> for MmapBinarySearchTable<C_SIZE, C> {
-    fn get(&self, target: C) -> u8 {
-        let mut size = self.entries.len() / 5;
-        let mut base = 0;
-        let target = target.val() as u32;
-        while size > 1 {
-            let half = size / 2;
-            let mid = base + half;
-            let mid_idx = mid * 5;
-            let c = u32::from_le_bytes(self.entries[mid_idx..(mid_idx+4)].try_into().unwrap());
-            if c == target {
-                return self.entries[mid_idx + 4]
-            }
-            base = if c < target {
-                mid
-            } else {
-                base
-            };
-            size -= half;
-        }
-        let base_idx = base * 5;
-        let c = u32::from_le_bytes(self.entries[base_idx..(base_idx+4)].try_into().unwrap());
-        if c == target {
-            self.entries[base_idx + 4]
-        } else {
-            0xFF
+impl Display for TableError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TableError::OutdatedVersion => write!(f, "Outdated table version"),
+            TableError::InvalidHeader => write!(f, "Invalid table header data"),
+            TableError::InvalidFormat => write!(f, "Invalid table type"),
+            TableError::IOError(e) => write!(f, "Unexpected IO error: {e}"),
         }
     }
 }
 
-impl<const C_SIZE: usize, C: Coord<C_SIZE>> NissDepthEstimate<C_SIZE, C> for NissLookupTable<C_SIZE, C> {
-    fn get_niss_estimate(&self, target: C) -> (u8, u8) {
-        let id: usize = target.into();
-        let entry = self.entries[id];
-        (entry & 0x0F, entry >> 4)
+impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> IndexTable<C_SIZE, C, T, F>{
+    pub fn open_file(puzzle_id: &str, table_type: &str) -> Result<File, TableError> {
+        let mut dir = home_dir().unwrap();
+        dir.push(".cubelib");
+        dir.push("tables");
+        dir.push(puzzle_id);
+        dir.push(format!("{table_type}.tbl"));
+        debug!("Loading {puzzle_id} {table_type} table from {dir:?}");
+        File::open(dir).map_err(|e|TableError::IOError(e))
+    }
+
+    pub fn create_file(puzzle_id: &str, table_type: &str) -> Result<File, TableError> {
+        let mut dir = home_dir().unwrap();
+        dir.push(".cubelib");
+        dir.push("tables");
+        dir.push(puzzle_id);
+        dir.push(format!("{table_type}.tbl"));
+        debug!("Loading {puzzle_id} {table_type} table from {dir:?}");
+        File::create(dir).map_err(|e|TableError::IOError(e))
     }
 }
 
-impl<const C_SIZE: usize, C: Coord<C_SIZE>> DepthEstimate<C_SIZE, C> for NissLookupTable<C_SIZE, C> {
-    fn get(&self, id: C) -> u8 {
-        self.get_niss_estimate(id).0
-    }
-}
-
-impl<const C_SIZE: usize, C: Coord<C_SIZE>> ArrayTable<C_SIZE, C> {
-    pub fn new(compressed: bool) -> Self {
-        Self::new_with_size(compressed, C_SIZE)
-    }
-
-    pub fn new_with_size(compressed: bool, size: usize) -> Self {
-        let size = size.min(C_SIZE);
-        let entries = if compressed {
-            vec![0xFF; (size + 1) / 2].into_boxed_slice()
-        } else {
-            vec![0xFF; size].into_boxed_slice()
-        };
-        ArrayTable {
-            entries,
-            coord_type: PhantomData,
-            compressed,
-        }
-    }
-
-    pub fn get_direct<A: Into<usize>>(&self, id: A) -> u8 {
-        let id: usize = id.into();
-        if self.compressed {
-            let entry = self.entries[id >> 1];
-            let val = entry >> ((id & 1) << 2);
-            val & 0x0F
-        } else {
-            self.entries[id]
-        }
-    }
-
-    pub fn set_direct<A: Into<usize>>(&mut self, id: A, entry: u8) {
-        let id: usize = id.into();
-        let entry = entry & 0xF;
-        if self.compressed {
-            let value = self.entries[id >> 1];
-            let mask = 0xF0u8 >> ((id & 1) << 2);
-            let entry = entry << ((id & 1) << 2);
-            self.entries[id >> 1] = value & mask | entry;
-        } else {
-            self.entries[id] = entry;
-        }
-    }
-
-    pub fn get_bytes(&self) -> Vec<u8> {
-        let table_type = if self.compressed {
-            TableType::Compressed
-        } else {
-            TableType::Uncompressed
-        };
-        let mut ser = vec![VERSION, table_type.to_u8().unwrap()];
-        ser.extend(self.entries.iter());
-        ser
-    }
-
-    pub fn set(&mut self, id: C, entry: u8) {
-        self.set_direct(id, entry)
-    }
-
-    #[cfg(feature = "fs")]
-    pub fn load_and_save<F: FnMut() -> ArrayTable<C_SIZE, C>>(key: &str, mut gen_f: F) -> (Self, bool) {
+impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> IndexTable<C_SIZE, C, T, F> where Self: LoadFromDisk + SaveToDisk {
+    pub fn load_and_save<FN: FnMut() -> InMemoryIndexTable<C_SIZE, C>>(key: &str, mut gen_f: FN) -> (Self, bool) {
         match Self::load_from_disk("333", key) {
             Ok(t) => {
                 debug!("Loaded {key} table from disk");
@@ -244,42 +134,35 @@ impl<const C_SIZE: usize, C: Coord<C_SIZE>> ArrayTable<C_SIZE, C> {
                 if let Err(e) = table.save_to_disk("333", key) {
                     warn!("Failed to save {key} table. {e}");
                 }
+                let table = Self::load_from_disk("333", key).expect("Must be able to load newly created table");
                 (table, true)
             }
         }
     }
 }
 
-impl<const C_SIZE: usize, C: Coord<C_SIZE>> NissLookupTable<C_SIZE, C> {
-    pub fn new() -> Self {
-        NissLookupTable {
-            entries: vec![0xFF; C_SIZE].into_boxed_slice().try_into().unwrap(),
-            coord_type: PhantomData,
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> MemoryMappedIndexTable<C_SIZE, C> {
+    pub fn load_and_save<FN: FnMut() -> InMemoryIndexTable<C_SIZE, C>>(key: &str, mut gen_f: FN) -> (Self, bool) {
+        match Self::load_from_disk("333", key) {
+            Ok(t) => {
+                debug!("Loaded {key} table from disk");
+                (t, false)
+            },
+            Err(_) => {
+                info!("Generating {key} table...");
+                let table = gen_f();
+                if let Err(e) = table.save_to_disk("333", key) {
+                    warn!("Failed to save {key} table. {e}");
+                }
+                let table = Self::load_from_disk("333", key).expect("Must be able to load newly created table");
+                (table, true)
+            }
         }
     }
+}
 
-    pub fn empty_val(&self) -> u8 {
-        0x0F
-    }
-
-    pub fn get_bytes(&self) -> Vec<u8> {
-        let mut ser = vec![VERSION, TableType::Niss.to_u8().unwrap()];
-        ser.extend(self.entries.iter());
-        ser
-    }
-
-    pub fn set(&mut self, id: C, entry: u8) {
-        let id: usize = id.into();
-        self.entries[id] = (self.entries[id] & 0xF0) | (entry & 0x0F)
-    }
-
-    pub fn set_niss(&mut self, id: C, niss: u8) {
-        let id: usize = id.into();
-        self.entries[id] = (self.entries[id] & 0x0F) | (niss << 4)
-    }
-
-    #[cfg(feature = "fs")]
-    pub fn load_and_save<F: FnMut() -> NissLookupTable<C_SIZE, C>>(key: &str, mut gen_f: F) -> Self {
+impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> NissIndexTable<C_SIZE, C, T, F> where Self: LoadFromDisk + SaveToDisk {
+    pub fn load_and_save<FN: FnMut() -> InMemoryNissIndexTable<C_SIZE, C>>(key: &str, mut gen_f: FN) -> Self {
         match Self::load_from_disk("333", key) {
             Ok(t) => {
                 debug!("Loaded {key} table from disk");
@@ -291,17 +174,130 @@ impl<const C_SIZE: usize, C: Coord<C_SIZE>> NissLookupTable<C_SIZE, C> {
                 if let Err(e) = table.save_to_disk("333", key) {
                     warn!("Failed to save {key} table. {e}");
                 }
+                let table = Self::load_from_disk("333", key).expect("Must be able to load newly created table");
                 table
             }
         }
     }
 }
 
-pub trait EmptyVal {
-    fn empty_val(&self) -> u8;
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for MemoryMappedIndexTable<C_SIZE, C> {
+    fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, TableError> where Self: Sized{
+        let mut file = Self::open_file(puzzle_id, table_type)?;
+        let mut buf = [0;2];
+        file.read_exact(&mut buf).map_err(|e|TableError::IOError(e))?;
+        let header = TableHeader::try_from(buf)?;
+        if header.version != VERSION {
+            return Err(TableError::OutdatedVersion);
+        }
+        let mmap = unsafe {
+            MmapOptions::new()
+                .offset(TableHeader::size())
+                .map(&file)
+        }.map_err(|e|TableError::IOError(e))?;
+        if header.table_type == TableType::Compressed {
+            assert_eq!(mmap.len(), (C_SIZE + 1) / 2, "Unexpected table size.");
+        } else if header.table_type == TableType::Uncompressed {
+            assert_eq!(mmap.len(), C_SIZE, "Unexpected table size.");
+        } else {
+            return Err(TableError::InvalidFormat);
+        }
+        Ok(Self {
+            data: mmap,
+            coord_type: PhantomData,
+            compressed: header.table_type == TableType::Compressed,
+        })
+    }
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> EmptyVal for ArrayTable<C_SIZE, C> {
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for InMemoryIndexTable<C_SIZE, C> {
+    fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, TableError>
+    where
+        Self: Sized
+    {
+        let mut file = Self::open_file(puzzle_id, table_type)?;
+        let mut buf = [0;2];
+        file.read_exact(&mut buf).map_err(|e|TableError::IOError(e))?;
+        let header = TableHeader::try_from(buf)?;
+        if header.version != VERSION {
+            return Err(TableError::OutdatedVersion);
+        }
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).map_err(|e|TableError::IOError(e))?;
+        if header.table_type == TableType::Compressed {
+            assert_eq!(buffer.len(), (C_SIZE + 1) / 2);
+        } else if header.table_type == TableType::Uncompressed {
+            assert_eq!(buffer.len(), C_SIZE);
+        } else {
+            return Err(TableError::InvalidFormat);
+        }
+
+        Ok(Self {
+            data: buffer,
+            coord_type: PhantomData,
+            compressed: header.table_type == TableType::Compressed,
+        })
+    }
+}
+
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for InMemoryNissIndexTable<C_SIZE, C> {
+    fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, TableError>
+    where
+        Self: Sized
+    {
+        InMemoryIndexTable::load_from_disk(puzzle_id, table_type).map(|t|Self{
+            table: t
+        })
+    }
+}
+
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> SaveToDisk for InMemoryIndexTable<C_SIZE, C> {
+    fn save_to_disk(&self, puzzle_id: &str, table_type: &str) -> Result<(), TableError> {
+        let mut file = Self::create_file(puzzle_id, table_type)?;
+        let header: [u8; 2] = TableHeader {
+            version: VERSION,
+            table_type: if self.compressed {
+                TableType::Compressed
+            } else {
+                TableType::Uncompressed
+            }
+        }.into();
+        file.write_all(header.as_slice()).map_err(|e|TableError::IOError(e))?;
+        file.write_all(&self.data).map_err(|e|TableError::IOError(e))?;
+        Ok(())
+    }
+}
+
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> SaveToDisk for InMemoryNissIndexTable<C_SIZE, C> {
+    fn save_to_disk(&self, puzzle_id: &str, table_type: &str) -> Result<(), TableError> {
+        self.table.save_to_disk(puzzle_id, table_type)
+    }
+}
+
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> InMemoryIndexTable<C_SIZE, C> {
+    pub fn new(compressed: bool) -> Self {
+        let data = if compressed {
+            vec![0xFF; (C_SIZE + 1) / 2]
+        } else {
+            vec![0xFF; C_SIZE]
+        };
+        Self {
+            data,
+            coord_type: PhantomData,
+            compressed,
+        }
+    }
+}
+
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> InMemoryNissIndexTable<C_SIZE, C> {
+    pub fn new() -> Self {
+        Self {
+            table: InMemoryIndexTable::new(false)
+        }
+    }
+}
+
+impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> EmptyVal for IndexTable<C_SIZE, C, T, F>{
     fn empty_val(&self) -> u8 {
         if self.compressed {
             0x0F
@@ -311,118 +307,88 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> EmptyVal for ArrayTable<C_SIZE, C> 
     }
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> EmptyVal for NissLookupTable<C_SIZE, C> {
+impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> EmptyVal for NissIndexTable<C_SIZE, C, T, F>{
     fn empty_val(&self) -> u8 {
         0x0F
     }
 }
 
+impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> DepthEstimate<C_SIZE, C> for IndexTable<C_SIZE, C, T, F>{
+    fn get(&self, target: C) -> u8 {
+        self.get_direct(target)
+    }
+}
+
+impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> NissDepthEstimate<C_SIZE, C> for NissIndexTable<C_SIZE, C, T, F>{
+    fn get_niss_estimate(&self, target: C) -> (u8, u8) {
+        let entry = self.table.get(target);
+        (entry & 0x0F, entry >> 4)
+    }
+}
+
+impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> DepthEstimate<C_SIZE, C> for NissIndexTable<C_SIZE, C, T, F>{
+    fn get(&self, target: C) -> u8 {
+        self.get_niss_estimate(target).0
+    }
+}
+
+impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> IndexTable<C_SIZE, C, T, F> {
+    pub fn get_direct<A: Into<usize>>(&self, id: A) -> u8 {
+        let id: usize = id.into();
+        if self.compressed {
+            let entry = self.data[id >> 1];
+            let val = entry >> ((id & 1) << 2);
+            val & 0x0F
+        } else {
+            self.data[id]
+        }
+    }
+}
+
+impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: IndexMut<usize, Output = u8> + ?Sized + Send + Sync, F: DerefMut<Target = T> + Send + Sync> IndexTable<C_SIZE, C, T, F> {
+    pub fn set(&mut self, id: C, entry: u8) {
+        self.set_direct(id, entry)
+    }
+
+    pub(crate) fn set_direct<A: Into<usize>>(&mut self, id: A, entry: u8) {
+        let id: usize = id.into();
+        if self.compressed {
+            let value = self.data[id >> 1];
+            let mask = 0xF0u8 >> ((id & 1) << 2);
+            let entry = entry << ((id & 1) << 2);
+            self.data[id >> 1] = value & mask | entry;
+        } else {
+            self.data[id] = entry
+        }
+    }
+}
+
+impl <const C_SIZE: usize, C: Coord<C_SIZE>> InMemoryNissIndexTable<C_SIZE, C> {
+    pub fn set(&mut self, id: C, entry: u8) {
+        let id: usize = id.into();
+        let niss = self.table.get_direct(id) & 0xF0;
+        self.table.set_direct(id, (entry & 0x0F) | niss);
+    }
+
+    pub fn set_niss(&mut self, id: C, niss: u8) {
+        let id: usize = id.into();
+        let v = self.table.get_direct(id) & 0x0F;
+        self.table.set_direct(id, v | (niss << 4));
+    }
+}
+
+pub trait EmptyVal {
+    fn empty_val(&self) -> u8;
+}
+
 #[cfg(feature = "fs")]
 pub trait SaveToDisk {
-    fn save_to_disk(&self, puzzle_id: &str, table_type: &str) -> std::io::Result<()>;
+    fn save_to_disk(&self, puzzle_id: &str, table_type: &str) -> Result<(), TableError>;
 }
 
 #[cfg(feature = "fs")]
 pub trait LoadFromDisk {
-    fn load(data: Box<Vec<u8>>) -> Result<Self, String> where Self: Sized;
-
-    fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, String> where Self: Sized {
-        let mut dir = home_dir().unwrap();
-        dir.push(".cubelib");
-        dir.push("tables");
-        dir.push(puzzle_id);
-        dir.push(format!("{table_type}.tbl"));
-        debug!("Loading {puzzle_id} {table_type} table from {dir:?}");
-        let mut file = File::open(dir).map_err(|e|e.to_string())?;
-        let mut buffer = Box::new(Vec::new());
-        file.read_to_end(&mut buffer).map_err(|e|e.to_string())?;
-        Self::load(buffer)
-    }
-}
-
-#[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for ArrayTable<C_SIZE, C> {
-    fn load(mut data: Box<Vec<u8>>) -> Result<Self, String> {
-        let version = data[0];
-        if version != VERSION {
-            return Err("Invalid version".to_string())
-        }
-        let table_type: TableType = TableType::from_u8(data[1]).unwrap();
-        assert_ne!(table_type, TableType::Niss);
-        data.drain(0..2);
-        if table_type == TableType::Compressed {
-            assert_eq!(data.len(), (C_SIZE + 1) / 2);
-        } else {
-            assert_eq!(data.len(), C_SIZE);
-        }
-
-        Ok(ArrayTable {
-            entries: data.into_boxed_slice().try_into().unwrap(),
-            coord_type: PhantomData,
-            compressed: table_type == TableType::Compressed,
-        })
-    }
-}
-
-#[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for NissLookupTable<C_SIZE, C> {
-    fn load(mut data: Box<Vec<u8>>) -> Result<Self, String> {
-        let version = data[0];
-        if version != VERSION {
-            return Err("Invalid version".to_string())
-        }
-        let table_type: TableType = TableType::from_u8(data[1]).unwrap();
-        assert_eq!(table_type, TableType::Niss);
-        data.drain(0..2);
-        assert_eq!(data.len(), C_SIZE);
-
-        Ok(NissLookupTable {
-            entries: data.into_boxed_slice().try_into().unwrap(),
-            coord_type: PhantomData,
-        })
-    }
-}
-
-#[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for MmapBinarySearchTable<C_SIZE, C> {
-    fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, String>
-    where
-        Self: Sized,
-    {
-        let mut dir = home_dir().unwrap();
-        dir.push(".cubelib");
-        dir.push("tables");
-        dir.push(puzzle_id);
-        dir.push(format!("{table_type}.tbl"));
-        debug!("Loading {puzzle_id} {table_type} table from {dir:?}");
-        let file = File::open(dir).map_err(|e|e.to_string())?;
-        let mmap = unsafe {
-            Mmap::map(&file)
-        }.map_err(|e|e.to_string())?;
-        Ok(Self {
-            entries: mmap,
-            coord_type: Default::default()
-        })
-    }
-
-    fn load(_: Box<Vec<u8>>) -> Result<Self, String> {
-        unimplemented!()
-    }
-}
-
-#[cfg(feature = "fs")]
-impl <T> SaveToDisk for T where for<'a> &'a T: Into<Vec<u8>> {
-    fn save_to_disk(&self, puzzle_id: &str, table_type: &str) -> std::io::Result<()> {
-        let mut dir = home_dir().unwrap();
-        dir.push(".cubelib");
-        dir.push("tables");
-        dir.push(puzzle_id);
-        fs::create_dir_all(dir.clone())?;
-        dir.push(format!("{table_type}.tbl"));
-        let mut file = File::create(dir)?;
-        file.write_all(Into::<Vec<u8>>::into(self).as_slice())?;
-        Ok(())
-    }
+    fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, TableError> where Self: Sized;
 }
 
 pub fn generate<
@@ -564,13 +530,12 @@ where
 pub fn generate_large_table<
     const C_SIZE: usize,
     C: Coord<C_SIZE>,
->(move_set: &MoveSet333) -> ArrayTable<{C_SIZE}, C> where for <'a> C: From<&'a Cube333>, for <'a> &'a C: Into<Cube333>, C: From<usize> {
-    let mut table = ArrayTable::new(true);
+>(move_set: &MoveSet333) -> InMemoryIndexTable<{C_SIZE}, C> where for <'a> C: From<&'a Cube333>, for <'a> &'a C: Into<Cube333>, C: From<usize> {
+    let mut table = InMemoryIndexTable::new(true);
     table.set_direct(C::from(&Cube333::default()), 0);
 
     let mut depth = 1;
     let empty_val = table.empty_val();
-    let mut table = table;
     while depth < empty_val {
         let mut changed = 0usize;
         let mut touched = 0usize;
@@ -581,7 +546,7 @@ pub fn generate_large_table<
                 touched += 1;
                 let percentage = (touched * 10 / C::size()) as u8;
                 if percentage - 1 == last_percentage {
-                    debug!("Depth {depth}/{}, {}%", empty_val - 1, percentage * 10);
+                    info!("Depth {depth}/{}, {}%", empty_val - 1, percentage * 10);
                     last_percentage = percentage;
                 }
                 if table.get_direct(idx) == depth - 1 {
@@ -597,24 +562,6 @@ pub fn generate_large_table<
                     }
                 }
             });
-        // for idx in 0..C::size() {
-        //     if last_msg.elapsed() > Duration::from_secs(60) {
-        //         debug!("Depth {depth}, {}%", idx * 100 / C::size());
-        //         last_msg = Instant::now();
-        //     }
-        //     if table.get_direct(idx) == depth - 1 {
-        //         let mut cube: Cube333 = (&C::from(idx)).into();
-        //         for turn in move_set.st_moves.iter().chain(move_set.aux_moves.iter()) {
-        //             cube.turn(turn.clone());
-        //             let coord = C::from(&cube);
-        //             if table.get(coord) == table.empty_val() {
-        //                 changed += 1;
-        //                 table.set(coord, depth);
-        //             }
-        //             cube.turn(turn.invert());
-        //         }
-        //     }
-        // }
         debug!("Positions at depth {depth}: {}", changed);
         depth += 1;
     }

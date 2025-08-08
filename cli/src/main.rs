@@ -3,7 +3,7 @@ extern crate core;
 use std::collections::HashMap;
 use home::home_dir;
 use std::fs;
-use std::io::ErrorKind;
+use std::io::{BufWriter, ErrorKind, Read, Write};
 use std::str::FromStr;
 use std::time::Instant;
 
@@ -13,16 +13,18 @@ use cubelib::cube::*;
 use cubelib::cube::turn::InvertibleMut;
 use cubelib::defs::{NissSwitchType, StepKind};
 use cubelib::solver::df_search::CancelToken;
+use cubelib::solver::lookup_table::InMemoryIndexTable;
 use cubelib::solver::solution::Solution;
 use cubelib::solver::stream;
 use cubelib::solver_new::util_steps::{FilterDup, FilterLastMoveNotPrime};
 use cubelib::steps::{eo, solver};
 use cubelib::steps::step::StepConfig;
 use cubelib::steps::tables::PruningTables333;
+use indicatif::ProgressStyle;
 use log::{error, info, log};
 use regex::Regex;
 use simple_logger::SimpleLogger;
-use crate::cli::{Cli, InvertCommand, LogLevel, SolutionFormat, SolveCommand, SolverBackend};
+use crate::cli::{Cli, Commands, DownloadCommand, InvertCommand, LogLevel, SolutionFormat, SolveCommand, SolverBackend};
 use crate::config::{SolverConfig, CubelibConfig};
 
 mod cli;
@@ -70,12 +72,11 @@ fn main() {
         }
     }
 
-    match {
-        cli.command
-    } {
-        cli::Commands::Solve(cmd) => solve(cmd, config.solver_config),
-        cli::Commands::Invert(cmd) => invert(cmd),
-        cli::Commands::Scramble => scramble(),
+    match cli.command {
+        Commands::Solve(cmd) => solve(cmd, config.solver_config),
+        Commands::Invert(cmd) => invert(cmd),
+        Commands::Scramble => scramble(),
+        Commands::Download(cmd) => download(cmd),
     }
 }
 
@@ -89,6 +90,59 @@ fn scramble() {
     solver_config.steps = "EO[max=7;niss=never] > DR[niss=never] > HTR[niss=never] > FIN[niss=never]".to_string();
 
     find_and_print_solutions_iter_stream(cube, solver_config);
+}
+
+fn download(cmd: DownloadCommand) {
+    // This is a dummy type because we need to provide concrete generic types
+    let file = match InMemoryIndexTable::<0, cubelib::steps::coord::ZeroCoord>::create_file("333", cmd.table.as_str()) {
+        Ok(file) => file,
+        Err(e) => {
+            error!("Failed to create local file. {e}");
+            return
+        }
+    };
+
+    let url = format!("https://joba.me/public/cubelib-tables/{}.tbl", cmd.table);
+    let mut resp = match reqwest::blocking::get(url.clone()) {
+        Ok(resp) => resp,
+        Err(e) => {
+            error!("Failed to download from {url}. {e}");
+            return
+        }
+    };
+
+    if !resp.status().is_success() {
+        error!("HTTP error: {}", resp.status());
+        return
+    }
+    let progress_bar = if let Some(content_length) = resp.content_length() {
+        let pb = indicatif::ProgressBar::new(content_length);
+        pb.set_message(format!("Downloading {}.tbl", cmd.table));
+        pb.set_style(ProgressStyle::with_template("[{elapsed_precise}] {bar:40} {decimal_bytes}/{decimal_total_bytes}").unwrap());
+        pb
+    } else {
+        indicatif::ProgressBar::new_spinner()
+    };
+    let mut buf = [0; 2048];
+    let mut writer = BufWriter::new(file);
+    loop {
+        let read = match resp.read(&mut buf) {
+            Ok(read) => read,
+            Err(e) => {
+                error!("Failed to download file: {e}");
+                return
+            }
+        };
+        if read == 0 {
+            break
+        }
+        if let Err(e) = writer.write_all(&buf[..read]) {
+            error!("Local IO error: {e}");
+            return
+        }
+        progress_bar.inc(read as u64);
+    }
+    info!("Finished downloading pruning table.");
 }
 
 fn read_scramble(input: &String) -> Algorithm {
@@ -206,7 +260,8 @@ fn parse_step_configs_iter_stream(conf: &SolverConfig) -> Result<Vec<StepConfig>
                     niss: default_niss_type,
                     step_limit: None,
                     quality: conf.quality,
-                    params: HashMap::new()
+                    params: HashMap::new(),
+                    excluded: Default::default(),
                 });
             } else {
                 if !step.ends_with("]") {
@@ -224,7 +279,8 @@ fn parse_step_configs_iter_stream(conf: &SolverConfig) -> Result<Vec<StepConfig>
                     niss: default_niss_type,
                     step_limit: None,
                     quality: conf.quality,
-                    params: HashMap::new()
+                    params: HashMap::new(),
+                    excluded: Default::default(),
                 };
                 let params: Vec<&str> = (&step[(param_start + 1)..(step.len() - 1)]).split(";").collect();
                 for param in params {

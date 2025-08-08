@@ -28,12 +28,11 @@ use crate::steps::htr::coords::HTRDRUDCoord;
 use crate::steps::htr::htr_config::{HTR_DR_UD_MOVESET, HTRPruningTable, HTRSubsetTable};
 use crate::solver::lookup_table;
 #[cfg(feature = "fs")]
-use crate::solver::lookup_table::{LoadFromDisk, SaveToDisk, ArrayTable, NissLookupTable};
-use crate::solver::lookup_table::DepthEstimate;
+use crate::solver::lookup_table::{LoadFromDisk, SaveToDisk};
+use crate::solver::lookup_table::{DepthEstimate, InMemoryIndexTable, InMemoryNissIndexTable, TableError};
 #[cfg(feature = "fs")]
 use crate::steps::coord::Coord;
 
-#[derive(Clone)]
 pub struct PruningTables333 {
     #[cfg(feature = "333eo")]
     eo: Option<EOPruningTable>,
@@ -120,7 +119,7 @@ impl PruningTables333 {
     }
 
     #[cfg(feature = "fs")]
-    pub fn save(&self, key: &str) -> std::io::Result<()> {
+    pub fn save(&self, key: &str) -> Result<(), TableError> {
         match key {
             #[cfg(feature = "333eo")]
             "eo" => if let Some(tbl) = &self.eo {
@@ -164,7 +163,7 @@ impl PruningTables333 {
     }
 
     #[cfg(feature = "fs")]
-    pub fn load(&mut self, key: &str) -> Result<(), String> {
+    pub fn load(&mut self, key: &str) -> Result<(), TableError> {
         match key {
             #[cfg(feature = "333eo")]
             "eo" => self.eo = Some(EOPruningTable::load_from_disk("333", key)?),
@@ -189,7 +188,7 @@ impl PruningTables333 {
     }
 
     #[cfg(feature = "fs")]
-    pub fn load_and_gen_normal<const C_SIZE: usize, C: Coord<C_SIZE>>(key: &str, val: &mut Option<ArrayTable<C_SIZE, C>>, gen_f: &dyn Fn() -> ArrayTable<C_SIZE, C>, load_f: &dyn Fn() -> Result<ArrayTable<C_SIZE, C>, String>) -> bool {
+    pub fn load_and_gen_normal<const C_SIZE: usize, C: Coord<C_SIZE>>(key: &str, val: &mut Option<InMemoryIndexTable<C_SIZE, C>>, gen_f: &dyn Fn() -> InMemoryIndexTable<C_SIZE, C>, load_f: &dyn Fn() -> Result<InMemoryIndexTable<C_SIZE, C>, TableError>) -> bool {
         if val.is_none() {
             let res = load_f();
             match res {
@@ -211,7 +210,7 @@ impl PruningTables333 {
     }
 
     #[cfg(feature = "fs")]
-    pub fn load_and_gen_niss<const C_SIZE: usize, C: Coord<C_SIZE>>(key: &str, val: &mut Option<NissLookupTable<C_SIZE, C>>, gen_f: &dyn Fn() -> NissLookupTable<C_SIZE, C>, load_f: &dyn Fn() -> Result<NissLookupTable<C_SIZE, C>, String>) -> bool {
+    pub fn load_and_gen_niss<const C_SIZE: usize, C: Coord<C_SIZE>>(key: &str, val: &mut Option<InMemoryNissIndexTable<C_SIZE, C>>, gen_f: &dyn Fn() -> InMemoryNissIndexTable<C_SIZE, C>, load_f: &dyn Fn() -> Result<InMemoryNissIndexTable<C_SIZE, C>, TableError>) -> bool {
         if val.is_none() {
             let res = load_f();
             match res {
@@ -233,7 +232,7 @@ impl PruningTables333 {
     }
 
     #[cfg(feature = "fs")]
-    pub fn load_and_save_normal<const C_SIZE: usize, C: Coord<C_SIZE>>(&mut self, key: &str, mut_f: &dyn Fn(&mut Self) -> &mut Option<ArrayTable<C_SIZE, C>>, gen_f: &dyn Fn() -> ArrayTable<C_SIZE, C>, load_f: &dyn Fn() -> Result<ArrayTable<C_SIZE, C>, String>) -> bool {
+    pub fn load_and_save_normal<const C_SIZE: usize, C: Coord<C_SIZE>>(&mut self, key: &str, mut_f: &dyn Fn(&mut Self) -> &mut Option<InMemoryIndexTable<C_SIZE, C>>, gen_f: &dyn Fn() -> InMemoryIndexTable<C_SIZE, C>, load_f: &dyn Fn() -> Result<InMemoryIndexTable<C_SIZE, C>, TableError>) -> bool {
         let should_save = Self::load_and_gen_normal(key, mut_f(self), gen_f, load_f);
         if should_save {
             if let Err(e) = self.save(key) {
@@ -246,7 +245,7 @@ impl PruningTables333 {
     }
 
     #[cfg(feature = "fs")]
-    pub fn load_and_save_niss<const C_SIZE: usize, C: Coord<C_SIZE>>(&mut self, key: &str, mut_f: &dyn Fn(&mut Self) -> &mut Option<NissLookupTable<C_SIZE, C>>, gen_f: &dyn Fn() -> NissLookupTable<C_SIZE, C>, load_f: &dyn Fn() -> Result<NissLookupTable<C_SIZE, C>, String>) -> bool {
+    pub fn load_and_save_niss<const C_SIZE: usize, C: Coord<C_SIZE>>(&mut self, key: &str, mut_f: &dyn Fn(&mut Self) -> &mut Option<InMemoryNissIndexTable<C_SIZE, C>>, gen_f: &dyn Fn() -> InMemoryNissIndexTable<C_SIZE, C>, load_f: &dyn Fn() -> Result<InMemoryNissIndexTable<C_SIZE, C>, TableError>) -> bool {
         let should_save = Self::load_and_gen_niss(key, mut_f(self), gen_f, load_f);
         if should_save {
             if let Err(e) = self.save(key) {

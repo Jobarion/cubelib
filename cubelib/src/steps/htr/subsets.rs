@@ -2,7 +2,7 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::str::FromStr;
 use itertools::Itertools;
-use log::{trace, debug, info, warn};
+use log::{debug, info, warn};
 use tinyset::Set64;
 use crate::algs::Algorithm;
 use crate::cube::*;
@@ -11,7 +11,7 @@ use crate::cube::turn::{ApplyAlgorithm, InvertibleMut, TurnableMut};
 use crate::defs::StepVariant;
 use crate::steps::coord::Coord;
 use crate::steps::dr::coords::DRUDEOFBCoord;
-use crate::solver::lookup_table::{DepthEstimate, NissDepthEstimate};
+use crate::solver::lookup_table::{DepthEstimate, EmptyVal, NissDepthEstimate};
 use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
 use crate::steps::htr::coords::HTRDRUDCoord;
 use crate::steps::htr::htr_config::{HTRPruningTable, HTRSubsetTable};
@@ -174,7 +174,6 @@ fn fill_table(htr_table: &mut HTRPruningTable, subset_table: &mut HTRSubsetTable
         .collect_vec();
     let mut check_next: Vec<Cube333> = vec![];
     loop {
-        trace!("To check: {}", to_check.len());
         for cube in to_check.iter().cloned().flat_map(|mut a|{
             let b = a.clone();
             a.invert();

@@ -1,3 +1,4 @@
+#![feature(lazy_type_alias)]
 #![feature(lock_value_accessors)]
 extern crate core;
 

@@ -6,7 +6,7 @@ use log::debug;
 use crate::cube::*;
 use crate::defs::StepVariant;
 use crate::solver::lookup_table;
-use crate::solver::lookup_table::{DepthEstimate, ArrayTable, NissDepthEstimate, NissLookupTable, SaveToDisk};
+use crate::solver::lookup_table::{DepthEstimate, NissDepthEstimate, SaveToDisk, InMemoryIndexTable, InMemoryNissIndexTable};
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
@@ -16,7 +16,7 @@ use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
 
 pub static HTR_TABLES: LazyLock<(HTRPruningTable, HTRSubsetTable)> = LazyLock::new(||gen_htr_with_subsets());
 pub type HTRPruningTable = Box<dyn NissDepthEstimate<{HTRDRUD_SIZE}, HTRDRUDCoord>>;
-pub type HTRSubsetTable = ArrayTable<{HTRDRUD_SIZE}, HTRDRUDCoord>;
+pub type HTRSubsetTable = InMemoryIndexTable<{HTRDRUD_SIZE}, HTRDRUDCoord>;
 
 const HTR_DRUD_ST_MOVES: &[Turn333] = &[
     Turn333::U, Turn333::Ui,
@@ -66,12 +66,12 @@ impl HTRStep {
 }
 
 fn gen_htr_with_subsets() -> (HTRPruningTable, HTRSubsetTable) {
-    let mut htr_table = NissLookupTable::load_and_save("htr", ||lookup_table::generate(&HTR_DR_UD_MOVESET,
+    let mut htr_table = InMemoryNissIndexTable::load_and_save("htr", ||lookup_table::generate(&HTR_DR_UD_MOVESET,
                                                &|c: &Cube333| HTRDRUDCoord::from(c),
-                                               &|| NissLookupTable::new(),
+                                               &|| InMemoryNissIndexTable::new(),
                                                &|table, coord|table.get(coord),
                                                &|table, coord, val|table.set(coord, val)));
-    let (htr_subset_table, generated) = ArrayTable::load_and_save("htr-subset", ||crate::steps::htr::subsets::gen_subset_tables(&mut htr_table));
+    let (htr_subset_table, generated) = InMemoryIndexTable::load_and_save("htr-subset", ||crate::steps::htr::subsets::gen_subset_tables(&mut htr_table));
     if generated {
         _ = htr_table.save_to_disk("333", "htr");
     }

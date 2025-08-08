@@ -98,7 +98,12 @@ impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: C
 }
 
 impl<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for NissPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where PC: for<'c> From<&'c Cube333> {
-    fn is_cube_ready(&self, cube: &Cube333, _: Option<StepVariant>) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, previous: Option<StepVariant>) -> bool {
+        if let Some(previous) = previous {
+            if !previous.can_solve_next(&self.variant) {
+                return false
+            }
+        }
         PC::from(cube).val() == 0
     }
 }

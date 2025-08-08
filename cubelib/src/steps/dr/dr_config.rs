@@ -5,7 +5,7 @@ use itertools::Itertools;
 
 use crate::cube::*;
 use crate::defs::*;
-use crate::solver::lookup_table::ArrayTable;
+use crate::solver::lookup_table::InMemoryIndexTable;
 use crate::solver::moveset::TransitionTable333;
 use crate::steps::{MoveSet333, Step333};
 use crate::steps::dr::coords::{DRUD_SIZE, DRUDCoord, DRUDEOFB_SIZE, DRUDEOFBCoord};
@@ -83,11 +83,11 @@ pub const DR_UD_EO_FB_MOVESET: MoveSet333 = MoveSet333 {
     transitions: &dr_transitions(CubeFace::Left),
 };
 
-pub type DRDirectPruningTable = ArrayTable<{ DRUD_SIZE }, DRUDCoord>;
-pub type DRPruningTable = ArrayTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
+pub type DRDirectPruningTable = InMemoryIndexTable<{ DRUD_SIZE }, DRUDCoord>;
+pub type DRPruningTable = InMemoryIndexTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
 pub type DRPruningTableStep<'a> = DefaultPruningTableStep<'a, {DRUDEOFB_SIZE}, DRUDEOFBCoord, 2048, EOCoordFB>;
-pub type EOARPruningTable = ArrayTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
-pub type ARDRPruningTable = ArrayTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
+pub type EOARPruningTable = InMemoryIndexTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
+pub type ARDRPruningTable = InMemoryIndexTable<{ DRUDEOFB_SIZE }, DRUDEOFBCoord>;
 
 pub fn from_step_config<'a>(table: &'a DRPruningTable, #[cfg(feature = "333htr")] subset_table: &'a HTRSubsetTable, mut config: StepConfig) -> Result<(Step333<'a>, DefaultStepOptions), String> {
     #[cfg(feature = "333htr")]

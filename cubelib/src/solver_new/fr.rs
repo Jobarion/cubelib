@@ -6,7 +6,7 @@ use log::debug;
 use crate::cube::*;
 use crate::defs::StepVariant;
 use crate::solver::lookup_table;
-use crate::solver::lookup_table::{DepthEstimate, ArrayTable};
+use crate::solver::lookup_table::{DepthEstimate, InMemoryIndexTable};
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
@@ -77,17 +77,17 @@ impl FRStep {
 }
 
 fn gen_fr() -> FRPruningTable {
-    Box::new(ArrayTable::load_and_save("fr", ||lookup_table::generate(&FR_UD_MOVESET,
+    Box::new(InMemoryIndexTable::load_and_save("fr", ||lookup_table::generate(&FR_UD_MOVESET,
                                                                       &|c: &Cube333| FRUDWithSliceCoord::from(c),
-                                                                      &|| ArrayTable::new(false),
+                                                                      &|| InMemoryIndexTable::new(false),
                                                                       &|table, coord|table.get(coord),
                                                                       &|table, coord, val|table.set(coord, val))).0)
 }
 
 fn gen_frls() -> FRLeaveSlicePruningTable {
-    Box::new(ArrayTable::load_and_save("frls", ||lookup_table::generate(&FR_UD_MOVESET,
+    Box::new(InMemoryIndexTable::load_and_save("frls", ||lookup_table::generate(&FR_UD_MOVESET,
                                                                         &|c: &Cube333| FRUDNoSliceCoord::from(c),
-                                                                        &|| ArrayTable::new(false),
+                                                                        &|| InMemoryIndexTable::new(false),
                                                                         &|table, coord|table.get(coord),
                                                                         &|table, coord, val|table.set(coord, val))).0)
 }

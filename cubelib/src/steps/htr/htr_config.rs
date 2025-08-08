@@ -3,15 +3,15 @@ use std::rc::Rc;
 use itertools::Itertools;
 use crate::cube::*;
 use crate::defs::*;
-use crate::solver::lookup_table::{ArrayTable, NissLookupTable};
+use crate::solver::lookup_table::{InMemoryIndexTable, InMemoryNissIndexTable};
 use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
 pub(crate) use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
 use crate::steps::step::{DefaultPruningTableStep, DefaultStepOptions, Step, StepConfig, StepVariant};
 use crate::steps::Step333;
 
-pub type HTRPruningTable = NissLookupTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
-pub type HTRSubsetTable = ArrayTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
+pub type HTRPruningTable = InMemoryNissIndexTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
+pub type HTRSubsetTable = InMemoryIndexTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
 pub type HTRPruningTableStep<'a> = DefaultPruningTableStep<'a, {HTRDRUD_SIZE}, HTRDRUDCoord, {DRUDEOFB_SIZE}, DRUDEOFBCoord>;
 
 pub fn from_step_config(table: &HTRPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {

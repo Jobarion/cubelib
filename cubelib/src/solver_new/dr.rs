@@ -10,7 +10,7 @@ use crate::cube::*;
 use crate::cube::turn::{TransformableMut, TurnableMut};
 use crate::defs::StepVariant;
 use crate::solver::lookup_table;
-use crate::solver::lookup_table::{DepthEstimate, ArrayTable};
+use crate::solver::lookup_table::{DepthEstimate, InMemoryIndexTable};
 use crate::solver_new::*;
 use crate::solver_new::dr::builder::RZPSettings;
 use crate::solver_new::group::StepGroup;
@@ -436,17 +436,17 @@ fn calc_rzp_state(cube: &Cube333) -> (u8, u8) {
 }
 
 fn gen_dr() -> DRPruningTable {
-    Box::new(ArrayTable::load_and_save("dr", ||lookup_table::generate(&DR_UD_EO_FB_MOVESET,
+    Box::new(InMemoryIndexTable::load_and_save("dr", ||lookup_table::generate(&DR_UD_EO_FB_MOVESET,
                                                                       &|c: &Cube333| DRUDEOFBCoord::from(c),
-                                                                      &|| ArrayTable::new(false),
+                                                                      &|| InMemoryIndexTable::new(false),
                                                                       &|table, coord|table.get(coord),
                                                                       &|table, coord, val|table.set(coord, val))).0)
 }
 
 fn gen_ar_dr() -> ARDRPruningTable {
-    Box::new(ArrayTable::load_and_save("arm-dr", ||lookup_table::generate(&ARM_UD_EO_FB_MOVESET,
+    Box::new(InMemoryIndexTable::load_and_save("arm-dr", ||lookup_table::generate(&ARM_UD_EO_FB_MOVESET,
                                                                           &|c: &Cube333| DRUDEOFBCoord::from(c),
-                                                                          &|| ArrayTable::new(false),
+                                                                          &|| InMemoryIndexTable::new(false),
                                                                           &|table, coord|table.get(coord),
                                                                           &|table, coord, val|table.set(coord, val))).0)
 }

@@ -6,13 +6,13 @@ use log::debug;
 use crate::cube::*;
 use crate::defs::StepVariant;
 use crate::solver::lookup_table;
-use crate::solver::lookup_table::{LoadFromDisk, ArrayTable, DepthEstimate};
+use crate::solver::lookup_table::{DepthEstimate, InMemoryIndexTable, MemoryMappedIndexTable};
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
 use crate::steps::dr::coords::{DRUDEOFB_SIZE, DRUDEOFBCoord};
-use crate::steps::dr::dr_config::DR_UD_EO_FB_MOVES;
-use crate::steps::finish::coords::{DR_FINISH_SIZE, DRFinishCoord, FR_FINISH_SIZE, FRUDFinishCoord, HTR_FINISH_SIZE, HTR_LEAVE_SLICE_FINISH_SIZE, HTRFinishCoord, HTRLeaveSliceFinishCoord};
+use crate::steps::dr::dr_config::{DR_UD_EO_FB_MOVES, HTR_DR_UD_MOVESET};
+use crate::steps::finish::coords::{DR_FINISH_LS_SIZE, DR_FINISH_SIZE, DRFinishCoord, DRLeaveSliceFinishCoord, FR_FINISH_SIZE, FRUDFinishCoord, HTR_FINISH_SIZE, HTR_LEAVE_SLICE_FINISH_SIZE, HTRFinishCoord, HTRLeaveSliceFinishCoord};
 use crate::steps::finish::finish_config::{FRUD_FINISH_MOVESET, HTR_FINISH_MOVESET};
 use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
@@ -23,10 +23,10 @@ pub static HTR_FINISH_TABLE: LazyLock<HTRFinishPruningTable> = LazyLock::new(||g
 pub type HTRFinishPruningTable = Box<dyn DepthEstimate<{HTR_FINISH_SIZE}, HTRFinishCoord>>;
 pub static HTR_LEAVE_SLICE_FINISH_TABLE: LazyLock<HTRLeaveSliceFinishPruningTable> = LazyLock::new(||gen_htr_ls_finish());
 pub type HTRLeaveSliceFinishPruningTable = Box<dyn DepthEstimate<{HTR_LEAVE_SLICE_FINISH_SIZE}, HTRLeaveSliceFinishCoord>>;
-pub static DR_FINISH_TABLE: LazyLock<DRFinishPruningTable> = LazyLock::new(||load_dr_finish());
+pub static DR_FINISH_TABLE: LazyLock<DRFinishPruningTable> = LazyLock::new(|| gen_dr_finish());
 pub type DRFinishPruningTable = Box<dyn DepthEstimate<{DR_FINISH_SIZE}, DRFinishCoord>>;
-
-pub type HashedDRFinishPruningTable = ArrayTable<{ DR_FINISH_SIZE }, DRFinishCoord>;
+pub static DR_LEAVE_SLICE_FINISH_TABLE: LazyLock<DRLeaveSliceFinishPruningTable> = LazyLock::new(|| gen_dr_leave_slice_finish());
+pub type DRLeaveSliceFinishPruningTable = Box<dyn DepthEstimate<{DR_FINISH_LS_SIZE}, DRLeaveSliceFinishCoord>>;
 
 pub const DR_SYMMETRIES: &[Symmetry] = &[
     Symmetry::U0, Symmetry::UM0,
@@ -112,7 +112,7 @@ impl DRFinishStep {
 }
 
 impl DRFinishStep {
-    pub fn new(dfs: DFSParameters, dr_axis: Vec<CubeAxis>) -> StepGroup {
+    pub fn new(dfs: DFSParameters, dr_axis: Vec<CubeAxis>, leave_slice: bool) -> StepGroup {
         debug!("Step fin with options {dfs:?}");
         let variants = dr_axis.into_iter()
             .map(|dr|match dr {
@@ -121,15 +121,27 @@ impl DRFinishStep {
                 CubeAxis::LR => (vec![Transformation333::Z], dr),
             })
             .map(|(trans, axis)|{
-                StepGroup::single(Box::new(PruningTableStep::<{ DR_FINISH_SIZE }, DRFinishCoord, { DRUDEOFB_SIZE }, DRUDEOFBCoord>  {
-                    table: &DR_FINISH_TABLE,
-                    options: dfs.clone(),
-                    pre_step_trans: trans,
-                    variant: StepVariant::DRFIN(axis),
-                    post_step_check: vec![],
-                    move_set: &FINISH_DR_MOVESET,
-                    _pc: Default::default(),
-                }))
+                if leave_slice {
+                    StepGroup::single(Box::new(PruningTableStep::<{ DR_FINISH_LS_SIZE }, DRLeaveSliceFinishCoord, { DRUDEOFB_SIZE }, DRUDEOFBCoord>  {
+                        table: &DR_LEAVE_SLICE_FINISH_TABLE,
+                        options: dfs.clone(),
+                        pre_step_trans: trans,
+                        variant: StepVariant::DRFINLS(axis),
+                        post_step_check: vec![],
+                        move_set: &FINISH_DR_MOVESET,
+                        _pc: Default::default(),
+                    }))
+                } else {
+                    StepGroup::single(Box::new(PruningTableStep::<{ DR_FINISH_SIZE }, DRFinishCoord, { DRUDEOFB_SIZE }, DRUDEOFBCoord>  {
+                        table: &DR_FINISH_TABLE,
+                        options: dfs.clone(),
+                        pre_step_trans: trans,
+                        variant: StepVariant::DRFIN(axis),
+                        post_step_check: vec![],
+                        move_set: &FINISH_DR_MOVESET,
+                        _pc: Default::default(),
+                    }))
+                }
             })
             .collect_vec();
         StepGroup::parallel(variants)
@@ -183,31 +195,35 @@ impl HTRFinishStep {
 }
 
 fn gen_fr_finish() -> FRFinishPruningTable {
-    Box::new(ArrayTable::load_and_save("frfin", ||lookup_table::generate(&FRUD_FINISH_MOVESET,
+    Box::new(InMemoryIndexTable::load_and_save("frfin", ||lookup_table::generate(&FRUD_FINISH_MOVESET,
                                                                          &|c: &Cube333| FRUDFinishCoord::from(c),
-                                                                         &|| ArrayTable::new(false),
+                                                                         &|| InMemoryIndexTable::new(false),
                                                                          &|table, coord|table.get(coord),
                                                                          &|table, coord, val|table.set(coord, val))).0)
 }
 
 fn gen_htr_finish() -> HTRFinishPruningTable {
-    Box::new(ArrayTable::load_and_save("htrfin", ||lookup_table::generate(&HTR_FINISH_MOVESET,
+    Box::new(InMemoryIndexTable::load_and_save("htrfin", ||lookup_table::generate(&HTR_FINISH_MOVESET,
                                                                           &|c: &Cube333| HTRFinishCoord::from(c),
-                                                                          &|| ArrayTable::new(false),
+                                                                          &|| InMemoryIndexTable::new(false),
                                                                           &|table, coord|table.get(coord),
                                                                           &|table, coord, val|table.set(coord, val))).0)
 }
 
 fn gen_htr_ls_finish() -> HTRLeaveSliceFinishPruningTable {
-    Box::new(ArrayTable::load_and_save("htrfinls", ||lookup_table::generate(&HTR_FINISH_MOVESET,
+    Box::new(InMemoryIndexTable::load_and_save("htrfinls", ||lookup_table::generate(&HTR_FINISH_MOVESET,
                                                                             &|c: &Cube333| HTRLeaveSliceFinishCoord::from(c),
-                                                                            &|| ArrayTable::new(false),
+                                                                            &|| InMemoryIndexTable::new(false),
                                                                             &|table, coord|table.get(coord),
                                                                             &|table, coord, val|table.set(coord, val))).0)
 }
 
-fn load_dr_finish() -> DRFinishPruningTable {
-    Box::new(ArrayTable::load_from_disk("333", "drfin").unwrap())
+fn gen_dr_finish() -> DRFinishPruningTable {
+    Box::new(MemoryMappedIndexTable::load_and_save("drfin", ||lookup_table::generate_large_table(&HTR_DR_UD_MOVESET)).0)
+}
+
+fn gen_dr_leave_slice_finish() -> DRLeaveSliceFinishPruningTable {
+    Box::new(MemoryMappedIndexTable::load_and_save("drfinls", ||lookup_table::generate_large_table(&HTR_DR_UD_MOVESET)).0)
 }
 
 pub mod builder {
@@ -421,7 +437,7 @@ pub mod builder {
     pub struct DRFinishBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool> {
         _a_max_length: usize,
         _b_max_absolute_length: usize,
-        // _c_leave_slice: bool,
+        _c_leave_slice: bool,
         _d_from_htr: bool,
     }
 
@@ -430,7 +446,7 @@ pub mod builder {
             DRFinishBuilderInternal {
                 _a_max_length: self._a_max_length,
                 _b_max_absolute_length: self._b_max_absolute_length,
-                // _c_leave_slice: self._c_leave_slice,
+                _c_leave_slice: self._c_leave_slice,
                 _d_from_htr: self._d_from_htr,
             }
         }
@@ -451,10 +467,9 @@ pub mod builder {
     }
 
     impl <const A: bool, const B: bool, const D: bool> DRFinishBuilderInternal<A, B, false, D> {
-        pub fn leave_slice(self) -> DRFinishBuilderInternal<A, B, true, D> {
-            unimplemented!("Not implemented")
-            // self._c_leave_slice = true;
-            // self.convert()
+        pub fn leave_slice(mut self) -> DRFinishBuilderInternal<A, B, true, D> {
+            self._c_leave_slice = true;
+            self.convert()
         }
     }
 
@@ -474,7 +489,7 @@ pub mod builder {
                 absolute_max_moves: Some(self._b_max_absolute_length),
                 ignore_previous_step_restrictions: self._d_from_htr,
             };
-            DRFinishStep::new(dfs, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR])
+            DRFinishStep::new(dfs, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR], self._c_leave_slice)
         }
     }
 
@@ -483,7 +498,7 @@ pub mod builder {
             Self {
                 _a_max_length: 14,
                 _b_max_absolute_length: 50,
-                // _c_leave_slice: false,
+                _c_leave_slice: false,
                 _d_from_htr: false,
             }
         }
@@ -502,7 +517,7 @@ pub mod builder {
             if !value.params.is_empty() {
                 return Err(())
             }
-            if value.kind != StepKind::FIN {// && value.kind != StepKind::FINLS {
+            if value.kind != StepKind::FIN && value.kind != StepKind::FINLS {
                 return Err(())
             }
             let mut defaults = Self::default();
@@ -512,9 +527,9 @@ pub mod builder {
             if let Some(abs_max) = value.absolute_max {
                 defaults._b_max_absolute_length = abs_max as usize;
             }
-            // if value.kind == StepKind::FINLS {
-            //     defaults._c_leave_slice = true;
-            // }
+            if value.kind == StepKind::FINLS {
+                defaults._c_leave_slice = true;
+            }
             Ok(defaults)
         }
     }

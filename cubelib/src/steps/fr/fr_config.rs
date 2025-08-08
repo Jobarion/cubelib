@@ -4,7 +4,7 @@ use std::vec;
 use itertools::Itertools;
 use crate::cube::*;
 use crate::defs::*;
-use crate::solver::lookup_table::ArrayTable;
+use crate::solver::lookup_table::InMemoryIndexTable;
 use crate::solver::moveset::TransitionTable333;
 use crate::steps::fr::coords::{FRUD_NO_SLICE_SIZE, FRUD_WITH_SLICE_SIZE, FRUDNoSliceCoord, FRUDWithSliceCoord};
 use crate::steps::htr::coords::{HTRDRUD_SIZE, HTRDRUDCoord};
@@ -29,8 +29,8 @@ pub const FR_UD_MOVESET: MoveSet333 = MoveSet333 {
     transitions: &fr_transitions(CubeFace::Up),
 };
 
-pub type FRLeaveSlicePruningTable = ArrayTable<{ FRUD_NO_SLICE_SIZE }, FRUDNoSliceCoord>;
-pub type FRPruningTable = ArrayTable<{ FRUD_WITH_SLICE_SIZE }, FRUDWithSliceCoord>;
+pub type FRLeaveSlicePruningTable = InMemoryIndexTable<{ FRUD_NO_SLICE_SIZE }, FRUDNoSliceCoord>;
+pub type FRPruningTable = InMemoryIndexTable<{ FRUD_WITH_SLICE_SIZE }, FRUDWithSliceCoord>;
 pub type FRLeaveSlicePruningTableStep<'a> = DefaultPruningTableStep::<'a, {FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, { HTRDRUD_SIZE }, HTRDRUDCoord>;
 pub type FRPruningTableStep<'a> = DefaultPruningTableStep::<'a, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, { HTRDRUD_SIZE }, HTRDRUDCoord>;
 

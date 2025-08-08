@@ -18,6 +18,7 @@ pub enum Commands {
     Solve(SolveCommand),
     Scramble,
     Invert(InvertCommand),
+    Download(DownloadCommand),
 }
 
 #[derive(Parser)]
@@ -48,6 +49,12 @@ pub struct SolveCommand {
     pub backend: Option<SolverBackend>,
 }
 
+#[derive(Parser)]
+pub struct DownloadCommand {
+    #[arg(help = "Pruning table to download.")]
+    pub table: String,
+}
+
 #[derive(ValueEnum, Clone, Default, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SolverBackend {
@@ -60,8 +67,8 @@ pub enum SolverBackend {
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
     Error, // Unrecoverable error. Results cannot be trusted
-    #[default]
     Warn, // Unexpected input, user-correctable
+    #[default]
     Info, // User-meaningful message
     Debug, // Developer-meaningful message
     Trace // DFS step

@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::algs::Algorithm;
 use crate::defs::*;
-use crate::solver::lookup_table::ArrayTable;
+use crate::solver::lookup_table::InMemoryIndexTable;
 use crate::solver::lookup_table::DepthEstimate;
 use crate::solver::moveset::TransitionTable333;
 use crate::cube::*;
@@ -42,7 +42,7 @@ pub const EO_FB_MOVESET: MoveSet333 = MoveSet333 {
 
 const BAD_EDGE_HEURISTIC: [u8; 7] = [0, 2, 1, 2, 2, 3, 3];
 
-pub type EOPruningTable = ArrayTable<2048, EOCoordFB>;
+pub type EOPruningTable = InMemoryIndexTable<2048, EOCoordFB>;
 
 pub struct EOStepTable<'a> {
     move_set: &'a MoveSet333,

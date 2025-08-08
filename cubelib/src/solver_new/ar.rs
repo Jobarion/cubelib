@@ -7,7 +7,7 @@ use log::debug;
 use crate::cube::*;
 use crate::defs::StepVariant;
 use crate::solver::lookup_table;
-use crate::solver::lookup_table::{DepthEstimate, ArrayTable};
+use crate::solver::lookup_table::{DepthEstimate, InMemoryIndexTable};
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
@@ -66,9 +66,9 @@ impl ARStep {
 }
 
 fn gen_eo_ar() -> EOARPruningTable {
-    Box::new(ArrayTable::load_and_save("eo-arm", ||lookup_table::generate(&PRE_AR_UD_EO_FB_MOVESET,
+    Box::new(InMemoryIndexTable::load_and_save("eo-arm", ||lookup_table::generate(&PRE_AR_UD_EO_FB_MOVESET,
                                                                           &|c: &Cube333| DRUDEOFBCoord::from(c),
-                                                                          &|| ArrayTable::new(false),
+                                                                          &|| InMemoryIndexTable::new(false),
                                                                           &|table, coord|table.get(coord),
                                                                           &|table, coord, val|table.set(coord, val))).0)
 }

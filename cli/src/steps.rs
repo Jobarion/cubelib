@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::str::FromStr;
-
+use std::time::Duration;
 use cubelib::algs::Algorithm;
 use cubelib::defs::{NissSwitchType, StepKind};
+use cubelib::solver::lookup_table::{LoadFromDisk, MemoryMappedIndexTable, TableError};
 use cubelib::solver_new::ar::ARBuilder;
 use cubelib::solver_new::dr::{DRBuilder, RZPBuilder, RZPStep};
 use cubelib::solver_new::eo::EOBuilder;
@@ -12,8 +13,9 @@ use cubelib::solver_new::group::{StepGroup, StepPredicate};
 use cubelib::solver_new::htr::HTRBuilder;
 use cubelib::solver_new::util_cube::CubeState;
 use cubelib::solver_new::util_steps::{FilterFirstN, FilterFirstNStepVariant};
+use cubelib::steps::finish::coords::{DR_FINISH_SIZE, DRFinishCoord};
 use cubelib::steps::step::StepConfig;
-use log::debug;
+use log::{debug, warn};
 use pest::iterators::Pair;
 use pest::Parser;
 use crate::config::StepOverride;
@@ -99,7 +101,8 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
         niss: None,
         step_limit: None,
         quality: 0,
-        params: HashMap::new()
+        params: HashMap::new(),
+        excluded: Default::default(),
     };
     if let Some(prototype) = prototype {
         for (key, value) in &prototype.parameters {
@@ -148,7 +151,7 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
             debug!("Replacing previous state with {}", k);
         }
     }
-    let mut step = match (previous_kind, kind) {
+    let mut step = match (previous_kind, kind.clone()) {
         (_, StepKind::EO) => Some(EOBuilder::try_from(step_prototype).map_err(|_|"Failed to parse EO step")?.build()),
         (Some(StepKind::EO), StepKind::RZP) => None,
         (Some(StepKind::RZP), StepKind::DR) => {
@@ -187,8 +190,9 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
         },
         (Some(StepKind::DR), StepKind::HTR) => Some(HTRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse HTR step")?.build()),
         (Some(StepKind::HTR), StepKind::FR) | (Some(StepKind::HTR), StepKind::FRLS)  => Some(FRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FR step")?.build()),
-        (Some(StepKind::DR), StepKind::FIN) => {
+        (Some(StepKind::DR), StepKind::FIN) | (Some(StepKind::DR), StepKind::FINLS) => {
             step_prototype.params.remove("htr-breaking");
+            check_dr_table_preload(kind);
             Some(DRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build())
         },
         (Some(StepKind::FR), StepKind::FIN) => Some(FRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build()),
@@ -196,6 +200,7 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
         (Some(StepKind::HTR), StepKind::FIN) | (Some(StepKind::HTR), StepKind::FINLS) => {
             let dr_breaking = step_prototype.params.remove("htr-breaking").map(|x|bool::from_str(x.to_lowercase().as_str()).unwrap_or(false)).unwrap_or(false);
             if dr_breaking {
+                check_dr_table_preload(kind);
                 debug!("Using HTR breaking finish");
                 Some(DRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?
                     .from_htr()
@@ -235,6 +240,26 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
     }
 
     Ok((step, step_prototype_c))
+}
+
+fn check_dr_table_preload(kind: StepKind) {
+    if kind == StepKind::FIN {
+        let table: Result<MemoryMappedIndexTable<{DR_FINISH_SIZE}, DRFinishCoord>, TableError> = MemoryMappedIndexTable::load_from_disk("333", "drfin");
+        if let Err(_) = table {
+            warn!("Unable to load DR Finish table. Generating this table will take a long time (2-5 hours), and about 12 GB of memory. \
+            If you want to download the table instead, please use the \"download drfin\" subcommand (instead of \"solve ...\"). \
+            If you do nothing, cubelib will start generating the file in about 10 seconds. It's recommended to set the log level to at least \"info\" to get see progress information.");
+            std::thread::sleep(Duration::from_secs(10));
+        }
+    } else if kind == StepKind::FINLS {
+        let table: Result<MemoryMappedIndexTable<{DR_FINISH_SIZE}, DRFinishCoord>, TableError> = MemoryMappedIndexTable::load_from_disk("333", "drfinls");
+        if let Err(_) = table {
+            warn!("Unable to load DR Leave Slice Finish table. Generating this table will take a long time (between a few minutes and an hour), \
+            and about 1 GB of memory. If you want to download the table instead, please use the \"download drfinls\" subcommand (instead of \"solve ...\"). \
+            If you do nothing, cubelib will start generating the file in about 10 seconds. It's recommended to set the log level to at least \"info\" to get see progress information.");
+            std::thread::sleep(Duration::from_secs(10));
+        }
+    }
 }
 
 fn parse_kv(step_prototype: &mut StepConfig, key: &str, value: &str) -> Result<(), String> {

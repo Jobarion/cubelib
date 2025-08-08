@@ -10,7 +10,7 @@ use crate::cube::turn::ApplyAlgorithm;
 use crate::defs::*;
 use crate::cube::*;
 use crate::solver::df_search::{CancelToken, dfs_iter};
-use crate::solver::lookup_table::{DepthEstimate, ArrayTable, NissDepthEstimate, NissLookupTable};
+use crate::solver::lookup_table::{DepthEstimate, InMemoryIndexTable, InMemoryNissIndexTable, NissDepthEstimate};
 use crate::solver::moveset::MoveSet;
 use crate::solver::solution::{Solution, SolutionStep};
 use crate::solver::stream;
@@ -100,17 +100,17 @@ trait Heuristic {
     fn heuristic(&self, cube: &Cube333, can_niss: bool) -> u8;
 }
 
-struct NissPruningTableHeuristic<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>>(&'a NissLookupTable<HC_SIZE, HC>);
-struct PruningTableHeuristic<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>>(&'a ArrayTable<HC_SIZE, HC>);
+struct NissPruningTableHeuristic<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE> + 'a>(&'a InMemoryNissIndexTable<HC_SIZE, HC>);
+struct PruningTableHeuristic<'a, const HC_SIZE: usize, HC: Coord<HC_SIZE> + 'a>(&'a InMemoryIndexTable<HC_SIZE, HC>);
 
 impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>> NissPruningTableHeuristic<'a, HC_SIZE, HC> {
-    fn new(table: &'a NissLookupTable<HC_SIZE, HC>) -> Self {
+    fn new(table: &'a InMemoryNissIndexTable<HC_SIZE, HC>) -> Self {
         Self(table)
     }
 }
 
 impl <'a, const HC_SIZE: usize, HC: Coord<HC_SIZE>> PruningTableHeuristic<'a, HC_SIZE, HC> {
-    fn new(table: &'a ArrayTable<HC_SIZE, HC>) -> Self {
+    fn new(table: &'a InMemoryIndexTable<HC_SIZE, HC>) -> Self {
         Self(table)
     }
 }
@@ -207,7 +207,7 @@ DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: for<'b> From<&'b
 
     pub fn new(move_set: &'a MoveSet,
                pre_trans: Vec<Transformation333>,
-               table: &'a ArrayTable<HC_SIZE, HC>,
+               table: &'a InMemoryIndexTable<HC_SIZE, HC>,
                post_step_checker: Rc<Vec<Box<dyn PostStepCheck + 'a>>>,
                variant: crate::defs::StepVariant) -> Self {
         DefaultPruningTableStep {
@@ -223,7 +223,7 @@ DefaultPruningTableStep<'a, HC_SIZE, HC, PC_SIZE, PC> where PC: for<'b> From<&'b
 
     pub fn new_niss_table(move_set: &'a MoveSet,
                pre_trans: Vec<Transformation333>,
-               table: &'a NissLookupTable<HC_SIZE, HC>,
+               table: &'a InMemoryNissIndexTable<HC_SIZE, HC>,
                post_step_checker: Rc<Vec<Box<dyn PostStepCheck + 'a>>>,
                variant: crate::defs::StepVariant) -> Self {
         DefaultPruningTableStep {

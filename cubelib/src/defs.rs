@@ -42,6 +42,7 @@ pub enum StepVariant {
     HTRFIN,
     HTRFINLS(CubeAxis),
     DRFIN(CubeAxis),
+    DRFINLS(CubeAxis),
 }
 
 impl StepVariant {
@@ -59,6 +60,10 @@ impl StepVariant {
                 StepVariant::DR { dr_axis, eo_axis }
             ) if dr_axis == rzp_dr_axis && eo_axis == rzp_eo_axis => true,
             (StepVariant::DR { dr_axis, .. }, StepVariant::HTR(htr_axis)) if dr_axis == htr_axis => true,
+            (StepVariant::DR { dr_axis, .. }, StepVariant::DRFIN(drfin_axis)) if dr_axis == drfin_axis => true,
+            (StepVariant::DR { dr_axis, .. }, StepVariant::DRFINLS(drfin_axis)) if dr_axis == drfin_axis => true,
+            (StepVariant::HTR(htr_axis), StepVariant::DRFIN(drfin_axis)) if htr_axis == drfin_axis => true,
+            (StepVariant::HTR(htr_axis), StepVariant::DRFINLS(drfin_axis)) if htr_axis == drfin_axis => true,
             (StepVariant::HTR(_), StepVariant::FR(_)) => true,
             (StepVariant::HTR(_), StepVariant::FRLS(_)) => true,
             (StepVariant::HTR(_), StepVariant::HTRFIN) => true,
@@ -86,11 +91,8 @@ impl Display for StepVariant {
             StepVariant::HTR(dr) => write!(f, "htr-dr{}", dr.name()),
             StepVariant::FR(fr) => write!(f, "fr{}", fr.name()),
             StepVariant::FRLS(fr) => write!(f, "frls{}", fr.name()),
-            StepVariant::FRFIN(fr) => write!(f, "fin-{}", fr.name()),
-            StepVariant::FRFINLS(fr) => write!(f, "finls-fr{}", fr.name()),
-            StepVariant::HTRFIN => write!(f, "fin"),
-            StepVariant::HTRFINLS(ls) => write!(f, "finls{}", ls.name()),
-            StepVariant::DRFIN(dr) => write!(f, "fin-{}", dr.name()),
+            StepVariant::FRFINLS(ls) | StepVariant::HTRFINLS(ls) | StepVariant::DRFINLS(ls) => write!(f, "finls-{}", ls.name()),
+            StepVariant::HTRFIN | StepVariant::DRFIN(_) | StepVariant::FRFIN(_) => write!(f, "fin"),
         }
     }
 }
@@ -110,6 +112,7 @@ impl From<StepVariant> for StepKind {
             StepVariant::HTRFIN => Self::FIN,
             StepVariant::HTRFINLS(_) => Self::FINLS,
             StepVariant::DRFIN(_) => Self::FIN,
+            StepVariant::DRFINLS(_) => Self::FINLS,
         }
     }
 }

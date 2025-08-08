@@ -393,7 +393,6 @@ version = "2.3.2"
 dependencies = [
  "crossbeam",
  "itertools 0.14.0",
- "lazy_static",
  "log",
  "memmap2",
  "num-derive",

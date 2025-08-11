@@ -135,7 +135,12 @@ impl DRFinishStep {
                 candidate_cancel_moves.iter()
                     .rev()
                     .take_while(|x|x.face.is_on_axis(dr_fin_axis))
-                    .count()
+                    .map(|x|if x.dir == Direction::Half {
+                        1
+                    } else {
+                        2
+                    })
+                    .sum()
             } else {
                 0
             }

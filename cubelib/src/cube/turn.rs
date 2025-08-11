@@ -441,21 +441,21 @@ impl FromStr for CubeOuterTurn {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub enum CubeAxis {
-    X = 0,
-    Y = 1,
-    Z = 2,
+    LR = 0,
+    UD = 1,
+    FB = 2,
 }
 
 impl CubeAxis {
-    pub const UD: CubeAxis = CubeAxis::Y;
-    pub const FB: CubeAxis = CubeAxis::Z;
-    pub const LR: CubeAxis = CubeAxis::X;
+    pub const X: CubeAxis = CubeAxis::LR;
+    pub const Y: CubeAxis = CubeAxis::UD;
+    pub const Z: CubeAxis = CubeAxis::FB;
 
     pub fn name(&self) -> &'static str {
         match self {
-            CubeAxis::X => "lr",
-            CubeAxis::Y => "ud",
-            CubeAxis::Z => "fb",
+            CubeAxis::LR => "lr",
+            CubeAxis::UD => "ud",
+            CubeAxis::FB => "fb",
         }
     }
 }

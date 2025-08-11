@@ -13,7 +13,7 @@ use cubelib::solver_new::group::{StepGroup, StepPredicate};
 use cubelib::solver_new::htr::HTRBuilder;
 use cubelib::solver_new::util_cube::CubeState;
 use cubelib::solver_new::util_steps::{FilterFirstN, FilterFirstNStepVariant};
-use cubelib::steps::finish::coords::{DR_FINISH_SIZE, DRFinishCoord};
+use cubelib::steps::finish::coords::{DR_FINISH_LS_SIZE, DR_FINISH_SIZE, DRFinishCoord, DRLeaveSliceFinishCoord};
 use cubelib::steps::step::StepConfig;
 use log::{debug, warn};
 use pest::iterators::Pair;
@@ -252,7 +252,7 @@ fn check_dr_table_preload(kind: StepKind) {
             std::thread::sleep(Duration::from_secs(10));
         }
     } else if kind == StepKind::FINLS {
-        let table: Result<MemoryMappedIndexTable<{DR_FINISH_SIZE}, DRFinishCoord>, TableError> = MemoryMappedIndexTable::load_from_disk("333", "drfinls");
+        let table: Result<MemoryMappedIndexTable<{DR_FINISH_LS_SIZE}, DRLeaveSliceFinishCoord>, TableError> = MemoryMappedIndexTable::load_from_disk("333", "drfinls");
         if let Err(_) = table {
             warn!("Unable to load DR Leave Slice Finish table. Generating this table will take a long time (between a few minutes and an hour), \
             and about 1 GB of memory. If you want to download the table instead, please use the \"download drfinls\" subcommand (instead of \"solve ...\"). \

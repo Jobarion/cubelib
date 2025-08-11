@@ -76,6 +76,7 @@ pub struct FinishConfig {
     pub min_rel: RwSignalTup<u8>,
     pub max_rel: RwSignalTup<u8>,
     pub leave_slice: RwSignalTup<bool>,
+    pub htr_breaking: RwSignalTup<bool>,
     pub excluded: RwSignalTup<HashSet<Algorithm>>,
 }
 
@@ -241,6 +242,7 @@ impl FinishConfig {
             min_abs: use_local_storage("fin-min-abs", 0),
             max_abs: use_local_storage("fin-max-abs", 30),
             leave_slice: use_local_storage("fin-ls", false),
+            htr_breaking: use_local_storage("fin-htr-breaking", false),
             excluded: use_local_storage("fin-excluded", HashSet::new()),
         }
     }
@@ -258,6 +260,8 @@ impl FinishConfig {
         self.leave_slice.2();
         self.excluded.2();
         self.excluded.1.set(HashSet::new());
+        self.htr_breaking.2();
+        self.htr_breaking.1.set(false);
     }
 }
 
@@ -635,6 +639,7 @@ pub fn FRParameters() -> impl IntoView {
 #[component]
 pub fn FinishParameters() -> impl IntoView {
     let fin_config = use_context::<FinishConfig>().expect("Finish context required");
+    let htr_config = use_context::<HTRConfig>().expect("HTR context required");
     view! {
         <DefaultStepParameters
             min_abs=fin_config.min_abs
@@ -644,11 +649,18 @@ pub fn FinishParameters() -> impl IntoView {
             total_max_rel=10
             total_max=30
         />
-        <div style="display: flex; align-items: center;">
+        <div style="display: flex; align-items: center; margin-bottom: 5px;">
             <label style="margin-right: 10px;">"Leave slice:"</label>
             <Toggle
                 state=Signal::derive(move || fin_config.leave_slice.0.get())
                 set_state=Callback::new(move |s| fin_config.leave_slice.1.set(s))
+            />
+        </div>
+        <div style="display: flex; align-items: center; margin-bottom: 5px;" class:grayed-out=move || !htr_config.enabled.0.get()>
+            <label style="margin-right: 10px;">"HTR breaking:"</label>
+            <Toggle
+                state=Signal::derive(move || fin_config.htr_breaking.0.get())
+                set_state=Callback::new(move |s| fin_config.htr_breaking.1.set(s))
             />
         </div>
     }

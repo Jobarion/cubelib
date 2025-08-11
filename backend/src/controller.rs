@@ -16,6 +16,7 @@ use cubelib::cube::*;
 use cubelib::cube::turn::{ApplyAlgorithm, TransformableMut};
 use cubelib::defs::StepKind;
 use cubelib::solver::df_search::CancelToken;
+use cubelib::solver::lookup_table::DepthEstimate;
 use cubelib::solver::solution::Solution;
 use cubelib::solver_new::{build_steps, TryRecvError};
 use cubelib::steps::coord::Coord;
@@ -168,7 +169,7 @@ pub fn solve_steps_quality_doubling<'a>(puzzle: Cube333, steps: Vec<StepConfig>,
                 x.quality = quality;
                 x.step_limit = None;
             }
-            let tables = t1.as_ref().clone();
+            let tables = t1.as_ref();
             let steps = solver::build_steps(steps, &tables).unwrap();
             let best = cubelib::solver::solve_steps(puzzle, &steps, cancel_token.as_ref()).next();
             best

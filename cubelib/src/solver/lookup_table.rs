@@ -11,7 +11,6 @@ use std::ops::{Deref, DerefMut, Index, IndexMut};
 use home::home_dir;
 use log::{debug, info, warn};
 use memmap2::{Mmap, MmapOptions};
-#[cfg(feature = "fs")]
 use num_traits::{FromPrimitive};
 use crate::cube::*;
 use crate::cube::turn::{Invertible, TurnableMut};
@@ -99,6 +98,7 @@ impl Display for TableError {
     }
 }
 
+#[cfg(feature = "fs")]
 impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> IndexTable<C_SIZE, C, T, F>{
     pub fn open_file(puzzle_id: &str, table_type: &str) -> Result<File, TableError> {
         let mut dir = home_dir().unwrap();
@@ -121,6 +121,7 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Siz
     }
 }
 
+#[cfg(feature = "fs")]
 impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> IndexTable<C_SIZE, C, T, F> where Self: LoadFromDisk + SaveToDisk {
     pub fn load_and_save<FN: FnMut() -> InMemoryIndexTable<C_SIZE, C>>(key: &str, mut gen_f: FN) -> (Self, bool) {
         match Self::load_from_disk("333", key) {
@@ -141,6 +142,7 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Siz
     }
 }
 
+#[cfg(feature = "fs")]
 impl <const C_SIZE: usize, C: Coord<C_SIZE>> MemoryMappedIndexTable<C_SIZE, C> {
     pub fn load_and_save<FN: FnMut() -> InMemoryIndexTable<C_SIZE, C>>(key: &str, mut gen_f: FN) -> (Self, bool) {
         match Self::load_from_disk("333", key) {
@@ -161,6 +163,7 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> MemoryMappedIndexTable<C_SIZE, C> {
     }
 }
 
+#[cfg(feature = "fs")]
 impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> NissIndexTable<C_SIZE, C, T, F> where Self: LoadFromDisk + SaveToDisk {
     pub fn load_and_save<FN: FnMut() -> InMemoryNissIndexTable<C_SIZE, C>>(key: &str, mut gen_f: FN) -> Self {
         match Self::load_from_disk("333", key) {
@@ -181,6 +184,7 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Siz
     }
 }
 
+#[cfg(feature = "fs")]
 impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for MemoryMappedIndexTable<C_SIZE, C> {
     fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, TableError> where Self: Sized{
         let mut file = Self::open_file(puzzle_id, table_type)?;
@@ -210,6 +214,7 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for MemoryMappedIndexT
     }
 }
 
+#[cfg(feature = "fs")]
 impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for InMemoryIndexTable<C_SIZE, C> {
     fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, TableError>
     where
@@ -240,6 +245,7 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for InMemoryIndexTable
     }
 }
 
+#[cfg(feature = "fs")]
 impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for InMemoryNissIndexTable<C_SIZE, C> {
     fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, TableError>
     where
@@ -251,6 +257,7 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for InMemoryNissIndexT
     }
 }
 
+#[cfg(feature = "fs")]
 impl <const C_SIZE: usize, C: Coord<C_SIZE>> SaveToDisk for InMemoryIndexTable<C_SIZE, C> {
     fn save_to_disk(&self, puzzle_id: &str, table_type: &str) -> Result<(), TableError> {
         let mut file = Self::create_file(puzzle_id, table_type)?;
@@ -268,6 +275,7 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> SaveToDisk for InMemoryIndexTable<C
     }
 }
 
+#[cfg(feature = "fs")]
 impl <const C_SIZE: usize, C: Coord<C_SIZE>> SaveToDisk for InMemoryNissIndexTable<C_SIZE, C> {
     fn save_to_disk(&self, puzzle_id: &str, table_type: &str) -> Result<(), TableError> {
         self.table.save_to_disk(puzzle_id, table_type)
@@ -289,6 +297,7 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> InMemoryIndexTable<C_SIZE, C> {
     }
 }
 
+#[cfg(feature = "fs")]
 impl <const C_SIZE: usize, C: Coord<C_SIZE>> InMemoryNissIndexTable<C_SIZE, C> {
     pub fn new() -> Self {
         Self {

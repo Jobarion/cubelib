@@ -24,6 +24,7 @@ impl FilterExcluded {
     pub fn new(excluded: HashSet<Algorithm>) -> Box<dyn StepPredicate> {
         Box::new(Self(excluded.into_iter()
             .map(to_last_move_non_prime_alg)
+            .map(Algorithm::canonicalize)
             .collect()))
     }
 }

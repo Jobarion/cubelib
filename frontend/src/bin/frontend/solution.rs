@@ -161,7 +161,7 @@ pub mod backend {
                 view! {
                     <Button on_click=move|_|{
                         set_excluded.update(|list|{
-                            list.insert(alg.clone());
+                            list.insert(alg.clone().canonicalize());
                         });
                     }>{format!("Exclude: {}", ss.alg)}</Button>
                     // <label>{format!("Current solution: {}", ss.alg)}</label>
@@ -196,14 +196,17 @@ pub mod backend {
             if let SolutionState::Found(Ok(sol)) = sd.get() {
                 let step_idx = sol.steps.iter().enumerate().find(|(_, x)|StepKind::from(x.variant) == kind).map(|(x, _)|x);
                 if let Some(step_idx) = step_idx {
-                    let full_alg = sol.steps.iter().take(step_idx + 1)
+                    let mut full_alg = sol.steps.iter().take(step_idx + 1)
                         .map(|s|s.alg.clone())
                         .fold(Algorithm::new(), |mut acc, s|{
                             acc = acc + s;
                             acc
                         });
+                    if kind == StepKind::FIN {
+                        full_alg = full_alg.to_uninverted();
+                    }
                     let step = sol.steps[step_idx].clone();
-                    Some((step, full_alg))
+                    Some((step, full_alg.canonicalize()))
                 } else {
                     None
                 }
@@ -217,8 +220,8 @@ pub mod backend {
         let current_bytes = RefCell::<Vec<u8>>::new(vec![]);
 
         let body = serde_json::to_vec(&request).unwrap();
-        let mut req = Request::post("https://joba.me/cubeapi/solve_stream?backend=multi_path_channel", body);
-        // let mut req = Request::post("http://localhost:8049/solve_stream?backend=multi_path_channel", body);
+        // let mut req = Request::post("https://joba.me/cubeapi/solve_stream?backend=multi_path_channel", body);
+        let mut req = Request::post("http://localhost:8049/solve_stream?backend=multi_path_channel", body);
         req.headers.insert("content-type".to_string(), "application/json".to_string());
 
         ehttp::streaming::fetch(req, move |res: ehttp::Result<ehttp::streaming::Part>| {
@@ -383,6 +386,10 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
         });
     }
     if fin.enabled.0.get() {
+        let mut params = HashMap::default();
+        if htr.enabled.0.get() && !fr.enabled.0.get() {
+            params.insert("htr-breaking".to_string(), fin.htr_breaking.0.get().to_string());
+        }
         steps_config.push(StepConfig {
             kind: if fin.leave_slice.0.get() {
                 StepKind::FINLS
@@ -397,7 +404,7 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
             step_limit: None,
             quality: 10000,
             niss: Some(NissSwitchType::Never),
-            params: Default::default(),
+            params,
             excluded: fin.excluded.0.get(),
         });
 

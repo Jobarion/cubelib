@@ -78,10 +78,19 @@ impl Solution {
 impl Into<Algorithm> for Solution {
     fn into(self) -> Algorithm {
         let mut start = Algorithm::new();
+        let is_finished = if let Some(last) = self.steps.last().as_ref() {
+            StepKind::from(last.variant) == StepKind::FIN
+        } else {
+            false
+        };
+
         for step in self.steps {
             start = start + step.alg;
         }
-        start
+        if is_finished {
+            start = start.to_uninverted();
+        }
+        start.canonicalize()
     }
 }
 

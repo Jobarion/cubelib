@@ -15,6 +15,7 @@ use crate::solver::df_search::CancelToken;
 use crate::solver::lookup_table::{DepthEstimate, NissDepthEstimate};
 use crate::solver::solution::{Solution, SolutionStep};
 use crate::solver_new::*;
+use crate::solver_new::finish::DRFinishStep;
 use crate::solver_new::group::{StepPredicate, StepPredicateResult};
 use crate::solver_new::thread_util::*;
 use crate::steps::coord::Coord;
@@ -239,7 +240,7 @@ impl StepIORunner {
         while !self.cancel_token.is_cancelled() && self.current_length <= self.dfs_parameters.absolute_max_moves.unwrap_or(100) {
             loop {
                 let output_buffer = self.output_buffer.get_mut();
-                if let Some(sol) = output_buffer.pop_if(|x|x.len() <= self.current_length) {
+                if let Some(sol) = output_buffer.pop_if(|x|x.len() < self.current_length) {
                     trace!("[{}] Flushed buffered solution of length {}\nTest: {}", self.step.get_variant(), sol.len(), sol);
                     if let Err(_) = self.process_solution(sol) {
                         return
@@ -295,33 +296,21 @@ impl StepIORunner {
                 continue
             }
             let input = &self.input[self.current_position];
-            let can_cancel_with_previous = if let StepVariant::DRFIN(_) = self.step.get_variant() {
-                if let Some(StepVariant::HTR(_)) = input.steps.last().map(|x|x.variant) {
-                    let mut needs_extension = false;
-                    for step in &input.steps {
-                        if input.ends_on_normal() && !step.alg.inverse_moves.is_empty() {
-                            needs_extension = true;
-                            break;
-                        } else if !input.ends_on_normal() && !step.alg.normal_moves.is_empty() {
-                            needs_extension = true;
-                            break;
-                        }
-                    }
-                    needs_extension
-                } else {
-                    false
-                }
-            } else {
-                false
+            let dr_fin_axis = match self.step.get_variant() {
+                StepVariant::DRFIN(axis) | StepVariant::DRFINLS(axis) => Some(axis),
+                 _ => None,
             };
-            if can_cancel_with_previous {
-                if depth == 0 {
-                    self.find_solutions(self.cube_state.clone(), input, depth, self.dfs_parameters.niss_type)?;
-                    self.find_solutions(self.cube_state.clone(), input, depth + 1, self.dfs_parameters.niss_type)?;
-                }
-                self.find_solutions(self.cube_state.clone(), input, depth + 2, self.dfs_parameters.niss_type)?;
+            let cancel_previous_count = if let Some(dr_axis) = dr_fin_axis {
+                DRFinishStep::get_possible_cancellation_count(input, dr_axis)
             } else {
-                self.find_solutions(self.cube_state.clone(), input, depth, self.dfs_parameters.niss_type)?;
+                0
+            };
+            if depth == 0 {
+                for additional_depth in 0..=cancel_previous_count {
+                    self.find_solutions(self.cube_state.clone(), input, depth + additional_depth, self.dfs_parameters.niss_type)?;
+                }
+            } else {
+                self.find_solutions(self.cube_state.clone(), input, depth + cancel_previous_count, self.dfs_parameters.niss_type)?;
             }
             self.current_position += 1;
         }

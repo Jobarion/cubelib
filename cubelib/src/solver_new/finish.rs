@@ -7,6 +7,7 @@ use crate::cube::*;
 use crate::defs::StepVariant;
 use crate::solver::lookup_table;
 use crate::solver::lookup_table::{DepthEstimate, InMemoryIndexTable, MemoryMappedIndexTable};
+use crate::solver::solution::Solution;
 use crate::solver_new::*;
 use crate::solver_new::group::StepGroup;
 use crate::solver_new::step::*;
@@ -108,6 +109,95 @@ pub type DRFinishBuilder = builder::DRFinishBuilderInternal<false, false, false,
 impl DRFinishStep {
     pub fn builder() -> DRFinishBuilder {
         DRFinishBuilder::default()
+    }
+
+    pub(crate) fn get_possible_cancellation_count(solution: &Solution, dr_fin_axis: CubeAxis) -> usize {
+        // Only if we have a HTR step, we will consider cancelling with any step before the HTR.
+        if let Some(x) = solution.steps.last() {
+            if StepKind::from(x.variant) != StepKind::HTR {
+                return 0
+            }
+            // If the HTR has moves on both sides, there is no hope of cancelling anything
+            if !x.alg.normal_moves.is_empty() && !x.alg.inverse_moves.is_empty() {
+                return 0
+            }
+            let candidate = solution.steps.iter()
+                .take_while(|x|StepKind::from(x.variant) != StepKind::HTR)
+                .filter(|x|(solution.ends_on_normal() && !x.alg.inverse_moves.is_empty()) ||
+                    (!solution.ends_on_normal() && !x.alg.normal_moves.is_empty()))
+                .last();
+            if let Some(canditate) = candidate.cloned() {
+                let candidate_cancel_moves = if solution.ends_on_normal() {
+                    canditate.alg.inverse_moves
+                } else {
+                    canditate.alg.normal_moves
+                };
+                candidate_cancel_moves.iter()
+                    .rev()
+                    .take_while(|x|x.face.is_on_axis(dr_fin_axis))
+                    .count()
+            } else {
+                0
+            }
+        } else {
+            0
+        }
+    }
+}
+
+mod test {
+    #[test]
+    fn test_dr_cancel_moves() {
+        let solution = Solution {
+            steps: vec![
+                SolutionStep {
+                    variant: StepVariant::EO(CubeAxis::LR),
+                    alg: Algorithm::from_str("D' R (U L)").unwrap(),
+                    comment: "".to_string(),
+                },
+                SolutionStep {
+                    variant: StepVariant::DR { eo_axis: CubeAxis::LR, dr_axis: CubeAxis::FB },
+                    alg: Algorithm::from_str("(B' L2 D2 U2 F2 B' D)").unwrap(),
+                    comment: "".to_string(),
+                },
+                SolutionStep {
+                    variant: StepVariant::HTR(CubeAxis::FB),
+                    alg: Algorithm::from_str("(L2 B)").unwrap(),
+                    comment: "".to_string(),
+                },
+            ],
+            ends_on_normal: false,
+        };
+        assert_eq!(0, DRFinishStep::get_possible_cancellation_count(&solution, CubeAxis::FB));
+        assert_eq!(1, DRFinishStep::get_possible_cancellation_count(&solution, CubeAxis::LR));
+        assert_eq!(0, DRFinishStep::get_possible_cancellation_count(&solution, CubeAxis::UD));
+    }
+
+    #[test]
+    fn test_two_dr_cancel_moves() {
+        let solution = Solution {
+            steps: vec![
+                SolutionStep {
+                    variant: StepVariant::EO(CubeAxis::LR),
+                    alg: Algorithm::from_str("(D' R U L)").unwrap(),
+                    comment: "".to_string(),
+                },
+                SolutionStep {
+                    variant: StepVariant::DR { eo_axis: CubeAxis::LR, dr_axis: CubeAxis::FB },
+                    alg: Algorithm::from_str("F B").unwrap(),
+                    comment: "".to_string(),
+                },
+                SolutionStep {
+                    variant: StepVariant::HTR(CubeAxis::FB),
+                    alg: Algorithm::from_str("(L2 B)").unwrap(),
+                    comment: "".to_string(),
+                },
+            ],
+            ends_on_normal: false,
+        };
+        assert_eq!(2, DRFinishStep::get_possible_cancellation_count(&solution, CubeAxis::FB));
+        assert_eq!(0, DRFinishStep::get_possible_cancellation_count(&solution, CubeAxis::LR));
+        assert_eq!(0, DRFinishStep::get_possible_cancellation_count(&solution, CubeAxis::UD));
     }
 }
 

@@ -20,3 +20,4 @@ R' U' F U2 R2 U L' F2 D2 B2 D' B' D2 L2 D2 F2 L2 F L D F R' U' F D' R (U L) (B' 
 R' U' F U2 R2 U L' F2 D2 B2 D' B' D2 L2 D2 F2 L2 F L D F R' U' F (U L)|EO[max=2] > DR[max=7] > HTR[max=2] > FIN[htr-breaking=true]|18|5000|true
 R' U' F U B2 F2 L2 U' R2 U L2 B L2 B' R F2 D2 L' D B2 D' U2 R' U' F (F2 R2 B') (D L2 U' L) R2 U D2 L2 B2 D' B2|EO[max=0] > DR[max=0] > HTR > FIN[htr-breaking=true]|7|1000|true
 R' U' F U B2 F2 L2 U' R2 U L2 B L2 B' R F2 D2 L' D B2 D' U2 R' U' F (F2 R2 B') (D L2 U') R2 U D2 L2 B2 D' B2|EO[max=0] > DR[ud;max=1] > HTR > FIN[htr-breaking=true]|6|1000|true
+R' U' F R U R L F' B2 R' U L' F B2 U2 D2 B' L2 F2 B' R' D' R' U' F|EO[fb;max=4;niss=never] > AR[max=1;niss=before] > DR[max-abs=11;niss=before] > HTR[niss=always]|18|1000|true

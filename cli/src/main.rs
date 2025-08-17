@@ -1,12 +1,16 @@
+#![feature(pattern)]
 extern crate core;
 
 use std::collections::HashMap;
 use home::home_dir;
 use std::fs;
+use std::fs::File;
 use std::io::{BufWriter, ErrorKind, Read, Write};
+use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::{LazyLock, Mutex};
 use std::time::Instant;
-
+use chrono::{TimeDelta, Utc};
 use clap::Parser;
 use cubelib::algs::Algorithm;
 use cubelib::cube::*;
@@ -21,24 +25,52 @@ use cubelib::steps::{eo, solver};
 use cubelib::steps::step::StepConfig;
 use cubelib::steps::tables::PruningTables333;
 use indicatif::ProgressStyle;
-use log::{error, info, log};
+use log::{debug, error, info, log, warn};
 use regex::Regex;
+use self_replace::self_replace;
+use semver::Version;
 use simple_logger::SimpleLogger;
+use tempfile::TempDir;
+use zip::read::root_dir_common_filter;
+use zip::ZipArchive;
+use crate::cache::Cache;
 use crate::cli::{Cli, Commands, DownloadCommand, InvertCommand, LogLevel, SolutionFormat, SolveCommand, SolverBackend};
 use crate::config::{SolverConfig, CubelibConfig};
+use crate::update::{fetch_latest, GithubRelease, UpdateError};
 
 mod cli;
 mod steps;
 mod config;
+mod update;
+mod cache;
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const CACHE: LazyLock<Mutex<Cache>> = LazyLock::new(||Mutex::new(Cache::default()));
+
+pub fn get_version() -> Version {
+    Version::from_str(VERSION).expect("Cubelib version not semver")
+}
+
+pub fn get_config_file() -> PathBuf {
+    let mut dir = home_dir().unwrap();
+    dir.push(".cubelib");
+    dir.push("config.toml");
+    dir
+}
+
+pub fn get_cache_file() -> PathBuf {
+    let mut dir = home_dir().unwrap();
+    dir.push(".cubelib");
+    dir.push("cache.toml");
+    dir
+}
 
 fn main() {
     let cli: Cli = Cli::parse();
 
     let mut messages = vec![];
 
-    let mut dir = home_dir().unwrap();
-    dir.push(".cubelib");
-    dir.push("config.toml");
+    let dir = get_config_file();
 
     messages.push((LogLevel::Info, format!("Reading config from {dir:?}")));
     let mut config: CubelibConfig = match fs::read_to_string(dir.to_str().expect("Valid path")) {
@@ -61,22 +93,40 @@ fn main() {
     if let Some(log) = cli.log {
         config.log = log;
     }
+    if cli.no_check_update {
+        config.check_update = false;
+    }
     SimpleLogger::new()
         .with_level(config.log.to_level_filter())
         .init()
         .unwrap();
+
 
     for (level, message) in messages {
         if let Some(level) = level.to_level_filter().to_level() {
             log!(level, "{message}");
         }
     }
+    let latest_version = if config.check_update {
+        let cache = &CACHE;
+        let cache = cache.lock();
+        let mut cache = cache.unwrap();
+        if Utc::now().signed_duration_since(cache.get_data().last_update_check) >= TimeDelta::hours(1) {
+            cache.get_and_update().last_update_check = Utc::now();
+            check_update().ok()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
 
     match cli.command {
         Commands::Solve(cmd) => solve(cmd, config.solver_config),
         Commands::Invert(cmd) => invert(cmd),
         Commands::Scramble => scramble(),
         Commands::Download(cmd) => download(cmd),
+        Commands::Update => update(latest_version),
     }
 }
 
@@ -90,6 +140,115 @@ fn scramble() {
     solver_config.steps = "EO[max=7;niss=never] > DR[niss=never] > HTR[niss=never] > FIN[niss=never]".to_string();
 
     find_and_print_solutions_iter_stream(cube, solver_config);
+}
+
+fn check_update() -> Result<GithubRelease, UpdateError> {
+    let latest = match fetch_latest() {
+        Ok(latest) => latest,
+        Err(e) => {
+            warn!("Failed to fetch latest version: {e:?}");
+            return Err(e);
+        },
+    };
+    if get_version() >= latest.version {
+        debug!("Cubelib is up to date");
+    } else {
+        warn!("Cubelib is out of date. Local version is {}, found newer version {}. \
+        Run \"{} --log info update\" to download the latest version, or set \"check_version = false\" in the {} to disable version checks.",
+            get_version(),
+            latest.version,
+            std::env::args().next().unwrap_or("cubelib".to_string()),
+            get_config_file().as_path().to_str().unwrap()
+        );
+    }
+    Ok(latest)
+}
+
+fn update(latest_version: Option<GithubRelease>) {
+    let latest_version = if let Some(lv) = latest_version {
+        lv
+    } else {
+        match fetch_latest() {
+            Ok(latest) => {
+                if get_version() >= latest.version {
+                    debug!("Cubelib is up to date");
+                } else {
+                    warn!("Cubelib is out of date. Local version is {}, found newer version {}", get_version(), latest.version);
+                }
+                latest
+            },
+            Err(e) => {
+                error!("Failed to fetch latest version: {e:?}");
+                return;
+            }
+        }
+    };
+    if get_version() >= latest_version.version {
+        return;
+    }
+    let (file_name, executable_name) = if cfg!(windows) && cfg!(target_feature = "avx2") && cfg!(target_arch = "x86_64") {
+        ("cubelib-windows-x64-avx2.zip", "cubelib-cli.exe")
+    } else if cfg!(unix) && cfg!(target_feature = "avx2") && cfg!(target_arch = "x86_64") {
+        ("cubelib-linux-x64-avx2.zip", "cubelib-cli")
+    } else {
+        error!("Unsupported platform. Please compile Cubelib yourself");
+        return;
+    };
+    let asset = if let Some(download_url) = latest_version.assets.get(file_name) {
+        download_url
+    } else {
+        error!("Unsupported platform. Please compile Cubelib yourself, or message the author");
+        return;
+    };
+
+    let pb = indicatif::ProgressBar::new(asset.size);
+    pb.set_message(format!("Downloading {}", asset.name));
+    pb.set_style(ProgressStyle::with_template("[{elapsed_precise}] {bar:40} {decimal_bytes}/{decimal_total_bytes}").unwrap());
+
+    let temp_dir = TempDir::new().expect("tempdir required");
+    let zip_file = File::create(temp_dir.path().join("cubelib.zip")).expect("file creation error");
+    let mut writer = BufWriter::new(zip_file);
+    let client = reqwest::blocking::Client::builder()
+        .user_agent(format!("cubelib/{}", VERSION))
+        .build()
+        .unwrap();
+
+    let mut resp = match client.get(&asset.browser_download_url).send() {
+        Ok(r) => r,
+        Err(e) => {
+            error!("Failed to download file: {e}");
+            return;
+        }
+    };
+    let mut buf = [0; 2048];
+    loop {
+        let read = match resp.read(&mut buf) {
+            Ok(read) => read,
+            Err(e) => {
+                error!("Failed to download file: {e}");
+                return;
+            }
+        };
+        if read == 0 {
+            break
+        }
+        if let Err(e) = writer.write_all(&buf[..read]) {
+            error!("Local IO error: {e}");
+            return
+        }
+        pb.inc(read as u64);
+    }
+    drop(writer);
+    pb.finish();
+    let zip_file = File::open(temp_dir.path().join("cubelib.zip")).expect("file creation error");
+    let mut archive = ZipArchive::new(zip_file).expect("zip archive");
+    archive.extract_unwrapped_root_dir(temp_dir.path(), root_dir_common_filter).expect("zip extract error");
+    drop(archive);
+
+    match self_replace(temp_dir.path().join(executable_name)) {
+        Ok(_) => info!("Updated successfully"),
+        Err(e) => error!("Failed to update binary: {e:?}"),
+    }
 }
 
 fn download(cmd: DownloadCommand) {

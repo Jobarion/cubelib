@@ -53,9 +53,9 @@ const FINISH_HTR_ST_MOVES: &[Turn333] = &[
 
 const FINISH_AUX_MOVES: &[Turn333] = &[];
 
-pub const FINISH_FRUD_MOVESET: MoveSet = MoveSet::new(FINISH_FRUD_ST_MOVES, FINISH_AUX_MOVES);
-pub const FINISH_HTR_MOVESET: MoveSet = MoveSet::new(FINISH_HTR_ST_MOVES, FINISH_AUX_MOVES);
-pub const FINISH_DR_MOVESET: MoveSet = MoveSet::new(DR_UD_EO_FB_MOVES, &[]);
+pub const FINISH_FRUD_MOVESET: MoveSet = MoveSet::new_qt_ht_ordered(FINISH_FRUD_ST_MOVES, FINISH_AUX_MOVES);
+pub const FINISH_HTR_MOVESET: MoveSet = MoveSet::new_qt_ht_ordered(FINISH_HTR_ST_MOVES, FINISH_AUX_MOVES);
+pub const FINISH_DR_MOVESET: MoveSet = MoveSet::new_qt_ht_ordered(DR_UD_EO_FB_MOVES, &[]);
 
 pub struct FRFinishStep;
 pub type FRFinishBuilder = builder::FRFinishBuilderInternal<false, false, false, false>;

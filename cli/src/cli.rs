@@ -9,6 +9,8 @@ use serde::Deserialize;
 pub struct Cli {
     #[arg(short, long = "log", help = "Log level")]
     pub log: Option<LogLevel>,
+    #[arg(long = "no-check-update", help = "Disable looking for newer versions")]
+    pub no_check_update: bool,
     #[clap(subcommand)]
     pub command: Commands,
 }
@@ -19,6 +21,7 @@ pub enum Commands {
     Scramble,
     Invert(InvertCommand),
     Download(DownloadCommand),
+    Update
 }
 
 #[derive(Parser)]

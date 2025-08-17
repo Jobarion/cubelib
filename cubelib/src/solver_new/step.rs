@@ -393,6 +393,8 @@ impl StepIORunner {
         }
 
         let cancel_token = self.cancel_token.as_ref();
+        previous_normal = None;
+        previous_inverse = None;
         let iter: Box<dyn Iterator<Item = Algorithm>> = match niss_type {
             NissSwitchType::Never if start_on_normal => {
                 Box::new(self.find_solutions_dfs(cube, depth, false, previous_normal, previous_inverse, cancel_token))
@@ -532,7 +534,15 @@ impl MoveSet {
         Self {
             st_moves,
             aux_moves,
-            transitions: Self::new_default_transitions(true),
+            transitions: Self::new_default_transitions(true, false),
+        }
+    }
+
+    pub const fn new_qt_ht_ordered(st_moves: &'static [Turn333], aux_moves: &'static [Turn333]) -> Self {
+        Self {
+            st_moves,
+            aux_moves,
+            transitions: Self::new_default_transitions(true, true),
         }
     }
 
@@ -540,15 +550,76 @@ impl MoveSet {
         Self {
             st_moves,
             aux_moves,
-            transitions: Self::new_default_transitions(false),
+            transitions: Self::new_default_transitions(false, false),
         }
+    }
+
+    pub const fn new_default_transitions(ordered: bool, qt_first: bool) -> [[bool; 18]; 18] {
+        let mut transitions = [[true; 18]; 18];
+        let dirs = [Direction::Clockwise, Direction::CounterClockwise, Direction::Half];
+        // No repeated moves on the same face
+        let mut idx = 0;
+        while idx < CubeFace::ALL.len() {
+            let face = CubeFace::ALL[idx];
+            idx += 1;
+            let mut idx = 0;
+            while idx < dirs.len() {
+                let dir_first = dirs[idx];
+                idx += 1;
+                let mut idx = 0;
+                while idx < dirs.len() {
+                    let dir_last = dirs[idx];
+                    idx += 1;
+                    transitions[Turn333::new(face, dir_first).to_id()][Turn333::new(face, dir_last).to_id()] = false;
+                }
+            }
+        }
+        if ordered {
+            let priority_faces = [CubeFace::Up, CubeFace::Front, CubeFace::Left];
+            let mut idx = 0;
+            while idx < priority_faces.len() {
+                let face = priority_faces[idx];
+                idx += 1;
+                if qt_first {
+                    // Enforce order within qt/ht
+                    transitions[Turn333::new(face.opposite(), Direction::Half).to_id()][Turn333::new(face, Direction::Half).to_id()] = false;
+                    transitions[Turn333::new(face.opposite(), Direction::Clockwise).to_id()][Turn333::new(face, Direction::Clockwise).to_id()] = false;
+                    transitions[Turn333::new(face.opposite(), Direction::Clockwise).to_id()][Turn333::new(face, Direction::CounterClockwise).to_id()] = false;
+                    transitions[Turn333::new(face.opposite(), Direction::CounterClockwise).to_id()][Turn333::new(face, Direction::Clockwise).to_id()] = false;
+                    transitions[Turn333::new(face.opposite(), Direction::CounterClockwise).to_id()][Turn333::new(face, Direction::CounterClockwise).to_id()] = false;
+                } else {
+                    // Enforce order globally
+                    let mut idx = 0;
+                    while idx < dirs.len() {
+                        let dir_first = dirs[idx];
+                        idx += 1;
+                        let mut idx = 0;
+                        while idx < dirs.len() {
+                            let dir_last = dirs[idx];
+                            idx += 1;
+                            transitions[Turn333::new(face.opposite(), dir_first).to_id()][Turn333::new(face, dir_last).to_id()] = false;
+                        }
+                    }
+                }
+            }
+        }
+        if qt_first {
+            let mut idx = 0;
+            while idx < CubeFace::ALL.len() {
+                let face = CubeFace::ALL[idx];
+                idx += 1;
+                transitions[Turn333::new(face, Direction::Half).to_id()][Turn333::new(face.opposite(), Direction::Clockwise).to_id()] = false;
+                transitions[Turn333::new(face, Direction::Half).to_id()][Turn333::new(face.opposite(), Direction::CounterClockwise).to_id()] = false;
+            }
+        }
+        transitions
     }
 
     // In order of importance:
     // - No subsequent moves on the same face
     // - For moves on the same axis, quarter moves before half moves
     // - U before D, F before B, L before R
-    const fn new_default_transitions(ordered: bool) -> [[bool; 18]; 18] {
+    pub const fn new_default_transitions_(ordered: bool) -> [[bool; 18]; 18] {
         let mut transitions = [[true; 18]; 18];
         let dirs = [Direction::Clockwise, Direction::CounterClockwise, Direction::Half];
         let priority_faces = [CubeFace::Up, CubeFace::Front, CubeFace::Left];

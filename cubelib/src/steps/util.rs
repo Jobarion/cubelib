@@ -3,7 +3,7 @@ use std::str::FromStr;
 use itertools::Itertools;
 //This should be in the htr step, but we need it in the wasm version and the HTR step cannot be compiled to wasm right now
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Subset {
     pub discriminator: Option<&'static str>,
     pub generator: &'static str, //We need a const array, and creating an FromStr isn't const

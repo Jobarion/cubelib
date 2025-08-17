@@ -63,10 +63,10 @@ const DRUF_PRE_TRIGGER_AUX_MOVES: &[Turn333] = &[
 pub type DRBuilder = builder::DRBuilderInternal<false, false, false, false, false, false, false, false>;
 pub type RZPBuilder = builder::RZPBuilderInternal<false, false, false>;
 
-pub const DRUD_ARUD_MOVESET: MoveSet = MoveSet::new(DRUD_EOFB_ST_MOVES, HTR_MOVES);
-pub const DRUD_EOFB_MOVESET: MoveSet = MoveSet::new(DRUD_EOFB_ST_MOVES, DRUD_EOFB_AUX_MOVES);
+pub const DRUD_ARUD_MOVESET: MoveSet = MoveSet::new_qt_ht_ordered(DRUD_EOFB_ST_MOVES, HTR_MOVES);
+pub const DRUD_EOFB_MOVESET: MoveSet = MoveSet::new_qt_ht_ordered(DRUD_EOFB_ST_MOVES, DRUD_EOFB_AUX_MOVES);
 pub const DR_TRIGGER_MOVESET: MoveSet = MoveSet::new_unordered(DRUD_EOFB_ST_MOVES, DRUD_EOFB_AUX_MOVES);
-pub const DRUD_PRE_TRIGGER_MOVESET: MoveSet = MoveSet::new(DRUF_PRE_TRIGGER_ST_MOVES, DRUF_PRE_TRIGGER_AUX_MOVES);
+pub const DRUD_PRE_TRIGGER_MOVESET: MoveSet = MoveSet::new_qt_ht_ordered(DRUF_PRE_TRIGGER_ST_MOVES, DRUF_PRE_TRIGGER_AUX_MOVES);
 pub const DRUD_EOFB_POST_TRIGGER_MOVESET: MoveSet = DRUD_EOFB_MOVESET;
 
 pub struct DRStep;

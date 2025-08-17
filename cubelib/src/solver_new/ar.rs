@@ -26,7 +26,7 @@ const PRE_AR_UD_EO_FB_AUX_MOVES: &[Turn333] = &[
     Turn333::L, Turn333::Li, Turn333::L2,
     Turn333::R, Turn333::Ri, Turn333::R2
 ];
-pub const ARUD_EOFB_MOVESET: MoveSet = MoveSet::new(HTR_DR_UD_STATE_CHANGE_MOVES, PRE_AR_UD_EO_FB_AUX_MOVES);
+pub const ARUD_EOFB_MOVESET: MoveSet = MoveSet::new_qt_ht_ordered(HTR_DR_UD_STATE_CHANGE_MOVES, PRE_AR_UD_EO_FB_AUX_MOVES);
 
 pub struct ARStep;
 pub type ARBuilder = builder::ARBuilderInternal<false, false, false, false>;

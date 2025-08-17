@@ -28,7 +28,7 @@ const FR_UD_AUX_MOVES: &[Turn333] = &[
     Turn333::L2, Turn333::R2,
 ];
 
-pub const FRUD_MOVESET: MoveSet = MoveSet::new(FRUD_ST_MOVES, FR_UD_AUX_MOVES);
+pub const FRUD_MOVESET: MoveSet = MoveSet::new_qt_ht_ordered(FRUD_ST_MOVES, FR_UD_AUX_MOVES);
 
 pub struct FRStep;
 pub type FRBuilder = builder::FRBuilderInternal<false, false, false, false, false>;

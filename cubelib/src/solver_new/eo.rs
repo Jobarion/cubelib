@@ -31,7 +31,7 @@ const EOFB_AUX_MOVES: &[Turn333] = &[
     Turn333::R, Turn333::Ri, Turn333::R2,
 ];
 
-pub const EOFB_MOVESET: MoveSet = MoveSet::new(EOFB_ST_MOVES, EOFB_AUX_MOVES);
+pub const EOFB_MOVESET: MoveSet = MoveSet::new_qt_ht_ordered(EOFB_ST_MOVES, EOFB_AUX_MOVES);
 
 pub struct EOStep;
 pub type EOBuilder = builder::EOBuilderInternal<false, false, false, false, false>;

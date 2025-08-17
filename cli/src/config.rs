@@ -13,12 +13,18 @@ use crate::cli::{LogLevel, SolutionFormat, SolveCommand, SolverBackend};
 pub struct CubelibConfig {
     #[serde(default = "default_log_level")]
     pub log: LogLevel,
+    #[serde(default = "default_check_update")]
+    pub check_update: bool,
     #[serde(rename = "solver")]
     pub solver_config: SolverConfig,
 }
 
 fn default_log_level() -> LogLevel {
     LogLevel::Warn
+}
+
+fn default_check_update() -> bool {
+    true
 }
 
 fn default_solver_config() -> SolverConfig {
@@ -29,6 +35,7 @@ impl Default for CubelibConfig {
     fn default() -> Self {
         Self {
             log: default_log_level(),
+            check_update: true,
             solver_config: default_solver_config(),
         }
     }

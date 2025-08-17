@@ -38,6 +38,7 @@ fn run_length_test(test: &LengthTestCase, backend: &str) {
     let start = Instant::now();
     let output = Command::new(path.clone())
         .args(["--log", "error"])
+        .arg("--no-check-update")
         .arg("solve")
         .arg("--steps")
         .arg(test.config.as_str())

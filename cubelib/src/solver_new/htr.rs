@@ -29,7 +29,7 @@ const HTR_DRUD_AUX_MOVES: &[Turn333] = &[
     Turn333::L2, Turn333::R2,
 ];
 
-pub const HTR_DRUD_MOVESET: MoveSet = MoveSet::new(HTR_DRUD_ST_MOVES, HTR_DRUD_AUX_MOVES);
+pub const HTR_DRUD_MOVESET: MoveSet = MoveSet::new_qt_ht_ordered(HTR_DRUD_ST_MOVES, HTR_DRUD_AUX_MOVES);
 
 pub struct HTRStep;
 pub type HTRBuilder = builder::HTRBuilderInternal<false, false, false, false>;

@@ -105,6 +105,7 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Siz
         dir.push(".cubelib");
         dir.push("tables");
         dir.push(puzzle_id);
+        std::fs::create_dir_all(dir.as_path()).map_err(|e|TableError::IOError(e))?;
         dir.push(format!("{table_type}.tbl"));
         debug!("Loading {puzzle_id} {table_type} table from {dir:?}");
         File::open(dir).map_err(|e|TableError::IOError(e))
@@ -115,6 +116,7 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Siz
         dir.push(".cubelib");
         dir.push("tables");
         dir.push(puzzle_id);
+        std::fs::create_dir_all(dir.as_path()).map_err(|e|TableError::IOError(e))?;
         dir.push(format!("{table_type}.tbl"));
         debug!("Loading {puzzle_id} {table_type} table from {dir:?}");
         File::create(dir).map_err(|e|TableError::IOError(e))

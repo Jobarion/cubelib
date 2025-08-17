@@ -51,16 +51,20 @@ pub fn get_version() -> Version {
     Version::from_str(VERSION).expect("Cubelib version not semver")
 }
 
-pub fn get_config_file() -> PathBuf {
+pub fn get_cubelib_dir() -> PathBuf {
     let mut dir = home_dir().unwrap();
     dir.push(".cubelib");
+    dir
+}
+
+pub fn get_config_file() -> PathBuf {
+    let mut dir = get_cubelib_dir();
     dir.push("config.toml");
     dir
 }
 
 pub fn get_cache_file() -> PathBuf {
-    let mut dir = home_dir().unwrap();
-    dir.push(".cubelib");
+    let mut dir = get_cubelib_dir();
     dir.push("cache.toml");
     dir
 }
@@ -69,6 +73,11 @@ fn main() {
     let cli: Cli = Cli::parse();
 
     let mut messages = vec![];
+
+    let dir = get_cubelib_dir();
+    if let Err(e) = fs::create_dir_all(dir) {
+        messages.push((LogLevel::Error, format!("Failed to create cubelib home dir: {e}")));
+    }
 
     let dir = get_config_file();
 

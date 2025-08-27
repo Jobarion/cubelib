@@ -1,12 +1,12 @@
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::algs::Algorithm;
-use crate::cube::{Cube333, Turn333};
 use crate::cube::turn::Direction;
+use crate::cube::{Cube333, Turn333};
 use crate::defs::StepKind;
 use crate::solver::solution::Solution;
 use crate::solver_new::group::{StepPredicate, StepPredicateResult};
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub struct FilterDup(RefCell<HashSet<Algorithm>>);
 pub struct FilterLastMoveNotPrime;
@@ -22,16 +22,20 @@ pub struct FilterExcluded(HashSet<Algorithm>);
 
 impl FilterExcluded {
     pub fn new(excluded: HashSet<Algorithm>) -> Box<dyn StepPredicate> {
-        Box::new(Self(excluded.into_iter()
-            .map(to_last_move_non_prime_alg)
-            .map(Algorithm::canonicalize)
-            .collect()))
+        Box::new(Self(
+            excluded
+                .into_iter()
+                .map(to_last_move_non_prime_alg)
+                .map(Algorithm::canonicalize)
+                .collect(),
+        ))
     }
 }
 
 impl StepPredicate for FilterExcluded {
     fn check_solution(&self, solution: &Solution) -> StepPredicateResult {
-        let qt_filter = if let Some(kind) = solution.steps.last().map(|x|StepKind::from(x.variant)) {
+        let qt_filter = if let Some(kind) = solution.steps.last().map(|x| StepKind::from(x.variant))
+        {
             match kind {
                 StepKind::EO | StepKind::RZP | StepKind::DR | StepKind::HTR => true,
                 _ => false,
@@ -84,7 +88,11 @@ impl FilterFirstNStepVariant {
 
 impl StepPredicate for FilterDup {
     fn check_solution(&self, solution: &Solution) -> StepPredicateResult {
-        let uninverted = solution.steps.last().map(|x|StepKind::from(x.variant) == StepKind::FIN).is_some();
+        let uninverted = solution
+            .steps
+            .last()
+            .map(|x| StepKind::from(x.variant) == StepKind::FIN)
+            .is_some();
         let mut alg: Algorithm = solution.clone().into();
         if uninverted {
             alg = alg.to_uninverted();
@@ -131,7 +139,10 @@ impl StepPredicate for FilterFirstN {
             return StepPredicateResult::Closed;
         }
         loop {
-            match self.0.compare_exchange(v, v - 1, Ordering::Relaxed, Ordering::Relaxed) {
+            match self
+                .0
+                .compare_exchange(v, v - 1, Ordering::Relaxed, Ordering::Relaxed)
+            {
                 Ok(_) => {
                     return StepPredicateResult::Accepted;
                 }
@@ -165,7 +176,7 @@ impl StepPredicate for FilterFirstNStepVariant {
         }
         let normalized_alg = match self.kind {
             StepKind::FR | StepKind::FIN | StepKind::Other(_) => alg_up_to_kind,
-            _ => to_last_move_non_prime_alg(alg_up_to_kind)
+            _ => to_last_move_non_prime_alg(alg_up_to_kind),
         };
         let mut found = self.found.borrow_mut();
         let entry = found.entry(normalized_alg);
@@ -192,7 +203,9 @@ fn to_last_move_non_prime_alg(mut alg: Algorithm) -> Algorithm {
         if len > 1 {
             let last_face = last.face;
             let before_last = &mut vec[len - 2];
-            if before_last.face == last_face.opposite() && before_last.dir == Direction::CounterClockwise{
+            if before_last.face == last_face.opposite()
+                && before_last.dir == Direction::CounterClockwise
+            {
                 before_last.dir = Direction::Clockwise;
             }
         }

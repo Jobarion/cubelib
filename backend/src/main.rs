@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use actix_cors::Cors;
-use actix_web::{App, HttpServer, web};
+use actix_web::{web, App, HttpServer};
 use cubelib::algs::Algorithm;
 use cubelib::steps::tables::PruningTables333;
 use log::LevelFilter;
@@ -45,10 +45,11 @@ async fn main() -> std::io::Result<()> {
     pruning_tables.gen_htr_leave_slice_finish();
 
     let pruning_tables = Arc::new(pruning_tables);
-    let debounce_cache = Arc::new(Cache::builder()
-        .time_to_live(Duration::from_millis(500))
-        .max_capacity(1000)
-        .build()
+    let debounce_cache = Arc::new(
+        Cache::builder()
+            .time_to_live(Duration::from_millis(500))
+            .max_capacity(1000)
+            .build(),
     );
 
     HttpServer::new(move || {
@@ -62,7 +63,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .service(controller::solve_stream)
     })
-        .bind(("127.0.0.1", 8049))?
-        .run()
-        .await
+    .bind(("127.0.0.1", 8049))?
+    .run()
+    .await
 }

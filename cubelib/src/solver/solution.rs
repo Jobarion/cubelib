@@ -4,7 +4,10 @@ use crate::algs::Algorithm;
 use crate::cube::turn::{InvertibleMut, TurnableMut};
 use crate::defs::{StepKind, StepVariant};
 
-#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[derive(Eq, PartialEq)]
 pub struct Solution {
     pub steps: Vec<SolutionStep>,
@@ -12,28 +15,39 @@ pub struct Solution {
 }
 
 #[derive(Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub struct SolutionStep {
     pub variant: StepVariant,
     pub alg: Algorithm,
-    pub comment: String
+    pub comment: String,
 }
 
 impl Solution {
     pub fn new() -> Solution {
-        Solution { steps: vec![], ends_on_normal: true }
+        Solution {
+            steps: vec![],
+            ends_on_normal: true,
+        }
     }
 
     pub fn len(&self) -> usize {
-        if let Some(StepKind::FIN) = self.steps.last().map(|x|StepKind::from(x.variant)) {
+        if let Some(StepKind::FIN) = self.steps.last().map(|x| StepKind::from(x.variant)) {
             Into::<Algorithm>::into(self.clone()).to_uninverted()
         } else {
             Into::<Algorithm>::into(self.clone())
-        }.canonicalize().len()
+        }
+        .canonicalize()
+        .len()
     }
 
     pub fn add_step(&mut self, step: SolutionStep) {
-        self.ends_on_normal = match (step.alg.normal_moves.is_empty(), step.alg.inverse_moves.is_empty()) {
+        self.ends_on_normal = match (
+            step.alg.normal_moves.is_empty(),
+            step.alg.inverse_moves.is_empty(),
+        ) {
             (true, true) => self.ends_on_normal,
             (false, false) => !self.ends_on_normal,
             (true, false) => false,
@@ -70,7 +84,7 @@ impl Solution {
         }
         Solution {
             steps,
-            ends_on_normal: self.ends_on_normal
+            ends_on_normal: self.ends_on_normal,
         }
     }
 }
@@ -98,7 +112,7 @@ impl Clone for Solution {
     fn clone(&self) -> Self {
         Solution {
             steps: self.steps.clone(),
-            ends_on_normal: self.ends_on_normal
+            ends_on_normal: self.ends_on_normal,
         }
     }
 }
@@ -130,7 +144,14 @@ impl Display for Solution {
         let longest_name_length = compact
             .steps
             .iter()
-            .map(|s| s.variant.to_string().len() + if s.comment.is_empty() { 0 } else { s.comment.len() + 3 })
+            .map(|s| {
+                s.variant.to_string().len()
+                    + if s.comment.is_empty() {
+                        0
+                    } else {
+                        s.comment.len() + 3
+                    }
+            })
             .max()
             .unwrap_or(0);
 
@@ -138,11 +159,14 @@ impl Display for Solution {
         for (idx, step) in compact.steps.iter().enumerate() {
             let alg_length = step.alg.len();
             let previous_length = collected_alg.len();
-            collected_alg = if idx + 1 == compact.steps.len() && StepKind::from(step.variant) == StepKind::FIN {
+            collected_alg = if idx + 1 == compact.steps.len()
+                && StepKind::from(step.variant) == StepKind::FIN
+            {
                 (collected_alg + step.alg.clone()).to_uninverted()
             } else {
                 collected_alg + step.alg.clone()
-            }.canonicalize();
+            }
+            .canonicalize();
             let cancelled_moves = previous_length + alg_length - collected_alg.len();
             let comment = if step.comment.is_empty() {
                 "".to_string()
@@ -155,14 +179,13 @@ impl Display for Solution {
                 format!("({alg_length}-{cancelled_moves}/{})", collected_alg.len())
             };
             let name = format!("{}{comment}", step.variant.to_string());
-            writeln!(f, "{:longest_alg_length$}  // {name:longest_name_length$} {length_comment}", step.alg.to_string())?;
+            writeln!(
+                f,
+                "{:longest_alg_length$}  // {name:longest_name_length$} {length_comment}",
+                step.alg.to_string()
+            )?;
         }
-        writeln!(
-            f,
-            "Solution ({}): {}",
-            collected_alg.len(),
-            collected_alg
-        )
+        writeln!(f, "Solution ({}): {}", collected_alg.len(), collected_alg)
     }
 }
 
@@ -170,7 +193,7 @@ pub trait ApplySolution<C: TurnableMut> {
     fn apply_solution(&mut self, solution: &Solution);
 }
 
-impl <C: TurnableMut + InvertibleMut> ApplySolution<C> for C {
+impl<C: TurnableMut + InvertibleMut> ApplySolution<C> for C {
     fn apply_solution(&mut self, solution: &Solution) {
         for step in solution.steps.iter() {
             for m in step.alg.normal_moves.iter() {

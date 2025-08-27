@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::time::Duration;
+use crate::config::StepOverride;
 use cubelib::algs::Algorithm;
 use cubelib::defs::{NissSwitchType, StepKind};
 use cubelib::solver::lookup_table::{LoadFromDisk, MemoryMappedIndexTable, TableError};
@@ -13,19 +11,30 @@ use cubelib::solver_new::group::{StepGroup, StepPredicate};
 use cubelib::solver_new::htr::HTRBuilder;
 use cubelib::solver_new::util_cube::CubeState;
 use cubelib::solver_new::util_steps::{FilterFirstN, FilterFirstNStepVariant};
-use cubelib::steps::finish::coords::{DR_FINISH_LS_SIZE, DR_FINISH_SIZE, DRFinishCoord, DRLeaveSliceFinishCoord};
+use cubelib::steps::finish::coords::{
+    DRFinishCoord, DRLeaveSliceFinishCoord, DR_FINISH_LS_SIZE, DR_FINISH_SIZE,
+};
 use cubelib::steps::step::StepConfig;
 use log::{debug, warn};
 use pest::iterators::Pair;
 use pest::Parser;
-use crate::config::StepOverride;
+use std::collections::HashMap;
+use std::str::FromStr;
+use std::time::Duration;
 
 #[derive(pest_derive::Parser)]
 #[grammar = "steps.pest"]
 struct StepsParser;
 
-pub(crate) fn parse_steps<S: AsRef<str>>(s: S, prototypes: &HashMap<String, StepOverride>, cube_state: CubeState) -> Result<(StepGroup, StepKind), String> {
-    let main = StepsParser::parse(Rule::main, s.as_ref()).unwrap().next().unwrap();
+pub(crate) fn parse_steps<S: AsRef<str>>(
+    s: S,
+    prototypes: &HashMap<String, StepOverride>,
+    cube_state: CubeState,
+) -> Result<(StepGroup, StepKind), String> {
+    let main = StepsParser::parse(Rule::main, s.as_ref())
+        .unwrap()
+        .next()
+        .unwrap();
 
     let (group, target) = generate(main, None, prototypes, cube_state)?;
     if let Some(group) = group {
@@ -35,7 +44,12 @@ pub(crate) fn parse_steps<S: AsRef<str>>(s: S, prototypes: &HashMap<String, Step
     }
 }
 
-fn generate(p: Pair<Rule>, mut previous: Option<StepConfig>, prototypes: &HashMap<String, StepOverride>, cube_state: CubeState) -> Result<(Option<StepGroup>, StepConfig), String> {
+fn generate(
+    p: Pair<Rule>,
+    mut previous: Option<StepConfig>,
+    prototypes: &HashMap<String, StepOverride>,
+    cube_state: CubeState,
+) -> Result<(Option<StepGroup>, StepConfig), String> {
     Ok(match p.as_rule() {
         Rule::step => parse_step(p, previous, prototypes, cube_state)?,
         Rule::sequence => {
@@ -52,12 +66,13 @@ fn generate(p: Pair<Rule>, mut previous: Option<StepConfig>, prototypes: &HashMa
             } else {
                 (Some(StepGroup::sequential(steps)), previous.unwrap())
             }
-        },
+        }
         Rule::parallel => {
             let mut steps = vec![];
             let mut target: Option<StepConfig> = None;
             for inner in p.into_inner() {
-                let (group, kind) = generate(inner, previous.clone(), prototypes, cube_state.clone())?;
+                let (group, kind) =
+                    generate(inner, previous.clone(), prototypes, cube_state.clone())?;
                 if let Some(target) = target {
                     assert_eq!(target.kind, kind.kind);
                 }
@@ -75,11 +90,16 @@ fn generate(p: Pair<Rule>, mut previous: Option<StepConfig>, prototypes: &HashMa
         p => {
             println!("{p:?}");
             unreachable!()
-        },
+        }
     })
 }
 
-fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<String, StepOverride>, cube_state: CubeState) -> Result<(Option<StepGroup>, StepConfig), String> {
+fn parse_step(
+    p: Pair<Rule>,
+    previous: Option<StepConfig>,
+    prototypes: &HashMap<String, StepOverride>,
+    cube_state: CubeState,
+) -> Result<(Option<StepGroup>, StepConfig), String> {
     let mut inner = p.into_inner();
     let kind = inner.next().unwrap();
     assert_eq!(Rule::kind, kind.as_rule());
@@ -113,7 +133,7 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
         let next = if let Some(next) = inner.next() {
             next
         } else {
-            break
+            break;
         };
         match next.as_rule() {
             Rule::variant => variants.push(next.as_str().to_string()),
@@ -121,11 +141,10 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
                 let key = next.as_str();
                 let value = inner.next().unwrap().as_str();
                 parse_kv(&mut step_prototype, key, value)?;
-            },
+            }
             x => {
                 println!("{x:?}")
-            }
-            // _ => unreachable!()
+            } // _ => unreachable!()
         }
     }
     if !variants.is_empty() {
@@ -135,8 +154,11 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
     let limit = step_prototype.params.remove("step-limit");
     let max_use = step_prototype.params.remove("max-use");
 
-    let mut previous_kind = previous.as_ref().map(|s|s.kind.clone());
-    debug!("{:?} -> {} (current state is {:?})", previous_kind, kind, cube_state);
+    let mut previous_kind = previous.as_ref().map(|s| s.kind.clone());
+    debug!(
+        "{:?} -> {} (current state is {:?})",
+        previous_kind, kind, cube_state
+    );
     if previous_kind.is_none() {
         previous_kind = match cube_state {
             CubeState::EO(_) => Some(StepKind::EO),
@@ -152,90 +174,155 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
         }
     }
     let mut step = match (previous_kind, kind.clone()) {
-        (_, StepKind::EO) => Some(EOBuilder::try_from(step_prototype).map_err(|_|"Failed to parse EO step")?.build()),
+        (_, StepKind::EO) => Some(
+            EOBuilder::try_from(step_prototype)
+                .map_err(|_| "Failed to parse EO step")?
+                .build(),
+        ),
         (Some(StepKind::EO), StepKind::RZP) => None,
         (Some(StepKind::RZP), StepKind::DR) => {
-            let triggers = step_prototype.params.remove("triggers").ok_or("Found RZP, but DR step has no triggers".to_string())?;
-            let rzp_builder = RZPBuilder::try_from(previous.unwrap()).map_err(|_|"Failed to parse RZP step")?;
-            Some(DRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse DR step")?
-                .triggers(triggers.split(",")
-                    .map(Algorithm::from_str)
-                    .collect::<Result<_, _>>()
-                    .map_err(|_|"Unable to parse algorithm")?)
-                .rzp(rzp_builder)
-                .build())
-        },
-        (Some(StepKind::EO), StepKind::AR) => Some(ARBuilder::try_from(step_prototype).map_err(|_|"Failed to parse ARM step")?.build()),
-        (Some(StepKind::AR), StepKind::DR) => {
-            Some(DRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse DR step")?
+            let triggers = step_prototype
+                .params
+                .remove("triggers")
+                .ok_or("Found RZP, but DR step has no triggers".to_string())?;
+            let rzp_builder =
+                RZPBuilder::try_from(previous.unwrap()).map_err(|_| "Failed to parse RZP step")?;
+            Some(
+                DRBuilder::try_from(step_prototype)
+                    .map_err(|_| "Failed to parse DR step")?
+                    .triggers(
+                        triggers
+                            .split(",")
+                            .map(Algorithm::from_str)
+                            .collect::<Result<_, _>>()
+                            .map_err(|_| "Unable to parse algorithm")?,
+                    )
+                    .rzp(rzp_builder)
+                    .build(),
+            )
+        }
+        (Some(StepKind::EO), StepKind::AR) => Some(
+            ARBuilder::try_from(step_prototype)
+                .map_err(|_| "Failed to parse ARM step")?
+                .build(),
+        ),
+        (Some(StepKind::AR), StepKind::DR) => Some(
+            DRBuilder::try_from(step_prototype)
+                .map_err(|_| "Failed to parse DR step")?
                 .from_ar()
-                .build())
-        },
+                .build(),
+        ),
         (Some(StepKind::EO), StepKind::DR) => {
             Some(match step_prototype.params.remove("triggers") {
-                None => DRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse DR step")?.build(),
+                None => DRBuilder::try_from(step_prototype)
+                    .map_err(|_| "Failed to parse DR step")?
+                    .build(),
                 Some(triggers) => {
                     let rzp = RZPStep::builder()
                         .max_length(step_prototype.max.unwrap_or(3).min(3) as usize)
-                        .max_absolute_length(step_prototype.absolute_max.unwrap_or(6).min(6) as usize);
-                    DRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse DR step")?
-                        .triggers(triggers.split(",")
-                            .map(Algorithm::from_str)
-                            .collect::<Result<_, _>>()
-                            .map_err(|_|"Unable to parse algorithm")?)
+                        .max_absolute_length(
+                            step_prototype.absolute_max.unwrap_or(6).min(6) as usize
+                        );
+                    DRBuilder::try_from(step_prototype)
+                        .map_err(|_| "Failed to parse DR step")?
+                        .triggers(
+                            triggers
+                                .split(",")
+                                .map(Algorithm::from_str)
+                                .collect::<Result<_, _>>()
+                                .map_err(|_| "Unable to parse algorithm")?,
+                        )
                         .rzp(rzp)
                         .build()
                 }
             })
-        },
-        (Some(StepKind::DR), StepKind::HTR) => Some(HTRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse HTR step")?.build()),
-        (Some(StepKind::HTR), StepKind::FR) | (Some(StepKind::HTR), StepKind::FRLS)  => Some(FRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FR step")?.build()),
+        }
+        (Some(StepKind::DR), StepKind::HTR) => Some(
+            HTRBuilder::try_from(step_prototype)
+                .map_err(|_| "Failed to parse HTR step")?
+                .build(),
+        ),
+        (Some(StepKind::HTR), StepKind::FR) | (Some(StepKind::HTR), StepKind::FRLS) => Some(
+            FRBuilder::try_from(step_prototype)
+                .map_err(|_| "Failed to parse FR step")?
+                .build(),
+        ),
         (Some(StepKind::DR), StepKind::FIN) | (Some(StepKind::DR), StepKind::FINLS) => {
             step_prototype.params.remove("htr-breaking");
             check_dr_table_preload(kind);
-            Some(DRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build())
-        },
-        (Some(StepKind::FR), StepKind::FIN) => Some(FRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build()),
-        (Some(StepKind::FRLS), StepKind::FINLS) => Some(FRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build()),
+            Some(
+                DRFinishBuilder::try_from(step_prototype)
+                    .map_err(|_| "Failed to parse FIN step")?
+                    .build(),
+            )
+        }
+        (Some(StepKind::FR), StepKind::FIN) => Some(
+            FRFinishBuilder::try_from(step_prototype)
+                .map_err(|_| "Failed to parse FIN step")?
+                .build(),
+        ),
+        (Some(StepKind::FRLS), StepKind::FINLS) => Some(
+            FRFinishBuilder::try_from(step_prototype)
+                .map_err(|_| "Failed to parse FIN step")?
+                .build(),
+        ),
         (Some(StepKind::HTR), StepKind::FIN) | (Some(StepKind::HTR), StepKind::FINLS) => {
-            let dr_breaking = step_prototype.params.remove("htr-breaking").map(|x|bool::from_str(x.to_lowercase().as_str()).unwrap_or(false)).unwrap_or(false);
+            let dr_breaking = step_prototype
+                .params
+                .remove("htr-breaking")
+                .map(|x| bool::from_str(x.to_lowercase().as_str()).unwrap_or(false))
+                .unwrap_or(false);
             if dr_breaking {
                 check_dr_table_preload(kind);
                 debug!("Using HTR breaking finish");
-                Some(DRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?
-                    .from_htr()
-                    .build())
+                Some(
+                    DRFinishBuilder::try_from(step_prototype)
+                        .map_err(|_| "Failed to parse FIN step")?
+                        .from_htr()
+                        .build(),
+                )
             } else {
-                Some(HTRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build())
+                Some(
+                    HTRFinishBuilder::try_from(step_prototype)
+                        .map_err(|_| "Failed to parse FIN step")?
+                        .build(),
+                )
             }
-        },
-        (None, x) => return Err(format!("{x:?} is not supported as a first step", )),
+        }
+        (None, x) => return Err(format!("{x:?} is not supported as a first step",)),
         (Some(a), b) => return Err(format!("Step order {a:?} > {b:?} is not supported")),
     };
 
     if let Some(step) = step.as_mut() {
         if let Some(max_use) = max_use {
-            let filters: Result<Vec<Box<dyn StepPredicate>>, String> = max_use.split(",")
-                .flat_map(|x|{
-                    x.split_once(":")
-                        .map(|(a, b)|{
-                            let kind = StepKind::from_str(a).unwrap();
-                            let n = usize::from_str(b).map_err(|_|"Failed to parse max use limit".to_string());
-                            n.map(|n|FilterFirstNStepVariant::new(kind, n))
-                        })
+            let filters: Result<Vec<Box<dyn StepPredicate>>, String> = max_use
+                .split(",")
+                .flat_map(|x| {
+                    x.split_once(":").map(|(a, b)| {
+                        let kind = StepKind::from_str(a).unwrap();
+                        let n = usize::from_str(b)
+                            .map_err(|_| "Failed to parse max use limit".to_string());
+                        n.map(|n| FilterFirstNStepVariant::new(kind, n))
+                    })
                 })
                 .collect();
             step.with_predicates(filters?);
         }
         if let Some(limit) = limit {
-            step.with_predicates(vec![FilterFirstN::new(usize::from_str(limit.as_str()).map_err(|_|"Failed to parse step limit")?)]);
+            step.with_predicates(vec![FilterFirstN::new(
+                usize::from_str(limit.as_str()).map_err(|_| "Failed to parse step limit")?,
+            )]);
         }
     } else {
         if let Some(limit) = limit {
-            step_prototype_c.params.insert("step-limit".to_string(), limit);
+            step_prototype_c
+                .params
+                .insert("step-limit".to_string(), limit);
         }
         if let Some(max_use) = max_use {
-            step_prototype_c.params.insert("max-use".to_string(), max_use);
+            step_prototype_c
+                .params
+                .insert("max-use".to_string(), max_use);
         }
     }
 
@@ -244,7 +331,8 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
 
 fn check_dr_table_preload(kind: StepKind) {
     if kind == StepKind::FIN {
-        let table: Result<MemoryMappedIndexTable<{DR_FINISH_SIZE}, DRFinishCoord>, TableError> = MemoryMappedIndexTable::load_from_disk("333", "drfin");
+        let table: Result<MemoryMappedIndexTable<{ DR_FINISH_SIZE }, DRFinishCoord>, TableError> =
+            MemoryMappedIndexTable::load_from_disk("333", "drfin");
         if let Err(_) = table {
             warn!("Unable to load DR Finish table. Generating this table will take a long time (2-5 hours), and about 12 GB of memory. \
             If you want to download the table instead, please use the \"download drfin\" subcommand (instead of \"solve ...\"). \
@@ -252,7 +340,10 @@ fn check_dr_table_preload(kind: StepKind) {
             std::thread::sleep(Duration::from_secs(10));
         }
     } else if kind == StepKind::FINLS {
-        let table: Result<MemoryMappedIndexTable<{DR_FINISH_LS_SIZE}, DRLeaveSliceFinishCoord>, TableError> = MemoryMappedIndexTable::load_from_disk("333", "drfinls");
+        let table: Result<
+            MemoryMappedIndexTable<{ DR_FINISH_LS_SIZE }, DRLeaveSliceFinishCoord>,
+            TableError,
+        > = MemoryMappedIndexTable::load_from_disk("333", "drfinls");
         if let Err(_) = table {
             warn!("Unable to load DR Leave Slice Finish table. Generating this table will take a long time (between a few minutes and an hour), \
             and about 1 GB of memory. If you want to download the table instead, please use the \"download drfinls\" subcommand (instead of \"solve ...\"). \
@@ -264,20 +355,51 @@ fn check_dr_table_preload(kind: StepKind) {
 
 fn parse_kv(step_prototype: &mut StepConfig, key: &str, value: &str) -> Result<(), String> {
     match key {
-        "limit" => step_prototype.step_limit = Some(usize::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for count. '{x}'"))?),
-        key @ "min" | key @ "min-rel" => step_prototype.min = Some(u8::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for {key}. '{x}'"))?),
-        key @ "max" | key @ "max-rel" => step_prototype.max = Some(u8::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for {key}. '{x}'"))?),
-        "min-abs" => step_prototype.absolute_min = Some(u8::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for min-abs. '{x}'"))?),
-        "max-abs" => step_prototype.absolute_max = Some(u8::from_str(value).map_err(|x| format!("Unable to parse value '{value}' for max-abs. '{x}'"))?),
-        "niss" => step_prototype.niss = Some(match value {
-            "always" | "true" => NissSwitchType::Always,
-            "before" => NissSwitchType::Before,
-            "none" | "never" | "false" => NissSwitchType::Never,
-            x => Err(format!("Invalid NISS type {x}. Expected one of 'always', 'before', 'none'"))?
-        }),
+        "limit" => {
+            step_prototype.step_limit = Some(
+                usize::from_str(value)
+                    .map_err(|x| format!("Unable to parse value '{value}' for count. '{x}'"))?,
+            )
+        }
+        key @ "min" | key @ "min-rel" => {
+            step_prototype.min = Some(
+                u8::from_str(value)
+                    .map_err(|x| format!("Unable to parse value '{value}' for {key}. '{x}'"))?,
+            )
+        }
+        key @ "max" | key @ "max-rel" => {
+            step_prototype.max = Some(
+                u8::from_str(value)
+                    .map_err(|x| format!("Unable to parse value '{value}' for {key}. '{x}'"))?,
+            )
+        }
+        "min-abs" => {
+            step_prototype.absolute_min = Some(
+                u8::from_str(value)
+                    .map_err(|x| format!("Unable to parse value '{value}' for min-abs. '{x}'"))?,
+            )
+        }
+        "max-abs" => {
+            step_prototype.absolute_max = Some(
+                u8::from_str(value)
+                    .map_err(|x| format!("Unable to parse value '{value}' for max-abs. '{x}'"))?,
+            )
+        }
+        "niss" => {
+            step_prototype.niss = Some(match value {
+                "always" | "true" => NissSwitchType::Always,
+                "before" => NissSwitchType::Before,
+                "none" | "never" | "false" => NissSwitchType::Never,
+                x => Err(format!(
+                    "Invalid NISS type {x}. Expected one of 'always', 'before', 'none'"
+                ))?,
+            })
+        }
         _ => {
-            step_prototype.params.insert(key.to_string(), value.to_string());
-        },
+            step_prototype
+                .params
+                .insert(key.to_string(), value.to_string());
+        }
     }
     Ok(())
 }

@@ -1,15 +1,15 @@
-use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
 use cubelib::algs::Algorithm;
-use cubelib::defs::NissSwitchType;
-use cubelib::steps::util::{DR_SUBSETS, expand_subset_name};
 use cubelib::cube::*;
+use cubelib::defs::NissSwitchType;
+use cubelib::steps::util::{expand_subset_name, DR_SUBSETS};
 use leptonic::prelude::*;
 use leptos::*;
 use leptos_icons::IoIcon;
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
 
+use crate::util::{use_local_storage, RwSignalTup};
 use crate::SettingsState;
-use crate::util::{RwSignalTup, use_local_storage};
 
 #[derive(Clone)]
 pub struct EOConfig {
@@ -86,7 +86,10 @@ impl EOConfig {
             min_abs: use_local_storage("eo-min-abs", 0),
             max_abs: use_local_storage("eo-max-abs", 5),
             niss: use_local_storage("eo-niss", NissSwitchType::Always),
-            variants: use_local_storage("eo-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
+            variants: use_local_storage(
+                "eo-variants",
+                vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR],
+            ),
             excluded: use_local_storage("eo-excluded", HashSet::new()),
         }
     }
@@ -95,7 +98,9 @@ impl EOConfig {
         self.min_abs.1.set(0);
         self.max_abs.1.set(5);
         self.niss.1.set(NissSwitchType::Always);
-        self.variants.1.set(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]);
+        self.variants
+            .1
+            .set(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]);
         self.min_abs.2();
         self.max_abs.2();
         self.niss.2();
@@ -114,8 +119,20 @@ impl DRConfig {
             min_abs: use_local_storage("dr-min-abs", 0),
             max_abs: use_local_storage("dr-max-abs", 14),
             niss: use_local_storage("dr-niss", NissSwitchType::Before),
-            variants: use_local_storage("dr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
-            triggers: use_local_storage("dr-triggers", vec!["R".to_string(), "R U2 R".to_string(), "R F2 R".to_string(), "R U R".to_string(), "R U' R".to_string()]),
+            variants: use_local_storage(
+                "dr-variants",
+                vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR],
+            ),
+            triggers: use_local_storage(
+                "dr-triggers",
+                vec![
+                    "R".to_string(),
+                    "R U2 R".to_string(),
+                    "R F2 R".to_string(),
+                    "R U R".to_string(),
+                    "R U' R".to_string(),
+                ],
+            ),
             subsets: use_local_storage("htr-subsets", vec![]), // Legacy name
             enforce_triggers: use_local_storage("dr-use-triggers", true),
             excluded: use_local_storage("dr-excluded", HashSet::new()),
@@ -128,8 +145,16 @@ impl DRConfig {
         self.min_abs.1.set(0);
         self.max_abs.1.set(14);
         self.niss.1.set(NissSwitchType::Before);
-        self.variants.1.set(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]);
-        self.triggers.1.set(vec!["R".to_string(), "R U2 R".to_string(), "R F2 R".to_string(), "R U R".to_string(), "R U' R".to_string()]);
+        self.variants
+            .1
+            .set(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]);
+        self.triggers.1.set(vec![
+            "R".to_string(),
+            "R U2 R".to_string(),
+            "R F2 R".to_string(),
+            "R U R".to_string(),
+            "R U' R".to_string(),
+        ]);
         self.min_abs.2();
         self.max_abs.2();
         self.min_rel.2();
@@ -178,7 +203,10 @@ impl HTRConfig {
             min_abs: use_local_storage("htr-min-abs", 0),
             max_abs: use_local_storage("htr-max-abs", 20),
             niss: use_local_storage("htr-niss", NissSwitchType::Before),
-            variants: use_local_storage("htr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
+            variants: use_local_storage(
+                "htr-variants",
+                vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR],
+            ),
             excluded: use_local_storage("htr-excluded", HashSet::new()),
         }
     }
@@ -189,7 +217,9 @@ impl HTRConfig {
         self.min_abs.1.set(0);
         self.max_abs.1.set(20);
         self.niss.1.set(NissSwitchType::Before);
-        self.variants.1.set(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]);
+        self.variants
+            .1
+            .set(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]);
         self.min_abs.2();
         self.max_abs.2();
         self.min_rel.2();
@@ -210,7 +240,10 @@ impl FRConfig {
             min_abs: use_local_storage("fin-min-abs", 0),
             max_abs: use_local_storage("fin-max-abs", 26),
             niss: use_local_storage("fr-niss", NissSwitchType::Before),
-            variants: use_local_storage("fr-variants", vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]),
+            variants: use_local_storage(
+                "fr-variants",
+                vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR],
+            ),
             excluded: use_local_storage("fr-excluded", HashSet::new()),
         }
     }
@@ -221,7 +254,9 @@ impl FRConfig {
         self.min_abs.1.set(0);
         self.max_abs.1.set(26);
         self.niss.1.set(NissSwitchType::Before);
-        self.variants.1.set(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]);
+        self.variants
+            .1
+            .set(vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR]);
         self.min_abs.2();
         self.max_abs.2();
         self.min_rel.2();
@@ -269,7 +304,7 @@ impl FinishConfig {
 pub enum SelectableAxis {
     UD,
     FB,
-    LR
+    LR,
 }
 
 impl Into<CubeAxis> for SelectableAxis {
@@ -304,10 +339,18 @@ impl Display for SelectableAxis {
 
 #[component]
 pub fn StepsComponent() -> impl IntoView {
-    let dr_enabled = use_context::<DRConfig>().expect("DR context required").enabled;
-    let htr_enabled = use_context::<HTRConfig>().expect("HTR context required").enabled;
-    let fr_enabled = use_context::<FRConfig>().expect("FR context required").enabled;
-    let fin_enabled = use_context::<FinishConfig>().expect("Finish context required").enabled;
+    let dr_enabled = use_context::<DRConfig>()
+        .expect("DR context required")
+        .enabled;
+    let htr_enabled = use_context::<HTRConfig>()
+        .expect("HTR context required")
+        .enabled;
+    let fr_enabled = use_context::<FRConfig>()
+        .expect("FR context required")
+        .enabled;
+    let fin_enabled = use_context::<FinishConfig>()
+        .expect("Finish context required")
+        .enabled;
     view! {
         <Tabs mount=Mount::Once>
             <Tab name="eo" label="EO".into_view()>
@@ -343,7 +386,6 @@ pub fn StepsComponent() -> impl IntoView {
 
 #[component]
 pub fn EOParameters() -> impl IntoView {
-
     let eo_config = use_context::<EOConfig>().expect("EO context required");
 
     view! {
@@ -377,7 +419,7 @@ pub fn DRParameters() -> impl IntoView {
     ];
 
     let additional_triggers = settings.additional_triggers();
-    let trigger_options = Signal::derive(move|| {
+    let trigger_options = Signal::derive(move || {
         let mut triggers = default_triggers.clone();
         let mut additional = additional_triggers.get();
         triggers.append(&mut additional);
@@ -386,7 +428,9 @@ pub fn DRParameters() -> impl IntoView {
         triggers
     });
 
-    let triggers_disabled = Signal::derive(move|| !dr_config.enforce_triggers.0.get() || dr_config.triggers.0.get().is_empty());
+    let triggers_disabled = Signal::derive(move || {
+        !dr_config.enforce_triggers.0.get() || dr_config.triggers.0.get().is_empty()
+    });
 
     view! {
         <DefaultStepParameters
@@ -449,15 +493,17 @@ pub fn DRSubsetSelection() -> impl IntoView {
     let (cur_subset, cur_subset_set) = create_signal("".to_string());
     let (subsets, subsets_set, _) = dr_config.subsets;
 
-    let expanded_subset: Signal<Vec<String>> = Signal::derive(move|| expand_subset_name(cur_subset.get().as_str())
-        .into_iter()
-        .map(|s|s.to_string())
-        .collect()
-    );
+    let expanded_subset: Signal<Vec<String>> = Signal::derive(move || {
+        expand_subset_name(cur_subset.get().as_str())
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect()
+    });
 
     let advanced = settings.advanced();
 
-    let placeholder = Signal::derive(move||if advanced.get() { "2c3 e6" } else { "2c3" }.to_string());
+    let placeholder =
+        Signal::derive(move || if advanced.get() { "2c3 e6" } else { "2c3" }.to_string());
 
     view! {
         <h4>"Subsets"</h4>
@@ -546,7 +592,7 @@ pub fn HTRParameters() -> impl IntoView {
 fn SubsetList(
     #[prop(into)] subsets: Signal<Vec<String>>,
     #[prop(into)] subsets_set: Out<Vec<String>>,
-    advanced: Signal<bool>
+    advanced: Signal<bool>,
 ) -> impl IntoView {
     view! {
         <div style:width="500px">
@@ -585,7 +631,7 @@ fn SubsetList(
 fn SubsetPreview(
     #[prop(into)] subsets: Signal<Vec<String>>,
     #[prop(into)] on_click: Callback<String>,
-    advanced: Signal<bool>
+    advanced: Signal<bool>,
 ) -> impl IntoView {
     view! {
         <div style:width="500px">
@@ -667,7 +713,10 @@ pub fn FinishParameters() -> impl IntoView {
 }
 
 #[component]
-pub fn StepEnableComponent(#[prop(into)] state: MaybeSignal<bool>, #[prop(into)] set_state: Out<bool>) -> impl IntoView {
+pub fn StepEnableComponent(
+    #[prop(into)] state: MaybeSignal<bool>,
+    #[prop(into)] set_state: Out<bool>,
+) -> impl IntoView {
     view! {
         <div style="display: flex; align-items: center;">
             <label style="margin-right: 10px;">"Enable step:"</label>
@@ -682,7 +731,6 @@ pub fn StepLengthComponent(
     min: RwSignalTup<u8>,
     max: RwSignalTup<u8>,
 ) -> impl IntoView {
-
     view! {
         <RangeSlider
             class={move||if total_max < 20 || total_max >= 30 { "" } else { "slider-reduce-mark-clutter" }}
@@ -704,7 +752,7 @@ pub fn NissSettingsComponent(niss_default: RwSignalTup<NissSwitchType>) -> impl 
     let niss_1 = Signal::derive(move || niss_default.0.get() != NissSwitchType::Never);
     let niss_2 = Signal::derive(move || niss_default.0.get() == NissSwitchType::Always);
     view! {
-        
+
         <div style="display: flex; align-items: center; margin-bottom: 5px;">
             <label style="margin-right: 10px;">"Allow switching before step:"</label>
             <Toggle
@@ -723,23 +771,29 @@ pub fn NissSettingsComponent(niss_default: RwSignalTup<NissSwitchType>) -> impl 
 }
 
 #[component]
-pub fn DefaultStepParameters(total_max: u8,
-                             min_abs: RwSignalTup<u8>,
-                             max_abs: RwSignalTup<u8>,
-                             #[prop(into, optional)] total_max_rel: Option<u8>,
-                             #[prop(into, optional)] min_rel: Option<RwSignalTup<u8>>,
-                             #[prop(into, optional)] max_rel: Option<RwSignalTup<u8>>,
-                             #[prop(into, optional)] niss_default: Option<RwSignalTup<NissSwitchType>>,
-                             #[prop(into, optional)] variants: Option<RwSignalTup<Vec<CubeAxis>>>
+pub fn DefaultStepParameters(
+    total_max: u8,
+    min_abs: RwSignalTup<u8>,
+    max_abs: RwSignalTup<u8>,
+    #[prop(into, optional)] total_max_rel: Option<u8>,
+    #[prop(into, optional)] min_rel: Option<RwSignalTup<u8>>,
+    #[prop(into, optional)] max_rel: Option<RwSignalTup<u8>>,
+    #[prop(into, optional)] niss_default: Option<RwSignalTup<NissSwitchType>>,
+    #[prop(into, optional)] variants: Option<RwSignalTup<Vec<CubeAxis>>>,
 ) -> impl IntoView {
     let settings = use_context::<SettingsState>().expect("Settings context required");
 
     let relative = settings.relative();
 
-    let niss = niss_default.map(|niss| view! {
-        <h4>"NISS"</h4>
-        <NissSettingsComponent niss_default=niss/>
-    }.into_view()).unwrap_or(view!{}.into_view());
+    let niss = niss_default
+        .map(|niss| {
+            view! {
+                <h4>"NISS"</h4>
+                <NissSettingsComponent niss_default=niss/>
+            }
+            .into_view()
+        })
+        .unwrap_or(view! {}.into_view());
 
     view! {
         <h4>"Step length"</h4>

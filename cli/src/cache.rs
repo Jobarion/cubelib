@@ -1,10 +1,10 @@
-use std::fs;
-use std::io::ErrorKind;
-use std::ops::{Deref, DerefMut};
+use crate::get_cache_file;
 use chrono::{DateTime, Utc};
 use log::warn;
 use serde::{Deserialize, Serialize};
-use crate::get_cache_file;
+use std::fs;
+use std::io::ErrorKind;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CacheData {
@@ -13,14 +13,12 @@ pub struct CacheData {
 }
 
 pub struct Cache {
-    data: Option<CacheData>
+    data: Option<CacheData>,
 }
 
 impl Default for Cache {
     fn default() -> Self {
-        Self {
-            data: None
-        }
+        Self { data: None }
     }
 }
 
@@ -40,12 +38,12 @@ impl Cache {
                 Err(e) if e.kind() == ErrorKind::NotFound => Ok("".to_string()),
                 Err(e) => Err(e),
             }
-                .map_err(|e| e.to_string())
-                .and_then(|s| toml::from_str::<CacheData>(s.as_str()).map_err(|e| e.to_string()))
-                .unwrap_or_else(|e| {
-                    warn!("Error reading cache file: {e}");
-                    CacheData::default()
-                });
+            .map_err(|e| e.to_string())
+            .and_then(|s| toml::from_str::<CacheData>(s.as_str()).map_err(|e| e.to_string()))
+            .unwrap_or_else(|e| {
+                warn!("Error reading cache file: {e}");
+                CacheData::default()
+            });
             self.data = Some(new_data);
             self.data.as_mut().unwrap()
         }
@@ -71,7 +69,7 @@ impl<'a> Drop for CacheGuard<'a> {
     }
 }
 
-impl <'a> Deref for CacheGuard<'a> {
+impl<'a> Deref for CacheGuard<'a> {
     type Target = CacheData;
 
     fn deref(&self) -> &Self::Target {

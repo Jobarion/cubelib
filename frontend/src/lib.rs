@@ -10,7 +10,9 @@ pub mod worker {
     use leptos::spawn_local;
     use serde::{Deserialize, Serialize};
 
-    use idb::{Error, Factory, IndexParams, KeyPath, ObjectStore, ObjectStoreParams, TransactionMode};
+    use idb::{
+        Error, Factory, IndexParams, KeyPath, ObjectStore, ObjectStoreParams, TransactionMode,
+    };
     use wasm_bindgen::JsValue;
 
     use crate::worker::WorkerResponse::{InvalidStepConfig, NoSolution, Solved, UnknownError};
@@ -33,9 +35,7 @@ pub mod worker {
         type Output = WorkerResponse;
 
         fn create(_scope: &WorkerScope<Self>) -> Self {
-            Self {
-                cancel: false,
-            }
+            Self { cancel: false }
         }
 
         fn update(&mut self, _scope: &WorkerScope<Self>, _msg: Self::Message) {
@@ -48,8 +48,11 @@ pub mod worker {
             spawn_local(async move {
                 match load_pt(&steps_config).await {
                     Ok(tables) => {
-                        if let Some(steps) = cubelib::solver::build_steps(steps_config, &tables).ok() {
-                            let solution = cubelib::solver::solve_steps(cube, &steps).next()
+                        if let Some(steps) =
+                            cubelib::solver::build_steps(steps_config, &tables).ok()
+                        {
+                            let solution = cubelib::solver::solve_steps(cube, &steps)
+                                .next()
                                 .map_or(NoSolution, |s| Solved(s));
                             scope.respond(id, solution);
                         } else {
@@ -62,7 +65,6 @@ pub mod worker {
                     }
                 }
             })
-
         }
     }
 
@@ -74,7 +76,9 @@ pub mod worker {
 
     async fn load_pt(steps: &Vec<StepConfig>) -> Result<PruningTables, String> {
         let factory = Factory::new().map_err(|e| e.to_string())?;
-        let mut open_req = factory.open("maillard", Some(PruningTables::VERSION)).map_err(|e| e.to_string())?;
+        let mut open_req = factory
+            .open("maillard", Some(PruningTables::VERSION))
+            .map_err(|e| e.to_string())?;
         open_req.on_upgrade_needed(|event| {
             let db = event.database().unwrap();
             let mut params = ObjectStoreParams::new();
@@ -83,11 +87,20 @@ pub mod worker {
 
             let mut index_params = IndexParams::new();
             index_params.unique(true);
-            store.create_index("entry", KeyPath::new_single("id"), Some(index_params)).unwrap();
+            store
+                .create_index("entry", KeyPath::new_single("id"), Some(index_params))
+                .unwrap();
         });
-        let db = open_req.await.map_err(|e| e.to_string()).map_err(|e| e.to_string())?;
-        let transaction = db.transaction(&["pruning_tables"], TransactionMode::ReadOnly).map_err(|e| e.to_string())?;
-        let store = transaction.object_store("pruning_tables").map_err(|e| e.to_string())?;
+        let db = open_req
+            .await
+            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?;
+        let transaction = db
+            .transaction(&["pruning_tables"], TransactionMode::ReadOnly)
+            .map_err(|e| e.to_string())?;
+        let store = transaction
+            .object_store("pruning_tables")
+            .map_err(|e| e.to_string())?;
 
         let mut pt = PruningTables::new();
         for val in store.get_all(None, None).await.map_err(|e| e.to_string())? {
@@ -96,54 +109,82 @@ pub mod worker {
         }
         transaction.done().await.map_err(|e| e.to_string())?;
         gen_tables(steps, &mut pt);
-        let transaction = db.transaction(&["pruning_tables"], TransactionMode::ReadWrite).map_err(|e| e.to_string())?;
-        let store = transaction.object_store("pruning_tables").map_err(|e| e.to_string())?;
+        let transaction = db
+            .transaction(&["pruning_tables"], TransactionMode::ReadWrite)
+            .map_err(|e| e.to_string())?;
+        let store = transaction
+            .object_store("pruning_tables")
+            .map_err(|e| e.to_string())?;
         if let Some(eo) = pt.eo() {
             if eo.get_source() == TableSource::Generated {
-                crate::worker::store(&store, &PtEntry {
-                    id: "eo".to_string(),
-                    data: serde_bytes::ByteBuf::from(eo.get_bytes())
-                }).await?;
+                crate::worker::store(
+                    &store,
+                    &PtEntry {
+                        id: "eo".to_string(),
+                        data: serde_bytes::ByteBuf::from(eo.get_bytes()),
+                    },
+                )
+                .await?;
             }
         }
         if let Some(dr) = pt.dr() {
             if dr.get_source() == TableSource::Generated {
-                crate::worker::store(&store, &PtEntry {
-                    id: "dr".to_string(),
-                    data: serde_bytes::ByteBuf::from(dr.get_bytes())
-                }).await?;
+                crate::worker::store(
+                    &store,
+                    &PtEntry {
+                        id: "dr".to_string(),
+                        data: serde_bytes::ByteBuf::from(dr.get_bytes()),
+                    },
+                )
+                .await?;
             }
         }
         if let Some(htr) = pt.htr() {
             if htr.get_source() == TableSource::Generated {
-                crate::worker::store(&store, &PtEntry {
-                    id: "htr".to_string(),
-                    data: serde_bytes::ByteBuf::from(htr.get_bytes())
-                }).await?;
+                crate::worker::store(
+                    &store,
+                    &PtEntry {
+                        id: "htr".to_string(),
+                        data: serde_bytes::ByteBuf::from(htr.get_bytes()),
+                    },
+                )
+                .await?;
             }
         }
         if let Some(fr) = pt.fr() {
             if fr.get_source() == TableSource::Generated {
-                crate::worker::store(&store, &PtEntry {
-                    id: "fr".to_string(),
-                    data: serde_bytes::ByteBuf::from(fr.get_bytes())
-                }).await?;
+                crate::worker::store(
+                    &store,
+                    &PtEntry {
+                        id: "fr".to_string(),
+                        data: serde_bytes::ByteBuf::from(fr.get_bytes()),
+                    },
+                )
+                .await?;
             }
         }
         if let Some(frls) = pt.fr_leave_slice() {
             if frls.get_source() == TableSource::Generated {
-                crate::worker::store(&store, &PtEntry {
-                    id: "frls".to_string(),
-                    data: serde_bytes::ByteBuf::from(frls.get_bytes())
-                }).await?;
+                crate::worker::store(
+                    &store,
+                    &PtEntry {
+                        id: "frls".to_string(),
+                        data: serde_bytes::ByteBuf::from(frls.get_bytes()),
+                    },
+                )
+                .await?;
             }
         }
         if let Some(frfin) = pt.fr_finish() {
             if frfin.get_source() == TableSource::Generated {
-                crate::worker::store(&store, &PtEntry {
-                    id: "frfin".to_string(),
-                    data: serde_bytes::ByteBuf::from(frfin.get_bytes())
-                }).await?;
+                crate::worker::store(
+                    &store,
+                    &PtEntry {
+                        id: "frfin".to_string(),
+                        data: serde_bytes::ByteBuf::from(frfin.get_bytes()),
+                    },
+                )
+                .await?;
             }
         }
         transaction.done().await.map_err(|e| e.to_string())?;
@@ -152,6 +193,10 @@ pub mod worker {
 
     async fn store(store: &ObjectStore, entry: &PtEntry) -> Result<(), String> {
         let val = serde_wasm_bindgen::to_value(entry).map_err(|e| e.to_string())?;
-        store.add(&val, Some(&JsValue::from(entry.id.clone()))).await.map_err(|e| format!("{} {e}", entry.id).to_string()).map(|_|())
+        store
+            .add(&val, Some(&JsValue::from(entry.id.clone())))
+            .await
+            .map_err(|e| format!("{} {e}", entry.id).to_string())
+            .map(|_| ())
     }
 }

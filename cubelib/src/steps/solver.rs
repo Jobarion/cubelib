@@ -1,11 +1,14 @@
-use itertools::Itertools;
 use crate::defs::StepKind;
 use crate::steps;
 use crate::steps::step::{DefaultStepOptions, Step, StepConfig};
 use crate::steps::tables::PruningTables333;
+use itertools::Itertools;
 
 pub fn gen_tables(steps: &Vec<StepConfig>, tables: &mut PruningTables333) {
-    let previous = vec![None].into_iter().chain(steps.iter().map(|x|Some(x.kind.clone()))).collect_vec();
+    let previous = vec![None]
+        .into_iter()
+        .chain(steps.iter().map(|x| Some(x.kind.clone())))
+        .collect_vec();
     let steps = steps.into_iter().zip(previous.into_iter()).collect_vec();
 
     for (conf, pre) in steps.iter() {
@@ -17,7 +20,7 @@ pub fn gen_tables(steps: &Vec<StepConfig>, tables: &mut PruningTables333) {
                 tables.gen_dr();
                 #[cfg(feature = "333htr")]
                 tables.gen_htr();
-            },
+            }
             #[cfg(feature = "333htr")]
             (_, StepKind::HTR) => tables.gen_htr(),
             #[cfg(feature = "333fr")]
@@ -25,18 +28,26 @@ pub fn gen_tables(steps: &Vec<StepConfig>, tables: &mut PruningTables333) {
             #[cfg(feature = "333fr")]
             (_, StepKind::FRLS) => tables.gen_fr_leave_slice(),
             #[cfg(feature = "333finish")]
-            (Some(StepKind::FR), StepKind::FIN) | (Some(StepKind::FRLS), StepKind::FINLS) => tables.gen_fr_finish(),
+            (Some(StepKind::FR), StepKind::FIN) | (Some(StepKind::FRLS), StepKind::FINLS) => {
+                tables.gen_fr_finish()
+            }
             #[cfg(feature = "333finish")]
             (Some(StepKind::HTR), StepKind::FIN) => tables.gen_htr_finish(),
             #[cfg(feature = "333finish")]
             (Some(StepKind::HTR), StepKind::FINLS) => tables.gen_htr_leave_slice_finish(),
-            _ => ()
+            _ => (),
         }
     }
 }
 
-pub fn build_steps(steps: Vec<StepConfig>, tables: &PruningTables333) -> Result<Vec<(Step, DefaultStepOptions)>, String> {
-    let previous = vec![None].into_iter().chain(steps.iter().map(|x|Some(x.kind.clone()))).collect_vec();
+pub fn build_steps(
+    steps: Vec<StepConfig>,
+    tables: &PruningTables333,
+) -> Result<Vec<(Step, DefaultStepOptions)>, String> {
+    let previous = vec![None]
+        .into_iter()
+        .chain(steps.iter().map(|x| Some(x.kind.clone())))
+        .collect_vec();
     let steps = steps.into_iter().zip(previous.into_iter()).collect_vec();
 
     let steps = steps.into_iter()

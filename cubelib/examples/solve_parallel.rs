@@ -20,7 +20,7 @@ fn main() {
             .min_length(5)
             .max_length(5)
             .niss(NissSwitchType::Before)
-            .build()
+            .build(),
     ]);
 
     let dr_step = StepGroup::parallel(vec![
@@ -39,29 +39,37 @@ fn main() {
                 Algorithm::from_str("R U R").unwrap(),
                 Algorithm::from_str("R U' R").unwrap(),
             ])
-            .rzp(RZPStep::builder()
-                .max_length(2)
-                .max_absolute_length(6)
-                .niss(NissSwitchType::Never)
-                .build()
+            .rzp(
+                RZPStep::builder()
+                    .max_length(2)
+                    .max_absolute_length(6)
+                    .niss(NissSwitchType::Never)
+                    .build(),
             )
-            .build()
+            .build(),
     ]);
 
     // Default HTR settings
-    let htr_step = HTRStep::builder()
-        .build();
+    let htr_step = HTRStep::builder().build();
 
     // Predicates are filters that run after a step. This one removes all solutions ending in a counter-clockwise move, because they are not interesting up to HTR.
-    let mut steps = StepGroup::sequential_with_predicates(vec![eo_step, dr_step, htr_step], vec![FilterLastMoveNotPrime::new()]);
+    let mut steps = StepGroup::sequential_with_predicates(
+        vec![eo_step, dr_step, htr_step],
+        vec![FilterLastMoveNotPrime::new()],
+    );
 
-    let cube = Algorithm::from_str("R' U' F D2 R' D2 U2 R D2 L F2 R' F2 U2 D' B D R U' R B' L' R2 U R' U' F").unwrap().into();
+    let cube = Algorithm::from_str(
+        "R' U' F D2 R' D2 U2 R D2 L F2 R' F2 U2 D' B D R U' R B' L' R2 U R' U' F",
+    )
+    .unwrap()
+    .into();
 
     // Finding all solution optimally can take a while. It's usually recommended to set the 'quality' to limit the number of paths that are considered
     // steps.apply_step_limit(10000);
 
     // The worker can be used as an Iterator of Solution structs
-    steps.into_worker(cube)
-        .take_while(|x|x.len() <= 13) // This could and should have been configured on the HTR step using .max_absolute_length(13)
-        .for_each(|s|println!("{s}"));
+    steps
+        .into_worker(cube)
+        .take_while(|x| x.len() <= 13) // This could and should have been configured on the HTR step using .max_absolute_length(13)
+        .for_each(|s| println!("{s}"));
 }

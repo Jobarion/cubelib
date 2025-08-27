@@ -1,13 +1,13 @@
+use crate::cli::{LogLevel, SolutionFormat, SolveCommand, SolverBackend};
 use core::fmt;
+use cubelib::defs::StepKind;
+use serde::de::Visitor;
+use serde::{Deserialize, Deserializer};
+use serde_with::__private__::DeError;
+use serde_with::{serde_as, DeserializeAs, KeyValueMap};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::string::ToString;
-use cubelib::defs::StepKind;
-use serde::{Deserialize, Deserializer};
-use serde::de::Visitor;
-use serde_with::{serde_as, KeyValueMap, DeserializeAs};
-use serde_with::__private__::DeError;
-use crate::cli::{LogLevel, SolutionFormat, SolveCommand, SolverBackend};
 
 #[derive(Debug, Deserialize)]
 pub struct CubelibConfig {
@@ -60,7 +60,7 @@ pub struct SolverConfig {
     pub backend: SolverBackend,
     #[serde_as(as = "KeyValueMap<_>")]
     #[serde(default)]
-    prototypes: Vec<StepOverrideInternal>
+    prototypes: Vec<StepOverrideInternal>,
 }
 
 fn default_quality() -> usize {
@@ -106,7 +106,7 @@ impl Default for SolverConfig {
 #[derive(Clone, Debug)]
 pub struct StepOverride {
     pub kind: StepKind,
-    pub parameters: HashMap<String, String>
+    pub parameters: HashMap<String, String>,
 }
 
 #[serde_as]
@@ -121,17 +121,22 @@ struct StepOverrideInternal {
 }
 
 impl SolverConfig {
-    pub fn get_merged_overrides(&self) -> HashMap<String, StepOverride>{
+    pub fn get_merged_overrides(&self) -> HashMap<String, StepOverride> {
         let mut merged: HashMap<String, StepOverride> = HashMap::default();
         for so in &self.prototypes {
-            let (parent, mut parent_params) = merged.get(&so.parent).cloned()
-                .map(|x|(x.kind, x.parameters))
+            let (parent, mut parent_params) = merged
+                .get(&so.parent)
+                .cloned()
+                .map(|x| (x.kind, x.parameters))
                 .unwrap_or((StepKind::from_str(&so.parent).unwrap(), Default::default()));
             parent_params.extend(so.inner.clone());
-            merged.insert(so.name.clone(), StepOverride {
-                kind: parent,
-                parameters: parent_params,
-            });
+            merged.insert(
+                so.name.clone(),
+                StepOverride {
+                    kind: parent,
+                    parameters: parent_params,
+                },
+            );
         }
         merged
     }

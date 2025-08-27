@@ -1,13 +1,13 @@
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::str::pattern::Pattern;
 use semver::Version;
 use serde::Deserialize;
+use std::collections::HashMap;
+use std::str::pattern::Pattern;
+use std::str::FromStr;
 
 #[derive(Clone, Debug, Deserialize)]
 struct GithubReleaseData {
     tag_name: String,
-    assets: Vec<GithubReleaseAsset>
+    assets: Vec<GithubReleaseAsset>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -34,26 +34,28 @@ pub fn fetch_latest() -> Result<GithubRelease, UpdateError> {
     let client = reqwest::blocking::Client::builder()
         .user_agent(format!("cubelib/{}", crate::VERSION))
         .build()
-        .map_err(|e|UpdateError::ReqwestError(e))?;
+        .map_err(|e| UpdateError::ReqwestError(e))?;
 
-    let resp = client.get("https://joba.me/cubelib/releases").send()
-        .map_err(|e|UpdateError::ReqwestError(e))?;
+    let resp = client
+        .get("https://joba.me/cubelib/releases")
+        .send()
+        .map_err(|e| UpdateError::ReqwestError(e))?;
 
-    let resp_json: Option<Vec<GithubReleaseData>> = resp.json()
-        .map_err(|e|UpdateError::ReqwestError(e))?;
-    resp_json.and_then(|releases|releases.into_iter()
-        .filter_map(|x|{
-            "v".strip_prefix_of(x.tag_name.as_str())
-                .and_then(|v|semver::Version::from_str(v).ok())
-                .map(|v|{
-                    GithubRelease {
-                        version: v,
-                        assets: x.assets.into_iter()
-                            .map(|a|(a.name.clone(), a))
-                            .collect()
-                    }
+    let resp_json: Option<Vec<GithubReleaseData>> =
+        resp.json().map_err(|e| UpdateError::ReqwestError(e))?;
+    resp_json
+        .and_then(|releases| {
+            releases
+                .into_iter()
+                .filter_map(|x| {
+                    "v".strip_prefix_of(x.tag_name.as_str())
+                        .and_then(|v| semver::Version::from_str(v).ok())
+                        .map(|v| GithubRelease {
+                            version: v,
+                            assets: x.assets.into_iter().map(|a| (a.name.clone(), a)).collect(),
+                        })
                 })
+                .max_by_key(|x| x.version.clone())
         })
-        .max_by_key(|x|x.version.clone()))
         .ok_or(UpdateError::NoVersionError)
 }

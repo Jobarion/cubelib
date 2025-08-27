@@ -1,4 +1,7 @@
-use std::arch::wasm32::{i8x16, u16x8_add, u16x8_shuffle, u32x4_add, u32x4_shuffle, u64x2, u8x16, u8x16_swizzle, v128, v128_or};
+use std::arch::wasm32::{
+    i8x16, u16x8_add, u16x8_shuffle, u32x4_add, u32x4_shuffle, u64x2, u8x16, u8x16_swizzle, v128,
+    v128_or,
+};
 
 #[inline]
 pub fn u8x16_set1(a: u8) -> v128 {
@@ -14,8 +17,14 @@ pub fn complete_hsum_epi16(v: v128) -> v128 {
 
 #[inline]
 pub fn mm_sad_epu8(v: v128) -> v128 {
-    let a = u8x16_swizzle(v, i8x16(0, -1, 2, -1, 4, -1, 6, -1, 8, -1, 10, -1, 12, -1, 14, -1));
-    let b = u8x16_swizzle(v, i8x16(1, -1, 3, -1, 5, -1, 7, -1, 9, -1, 11, -1, 13, -1, 15, -1));
+    let a = u8x16_swizzle(
+        v,
+        i8x16(0, -1, 2, -1, 4, -1, 6, -1, 8, -1, 10, -1, 12, -1, 14, -1),
+    );
+    let b = u8x16_swizzle(
+        v,
+        i8x16(1, -1, 3, -1, 5, -1, 7, -1, 9, -1, 11, -1, 13, -1, 15, -1),
+    );
     let v = u16x8_add(a, b);
 
     let a = u16x8_shuffle::<0, 2, 4, 6, 8, 8, 8, 8>(v, u64x2(0, 0));

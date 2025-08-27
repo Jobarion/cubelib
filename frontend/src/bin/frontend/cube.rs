@@ -1,18 +1,19 @@
 use std::str::FromStr;
 
+use crate::util::RwSignalTup;
 use cubelib::algs::Algorithm;
-use cubelib::cube::*;
 use cubelib::cube::turn::ApplyAlgorithm;
-use leptos::*;
+use cubelib::cube::*;
 use leptonic::prelude::*;
 use leptos::html::Div;
-use crate::util::RwSignalTup;
+use leptos::*;
 
 #[component]
 pub fn ScrambleComponent() -> impl IntoView {
     let scramble = use_context::<RwSignalTup<String>>().unwrap();
-    let cube = Signal::derive(move ||{
-        Algorithm::from_str(scramble.0.get().as_str()).ok()
+    let cube = Signal::derive(move || {
+        Algorithm::from_str(scramble.0.get().as_str())
+            .ok()
             .map(|alg| {
                 let mut cube = Cube333::default();
                 cube.apply_alg(&alg);
@@ -49,7 +50,12 @@ pub fn Cube(cube: Signal<Cube333>) -> impl IntoView {
             colors.append(&mut vec![CubeColor::None; 6]);
         }
         for x in 0..3 {
-            for face in vec![CubeFace::Left, CubeFace::Front, CubeFace::Right, CubeFace::Back] {
+            for face in vec![
+                CubeFace::Left,
+                CubeFace::Front,
+                CubeFace::Right,
+                CubeFace::Back,
+            ] {
                 for y in 0..3 {
                     colors.push(facelets[face][x * 3 + y]);
                 }
@@ -63,7 +69,8 @@ pub fn Cube(cube: Signal<Cube333>) -> impl IntoView {
             }
             colors.append(&mut vec![CubeColor::None; 6]);
         }
-        let html_facelets: Vec<HtmlElement<Div>> = colors.into_iter()
+        let html_facelets: Vec<HtmlElement<Div>> = colors
+            .into_iter()
             .map(|c| match c {
                 CubeColor::White => Some("cube-facelet-u"),
                 CubeColor::Yellow => Some("cube-facelet-d"),
@@ -73,9 +80,12 @@ pub fn Cube(cube: Signal<Cube333>) -> impl IntoView {
                 CubeColor::Red => Some("cube-facelet-r"),
                 CubeColor::None => None,
             })
-            .map(|class| class.map_or(
-                view! {<div class="cube-facelet"></div> },
-                |c| view! {<div class={format!("cube-facelet {c}")}></div> }))
+            .map(|class| {
+                class.map_or(
+                    view! {<div class="cube-facelet"></div> },
+                    |c| view! {<div class={format!("cube-facelet {c}")}></div> },
+                )
+            })
             .collect();
         html_facelets
     });

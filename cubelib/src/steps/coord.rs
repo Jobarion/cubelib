@@ -1,11 +1,13 @@
+use crate::cube::turn::ApplySymmetry;
+use crate::cube::Symmetry;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::Deref;
-use crate::cube::Symmetry;
-use crate::cube::turn::ApplySymmetry;
 
-pub trait Coord<const SIZE: usize>: Into<usize> + Copy + Clone + Eq + PartialEq + Hash + Debug + Send + Sync {
+pub trait Coord<const SIZE: usize>:
+    Into<usize> + Copy + Clone + Eq + PartialEq + Hash + Debug + Send + Sync
+{
     fn size() -> usize {
         SIZE
     }
@@ -13,9 +15,16 @@ pub trait Coord<const SIZE: usize>: Into<usize> + Copy + Clone + Eq + PartialEq 
     fn wrap(self) -> CoordWrapper<SIZE, Self> {
         CoordWrapper(self)
     }
-    fn min_with_symmetries<'a, T: ApplySymmetry + Clone, V: IntoIterator<Item = &'a Symmetry>>(t: &'a T, symmetries: V) -> Self where for<'b> Self: From<&'b T> {
-        symmetries.into_iter()
-            .map(|s|{
+    fn min_with_symmetries<'a, T: ApplySymmetry + Clone, V: IntoIterator<Item = &'a Symmetry>>(
+        t: &'a T,
+        symmetries: V,
+    ) -> Self
+    where
+        for<'b> Self: From<&'b T>,
+    {
+        symmetries
+            .into_iter()
+            .map(|s| {
                 let mut t = t.clone();
                 t.apply_symmetry(s);
                 Self::from(&t).wrap()
@@ -29,7 +38,7 @@ pub trait Coord<const SIZE: usize>: Into<usize> + Copy + Clone + Eq + PartialEq 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct CoordWrapper<const SIZE: usize, C: Coord<SIZE>>(C);
 
-impl <const SIZE: usize, C: Coord<SIZE>> Deref for CoordWrapper<SIZE, C> {
+impl<const SIZE: usize, C: Coord<SIZE>> Deref for CoordWrapper<SIZE, C> {
     type Target = C;
 
     fn deref(&self) -> &Self::Target {
@@ -37,25 +46,25 @@ impl <const SIZE: usize, C: Coord<SIZE>> Deref for CoordWrapper<SIZE, C> {
     }
 }
 
-impl <const SIZE: usize, C: Coord<SIZE>> From<C> for CoordWrapper<SIZE, C> {
+impl<const SIZE: usize, C: Coord<SIZE>> From<C> for CoordWrapper<SIZE, C> {
     fn from(value: C) -> Self {
         Self(value)
     }
 }
 
-impl <const SIZE: usize, C: Coord<SIZE>> CoordWrapper<SIZE, C> {
+impl<const SIZE: usize, C: Coord<SIZE>> CoordWrapper<SIZE, C> {
     pub fn unwrap(self) -> C {
         self.0
     }
 }
 
-impl <const SIZE: usize, C: Coord<SIZE>> PartialOrd for CoordWrapper<SIZE, C> {
+impl<const SIZE: usize, C: Coord<SIZE>> PartialOrd for CoordWrapper<SIZE, C> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl <const SIZE: usize, C: Coord<SIZE>> Ord for CoordWrapper<SIZE, C> {
+impl<const SIZE: usize, C: Coord<SIZE>> Ord for CoordWrapper<SIZE, C> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.0.val().cmp(&other.0.val())
     }
@@ -76,7 +85,7 @@ impl Coord<0> for ZeroCoord {
     }
 }
 
-impl <P> From<&P> for ZeroCoord {
+impl<P> From<&P> for ZeroCoord {
     fn from(_: &P) -> Self {
         ZeroCoord
     }
@@ -89,7 +98,7 @@ pub type CPCoord = default_coords::CPCoord;
 mod default_coords {
     use crate::cube::{CornerCube333, Cube333};
     use crate::steps;
-    use crate::steps::coord::{Coord};
+    use crate::steps::coord::Coord;
 
     #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
     pub struct CPCoord(pub(crate) u16);
@@ -128,7 +137,11 @@ mod default_coords {
 
 #[cfg(target_feature = "avx2")]
 pub(crate) mod avx2 {
-    use std::arch::x86_64::{__m128i, _mm_and_si128, _mm_cmplt_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_mullo_epi16, _mm_set1_epi8, _mm_set_epi64x, _mm_setr_epi16, _mm_setr_epi8, _mm_shuffle_epi8, _mm_srli_epi32};
+    use std::arch::x86_64::{
+        __m128i, _mm_and_si128, _mm_cmplt_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32,
+        _mm_mullo_epi16, _mm_set1_epi8, _mm_set_epi64x, _mm_setr_epi16, _mm_setr_epi8,
+        _mm_shuffle_epi8, _mm_srli_epi32,
+    };
 
     use crate::cube::CornerCube333;
     use crate::steps::coord::default_coords::CPCoord;
@@ -141,15 +154,14 @@ pub(crate) mod avx2 {
 
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_permutation_8(val: __m128i) -> u16 {
-
         //We interleave the values to make using hadd_epi_<16/32> easier when we combine them
         let values_67 = _mm_shuffle_epi8(
             val,
-            _mm_setr_epi8( 6, 7, 6, 7, 6, 7, 6, 7, 6, 7, 6, 7, -1, 7, -1,-1),
+            _mm_setr_epi8(6, 7, 6, 7, 6, 7, 6, 7, 6, 7, 6, 7, -1, 7, -1, -1),
         );
         let values_2345 = _mm_shuffle_epi8(
             val,
-            _mm_setr_epi8( 2, 3, 4, 5, 2, 3, 4, 5, -1, 3, 4, 5, -1, -1, 4,5),
+            _mm_setr_epi8(2, 3, 4, 5, 2, 3, 4, 5, -1, 3, 4, 5, -1, -1, 4, 5),
         );
         let values_15 = _mm_shuffle_epi8(val, _mm_set_epi64x(5, 1));
 
@@ -158,7 +170,7 @@ pub(crate) mod avx2 {
                 values_67,
                 _mm_shuffle_epi8(
                     val,
-                    _mm_setr_epi8( 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, -1, 6, -1,-1),
+                    _mm_setr_epi8(0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, -1, 6, -1, -1),
                 ),
             ),
             _mm_set1_epi8(1),
@@ -168,7 +180,7 @@ pub(crate) mod avx2 {
                 values_2345,
                 _mm_shuffle_epi8(
                     val,
-                    _mm_setr_epi8( 0, 0, 0, 0, 1, 1, 1, 1, -1, 2, 2, 2, -1, -1, 3,3),
+                    _mm_setr_epi8(0, 0, 0, 0, 1, 1, 1, 1, -1, 2, 2, 2, -1, -1, 3, 3),
                 ),
             ),
             _mm_set1_epi8(1),
@@ -182,14 +194,14 @@ pub(crate) mod avx2 {
         let hsum = _mm_hadd_epi32(hsum, higher_left_15);
         let hsum = _mm_shuffle_epi8(
             hsum,
-            _mm_setr_epi8( 8, 0, -1, -1, 1, 2, -1, -1, 3, 4, 12, 6, 5, -1, 7,-1),
+            _mm_setr_epi8(8, 0, -1, -1, 1, 2, -1, -1, 3, 4, 12, 6, 5, -1, 7, -1),
         );
         let hsum = _mm_hadd_epi16(hsum, _mm_set1_epi8(0));
         let hsum = _mm_shuffle_epi8(
             hsum,
-            _mm_setr_epi8( 0, -1, 1, -1, 2, -1, 3, -1, 4, -1, 5, -1, 6, -1, -1,-1),
+            _mm_setr_epi8(0, -1, 1, -1, 2, -1, 3, -1, 4, -1, 5, -1, 6, -1, -1, -1),
         );
-        let factorials = _mm_setr_epi16( 1, 2, 6, 24, 120, 720, 5040,0);
+        let factorials = _mm_setr_epi16(1, 2, 6, 24, 120, 720, 5040, 0);
         let prod = _mm_mullo_epi16(hsum, factorials);
 
         hsum_epi16_sse3(prod)
@@ -206,7 +218,10 @@ pub(crate) mod avx2 {
 
 #[cfg(target_feature = "neon")]
 pub(crate) mod neon {
-    use std::arch::aarch64::{uint8x8_t, vaddq_u8, vaddvq_u16, vandq_u8, vcltq_u8, vcombine_u8, vdup_n_u8, vdupq_n_u8, vmulq_u16, vorrq_u8, vqtbl1q_u8, vreinterpretq_u16_u8};
+    use std::arch::aarch64::{
+        uint8x8_t, vaddq_u8, vaddvq_u16, vandq_u8, vcltq_u8, vcombine_u8, vdup_n_u8, vdupq_n_u8,
+        vmulq_u16, vorrq_u8, vqtbl1q_u8, vreinterpretq_u16_u8,
+    };
 
     use crate::cube::CornerCube333;
     use crate::simd_util::neon::C16;
@@ -220,57 +235,127 @@ pub(crate) mod neon {
         let val = vcombine_u8(val, vdup_n_u8(0));
         let values_367 = vqtbl1q_u8(
             val,
-            C16{ a_i8: [3, 7, 6, 3, 7, 6, 3, 7, 6, 7, 6, 7, 6, 7, 6, 7] }.a
+            C16 {
+                a_i8: [3, 7, 6, 3, 7, 6, 3, 7, 6, 7, 6, 7, 6, 7, 6, 7],
+            }
+            .a,
         );
-        let higher_left_367 = vandq_u8(vcltq_u8(
-            values_367,
-            C16 { a_i8: [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 5, 6] }.a
-        ), vdupq_n_u8(1));
+        let higher_left_367 = vandq_u8(
+            vcltq_u8(
+                values_367,
+                C16 {
+                    a_i8: [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 5, 6],
+                }
+                .a,
+            ),
+            vdupq_n_u8(1),
+        );
 
         let sum_367 = vaddq_u8(
             higher_left_367,
-            vqtbl1q_u8(higher_left_367, C16 { a_i8: [3, -1, 5, -1, 1, -1, -1, 9, 10, -1, -1, 13, 14, -1, -1, -1]}.a)
+            vqtbl1q_u8(
+                higher_left_367,
+                C16 {
+                    a_i8: [3, -1, 5, -1, 1, -1, -1, 9, 10, -1, -1, 13, 14, -1, -1, -1],
+                }
+                .a,
+            ),
         );
         let sum_367 = vaddq_u8(
             sum_367,
-            vqtbl1q_u8(sum_367, C16 { a_i8: [6, -1, 8, -1, 7, -1, -1, -1, -1, -1, -1, 15, -1, -1, -1, -1]}.a)
+            vqtbl1q_u8(
+                sum_367,
+                C16 {
+                    a_i8: [6, -1, 8, -1, 7, -1, -1, -1, -1, -1, -1, 15, -1, -1, -1, -1],
+                }
+                .a,
+            ),
         );
         let sum_367 = vaddq_u8(
             sum_367,
-            vqtbl1q_u8(sum_367, C16 { a_i8: [-1, -1, 12, -1, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]}.a)
+            vqtbl1q_u8(
+                sum_367,
+                C16 {
+                    a_i8: [
+                        -1, -1, 12, -1, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+                    ],
+                }
+                .a,
+            ),
         );
 
         let values_1245 = vqtbl1q_u8(
             val,
-            C16 { a_i8: [1, 2, 2, 4, 4, 4, 5, 4, 5, 5, 5, 5, -1, -1, -1, -1] }.a
+            C16 {
+                a_i8: [1, 2, 2, 4, 4, 4, 5, 4, 5, 5, 5, 5, -1, -1, -1, -1],
+            }
+            .a,
         );
-        let higher_left_1245 = vandq_u8(vcltq_u8(
-            values_1245,
-            C16 { a_i8: [0, 0, 1, 0, 1, 2, 0, 3, 1, 2, 3, 4, -1, -1, -1, -1] }.a
-        ), vdupq_n_u8(1));
+        let higher_left_1245 = vandq_u8(
+            vcltq_u8(
+                values_1245,
+                C16 {
+                    a_i8: [0, 0, 1, 0, 1, 2, 0, 3, 1, 2, 3, 4, -1, -1, -1, -1],
+                }
+                .a,
+            ),
+            vdupq_n_u8(1),
+        );
 
         let sum_1245 = vaddq_u8(
             higher_left_1245,
-            vqtbl1q_u8(higher_left_1245, C16 { a_i8: [-1, -1, 1, -1, 3, 7, 8, -1, -1, 10, -1, -1, -1, -1, -1, -1]}.a)
+            vqtbl1q_u8(
+                higher_left_1245,
+                C16 {
+                    a_i8: [-1, -1, 1, -1, 3, 7, 8, -1, -1, 10, -1, -1, -1, -1, -1, -1],
+                }
+                .a,
+            ),
         );
         let sum_1245 = vaddq_u8(
             sum_1245,
-            vqtbl1q_u8(sum_1245, C16 { a_i8: [-1, -1, -1, -1, 5, -1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1]}.a)
+            vqtbl1q_u8(
+                sum_1245,
+                C16 {
+                    a_i8: [-1, -1, -1, -1, 5, -1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+                }
+                .a,
+            ),
         );
         let sum_1245 = vaddq_u8(
             sum_1245,
-            vqtbl1q_u8(sum_1245, C16 { a_i8: [-1, -1, -1, -1, -1, -1, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1]}.a)
+            vqtbl1q_u8(
+                sum_1245,
+                C16 {
+                    a_i8: [
+                        -1, -1, -1, -1, -1, -1, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+                    ],
+                }
+                .a,
+            ),
         );
         let sum_1245 = vqtbl1q_u8(
             sum_1245,
-            C16 { a_i8: [0, -1, 2, -1, -1, -1, 4, -1, 6, -1, -1, -1, -1, -1, -1, -1]}.a
+            C16 {
+                a_i8: [0, -1, 2, -1, -1, -1, 4, -1, 6, -1, -1, -1, -1, -1, -1, -1],
+            }
+            .a,
         );
         let sum_367 = vqtbl1q_u8(
             sum_367,
-            C16 { a_i8: [-1, -1, -1, -1, 0, -1, -1, -1, -1, -1, 2, -1, 4, -1, -1, -1]}.a
+            C16 {
+                a_i8: [-1, -1, -1, -1, 0, -1, -1, -1, -1, -1, 2, -1, 4, -1, -1, -1],
+            }
+            .a,
         );
         let sum = vreinterpretq_u16_u8(vorrq_u8(sum_1245, sum_367));
-        let mul = vmulq_u16(sum, C16{ a_u16: [1, 2, 6, 24, 120, 720, 5040, 0]}.a_16);
+        let mul = vmulq_u16(
+            sum,
+            C16 {
+                a_u16: [1, 2, 6, 24, 120, 720, 5040, 0],
+            }
+            .a_16,
+        );
         vaddvq_u16(mul)
     }
 }

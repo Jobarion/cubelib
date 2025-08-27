@@ -16,7 +16,11 @@ fn main() {
     let mut steps = StepGroup::sequential(vec![eo_step, dr_step, htr_step, finish_step]);
     steps.apply_step_limit(10); // We don't need an optimal solution here
 
-    let cube = Algorithm::from_str("R' U' F L' B L' B2 U B2 D U2 L2 F2 L2 R2 D' L2 B' F' R' F L' F' U' R' U' F").unwrap().into();
+    let cube = Algorithm::from_str(
+        "R' U' F L' B L' B2 U B2 D U2 L2 F2 L2 R2 D' L2 B' F' R' F L' F' U' R' U' F",
+    )
+    .unwrap()
+    .into();
 
     let mut worker = steps.into_worker(cube);
 

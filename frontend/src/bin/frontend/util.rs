@@ -7,7 +7,14 @@ use crate::AppContext;
 
 pub type RwSignalTup<T> = (Signal<T>, WriteSignal<T>, Rc<dyn Fn()>);
 
-pub fn use_local_storage<T: Clone + for<'de> leptos::server_fn::serde::Deserialize<'de> + leptos::server_fn::serde::Serialize>(key: &str, default: T) -> RwSignalTup<T>{
+pub fn use_local_storage<
+    T: Clone
+        + for<'de> leptos::server_fn::serde::Deserialize<'de>
+        + leptos::server_fn::serde::Serialize,
+>(
+    key: &str,
+    default: T,
+) -> RwSignalTup<T> {
     let app_context = use_context::<AppContext>().expect("App context required");
 
     let namespaced_key = format!("mallard-{key}");
@@ -24,12 +31,11 @@ pub fn use_local_storage<T: Clone + for<'de> leptos::server_fn::serde::Deseriali
         }
     }
 
-    let storage_opts = UseStorageOptions::default()
-        .storage_type(if app_context.session {
-            StorageType::Session
-        } else {
-            StorageType::Local
-        });
+    let storage_opts = UseStorageOptions::default().storage_type(if app_context.session {
+        StorageType::Session
+    } else {
+        StorageType::Local
+    });
 
     let x = leptos_use::storage::use_storage_with_options(&namespaced_key, default, storage_opts);
     // let x = leptos_use::storage::use_local_storage(key, default);

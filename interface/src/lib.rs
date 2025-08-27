@@ -1,10 +1,10 @@
-use std::collections::{HashMap, HashSet};
-use std::iter::Map;
 use cubelib::algs::Algorithm;
 use cubelib::defs::StepKind;
 use cubelib::solver::solution::Solution;
 use cubelib::steps::step::StepConfig;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::iter::Map;
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct SolverRequest {

@@ -2,9 +2,11 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::Add;
 use std::str::FromStr;
 
-use itertools::Itertools;
+use crate::cube::turn::{
+    ApplyAlgorithm, Invertible, InvertibleMut, Transformable, TransformableMut, TurnableMut,
+};
 use crate::cube::*;
-use crate::cube::turn::{ApplyAlgorithm, Invertible, InvertibleMut, Transformable, TransformableMut, TurnableMut};
+use itertools::Itertools;
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct Algorithm {
@@ -14,7 +16,10 @@ pub struct Algorithm {
 
 #[cfg(feature = "serde_support")]
 impl serde::ser::Serialize for Algorithm {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::ser::Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
         serializer.serialize_str(self.to_string().as_str())
     }
 }
@@ -30,8 +35,11 @@ impl<'de> serde::de::Visitor<'de> for AlgorithmVisitor {
         formatter.write_str("a valid 3x3x3 algorithm")
     }
 
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> where E: serde::de::Error {
-        Algorithm::from_str(value).map_err(|_|E::custom("invalid algorithm"))
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Algorithm::from_str(value).map_err(|_| E::custom("invalid algorithm"))
     }
 }
 
@@ -178,15 +186,21 @@ impl Algorithm {
             let mut previous_axis_opt = None;
             let mut previous_direction_0 = 0;
             let mut previous_direction_1 = 0;
-            for Turn333 {face, dir} in turns {
+            for Turn333 { face, dir } in turns {
                 if let Some(previous_axis) = previous_axis_opt {
                     if !face.is_on_axis(previous_axis) {
                         let (face_0, face_1) = previous_axis.get_faces();
                         if let Some(direction_0) = Direction::from_qt(previous_direction_0) {
-                            canonical.push(Turn333 { face: face_0, dir: direction_0 });
+                            canonical.push(Turn333 {
+                                face: face_0,
+                                dir: direction_0,
+                            });
                         }
                         if let Some(direction_1) = Direction::from_qt(previous_direction_1) {
-                            canonical.push(Turn333 { face: face_1, dir: direction_1 });
+                            canonical.push(Turn333 {
+                                face: face_1,
+                                dir: direction_1,
+                            });
                         }
                         previous_direction_0 = 0;
                         previous_direction_1 = 0;
@@ -202,10 +216,16 @@ impl Algorithm {
             if let Some(previous_axis) = previous_axis_opt {
                 let (face_0, face_1) = previous_axis.get_faces();
                 if let Some(direction_0) = Direction::from_qt(previous_direction_0) {
-                    canonical.push(Turn333 { face: face_0, dir: direction_0 });
+                    canonical.push(Turn333 {
+                        face: face_0,
+                        dir: direction_0,
+                    });
                 }
                 if let Some(direction_1) = Direction::from_qt(previous_direction_1) {
-                    canonical.push(Turn333 { face: face_1, dir: direction_1 });
+                    canonical.push(Turn333 {
+                        face: face_1,
+                        dir: direction_1,
+                    });
                 }
             }
             canonical
@@ -287,12 +307,14 @@ impl TransformableMut for Algorithm {
 
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
     use crate::algs::Algorithm;
+    use std::str::FromStr;
 
     #[test]
     fn test_canonicalize() {
-        let alg = Algorithm::from_str("U2 D2 U2 R R F F' L R B F R L").unwrap().canonicalize();
+        let alg = Algorithm::from_str("U2 D2 U2 R R F F' L R B F R L")
+            .unwrap()
+            .canonicalize();
         assert_eq!("D2 R2 L R F B L R", alg.to_string())
     }
 }

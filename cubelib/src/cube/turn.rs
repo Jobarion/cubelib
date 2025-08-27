@@ -3,13 +3,16 @@ use std::ops::{Index, IndexMut};
 use std::str::FromStr;
 
 use crate::algs::Algorithm;
-use crate::cube::{Transformation333, Turn333};
 use crate::cube::cube::Symmetry;
 use crate::cube::turn::CubeFace::*;
 use crate::cube::turn::Direction::*;
+use crate::cube::{Transformation333, Turn333};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 //Using a tuple struct here would break type aliasing :(
 pub struct CubeOuterTurn {
     pub face: CubeFace,
@@ -73,7 +76,7 @@ impl Invertible for CubeOuterTurn {
     fn invert(&self) -> CubeOuterTurn {
         CubeOuterTurn {
             face: self.face,
-            dir: self.dir.invert()
+            dir: self.dir.invert(),
         }
     }
 }
@@ -103,9 +106,15 @@ pub struct CubeTransformation {
 }
 
 const TRANSFORMATIONS: [CubeTransformation; 9] = [
-    CubeTransformation::X, CubeTransformation::Xi, CubeTransformation::X2,
-    CubeTransformation::Y, CubeTransformation::Yi, CubeTransformation::Y2,
-    CubeTransformation::Z, CubeTransformation::Zi, CubeTransformation::Z2,
+    CubeTransformation::X,
+    CubeTransformation::Xi,
+    CubeTransformation::X2,
+    CubeTransformation::Y,
+    CubeTransformation::Yi,
+    CubeTransformation::Y2,
+    CubeTransformation::Z,
+    CubeTransformation::Zi,
+    CubeTransformation::Z2,
 ];
 
 impl Invertible for CubeTransformation {
@@ -140,7 +149,17 @@ impl CubeTransformation {
     pub const Z2: CubeTransformation = CubeTransformation::new(CubeAxis::Z, Half);
     pub const Zi: CubeTransformation = CubeTransformation::new(CubeAxis::Z, CounterClockwise);
 
-    pub const ALL: [Self; 9] = [Self::X, Self::X2, Self::Xi, Self::Y, Self::Y2, Self::Yi, Self::Z, Self::Z2, Self::Zi];
+    pub const ALL: [Self; 9] = [
+        Self::X,
+        Self::X2,
+        Self::Xi,
+        Self::Y,
+        Self::Y2,
+        Self::Yi,
+        Self::Z,
+        Self::Z2,
+        Self::Zi,
+    ];
 
     pub const fn new(axis: CubeAxis, dir: Direction) -> Self {
         Self { axis, dir }
@@ -152,7 +171,10 @@ impl CubeTransformation {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub enum CubeFace {
     Up = 0,
     Down = 1,
@@ -204,7 +226,7 @@ impl Into<CubeAxis> for CubeFace {
         match self {
             Up | Down => CubeAxis::UD,
             Front | Back => CubeAxis::FB,
-            Left | Right => CubeAxis::LR
+            Left | Right => CubeAxis::LR,
         }
     }
 }
@@ -300,7 +322,10 @@ impl From<usize> for CubeFace {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub enum Direction {
     Clockwise = 0,
     Half = 1,
@@ -322,7 +347,7 @@ impl Direction {
             1 => Some(Clockwise),
             2 => Some(Half),
             3 => Some(CounterClockwise),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -357,12 +382,24 @@ impl CubeOuterTurn {
     pub const Li: CubeOuterTurn = CubeOuterTurn::new(Left, CounterClockwise);
 
     pub const ALL: [CubeOuterTurn; 18] = [
-        CubeOuterTurn::U, CubeOuterTurn:: Ui, CubeOuterTurn::U2,
-        CubeOuterTurn::D, CubeOuterTurn:: Di, CubeOuterTurn::D2,
-        CubeOuterTurn::F, CubeOuterTurn:: Fi, CubeOuterTurn::F2,
-        CubeOuterTurn::B, CubeOuterTurn:: Bi, CubeOuterTurn::B2,
-        CubeOuterTurn::L, CubeOuterTurn:: Li, CubeOuterTurn::L2,
-        CubeOuterTurn::R, CubeOuterTurn:: Ri, CubeOuterTurn::R2,
+        CubeOuterTurn::U,
+        CubeOuterTurn::Ui,
+        CubeOuterTurn::U2,
+        CubeOuterTurn::D,
+        CubeOuterTurn::Di,
+        CubeOuterTurn::D2,
+        CubeOuterTurn::F,
+        CubeOuterTurn::Fi,
+        CubeOuterTurn::F2,
+        CubeOuterTurn::B,
+        CubeOuterTurn::Bi,
+        CubeOuterTurn::B2,
+        CubeOuterTurn::L,
+        CubeOuterTurn::Li,
+        CubeOuterTurn::L2,
+        CubeOuterTurn::R,
+        CubeOuterTurn::Ri,
+        CubeOuterTurn::R2,
     ];
 
     pub const fn new(face: CubeFace, dir: Direction) -> CubeOuterTurn {
@@ -439,7 +476,10 @@ impl FromStr for CubeOuterTurn {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub enum CubeAxis {
     LR = 0,
     UD = 1,

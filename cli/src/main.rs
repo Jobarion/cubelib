@@ -1,8 +1,35 @@
 #![feature(pattern)]
 extern crate core;
 
-use std::collections::HashMap;
+use crate::cache::Cache;
+use crate::cli::{
+    Cli, Commands, DownloadCommand, InvertCommand, LogLevel, SolutionFormat, SolveCommand,
+    SolverBackend,
+};
+use crate::config::{CubelibConfig, SolverConfig};
+use crate::update::{fetch_latest, GithubRelease, UpdateError};
+use chrono::{TimeDelta, Utc};
+use clap::Parser;
+use cubelib::algs::Algorithm;
+use cubelib::cube::turn::InvertibleMut;
+use cubelib::cube::*;
+use cubelib::defs::{NissSwitchType, StepKind};
+use cubelib::solver::df_search::CancelToken;
+use cubelib::solver::lookup_table::InMemoryIndexTable;
+use cubelib::solver::solution::Solution;
+use cubelib::solver::stream;
+use cubelib::solver_new::util_steps::{FilterDup, FilterLastMoveNotPrime};
+use cubelib::steps::step::StepConfig;
+use cubelib::steps::tables::PruningTables333;
+use cubelib::steps::{eo, solver};
 use home::home_dir;
+use indicatif::ProgressStyle;
+use log::{debug, error, info, log, warn};
+use regex::Regex;
+use self_replace::self_replace;
+use semver::Version;
+use simple_logger::SimpleLogger;
+use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{BufWriter, ErrorKind, Read, Write};
@@ -10,42 +37,18 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{LazyLock, Mutex};
 use std::time::Instant;
-use chrono::{TimeDelta, Utc};
-use clap::Parser;
-use cubelib::algs::Algorithm;
-use cubelib::cube::*;
-use cubelib::cube::turn::InvertibleMut;
-use cubelib::defs::{NissSwitchType, StepKind};
-use cubelib::solver::df_search::CancelToken;
-use cubelib::solver::lookup_table::InMemoryIndexTable;
-use cubelib::solver::solution::Solution;
-use cubelib::solver::stream;
-use cubelib::solver_new::util_steps::{FilterDup, FilterLastMoveNotPrime};
-use cubelib::steps::{eo, solver};
-use cubelib::steps::step::StepConfig;
-use cubelib::steps::tables::PruningTables333;
-use indicatif::ProgressStyle;
-use log::{debug, error, info, log, warn};
-use regex::Regex;
-use self_replace::self_replace;
-use semver::Version;
-use simple_logger::SimpleLogger;
 use tempfile::TempDir;
 use zip::read::root_dir_common_filter;
 use zip::ZipArchive;
-use crate::cache::Cache;
-use crate::cli::{Cli, Commands, DownloadCommand, InvertCommand, LogLevel, SolutionFormat, SolveCommand, SolverBackend};
-use crate::config::{SolverConfig, CubelibConfig};
-use crate::update::{fetch_latest, GithubRelease, UpdateError};
 
-mod cli;
-mod steps;
-mod config;
-mod update;
 mod cache;
+mod cli;
+mod config;
+mod steps;
+mod update;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const CACHE: LazyLock<Mutex<Cache>> = LazyLock::new(||Mutex::new(Cache::default()));
+const CACHE: LazyLock<Mutex<Cache>> = LazyLock::new(|| Mutex::new(Cache::default()));
 
 pub fn get_version() -> Version {
     Version::from_str(VERSION).expect("Cubelib version not semver")
@@ -76,7 +79,10 @@ fn main() {
 
     let dir = get_cubelib_dir();
     if let Err(e) = fs::create_dir_all(dir) {
-        messages.push((LogLevel::Error, format!("Failed to create cubelib home dir: {e}")));
+        messages.push((
+            LogLevel::Error,
+            format!("Failed to create cubelib home dir: {e}"),
+        ));
     }
 
     let dir = get_config_file();
@@ -84,15 +90,24 @@ fn main() {
     messages.push((LogLevel::Info, format!("Reading config from {dir:?}")));
     let mut config: CubelibConfig = match fs::read_to_string(dir.to_str().expect("Valid path")) {
         Ok(content) => toml::from_str(&content).unwrap_or_else(|e| {
-            messages.push((LogLevel::Error, "Config file contains errors, using defaults.".to_string()));
+            messages.push((
+                LogLevel::Error,
+                "Config file contains errors, using defaults.".to_string(),
+            ));
             messages.push((LogLevel::Error, e.to_string()));
             CubelibConfig::default()
         }),
         Err(e) => {
             if e.kind() == ErrorKind::NotFound {
-                messages.push((LogLevel::Info, "No config file found, using defaults.".to_string()));
+                messages.push((
+                    LogLevel::Info,
+                    "No config file found, using defaults.".to_string(),
+                ));
             } else {
-                messages.push((LogLevel::Error, "Error reading config file, using defaults.".to_string()));
+                messages.push((
+                    LogLevel::Error,
+                    "Error reading config file, using defaults.".to_string(),
+                ));
                 messages.push((LogLevel::Error, e.to_string()));
             }
             CubelibConfig::default()
@@ -110,7 +125,6 @@ fn main() {
         .init()
         .unwrap();
 
-
     for (level, message) in messages {
         if let Some(level) = level.to_level_filter().to_level() {
             log!(level, "{message}");
@@ -120,7 +134,9 @@ fn main() {
         let cache = &CACHE;
         let cache = cache.lock();
         let mut cache = cache.unwrap();
-        if Utc::now().signed_duration_since(cache.get_data().last_update_check) >= TimeDelta::hours(1) {
+        if Utc::now().signed_duration_since(cache.get_data().last_update_check)
+            >= TimeDelta::hours(1)
+        {
             cache.get_and_update().last_update_check = Utc::now();
             check_update().ok()
         } else {
@@ -146,7 +162,8 @@ fn scramble() {
     solver_config.format = SolutionFormat::Plain;
     solver_config.solution_count = Some(1);
     solver_config.quality = 1000;
-    solver_config.steps = "EO[max=7;niss=never] > DR[niss=never] > HTR[niss=never] > FIN[niss=never]".to_string();
+    solver_config.steps =
+        "EO[max=7;niss=never] > DR[niss=never] > HTR[niss=never] > FIN[niss=never]".to_string();
 
     find_and_print_solutions_iter_stream(cube, solver_config);
 }
@@ -157,7 +174,7 @@ fn check_update() -> Result<GithubRelease, UpdateError> {
         Err(e) => {
             warn!("Failed to fetch latest version: {e:?}");
             return Err(e);
-        },
+        }
     };
     if get_version() >= latest.version {
         debug!("Cubelib is up to date");
@@ -182,10 +199,14 @@ fn update(latest_version: Option<GithubRelease>) {
                 if get_version() >= latest.version {
                     debug!("Cubelib is up to date");
                 } else {
-                    warn!("Cubelib is out of date. Local version is {}, found newer version {}", get_version(), latest.version);
+                    warn!(
+                        "Cubelib is out of date. Local version is {}, found newer version {}",
+                        get_version(),
+                        latest.version
+                    );
                 }
                 latest
-            },
+            }
             Err(e) => {
                 error!("Failed to fetch latest version: {e:?}");
                 return;
@@ -195,14 +216,15 @@ fn update(latest_version: Option<GithubRelease>) {
     if get_version() >= latest_version.version {
         return;
     }
-    let (file_name, executable_name) = if cfg!(windows) && cfg!(target_feature = "avx2") && cfg!(target_arch = "x86_64") {
-        ("cubelib-windows-x64-avx2.zip", "cubelib-cli.exe")
-    } else if cfg!(unix) && cfg!(target_feature = "avx2") && cfg!(target_arch = "x86_64") {
-        ("cubelib-linux-x64-avx2.zip", "cubelib-cli")
-    } else {
-        error!("Unsupported platform. Please compile Cubelib yourself");
-        return;
-    };
+    let (file_name, executable_name) =
+        if cfg!(windows) && cfg!(target_feature = "avx2") && cfg!(target_arch = "x86_64") {
+            ("cubelib-windows-x64-avx2.zip", "cubelib-cli.exe")
+        } else if cfg!(unix) && cfg!(target_feature = "avx2") && cfg!(target_arch = "x86_64") {
+            ("cubelib-linux-x64-avx2.zip", "cubelib-cli")
+        } else {
+            error!("Unsupported platform. Please compile Cubelib yourself");
+            return;
+        };
     let asset = if let Some(download_url) = latest_version.assets.get(file_name) {
         download_url
     } else {
@@ -212,7 +234,12 @@ fn update(latest_version: Option<GithubRelease>) {
 
     let pb = indicatif::ProgressBar::new(asset.size);
     pb.set_message(format!("Downloading {}", asset.name));
-    pb.set_style(ProgressStyle::with_template("[{elapsed_precise}] {bar:40} {decimal_bytes}/{decimal_total_bytes}").unwrap());
+    pb.set_style(
+        ProgressStyle::with_template(
+            "[{elapsed_precise}] {bar:40} {decimal_bytes}/{decimal_total_bytes}",
+        )
+        .unwrap(),
+    );
 
     let temp_dir = TempDir::new().expect("tempdir required");
     let zip_file = File::create(temp_dir.path().join("cubelib.zip")).expect("file creation error");
@@ -239,11 +266,11 @@ fn update(latest_version: Option<GithubRelease>) {
             }
         };
         if read == 0 {
-            break
+            break;
         }
         if let Err(e) = writer.write_all(&buf[..read]) {
             error!("Local IO error: {e}");
-            return
+            return;
         }
         pb.inc(read as u64);
     }
@@ -251,7 +278,9 @@ fn update(latest_version: Option<GithubRelease>) {
     pb.finish();
     let zip_file = File::open(temp_dir.path().join("cubelib.zip")).expect("file creation error");
     let mut archive = ZipArchive::new(zip_file).expect("zip archive");
-    archive.extract_unwrapped_root_dir(temp_dir.path(), root_dir_common_filter).expect("zip extract error");
+    archive
+        .extract_unwrapped_root_dir(temp_dir.path(), root_dir_common_filter)
+        .expect("zip extract error");
     drop(archive);
 
     match self_replace(temp_dir.path().join(executable_name)) {
@@ -262,11 +291,14 @@ fn update(latest_version: Option<GithubRelease>) {
 
 fn download(cmd: DownloadCommand) {
     // This is a dummy type because we need to provide concrete generic types
-    let file = match InMemoryIndexTable::<0, cubelib::steps::coord::ZeroCoord>::create_file("333", cmd.table.as_str()) {
+    let file = match InMemoryIndexTable::<0, cubelib::steps::coord::ZeroCoord>::create_file(
+        "333",
+        cmd.table.as_str(),
+    ) {
         Ok(file) => file,
         Err(e) => {
             error!("Failed to create local file. {e}");
-            return
+            return;
         }
     };
 
@@ -275,18 +307,23 @@ fn download(cmd: DownloadCommand) {
         Ok(resp) => resp,
         Err(e) => {
             error!("Failed to download from {url}. {e}");
-            return
+            return;
         }
     };
 
     if !resp.status().is_success() {
         error!("HTTP error: {}", resp.status());
-        return
+        return;
     }
     let progress_bar = if let Some(content_length) = resp.content_length() {
         let pb = indicatif::ProgressBar::new(content_length);
         pb.set_message(format!("Downloading {}.tbl", cmd.table));
-        pb.set_style(ProgressStyle::with_template("[{elapsed_precise}] {bar:40} {decimal_bytes}/{decimal_total_bytes}").unwrap());
+        pb.set_style(
+            ProgressStyle::with_template(
+                "[{elapsed_precise}] {bar:40} {decimal_bytes}/{decimal_total_bytes}",
+            )
+            .unwrap(),
+        );
         pb
     } else {
         indicatif::ProgressBar::new_spinner()
@@ -298,15 +335,15 @@ fn download(cmd: DownloadCommand) {
             Ok(read) => read,
             Err(e) => {
                 error!("Failed to download file: {e}");
-                return
+                return;
             }
         };
         if read == 0 {
-            break
+            break;
         }
         if let Err(e) = writer.write_all(&buf[..read]) {
             error!("Local IO error: {e}");
-            return
+            return;
         }
         progress_bar.inc(read as u64);
     }
@@ -318,10 +355,12 @@ fn read_scramble(input: &String) -> Algorithm {
         "-" => {
             // Read from stdin
             let mut input = String::new();
-            std::io::stdin().read_line(&mut input).expect("Failed to read from stdin");
+            std::io::stdin()
+                .read_line(&mut input)
+                .expect("Failed to read from stdin");
             Algorithm::from_str(input.trim()).expect("Invalid scramble")
         }
-        s => Algorithm::from_str(s).expect("Invalid scramble {}")
+        s => Algorithm::from_str(s).expect("Invalid scramble {}"),
     }
 }
 
@@ -339,7 +378,9 @@ fn solve(cmd: SolveCommand, mut config: SolverConfig) {
 
     match config.backend {
         SolverBackend::IterStream => find_and_print_solutions_iter_stream(cube, config),
-        SolverBackend::MultiPathChannel => find_and_print_solutions_multi_path_channel(cube, config),
+        SolverBackend::MultiPathChannel => {
+            find_and_print_solutions_multi_path_channel(cube, config)
+        }
     }
 }
 
@@ -348,15 +389,15 @@ fn find_and_print_solutions_iter_stream(cube: Cube333, config: SolverConfig) {
 
     let steps = match parse_step_configs_iter_stream(&config) {
         Ok(step_configs) => {
-              solver::gen_tables(&step_configs, &mut tables);
-                match solver::build_steps(step_configs, &tables) {
-                    Ok(steps) => steps,
-                    Err(e) => {
-                        error!("{e}");
-                        return;
-                    }
+            solver::gen_tables(&step_configs, &mut tables);
+            match solver::build_steps(step_configs, &tables) {
+                Ok(steps) => steps,
+                Err(e) => {
+                    error!("{e}");
+                    return;
                 }
-        },
+            }
+        }
         Err(e) => {
             error!("Unable to parse steps config. {e}");
             return;
@@ -369,38 +410,41 @@ fn find_and_print_solutions_iter_stream(cube: Cube333, config: SolverConfig) {
     info!("Generating solutions\n");
     let time = Instant::now();
 
-    let mut solutions: Box<dyn Iterator<Item=Solution>> = Box::new(solutions
-        .skip_while(|alg| alg.len() < config.min)
-        .take_while(|alg| config.max.map_or(true, |max| alg.len() <= max)));
+    let mut solutions: Box<dyn Iterator<Item = Solution>> = Box::new(
+        solutions
+            .skip_while(|alg| alg.len() < config.min)
+            .take_while(|alg| config.max.map_or(true, |max| alg.len() <= max)),
+    );
 
     // For e.g. FR the direction of the last move always matters, so we can't filter if we're doing FR
-    let can_filter_last_move = steps.last().map(|(s, _)| s.kind() != StepKind::FR && s.kind() != StepKind::FIN).unwrap_or(true);
+    let can_filter_last_move = steps
+        .last()
+        .map(|(s, _)| s.kind() != StepKind::FR && s.kind() != StepKind::FIN)
+        .unwrap_or(true);
     if !config.all_solutions && can_filter_last_move {
-        solutions = Box::new(solutions
-            .filter(|alg| eo::eo_config::filter_eo_last_moves_pure(&alg.clone().into())));
+        solutions = Box::new(
+            solutions.filter(|alg| eo::eo_config::filter_eo_last_moves_pure(&alg.clone().into())),
+        );
     }
 
     //We already generate a mostly duplicate free iterator, but sometimes the same solution is valid for different stages and that can cause duplicates.
     let solutions = stream::distinct_algorithms(solutions);
 
-    let mut solutions: Box<dyn Iterator<Item=Solution>> = Box::new(solutions);
+    let mut solutions: Box<dyn Iterator<Item = Solution>> = Box::new(solutions);
 
     if config.max.is_none() || config.solution_count.is_some() {
-        solutions = Box::new(solutions
-            .take(config.solution_count.unwrap_or(1)))
+        solutions = Box::new(solutions.take(config.solution_count.unwrap_or(1)))
     }
 
     //The iterator is always sorted, so this just prints the shortest solutions
     for solution in solutions {
         match config.format {
-            SolutionFormat::Plain =>
-                println!("{}", Into::<Algorithm>::into(solution)),
+            SolutionFormat::Plain => println!("{}", Into::<Algorithm>::into(solution)),
             SolutionFormat::Compact => {
                 let alg = Into::<Algorithm>::into(solution);
                 println!("{alg} ({})", alg.len());
             }
-            SolutionFormat::Detailed =>
-                println!("{}", solution)
+            SolutionFormat::Detailed => println!("{}", solution),
         }
     }
 
@@ -488,13 +532,14 @@ fn parse_step_configs_iter_stream(conf: &SolverConfig) -> Result<Vec<StepConfig>
 
 fn find_and_print_solutions_multi_path_channel(cube: Cube333, config: SolverConfig) {
     let cube_state = cube.get_cube_state();
-    let (mut steps, last_step) = match steps::parse_steps(&config.steps, &config.get_merged_overrides(), cube_state) {
-        Ok(x) => x,
-        Err(e) => {
-            error!("Unable to parse steps config. {e}");
-            return;
-        }
-    };
+    let (mut steps, last_step) =
+        match steps::parse_steps(&config.steps, &config.get_merged_overrides(), cube_state) {
+            Ok(x) => x,
+            Err(e) => {
+                error!("Unable to parse steps config. {e}");
+                return;
+            }
+        };
 
     info!("Generating solutions\n");
     let time = Instant::now();
@@ -503,10 +548,10 @@ fn find_and_print_solutions_multi_path_channel(cube: Cube333, config: SolverConf
 
     let last_qt_diretion_relevant = match last_step {
         StepKind::EO | StepKind::RZP | StepKind::DR | StepKind::HTR => false,
-        _ => true
+        _ => true,
     };
 
-    if !config.all_solutions && !last_qt_diretion_relevant  {
+    if !config.all_solutions && !last_qt_diretion_relevant {
         predicates.push(FilterLastMoveNotPrime::new());
     }
     predicates.push(FilterDup::new());
@@ -519,36 +564,31 @@ fn find_and_print_solutions_multi_path_channel(cube: Cube333, config: SolverConf
     let mut worker = steps.into_worker(cube);
 
     let mut count = 0;
-    let max_length = config.solution_count.or(if config.max.is_some() {
-        None
-    } else {
-        Some(1)
-    });
+    let max_length = config
+        .solution_count
+        .or(if config.max.is_some() { None } else { Some(1) });
     while max_length.is_none() || max_length.unwrap() > count {
         match worker.next() {
             Some(solution) => {
                 if solution.len() < config.min {
                     continue;
                 }
-                if config.max.map(|max|solution.len() > max).unwrap_or(false) {
-                    break
+                if config.max.map(|max| solution.len() > max).unwrap_or(false) {
+                    break;
                 }
                 match config.format {
-                    SolutionFormat::Plain =>
-                        println!("{}", Into::<Algorithm>::into(solution)),
+                    SolutionFormat::Plain => println!("{}", Into::<Algorithm>::into(solution)),
                     SolutionFormat::Compact => {
                         let alg = Into::<Algorithm>::into(solution);
                         println!("{alg} ({})", alg.len());
                     }
-                    SolutionFormat::Detailed =>
-                        println!("{}", solution)
+                    SolutionFormat::Detailed => println!("{}", solution),
                 }
                 count += 1;
-            },
-            None => break
+            }
+            None => break,
         }
     }
 
     info!("Took {}ms", time.elapsed().as_millis());
 }
-

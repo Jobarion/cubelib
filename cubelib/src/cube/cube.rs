@@ -1,15 +1,20 @@
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 
-use crate::cube::{CornerCube333, EdgeCube333, Transformation333, Turn333};
 use crate::cube::cube::CornerPosition::*;
 use crate::cube::cube::EdgePosition::*;
 use crate::cube::cube_edges::CenterEdgeCube;
-use crate::cube::turn::{ApplySymmetry, CubeColor, CubeFace, InvertibleMut, TransformableMut, TurnableMut};
+use crate::cube::turn::{
+    ApplySymmetry, CubeColor, CubeFace, InvertibleMut, TransformableMut, TurnableMut,
+};
+use crate::cube::{CornerCube333, EdgeCube333, Transformation333, Turn333};
 
 //http://kociemba.org/math/cubielevel.htm
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[cfg_attr(target_feature = "avx2", derive(Hash))]
 pub struct Cube333 {
     pub edges: EdgeCube333,
@@ -58,14 +63,24 @@ impl Display for Cube333 {
         for x in (0..3).rev() {
             write!(f, "{}{}", block_width.repeat(3), block_spacing.repeat(4))?;
             for y in (0..3).rev() {
-                write!(f, "{}{}", facelets[CubeFace::Back][x * 3 + y], block_spacing)?;
+                write!(
+                    f,
+                    "{}{}",
+                    facelets[CubeFace::Back][x * 3 + y],
+                    block_spacing
+                )?;
             }
             writeln!(f)?;
         }
         for x in 0..3 {
             let x_rev = 2 - x;
             for y in (0..3).rev() {
-                write!(f, "{}{}", facelets[CubeFace::Left][x + y * 3], block_spacing)?;
+                write!(
+                    f,
+                    "{}{}",
+                    facelets[CubeFace::Left][x + y * 3],
+                    block_spacing
+                )?;
             }
             write!(f, "{}", block_spacing)?;
             for y in 0..3 {
@@ -95,7 +110,12 @@ impl Display for Cube333 {
         for x in 0..3 {
             write!(f, "{}{}", block_width.repeat(3), block_spacing.repeat(4))?;
             for y in 0..3 {
-                write!(f, "{}{}", facelets[CubeFace::Front][x * 3 + y], block_spacing)?;
+                write!(
+                    f,
+                    "{}{}",
+                    facelets[CubeFace::Front][x * 3 + y],
+                    block_spacing
+                )?;
             }
             writeln!(f)?;
         }
@@ -247,19 +267,27 @@ pub enum EdgePosition {
 
 impl Display for CenterEdgeCube {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", Cube333 {
-            edges: self.clone(),
-            corners: Default::default(),
-        })
+        write!(
+            f,
+            "{}",
+            Cube333 {
+                edges: self.clone(),
+                corners: Default::default(),
+            }
+        )
     }
 }
 
 impl Display for CornerCube333 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", Cube333 {
-            edges: Default::default(),
-            corners: self.clone(),
-        })
+        write!(
+            f,
+            "{}",
+            Cube333 {
+                edges: Default::default(),
+                corners: self.clone(),
+            }
+        )
     }
 }
 

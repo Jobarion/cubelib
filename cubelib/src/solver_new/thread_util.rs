@@ -1,11 +1,11 @@
-use std::{mem, thread};
 use std::thread::JoinHandle;
+use std::{mem, thread};
 
 use crate::cube::Cube333;
 use crate::solver::solution::Solution;
-use crate::solver_new::{bounded_channel, Receiver, Sender, SendError, TryRecvError};
 use crate::solver_new::group::StepPredicate;
 use crate::solver_new::util_steps::FilterDup;
+use crate::solver_new::{bounded_channel, Receiver, SendError, Sender, TryRecvError};
 
 pub struct SolverWorker {
     worker: Box<dyn Worker<()> + Send>,
@@ -18,7 +18,11 @@ impl SolverWorker {
         Self::new_with_predicates(worker, cube, vec![])
     }
 
-    pub fn new_with_predicates<T: Into<Box<dyn ToWorker + Send + 'static>>>(worker: T, cube: Cube333, mut pred: Vec<Box<dyn StepPredicate>>) -> Self {
+    pub fn new_with_predicates<T: Into<Box<dyn ToWorker + Send + 'static>>>(
+        worker: T,
+        cube: Cube333,
+        mut pred: Vec<Box<dyn StepPredicate>>,
+    ) -> Self {
         let (tx0, rc0) = bounded_channel(1);
         let (tx1, rc1) = bounded_channel(1);
 
@@ -38,7 +42,7 @@ impl SolverWorker {
             WorkerState::Initialized => {
                 self.worker.start();
                 self.state = WorkerState::Running;
-            },
+            }
             WorkerState::Running => {}
             WorkerState::Finished => return Err(TryRecvError::Disconnected),
         }
@@ -69,7 +73,7 @@ impl Iterator for SolverWorker {
             WorkerState::Initialized => {
                 self.worker.start();
                 self.state = WorkerState::Running;
-            },
+            }
             WorkerState::Running => {}
             WorkerState::Finished => return None,
         }
@@ -103,17 +107,19 @@ pub enum ThreadState<O> {
 
 pub type SubmitFunction = Box<dyn FnMut(&Solution) -> Result<(), SendError<Solution>>>;
 
-impl <O> Default for ThreadState<O> {
+impl<O> Default for ThreadState<O> {
     fn default() -> Self {
         Self::None
     }
 }
 
-impl <O: Send + 'static> Worker<O> for ThreadState<O> {
+impl<O: Send + 'static> Worker<O> for ThreadState<O> {
     fn start(&mut self) {
         *self = match mem::take(self) {
             ThreadState::None => ThreadState::None,
-            ThreadState::PreStart(mut runner) => ThreadState::PostStart(thread::spawn(move || runner.run())),
+            ThreadState::PreStart(mut runner) => {
+                ThreadState::PostStart(thread::spawn(move || runner.run()))
+            }
             ThreadState::PostStart(x) => ThreadState::PostStart(x),
         }
     }
@@ -140,8 +146,25 @@ pub trait Worker<O: Send + 'static> {
 }
 
 pub trait ToWorker: Send {
-    fn to_worker(self: Self, cube_state: Cube333, rc: Receiver<Solution>, tx: Sender<Solution>, additional_predicates: Vec<Box<dyn StepPredicate>>) -> Box<dyn Worker<()> + Send> where Self: Send + 'static + Sized {
+    fn to_worker(
+        self: Self,
+        cube_state: Cube333,
+        rc: Receiver<Solution>,
+        tx: Sender<Solution>,
+        additional_predicates: Vec<Box<dyn StepPredicate>>,
+    ) -> Box<dyn Worker<()> + Send>
+    where
+        Self: Send + 'static + Sized,
+    {
         Box::new(self).to_worker_box(cube_state, rc, tx, additional_predicates)
     }
-    fn to_worker_box(self: Box<Self>, cube_state: Cube333, rc: Receiver<Solution>, tx: Sender<Solution>, additional_predicates: Vec<Box<dyn StepPredicate>>) -> Box<dyn Worker<()> + Send> where Self: Send + 'static;
+    fn to_worker_box(
+        self: Box<Self>,
+        cube_state: Cube333,
+        rc: Receiver<Solution>,
+        tx: Sender<Solution>,
+        additional_predicates: Vec<Box<dyn StepPredicate>>,
+    ) -> Box<dyn Worker<()> + Send>
+    where
+        Self: Send + 'static;
 }

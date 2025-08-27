@@ -1,3 +1,13 @@
+use crate::cube::turn::{Invertible, TurnableMut};
+use crate::cube::*;
+use crate::solver::moveset::MoveSet;
+use crate::steps::coord::Coord;
+use crate::steps::MoveSet333;
+#[cfg(feature = "fs")]
+use home::home_dir;
+use log::{debug, info, warn};
+use memmap2::{Mmap, MmapOptions};
+use num_traits::FromPrimitive;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 #[cfg(feature = "fs")]
@@ -7,16 +17,6 @@ use std::hash::Hash;
 use std::io::{Read, Write};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
-#[cfg(feature = "fs")]
-use home::home_dir;
-use log::{debug, info, warn};
-use memmap2::{Mmap, MmapOptions};
-use num_traits::{FromPrimitive};
-use crate::cube::*;
-use crate::cube::turn::{Invertible, TurnableMut};
-use crate::solver::moveset::MoveSet;
-use crate::steps::coord::Coord;
-use crate::steps::MoveSet333;
 
 const VERSION: u8 = 2;
 
@@ -28,9 +28,12 @@ pub trait NissDepthEstimate<const C_SIZE: usize, C: Coord<C_SIZE>>: Send + Sync 
     fn get_niss_estimate(&self, target: C) -> (u8, u8);
 }
 
-pub type InMemoryIndexTable<const C_SIZE: usize, C: Coord<C_SIZE>> = IndexTable<C_SIZE, C, [u8], Vec<u8>>;
-pub type MemoryMappedIndexTable<const C_SIZE: usize, C: Coord<C_SIZE>> = IndexTable<C_SIZE, C, [u8], Mmap>;
-pub type InMemoryNissIndexTable<const C_SIZE: usize, C: Coord<C_SIZE>> = NissIndexTable<C_SIZE, C, [u8], Vec<u8>>;
+pub type InMemoryIndexTable<const C_SIZE: usize, C: Coord<C_SIZE>> =
+    IndexTable<C_SIZE, C, [u8], Vec<u8>>;
+pub type MemoryMappedIndexTable<const C_SIZE: usize, C: Coord<C_SIZE>> =
+    IndexTable<C_SIZE, C, [u8], Mmap>;
+pub type InMemoryNissIndexTable<const C_SIZE: usize, C: Coord<C_SIZE>> =
+    NissIndexTable<C_SIZE, C, [u8], Vec<u8>>;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[repr(u8)]
@@ -59,7 +62,7 @@ impl TryFrom<[u8; 2]> for TableHeader {
     fn try_from(value: [u8; 2]) -> Result<Self, Self::Error> {
         Ok(Self {
             version: value[0],
-            table_type: TableType::from_u8(value[1]).ok_or(TableError::InvalidHeader)?
+            table_type: TableType::from_u8(value[1]).ok_or(TableError::InvalidHeader)?,
         })
     }
 }
@@ -70,13 +73,23 @@ impl Into<[u8; 2]> for TableHeader {
     }
 }
 
-pub struct IndexTable<const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> {
+pub struct IndexTable<
+    const C_SIZE: usize,
+    C: Coord<C_SIZE>,
+    T: Index<usize, Output = u8> + ?Sized + Send + Sync,
+    F: Deref<Target = T> + Send + Sync,
+> {
     data: F,
     coord_type: PhantomData<C>,
     compressed: bool,
 }
 
-pub struct NissIndexTable<const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> {
+pub struct NissIndexTable<
+    const C_SIZE: usize,
+    C: Coord<C_SIZE>,
+    T: Index<usize, Output = u8> + ?Sized + Send + Sync,
+    F: Deref<Target = T> + Send + Sync,
+> {
     table: IndexTable<C_SIZE, C, T, F>,
 }
 #[derive(Debug)]
@@ -84,7 +97,7 @@ pub enum TableError {
     OutdatedVersion,
     InvalidHeader,
     InvalidFormat,
-    IOError(std::io::Error)
+    IOError(std::io::Error),
 }
 
 impl Display for TableError {
@@ -99,16 +112,22 @@ impl Display for TableError {
 }
 
 #[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> IndexTable<C_SIZE, C, T, F>{
+impl<
+        const C_SIZE: usize,
+        C: Coord<C_SIZE>,
+        T: Index<usize, Output = u8> + ?Sized + Send + Sync,
+        F: Deref<Target = T> + Send + Sync,
+    > IndexTable<C_SIZE, C, T, F>
+{
     pub fn open_file(puzzle_id: &str, table_type: &str) -> Result<File, TableError> {
         let mut dir = home_dir().unwrap();
         dir.push(".cubelib");
         dir.push("tables");
         dir.push(puzzle_id);
-        std::fs::create_dir_all(dir.as_path()).map_err(|e|TableError::IOError(e))?;
+        std::fs::create_dir_all(dir.as_path()).map_err(|e| TableError::IOError(e))?;
         dir.push(format!("{table_type}.tbl"));
         debug!("Loading {puzzle_id} {table_type} table from {dir:?}");
-        File::open(dir).map_err(|e|TableError::IOError(e))
+        File::open(dir).map_err(|e| TableError::IOError(e))
     }
 
     pub fn create_file(puzzle_id: &str, table_type: &str) -> Result<File, TableError> {
@@ -116,28 +135,40 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Siz
         dir.push(".cubelib");
         dir.push("tables");
         dir.push(puzzle_id);
-        std::fs::create_dir_all(dir.as_path()).map_err(|e|TableError::IOError(e))?;
+        std::fs::create_dir_all(dir.as_path()).map_err(|e| TableError::IOError(e))?;
         dir.push(format!("{table_type}.tbl"));
         debug!("Loading {puzzle_id} {table_type} table from {dir:?}");
-        File::create(dir).map_err(|e|TableError::IOError(e))
+        File::create(dir).map_err(|e| TableError::IOError(e))
     }
 }
 
 #[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> IndexTable<C_SIZE, C, T, F> where Self: LoadFromDisk + SaveToDisk {
-    pub fn load_and_save<FN: FnMut() -> InMemoryIndexTable<C_SIZE, C>>(key: &str, mut gen_f: FN) -> (Self, bool) {
+impl<
+        const C_SIZE: usize,
+        C: Coord<C_SIZE>,
+        T: Index<usize, Output = u8> + ?Sized + Send + Sync,
+        F: Deref<Target = T> + Send + Sync,
+    > IndexTable<C_SIZE, C, T, F>
+where
+    Self: LoadFromDisk + SaveToDisk,
+{
+    pub fn load_and_save<FN: FnMut() -> InMemoryIndexTable<C_SIZE, C>>(
+        key: &str,
+        mut gen_f: FN,
+    ) -> (Self, bool) {
         match Self::load_from_disk("333", key) {
             Ok(t) => {
                 debug!("Loaded {key} table from disk");
                 (t, false)
-            },
+            }
             Err(_) => {
                 info!("Generating {key} table...");
                 let table = gen_f();
                 if let Err(e) = table.save_to_disk("333", key) {
                     warn!("Failed to save {key} table. {e}");
                 }
-                let table = Self::load_from_disk("333", key).expect("Must be able to load newly created table");
+                let table = Self::load_from_disk("333", key)
+                    .expect("Must be able to load newly created table");
                 (table, true)
             }
         }
@@ -145,20 +176,24 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Siz
 }
 
 #[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> MemoryMappedIndexTable<C_SIZE, C> {
-    pub fn load_and_save<FN: FnMut() -> InMemoryIndexTable<C_SIZE, C>>(key: &str, mut gen_f: FN) -> (Self, bool) {
+impl<const C_SIZE: usize, C: Coord<C_SIZE>> MemoryMappedIndexTable<C_SIZE, C> {
+    pub fn load_and_save<FN: FnMut() -> InMemoryIndexTable<C_SIZE, C>>(
+        key: &str,
+        mut gen_f: FN,
+    ) -> (Self, bool) {
         match Self::load_from_disk("333", key) {
             Ok(t) => {
                 debug!("Loaded {key} table from disk");
                 (t, false)
-            },
+            }
             Err(_) => {
                 info!("Generating {key} table...");
                 let table = gen_f();
                 if let Err(e) = table.save_to_disk("333", key) {
                     warn!("Failed to save {key} table. {e}");
                 }
-                let table = Self::load_from_disk("333", key).expect("Must be able to load newly created table");
+                let table = Self::load_from_disk("333", key)
+                    .expect("Must be able to load newly created table");
                 (table, true)
             }
         }
@@ -166,20 +201,32 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> MemoryMappedIndexTable<C_SIZE, C> {
 }
 
 #[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> NissIndexTable<C_SIZE, C, T, F> where Self: LoadFromDisk + SaveToDisk {
-    pub fn load_and_save<FN: FnMut() -> InMemoryNissIndexTable<C_SIZE, C>>(key: &str, mut gen_f: FN) -> Self {
+impl<
+        const C_SIZE: usize,
+        C: Coord<C_SIZE>,
+        T: Index<usize, Output = u8> + ?Sized + Send + Sync,
+        F: Deref<Target = T> + Send + Sync,
+    > NissIndexTable<C_SIZE, C, T, F>
+where
+    Self: LoadFromDisk + SaveToDisk,
+{
+    pub fn load_and_save<FN: FnMut() -> InMemoryNissIndexTable<C_SIZE, C>>(
+        key: &str,
+        mut gen_f: FN,
+    ) -> Self {
         match Self::load_from_disk("333", key) {
             Ok(t) => {
                 debug!("Loaded {key} table from disk");
                 t
-            },
+            }
             Err(_) => {
                 info!("Generating {key} table...");
                 let table = gen_f();
                 if let Err(e) = table.save_to_disk("333", key) {
                     warn!("Failed to save {key} table. {e}");
                 }
-                let table = Self::load_from_disk("333", key).expect("Must be able to load newly created table");
+                let table = Self::load_from_disk("333", key)
+                    .expect("Must be able to load newly created table");
                 table
             }
         }
@@ -187,20 +234,21 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Siz
 }
 
 #[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for MemoryMappedIndexTable<C_SIZE, C> {
-    fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, TableError> where Self: Sized{
+impl<const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for MemoryMappedIndexTable<C_SIZE, C> {
+    fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, TableError>
+    where
+        Self: Sized,
+    {
         let mut file = Self::open_file(puzzle_id, table_type)?;
-        let mut buf = [0;2];
-        file.read_exact(&mut buf).map_err(|e|TableError::IOError(e))?;
+        let mut buf = [0; 2];
+        file.read_exact(&mut buf)
+            .map_err(|e| TableError::IOError(e))?;
         let header = TableHeader::try_from(buf)?;
         if header.version != VERSION {
             return Err(TableError::OutdatedVersion);
         }
-        let mmap = unsafe {
-            MmapOptions::new()
-                .offset(TableHeader::size())
-                .map(&file)
-        }.map_err(|e|TableError::IOError(e))?;
+        let mmap = unsafe { MmapOptions::new().offset(TableHeader::size()).map(&file) }
+            .map_err(|e| TableError::IOError(e))?;
         if header.table_type == TableType::Compressed {
             assert_eq!(mmap.len(), (C_SIZE + 1) / 2, "Unexpected table size.");
         } else if header.table_type == TableType::Uncompressed {
@@ -217,20 +265,22 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for MemoryMappedIndexT
 }
 
 #[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for InMemoryIndexTable<C_SIZE, C> {
+impl<const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for InMemoryIndexTable<C_SIZE, C> {
     fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, TableError>
     where
-        Self: Sized
+        Self: Sized,
     {
         let mut file = Self::open_file(puzzle_id, table_type)?;
-        let mut buf = [0;2];
-        file.read_exact(&mut buf).map_err(|e|TableError::IOError(e))?;
+        let mut buf = [0; 2];
+        file.read_exact(&mut buf)
+            .map_err(|e| TableError::IOError(e))?;
         let header = TableHeader::try_from(buf)?;
         if header.version != VERSION {
             return Err(TableError::OutdatedVersion);
         }
         let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer).map_err(|e|TableError::IOError(e))?;
+        file.read_to_end(&mut buffer)
+            .map_err(|e| TableError::IOError(e))?;
         if header.table_type == TableType::Compressed {
             assert_eq!(buffer.len(), (C_SIZE + 1) / 2);
         } else if header.table_type == TableType::Uncompressed {
@@ -248,19 +298,17 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for InMemoryIndexTable
 }
 
 #[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for InMemoryNissIndexTable<C_SIZE, C> {
+impl<const C_SIZE: usize, C: Coord<C_SIZE>> LoadFromDisk for InMemoryNissIndexTable<C_SIZE, C> {
     fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, TableError>
     where
-        Self: Sized
+        Self: Sized,
     {
-        InMemoryIndexTable::load_from_disk(puzzle_id, table_type).map(|t|Self{
-            table: t
-        })
+        InMemoryIndexTable::load_from_disk(puzzle_id, table_type).map(|t| Self { table: t })
     }
 }
 
 #[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> SaveToDisk for InMemoryIndexTable<C_SIZE, C> {
+impl<const C_SIZE: usize, C: Coord<C_SIZE>> SaveToDisk for InMemoryIndexTable<C_SIZE, C> {
     fn save_to_disk(&self, puzzle_id: &str, table_type: &str) -> Result<(), TableError> {
         let mut file = Self::create_file(puzzle_id, table_type)?;
         let header: [u8; 2] = TableHeader {
@@ -269,22 +317,25 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> SaveToDisk for InMemoryIndexTable<C
                 TableType::Compressed
             } else {
                 TableType::Uncompressed
-            }
-        }.into();
-        file.write_all(header.as_slice()).map_err(|e|TableError::IOError(e))?;
-        file.write_all(&self.data).map_err(|e|TableError::IOError(e))?;
+            },
+        }
+        .into();
+        file.write_all(header.as_slice())
+            .map_err(|e| TableError::IOError(e))?;
+        file.write_all(&self.data)
+            .map_err(|e| TableError::IOError(e))?;
         Ok(())
     }
 }
 
 #[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> SaveToDisk for InMemoryNissIndexTable<C_SIZE, C> {
+impl<const C_SIZE: usize, C: Coord<C_SIZE>> SaveToDisk for InMemoryNissIndexTable<C_SIZE, C> {
     fn save_to_disk(&self, puzzle_id: &str, table_type: &str) -> Result<(), TableError> {
         self.table.save_to_disk(puzzle_id, table_type)
     }
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> InMemoryIndexTable<C_SIZE, C> {
+impl<const C_SIZE: usize, C: Coord<C_SIZE>> InMemoryIndexTable<C_SIZE, C> {
     pub fn new(compressed: bool) -> Self {
         let data = if compressed {
             vec![0xFF; (C_SIZE + 1) / 2]
@@ -300,15 +351,21 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>> InMemoryIndexTable<C_SIZE, C> {
 }
 
 #[cfg(feature = "fs")]
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> InMemoryNissIndexTable<C_SIZE, C> {
+impl<const C_SIZE: usize, C: Coord<C_SIZE>> InMemoryNissIndexTable<C_SIZE, C> {
     pub fn new() -> Self {
         Self {
-            table: InMemoryIndexTable::new(false)
+            table: InMemoryIndexTable::new(false),
         }
     }
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> EmptyVal for IndexTable<C_SIZE, C, T, F>{
+impl<
+        const C_SIZE: usize,
+        C: Coord<C_SIZE>,
+        T: Index<usize, Output = u8> + ?Sized + Send + Sync,
+        F: Deref<Target = T> + Send + Sync,
+    > EmptyVal for IndexTable<C_SIZE, C, T, F>
+{
     fn empty_val(&self) -> u8 {
         if self.compressed {
             0x0F
@@ -318,32 +375,62 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Siz
     }
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> EmptyVal for NissIndexTable<C_SIZE, C, T, F>{
+impl<
+        const C_SIZE: usize,
+        C: Coord<C_SIZE>,
+        T: Index<usize, Output = u8> + ?Sized + Send + Sync,
+        F: Deref<Target = T> + Send + Sync,
+    > EmptyVal for NissIndexTable<C_SIZE, C, T, F>
+{
     fn empty_val(&self) -> u8 {
         0x0F
     }
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> DepthEstimate<C_SIZE, C> for IndexTable<C_SIZE, C, T, F>{
+impl<
+        const C_SIZE: usize,
+        C: Coord<C_SIZE>,
+        T: Index<usize, Output = u8> + ?Sized + Send + Sync,
+        F: Deref<Target = T> + Send + Sync,
+    > DepthEstimate<C_SIZE, C> for IndexTable<C_SIZE, C, T, F>
+{
     fn get(&self, target: C) -> u8 {
         self.get_direct(target)
     }
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> NissDepthEstimate<C_SIZE, C> for NissIndexTable<C_SIZE, C, T, F>{
+impl<
+        const C_SIZE: usize,
+        C: Coord<C_SIZE>,
+        T: Index<usize, Output = u8> + ?Sized + Send + Sync,
+        F: Deref<Target = T> + Send + Sync,
+    > NissDepthEstimate<C_SIZE, C> for NissIndexTable<C_SIZE, C, T, F>
+{
     fn get_niss_estimate(&self, target: C) -> (u8, u8) {
         let entry = self.table.get(target);
         (entry & 0x0F, entry >> 4)
     }
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> DepthEstimate<C_SIZE, C> for NissIndexTable<C_SIZE, C, T, F>{
+impl<
+        const C_SIZE: usize,
+        C: Coord<C_SIZE>,
+        T: Index<usize, Output = u8> + ?Sized + Send + Sync,
+        F: Deref<Target = T> + Send + Sync,
+    > DepthEstimate<C_SIZE, C> for NissIndexTable<C_SIZE, C, T, F>
+{
     fn get(&self, target: C) -> u8 {
         self.get_niss_estimate(target).0
     }
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Sized + Send + Sync, F: Deref<Target = T> + Send + Sync> IndexTable<C_SIZE, C, T, F> {
+impl<
+        const C_SIZE: usize,
+        C: Coord<C_SIZE>,
+        T: Index<usize, Output = u8> + ?Sized + Send + Sync,
+        F: Deref<Target = T> + Send + Sync,
+    > IndexTable<C_SIZE, C, T, F>
+{
     pub fn get_direct<A: Into<usize>>(&self, id: A) -> u8 {
         let id: usize = id.into();
         if self.compressed {
@@ -356,7 +443,13 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: Index<usize, Output = u8> + ?Siz
     }
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: IndexMut<usize, Output = u8> + ?Sized + Send + Sync, F: DerefMut<Target = T> + Send + Sync> IndexTable<C_SIZE, C, T, F> {
+impl<
+        const C_SIZE: usize,
+        C: Coord<C_SIZE>,
+        T: IndexMut<usize, Output = u8> + ?Sized + Send + Sync,
+        F: DerefMut<Target = T> + Send + Sync,
+    > IndexTable<C_SIZE, C, T, F>
+{
     pub fn set(&mut self, id: C, entry: u8) {
         self.set_direct(id, entry)
     }
@@ -374,7 +467,7 @@ impl <const C_SIZE: usize, C: Coord<C_SIZE>, T: IndexMut<usize, Output = u8> + ?
     }
 }
 
-impl <const C_SIZE: usize, C: Coord<C_SIZE>> InMemoryNissIndexTable<C_SIZE, C> {
+impl<const C_SIZE: usize, C: Coord<C_SIZE>> InMemoryNissIndexTable<C_SIZE, C> {
     pub fn set(&mut self, id: C, entry: u8) {
         let id: usize = id.into();
         let niss = self.table.get_direct(id) & 0xF0;
@@ -399,7 +492,9 @@ pub trait SaveToDisk {
 
 #[cfg(feature = "fs")]
 pub trait LoadFromDisk {
-    fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, TableError> where Self: Sized;
+    fn load_from_disk(puzzle_id: &str, table_type: &str) -> Result<Self, TableError>
+    where
+        Self: Sized;
 }
 
 pub fn generate<
@@ -421,7 +516,7 @@ where
     Mapper: Fn(&Cube333) -> CoordParam,
     Init: Fn() -> Table,
     Setter: Fn(&mut Table, CoordParam, u8),
-    Getter: Fn(&Table, CoordParam) -> u8
+    Getter: Fn(&Table, CoordParam) -> u8,
 {
     let start = Cube333::default();
     let mut visited = HashMap::new();
@@ -450,7 +545,9 @@ where
             to_check.len(),
             width = CoordParam::size().to_string().len(),
         );
-        to_check = fill_table(&move_set, &mut table, depth, mapper, getter, setter, to_check);
+        to_check = fill_table(
+            &move_set, &mut table, depth, mapper, getter, setter, to_check,
+        );
         if to_check.is_empty() {
             break;
         }
@@ -513,7 +610,7 @@ fn fill_table<
 where
     Mapper: Fn(&Cube333) -> CoordParam,
     Setter: Fn(&mut Table, CoordParam, u8),
-    Getter: Fn(&Table, CoordParam) -> u8
+    Getter: Fn(&Table, CoordParam) -> u8,
 {
     let mut next_cubes: HashMap<CoordParam, Cube333> = HashMap::new();
     for (_coord, cube) in to_check.into_iter() {
@@ -538,10 +635,14 @@ where
 
 // This table is much larger and requires different methods to generate.
 // Since it's the only one we'll avoid a generic implementation for now
-pub fn generate_large_table<
-    const C_SIZE: usize,
-    C: Coord<C_SIZE>,
->(move_set: &MoveSet333) -> InMemoryIndexTable<{C_SIZE}, C> where for <'a> C: From<&'a Cube333>, for <'a> &'a C: Into<Cube333>, C: From<usize> {
+pub fn generate_large_table<const C_SIZE: usize, C: Coord<C_SIZE>>(
+    move_set: &MoveSet333,
+) -> InMemoryIndexTable<{ C_SIZE }, C>
+where
+    for<'a> C: From<&'a Cube333>,
+    for<'a> &'a C: Into<Cube333>,
+    C: From<usize>,
+{
     let mut table = InMemoryIndexTable::new(true);
     table.set_direct(C::from(&Cube333::default()), 0);
 
@@ -551,28 +652,26 @@ pub fn generate_large_table<
         let mut changed = 0usize;
         let mut touched = 0usize;
         let mut last_percentage = 0u8;
-        (0..C::size())
-            .into_iter()
-            .for_each(|idx|{
-                touched += 1;
-                let percentage = (touched * 10 / C::size()) as u8;
-                if percentage - 1 == last_percentage {
-                    info!("Depth {depth}/{}, {}%", empty_val - 1, percentage * 10);
-                    last_percentage = percentage;
-                }
-                if table.get_direct(idx) == depth - 1 {
-                    let mut cube: Cube333 = (&C::from(idx)).into();
-                    for turn in move_set.st_moves.iter().chain(move_set.aux_moves.iter()) {
-                        cube.turn(turn.clone());
-                        let coord = C::from(&cube);
-                        if table.get(coord) == empty_val {
-                            changed += 1;
-                            table.set(coord, depth);
-                        }
-                        cube.turn(turn.invert());
+        (0..C::size()).into_iter().for_each(|idx| {
+            touched += 1;
+            let percentage = (touched * 10 / C::size()) as u8;
+            if percentage - 1 == last_percentage {
+                info!("Depth {depth}/{}, {}%", empty_val - 1, percentage * 10);
+                last_percentage = percentage;
+            }
+            if table.get_direct(idx) == depth - 1 {
+                let mut cube: Cube333 = (&C::from(idx)).into();
+                for turn in move_set.st_moves.iter().chain(move_set.aux_moves.iter()) {
+                    cube.turn(turn.clone());
+                    let coord = C::from(&cube);
+                    if table.get(coord) == empty_val {
+                        changed += 1;
+                        table.set(coord, depth);
                     }
+                    cube.turn(turn.invert());
                 }
-            });
+            }
+        });
         debug!("Positions at depth {depth}: {}", changed);
         depth += 1;
     }

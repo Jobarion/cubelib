@@ -1,31 +1,30 @@
-use std::collections::HashMap;
-use std::panic;
-use std::rc::Rc;
-use base64::Engine;
-use base64::prelude::BASE64_URL_SAFE;
-use leptonic::prelude::*;
-use leptos::*;
-use leptos_icons::IoIcon;
-use log::Level;
 use crate::cube::ScrambleComponent;
 use crate::settings::{SettingsComponent, SettingsState};
 use crate::solution::SolutionComponent;
 use crate::step::*;
+use base64::prelude::BASE64_URL_SAFE;
+use base64::Engine;
+use leptonic::prelude::*;
+use leptos::*;
+use leptos_icons::IoIcon;
+use log::Level;
+use std::collections::HashMap;
+use std::panic;
+use std::rc::Rc;
 
 mod cube;
+mod settings;
+mod solution;
 mod step;
 mod util;
-mod solution;
-mod settings;
 
 #[derive(Clone)]
 struct AppContext {
-    session: bool
+    session: bool,
 }
 
 #[component]
 fn App() -> impl IntoView {
-
     view! {
         <Root default_theme=LeptonicTheme::default()>
             <FMCAppContainer />
@@ -46,7 +45,7 @@ fn FMCAppContainer() -> impl IntoView {
     let fin_signal_raw = util::use_local_storage("enabled-fin", true);
 
     let dr_signal = (
-        Signal::derive(move||dr_signal_raw.0.get()),
+        Signal::derive(move || dr_signal_raw.0.get()),
         Callback::new(move |state: bool| {
             if !state {
                 htr_signal_raw.1.set(false);
@@ -55,11 +54,11 @@ fn FMCAppContainer() -> impl IntoView {
             }
             dr_signal_raw.1.set(state);
         }),
-        dr_signal_raw.2
+        dr_signal_raw.2,
     );
 
     let htr_signal = (
-        Signal::derive(move||htr_signal_raw.0.get() && dr_signal_raw.0.get()),
+        Signal::derive(move || htr_signal_raw.0.get() && dr_signal_raw.0.get()),
         Callback::new(move |state: bool| {
             if state {
                 dr_signal_raw.1.set(true);
@@ -68,30 +67,32 @@ fn FMCAppContainer() -> impl IntoView {
             }
             htr_signal_raw.1.set(state);
         }),
-        htr_signal_raw.2
+        htr_signal_raw.2,
     );
 
     let fr_signal = (
-        Signal::derive(move||fr_signal_raw.0.get() && htr_signal_raw.0.get() && dr_signal_raw.0.get()),
-        Callback::new(move|state: bool|{
+        Signal::derive(move || {
+            fr_signal_raw.0.get() && htr_signal_raw.0.get() && dr_signal_raw.0.get()
+        }),
+        Callback::new(move |state: bool| {
             if state {
                 dr_signal_raw.1.set(true);
                 htr_signal_raw.1.set(true);
             }
             fr_signal_raw.1.set(state);
         }),
-        fr_signal_raw.2
+        fr_signal_raw.2,
     );
 
     let fin_signal = (
-        Signal::derive(move||fin_signal_raw.0.get() && dr_signal_raw.0.get()),
-        Callback::new(move|state: bool|{
+        Signal::derive(move || fin_signal_raw.0.get() && dr_signal_raw.0.get()),
+        Callback::new(move |state: bool| {
             if state {
                 dr_signal_raw.1.set(true);
             }
             fin_signal_raw.1.set(state);
         }),
-        fin_signal_raw.2
+        fin_signal_raw.2,
     );
 
     let eo = EOConfig::from_local_storage();
@@ -101,13 +102,17 @@ fn FMCAppContainer() -> impl IntoView {
     let fr = FRConfig::from_local_storage((fr_signal.0, fr_signal.1));
     let fin = FinishConfig::from_local_storage((fin_signal.0, fin_signal.1));
 
-    watch(move||scramble.0.get(), move|_, _, _|{
-        eo.excluded.1.set(Default::default());
-        dr.excluded.1.set(Default::default());
-        htr.excluded.1.set(Default::default());
-        fr.excluded.1.set(Default::default());
-        fin.excluded.1.set(Default::default());
-    }, false);
+    watch(
+        move || scramble.0.get(),
+        move |_, _, _| {
+            eo.excluded.1.set(Default::default());
+            dr.excluded.1.set(Default::default());
+            htr.excluded.1.set(Default::default());
+            fr.excluded.1.set(Default::default());
+            fin.excluded.1.set(Default::default());
+        },
+        false,
+    );
 
     provide_context(eo.clone());
     provide_context(rzp.clone());
@@ -171,17 +176,20 @@ fn FMCAppContainer() -> impl IntoView {
 }
 
 fn load_url_state() {
-    let current_url = url::Url::parse(leptos::window().location().href().unwrap().as_str()).unwrap();
-    let mut is_local = current_url.query_pairs()
-        .filter(|(k, _)|k == "local")
-        .map(|(_, v)|v)
+    let current_url =
+        url::Url::parse(leptos::window().location().href().unwrap().as_str()).unwrap();
+    let mut is_local = current_url
+        .query_pairs()
+        .filter(|(k, _)| k == "local")
+        .map(|(_, v)| v)
         .next()
-        .filter(|v|v == "true")
+        .filter(|v| v == "true")
         .is_some();
 
-    let settings = current_url.query_pairs()
-        .filter(|(k, _)|k == "settings")
-        .map(|(_, v)|v)
+    let settings = current_url
+        .query_pairs()
+        .filter(|(k, _)| k == "settings")
+        .map(|(_, v)| v)
         .next();
 
     if let Some(settings) = settings {
@@ -203,9 +211,7 @@ fn load_url_state() {
         }
     }
 
-    provide_context(AppContext {
-        session: is_local
-    });
+    provide_context(AppContext { session: is_local });
 }
 
 fn open_shared() {
@@ -219,7 +225,7 @@ fn open_shared() {
     for i in 0..storage.length().unwrap() {
         if let Some(key) = storage.key(i).unwrap() {
             if !key.starts_with("mallard-") {
-                continue
+                continue;
             }
             if let Some(value) = storage.get_item(&key).unwrap() {
                 values.insert(key, value);

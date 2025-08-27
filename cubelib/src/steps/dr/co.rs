@@ -33,12 +33,9 @@ impl COCountUD for Cube333 {
 }
 
 impl COCountUD for CornerCube333 {
-
     #[cfg(target_feature = "avx2")]
     fn co_count(&self) -> u8 {
-        unsafe {
-            avx2::co_ud(self)
-        }
+        unsafe { avx2::co_ud(self) }
     }
 
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]

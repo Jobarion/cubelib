@@ -1,10 +1,13 @@
+use crate::cube::CubeAxis;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::string::ToString;
-use crate::cube::CubeAxis;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub enum StepKind {
     EO,
     RZP,
@@ -15,24 +18,27 @@ pub enum StepKind {
     FRLS,
     FIN,
     FINLS,
-    Other(String)
+    Other(String),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub enum StepVariant {
     EO(CubeAxis),
     RZP {
         eo_axis: CubeAxis,
-        dr_axis: CubeAxis
+        dr_axis: CubeAxis,
     },
     AR {
         eo_axis: CubeAxis,
-        dr_axis: CubeAxis
+        dr_axis: CubeAxis,
     },
     DR {
         eo_axis: CubeAxis,
-        dr_axis: CubeAxis
+        dr_axis: CubeAxis,
     },
     HTR(CubeAxis),
     FR(CubeAxis),
@@ -52,16 +58,34 @@ impl StepVariant {
             (StepVariant::EO(x), StepVariant::RZP { eo_axis, .. }) if eo_axis == x => true,
             (StepVariant::EO(x), StepVariant::AR { eo_axis, .. }) if eo_axis == x => true,
             (
-                StepVariant::RZP { dr_axis: rzp_dr_axis, eo_axis: rzp_eo_axis },
-                StepVariant::DR { dr_axis, eo_axis }
+                StepVariant::RZP {
+                    dr_axis: rzp_dr_axis,
+                    eo_axis: rzp_eo_axis,
+                },
+                StepVariant::DR { dr_axis, eo_axis },
             ) if dr_axis == rzp_dr_axis && eo_axis == rzp_eo_axis => true,
             (
-                StepVariant::AR { dr_axis: rzp_dr_axis, eo_axis: rzp_eo_axis },
-                StepVariant::DR { dr_axis, eo_axis }
+                StepVariant::AR {
+                    dr_axis: rzp_dr_axis,
+                    eo_axis: rzp_eo_axis,
+                },
+                StepVariant::DR { dr_axis, eo_axis },
             ) if dr_axis == rzp_dr_axis && eo_axis == rzp_eo_axis => true,
-            (StepVariant::DR { dr_axis, .. }, StepVariant::HTR(htr_axis)) if dr_axis == htr_axis => true,
-            (StepVariant::DR { dr_axis, .. }, StepVariant::DRFIN(drfin_axis)) if dr_axis == drfin_axis => true,
-            (StepVariant::DR { dr_axis, .. }, StepVariant::DRFINLS(drfin_axis)) if dr_axis == drfin_axis => true,
+            (StepVariant::DR { dr_axis, .. }, StepVariant::HTR(htr_axis))
+                if dr_axis == htr_axis =>
+            {
+                true
+            }
+            (StepVariant::DR { dr_axis, .. }, StepVariant::DRFIN(drfin_axis))
+                if dr_axis == drfin_axis =>
+            {
+                true
+            }
+            (StepVariant::DR { dr_axis, .. }, StepVariant::DRFINLS(drfin_axis))
+                if dr_axis == drfin_axis =>
+            {
+                true
+            }
             (StepVariant::HTR(_), StepVariant::DRFIN(_)) => true,
             (StepVariant::HTR(_), StepVariant::DRFINLS(_)) => true,
             (StepVariant::HTR(_), StepVariant::FR(_)) => true,
@@ -70,7 +94,7 @@ impl StepVariant {
             (StepVariant::HTR(_), StepVariant::HTRFINLS(_)) => true,
             (StepVariant::FR(x), StepVariant::FRFIN(y)) if x == y => true,
             (StepVariant::FRLS(x), StepVariant::FRFINLS(y)) if x == y => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -85,13 +109,21 @@ impl Display for StepVariant {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             StepVariant::EO(eo) => write!(f, "eo{}", eo.name()),
-            StepVariant::RZP { eo_axis, dr_axis } => write!(f, "rzp{}-eo{}", dr_axis.name(), eo_axis.name()),
-            StepVariant::AR { eo_axis, dr_axis } => write!(f, "ar{}-eo{}", dr_axis.name(), eo_axis.name()),
-            StepVariant::DR { eo_axis, dr_axis } => write!(f, "dr{}-eo{}", dr_axis.name(), eo_axis.name()),
+            StepVariant::RZP { eo_axis, dr_axis } => {
+                write!(f, "rzp{}-eo{}", dr_axis.name(), eo_axis.name())
+            }
+            StepVariant::AR { eo_axis, dr_axis } => {
+                write!(f, "ar{}-eo{}", dr_axis.name(), eo_axis.name())
+            }
+            StepVariant::DR { eo_axis, dr_axis } => {
+                write!(f, "dr{}-eo{}", dr_axis.name(), eo_axis.name())
+            }
             StepVariant::HTR(dr) => write!(f, "htr-dr{}", dr.name()),
             StepVariant::FR(fr) => write!(f, "fr{}", fr.name()),
             StepVariant::FRLS(fr) => write!(f, "frls{}", fr.name()),
-            StepVariant::FRFINLS(ls) | StepVariant::HTRFINLS(ls) | StepVariant::DRFINLS(ls) => write!(f, "finls-{}", ls.name()),
+            StepVariant::FRFINLS(ls) | StepVariant::HTRFINLS(ls) | StepVariant::DRFINLS(ls) => {
+                write!(f, "finls-{}", ls.name())
+            }
             StepVariant::HTRFIN | StepVariant::DRFIN(_) | StepVariant::FRFIN(_) => write!(f, "fin"),
         }
     }
@@ -131,7 +163,7 @@ impl FromStr for StepKind {
             "frls" => Ok(Self::FRLS),
             "finish" | "fin" => Ok(Self::FIN),
             "finls" => Ok(Self::FINLS),
-            x=> Ok(Self::Other(x.to_string()))
+            x => Ok(Self::Other(x.to_string())),
         }
     }
 }
@@ -154,9 +186,13 @@ impl Into<String> for StepKind {
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "serde_support", derive(serde_with::DeserializeFromStr, serde_with::SerializeDisplay))]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde_with::DeserializeFromStr, serde_with::SerializeDisplay)
+)]
 pub enum NissSwitchType {
-    #[default] Never = 0,
+    #[default]
+    Never = 0,
     Before = 1,
     Always = 2,
 }
@@ -169,7 +205,7 @@ impl FromStr for NissSwitchType {
             "never" => Ok(NissSwitchType::Never),
             "before" => Ok(NissSwitchType::Before),
             "always" => Ok(NissSwitchType::Always),
-            _ => Err("Invalid option")
+            _ => Err("Invalid option"),
         }
     }
 }

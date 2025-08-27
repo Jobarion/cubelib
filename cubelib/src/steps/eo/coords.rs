@@ -80,9 +80,9 @@ impl BadEdgeCount for EdgeCube333 {
 
 #[cfg(target_feature = "avx2")]
 mod avx2 {
-    use std::arch::x86_64::{_mm_and_si128, _mm_movemask_epi8, _mm_setr_epi8, _mm_slli_epi64};
     use crate::cube::EdgeCube333;
     use crate::steps::eo::coords::EOCoordFB;
+    use std::arch::x86_64::{_mm_and_si128, _mm_movemask_epi8, _mm_setr_epi8, _mm_slli_epi64};
 
     #[inline]
     pub(crate) unsafe fn unsafe_from_eocoord_fb(value: &EdgeCube333) -> EOCoordFB {
@@ -108,18 +108,20 @@ mod avx2 {
     }
 
     #[inline]
-    unsafe fn unsafe_get_bad_edges<const SHL: i32, const LAST_EDGE: i8>(value: &EdgeCube333) -> u32 {
+    unsafe fn unsafe_get_bad_edges<const SHL: i32, const LAST_EDGE: i8>(
+        value: &EdgeCube333,
+    ) -> u32 {
         //Number of oriented edges is always even, so the last edge can be ignored in the coordinate
         let no_db_edge = _mm_and_si128(
             value.0,
-            _mm_setr_epi8( 0x0F,
-                           0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, LAST_EDGE, 0x00, 0x00, 0x00,
-                           0x00),
+            _mm_setr_epi8(
+                0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, LAST_EDGE, 0x00,
+                0x00, 0x00, 0x00,
+            ),
         );
         _mm_movemask_epi8(_mm_slli_epi64::<SHL>(no_db_edge)) as u32
     }
 }
-
 
 #[cfg(target_feature = "neon")]
 mod neon {
@@ -129,7 +131,6 @@ mod neon {
     use crate::steps::eo::coords::EOCoordFB;
 
     use crate::simd_util::neon::C16;
-
 
     const SHL_UD: i8 = -1;
     const SHL_FB: i8 = 0;
@@ -155,10 +156,34 @@ mod neon {
     }
 
     #[inline]
-    unsafe fn unsafe_get_bad_edges<const SHL: i8, const SH_MASK: u8, const LAST_EDGE: u8>(value: &EdgeCube333) -> u16 {
+    unsafe fn unsafe_get_bad_edges<const SHL: i8, const SH_MASK: u8, const LAST_EDGE: u8>(
+        value: &EdgeCube333,
+    ) -> u16 {
         let data = vandq_u8(value.0, vdupq_n_u8(SH_MASK));
-        let data = vshlq_u8(data, C16 { a_i8: [-2 + SHL, -1 + SHL, SHL, 1 + SHL, 2 + SHL, 3 + SHL, 4 + SHL, 5 + SHL,
-                                               -2 + SHL, -1 + SHL, SHL, 1 + SHL, 2 + SHL, 3 + SHL, 4 + SHL, 5 + SHL]}.a_i);
+        let data = vshlq_u8(
+            data,
+            C16 {
+                a_i8: [
+                    -2 + SHL,
+                    -1 + SHL,
+                    SHL,
+                    1 + SHL,
+                    2 + SHL,
+                    3 + SHL,
+                    4 + SHL,
+                    5 + SHL,
+                    -2 + SHL,
+                    -1 + SHL,
+                    SHL,
+                    1 + SHL,
+                    2 + SHL,
+                    3 + SHL,
+                    4 + SHL,
+                    5 + SHL,
+                ],
+            }
+            .a_i,
+        );
 
         let low = vaddv_u8(vget_low_u8(data)) as u16;
         let high = (vaddv_u8(vget_high_u8(data)) & LAST_EDGE) as u16;
@@ -188,8 +213,10 @@ mod wasm32 {
         //Number of oriented edges is always even, so the last edge can be ignored in the coordinate
         let no_db_edge = v128_and(
             value.0,
-            u8x16(0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F,
-                  0x0F, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00),
+            u8x16(
+                0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x00, 0x00, 0x00,
+                0x00, 0x00,
+            ),
         );
         u8x16_bitmask(u32x4_shl(no_db_edge, SHL))
     }

@@ -22,7 +22,10 @@ pub mod avx2 {
 #[cfg(target_feature = "neon")]
 #[allow(dead_code)]
 pub mod neon {
-    use std::arch::aarch64::{int8x16_t, int8x8_t, uint16x8_t, uint8x16_t, uint8x8_t, vaddv_u8, vand_u8, vdup_n_u8, vshl_u8};
+    use std::arch::aarch64::{
+        int8x16_t, int8x8_t, uint16x8_t, uint8x16_t, uint8x8_t, vaddv_u8, vand_u8, vdup_n_u8,
+        vshl_u8,
+    };
 
     //For loading const uint8x16_t values
     pub union C16 {
@@ -46,7 +49,13 @@ pub mod neon {
 
     pub unsafe fn extract_most_significant_bits_u8(value: uint8x8_t) -> u8 {
         let tmp = vand_u8(value, vdup_n_u8(0b10000000));
-        let tmp = vshl_u8(tmp, C8 { a_i8: [-7, -6, -5, -4, -3, -2, -1, 0]}.a_i);
+        let tmp = vshl_u8(
+            tmp,
+            C8 {
+                a_i8: [-7, -6, -5, -4, -3, -2, -1, 0],
+            }
+            .a_i,
+        );
         vaddv_u8(tmp)
     }
 }

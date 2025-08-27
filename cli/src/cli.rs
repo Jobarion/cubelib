@@ -21,7 +21,7 @@ pub enum Commands {
     Scramble,
     Invert(InvertCommand),
     Download(DownloadCommand),
-    Update
+    Update,
 }
 
 #[derive(Parser)]
@@ -32,17 +32,28 @@ pub struct InvertCommand {
 
 #[derive(Parser)]
 pub struct SolveCommand {
-    #[arg(short, long = "format", help="Solution output format")]
+    #[arg(short, long = "format", help = "Solution output format")]
     pub format: Option<SolutionFormat>,
-    #[arg(short = 'a', long = "all", help = "Print solutions that would otherwise get filtered out. E.g. an EO ending in F'")]
+    #[arg(
+        short = 'a',
+        long = "all",
+        help = "Print solutions that would otherwise get filtered out. E.g. an EO ending in F'"
+    )]
     pub all_solutions: Option<bool>,
     #[arg(short = 'm', long = "min", help = "Minimum length of solutions")]
     pub min: Option<usize>,
     #[arg(short = 'M', long = "max", help = "Maximum length of solutions")]
     pub max: Option<usize>,
-    #[arg(short = 'n', help = "The number of solutions returned. By default 1 unless this option or --max is set")]
+    #[arg(
+        short = 'n',
+        help = "The number of solutions returned. By default 1 unless this option or --max is set"
+    )]
     pub solution_count: Option<usize>,
-    #[arg(short = 'q', long = "quality", help = "Influences the maximum number of solutions calculated per step. Set to 0 to find optimal solutions")]
+    #[arg(
+        short = 'q',
+        long = "quality",
+        help = "Influences the maximum number of solutions calculated per step. Set to 0 to find optimal solutions"
+    )]
     pub quality: Option<usize>,
     #[arg(long = "steps", short = 's', help = "List of steps to perform")]
     pub steps: Option<String>,
@@ -70,11 +81,11 @@ pub enum SolverBackend {
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
     Error, // Unrecoverable error. Results cannot be trusted
-    Warn, // Unexpected input, user-correctable
+    Warn,  // Unexpected input, user-correctable
     #[default]
     Info, // User-meaningful message
     Debug, // Developer-meaningful message
-    Trace // DFS step
+    Trace, // DFS step
 }
 
 impl LogLevel {
@@ -95,5 +106,5 @@ pub enum SolutionFormat {
     #[default]
     Detailed,
     Compact,
-    Plain
+    Plain,
 }

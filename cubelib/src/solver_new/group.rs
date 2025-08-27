@@ -1,14 +1,14 @@
-use std::{mem, thread};
 use std::cmp::min;
 use std::collections::HashSet;
 use std::thread::JoinHandle;
+use std::{mem, thread};
 
-use crossbeam::channel::{Select, SendError};
 use crate::cube::Cube333;
 use crate::solver::solution::Solution;
-use crate::solver_new::*;
 use crate::solver_new::thread_util::*;
 use crate::solver_new::util_steps::FilterFirstN;
+use crate::solver_new::*;
+use crossbeam::channel::{Select, SendError};
 
 const BUFFER_SIZE: usize = 10;
 
@@ -21,7 +21,7 @@ enum StepType {
 pub enum StepPredicateResult {
     Accepted,
     Rejected,
-    Closed
+    Closed,
 }
 
 pub trait StepPredicate: Send {
@@ -47,9 +47,7 @@ impl StepGroup {
                 }
                 self.predicates.push(FilterFirstN::new(limit));
             }
-            StepType::Single(_) => {
-                self.predicates.push(FilterFirstN::new(limit))
-            }
+            StepType::Single(_) => self.predicates.push(FilterFirstN::new(limit)),
         }
     }
 
@@ -57,10 +55,13 @@ impl StepGroup {
         Self::sequential_with_predicates(steps, vec![])
     }
 
-    pub fn sequential_with_predicates(steps: Vec<StepGroup>, predicates: Vec<Box<dyn StepPredicate>>) -> StepGroup {
+    pub fn sequential_with_predicates(
+        steps: Vec<StepGroup>,
+        predicates: Vec<Box<dyn StepPredicate>>,
+    ) -> StepGroup {
         Self {
             step_type: StepType::Sequential(steps),
-            predicates
+            predicates,
         }
     }
 
@@ -68,10 +69,13 @@ impl StepGroup {
         Self::parallel_with_predicates(steps, vec![])
     }
 
-    pub fn parallel_with_predicates(steps: Vec<StepGroup>, predicates: Vec<Box<dyn StepPredicate>>) -> StepGroup {
+    pub fn parallel_with_predicates(
+        steps: Vec<StepGroup>,
+        predicates: Vec<Box<dyn StepPredicate>>,
+    ) -> StepGroup {
         Self {
             step_type: StepType::Parallel(steps),
-            predicates
+            predicates,
         }
     }
 
@@ -79,10 +83,13 @@ impl StepGroup {
         Self::single_with_predicates(step, vec![])
     }
 
-    pub fn single_with_predicates(step: Box<dyn ToWorker + Send + 'static>, predicates: Vec<Box<dyn StepPredicate>>) -> StepGroup {
+    pub fn single_with_predicates(
+        step: Box<dyn ToWorker + Send + 'static>,
+        predicates: Vec<Box<dyn StepPredicate>>,
+    ) -> StepGroup {
         Self {
             step_type: StepType::Single(step),
-            predicates
+            predicates,
         }
     }
 
@@ -97,50 +104,85 @@ impl StepGroup {
 }
 
 impl ToWorker for StepGroup {
-    fn to_worker_box(mut self: Box<Self>, cube_state: Cube333, rc: Receiver<Solution>, tx: Sender<Solution>, mut additional_predicates: Vec<Box<dyn StepPredicate>>) -> Box<dyn Worker<()> + Send>
+    fn to_worker_box(
+        mut self: Box<Self>,
+        cube_state: Cube333,
+        rc: Receiver<Solution>,
+        tx: Sender<Solution>,
+        mut additional_predicates: Vec<Box<dyn StepPredicate>>,
+    ) -> Box<dyn Worker<()> + Send>
     where
-        Self: Send + 'static
+        Self: Send + 'static,
     {
         self.predicates.append(&mut additional_predicates);
         match self.step_type {
-            StepType::Sequential(s) => Self::create_sequential_worker(s, cube_state, rc, tx, self.predicates),
-            StepType::Parallel(s) => Self::create_parallel_worker(s, cube_state, rc, tx, self.predicates),
-            StepType::Single(s) => s.to_worker_box(cube_state, rc, tx, self.predicates)
+            StepType::Sequential(s) => {
+                Self::create_sequential_worker(s, cube_state, rc, tx, self.predicates)
+            }
+            StepType::Parallel(s) => {
+                Self::create_parallel_worker(s, cube_state, rc, tx, self.predicates)
+            }
+            StepType::Single(s) => s.to_worker_box(cube_state, rc, tx, self.predicates),
         }
     }
 }
 
 impl StepGroup {
-
-    fn create_sequential_worker(mut steps: Vec<StepGroup>, cube_state: Cube333, mut rc: Receiver<Solution>, tx_last: Sender<Solution>, additional_predicates: Vec<Box<dyn StepPredicate>>) -> Box<dyn Worker<()> + Send>
+    fn create_sequential_worker(
+        mut steps: Vec<StepGroup>,
+        cube_state: Cube333,
+        mut rc: Receiver<Solution>,
+        tx_last: Sender<Solution>,
+        additional_predicates: Vec<Box<dyn StepPredicate>>,
+    ) -> Box<dyn Worker<()> + Send>
     where
-        Self: Sized + Send + 'static
+        Self: Sized + Send + 'static,
     {
         assert!(!steps.is_empty());
         if steps.len() == 1 {
-            return steps.pop().unwrap().to_worker(cube_state, rc, tx_last, additional_predicates);
+            return steps
+                .pop()
+                .unwrap()
+                .to_worker(cube_state, rc, tx_last, additional_predicates);
         }
         let (mut tx, mut rc_next) = bounded_channel(BUFFER_SIZE);
         let mut workers = vec![];
         steps.reverse();
         for _ in 0..(steps.len() - 1) {
-            workers.push(steps.pop().unwrap().to_worker(cube_state.clone(), rc, tx, vec![]));
+            workers.push(
+                steps
+                    .pop()
+                    .unwrap()
+                    .to_worker(cube_state.clone(), rc, tx, vec![]),
+            );
             rc = rc_next;
             (tx, rc_next) = bounded_channel(BUFFER_SIZE);
         }
-        workers.push(steps.pop().unwrap().to_worker(cube_state.clone(), rc, tx_last, additional_predicates));
-        Box::new(SequentialWorker {
-            workers,
-        })
+        workers.push(steps.pop().unwrap().to_worker(
+            cube_state.clone(),
+            rc,
+            tx_last,
+            additional_predicates,
+        ));
+        Box::new(SequentialWorker { workers })
     }
 
-    fn create_parallel_worker(mut steps: Vec<StepGroup>, cube_state: Cube333, rc: Receiver<Solution>, tx: Sender<Solution>, additional_predicates: Vec<Box<dyn StepPredicate>>) -> Box<dyn Worker<()> + Send>
+    fn create_parallel_worker(
+        mut steps: Vec<StepGroup>,
+        cube_state: Cube333,
+        rc: Receiver<Solution>,
+        tx: Sender<Solution>,
+        additional_predicates: Vec<Box<dyn StepPredicate>>,
+    ) -> Box<dyn Worker<()> + Send>
     where
-        Self: Sized + Send + 'static
+        Self: Sized + Send + 'static,
     {
         assert!(!steps.is_empty());
         if steps.len() == 1 {
-            return steps.pop().unwrap().to_worker(cube_state, rc, tx, additional_predicates);
+            return steps
+                .pop()
+                .unwrap()
+                .to_worker(cube_state, rc, tx, additional_predicates);
         }
         let mut workers = vec![];
         let mut inputs = vec![];
@@ -155,7 +197,11 @@ impl StepGroup {
         Box::new(ParallelWorker {
             broadcaster: ThreadState::PreStart(Box::new(Broadcaster::new(rc, outputs))),
             workers,
-            sampler: ThreadState::PreStart(Box::new(InOrderSampler::new(tx, inputs, additional_predicates))),
+            sampler: ThreadState::PreStart(Box::new(InOrderSampler::new(
+                tx,
+                inputs,
+                additional_predicates,
+            ))),
         })
     }
 }
@@ -166,13 +212,12 @@ struct SequentialWorker {
 
 impl Worker<()> for SequentialWorker {
     fn start(&mut self) {
-        self.workers.iter_mut()
-            .for_each(|w| w.start());
+        self.workers.iter_mut().for_each(|w| w.start());
     }
 
     fn stop(&mut self) -> Option<JoinHandle<()>> {
         let workers = mem::take(&mut self.workers);
-        Some(thread::spawn(move||{
+        Some(thread::spawn(move || {
             let mut to_join = vec![];
             for mut w in workers {
                 if let Some(handle) = w.stop() {
@@ -190,7 +235,7 @@ struct Broadcaster {
     sinks: Vec<Sender<Solution>>,
     positions: Vec<usize>,
     source: Receiver<Solution>,
-    buffer: Vec<Solution>
+    buffer: Vec<Solution>,
 }
 
 impl Broadcaster {
@@ -274,10 +319,7 @@ pub struct FifoSampler {
 
 impl FifoSampler {
     pub fn new(sink: Sender<Solution>, sources: Vec<Receiver<Solution>>) -> Self {
-        Self {
-            sources,
-            sink,
-        }
+        Self { sources, sink }
     }
 }
 
@@ -316,7 +358,11 @@ pub struct InOrderSampler {
 }
 
 impl InOrderSampler {
-    pub fn new(sink: Sender<Solution>, sources: Vec<Receiver<Solution>>, predicates: Vec<Box<dyn StepPredicate>>) -> Self {
+    pub fn new(
+        sink: Sender<Solution>,
+        sources: Vec<Receiver<Solution>>,
+        predicates: Vec<Box<dyn StepPredicate>>,
+    ) -> Self {
         Self {
             sources,
             sink,
@@ -354,9 +400,17 @@ impl Run<()> for InOrderSampler {
         let mut dead = HashSet::new();
         while dead.len() < self.sources.len() {
             if active == 0 {
-                target_length = cache.iter().filter_map(|x| x.as_ref().map(|x| x.len())).min().unwrap_or(target_length + 1);
+                target_length = cache
+                    .iter()
+                    .filter_map(|x| x.as_ref().map(|x| x.len()))
+                    .min()
+                    .unwrap_or(target_length + 1);
                 for idx in 0..cache.len() {
-                    if cache[idx].as_ref().filter(|x|x.len() <= target_length).is_some() {
+                    if cache[idx]
+                        .as_ref()
+                        .filter(|x| x.len() <= target_length)
+                        .is_some()
+                    {
                         if let Err(_) = self.send(cache[idx].take().unwrap()) {
                             return;
                         }
@@ -380,7 +434,7 @@ impl Run<()> for InOrderSampler {
                         sel.remove(index);
                         cache[index] = Some(res);
                         active -= 1;
-                        continue
+                        continue;
                     }
                     if let Err(_) = self.send(res) {
                         return;
@@ -406,8 +460,7 @@ struct ParallelWorker {
 impl Worker<()> for ParallelWorker {
     fn start(&mut self) {
         self.broadcaster.start();
-        self.workers.iter_mut()
-            .for_each(|w| w.start());
+        self.workers.iter_mut().for_each(|w| w.start());
         self.sampler.start();
     }
 
@@ -416,7 +469,7 @@ impl Worker<()> for ParallelWorker {
         let mut broadcaster = mem::take(&mut self.broadcaster);
         let mut sampler = mem::take(&mut self.sampler);
 
-        Some(thread::spawn(move||{
+        Some(thread::spawn(move || {
             let mut to_join = vec![];
             if let Some(handle) = broadcaster.stop() {
                 to_join.push(handle);

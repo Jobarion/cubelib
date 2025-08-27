@@ -1,6 +1,6 @@
+use itertools::Itertools;
 use std::fmt::{Debug, Display, Formatter};
 use std::str::FromStr;
-use itertools::Itertools;
 //This should be in the htr step, but we need it in the wasm version and the HTR step cannot be compiled to wasm right now
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -23,22 +23,44 @@ impl FromStr for Subset {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        DR_SUBSETS.iter()
-            .find(|x|x.to_string().as_str().eq(s))
+        DR_SUBSETS
+            .iter()
+            .find(|x| x.to_string().as_str().eq(s))
             .cloned()
             .ok_or(())
     }
 }
 
 impl Subset {
-    pub(crate) const fn new(name: Option<&'static str>, generator: &'static str, corners: u8, edges: u8, qt_corners: u8, qt: u8) -> Self {
-        Self { discriminator: name, generator, corners, edges, qt_corners, qt }
+    pub(crate) const fn new(
+        name: Option<&'static str>,
+        generator: &'static str,
+        corners: u8,
+        edges: u8,
+        qt_corners: u8,
+        qt: u8,
+    ) -> Self {
+        Self {
+            discriminator: name,
+            generator,
+            corners,
+            edges,
+            qt_corners,
+            qt,
+        }
     }
 }
 
 impl Display for Subset {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}{} {}e", self.corners, self.discriminator.unwrap_or("c"), self.qt_corners, self.edges)
+        write!(
+            f,
+            "{}{}{} {}e",
+            self.corners,
+            self.discriminator.unwrap_or("c"),
+            self.qt_corners,
+            self.edges
+        )
     }
 }
 
@@ -96,7 +118,7 @@ pub const DR_SUBSETS: [Subset; 48] = [
     Subset::new(None, "U R2 U L2 F2 U B2 U' L2 U", 2, 8, 5, 5),
     Subset::new(None, "U' L2 U L2 U' R2 U R2 U", 4, 0, 5, 5),
     Subset::new(None, "U' R2 U F2 U' F2 U B2 D", 4, 2, 5, 5),
-    Subset::new(None, "U' R2 U F2 U' F2 U F2 U", 4, 4, 5, 5)
+    Subset::new(None, "U' R2 U F2 U' F2 U F2 U", 4, 4, 5, 5),
 ];
 
 pub const SUBSETS_0C0: &[Subset] = &[
@@ -107,23 +129,11 @@ pub const SUBSETS_0C0: &[Subset] = &[
     DR_SUBSETS[4],
 ];
 
-pub const SUBSETS_4A1: &[Subset] = &[
-    DR_SUBSETS[5],
-    DR_SUBSETS[6],
-    DR_SUBSETS[7],
-];
+pub const SUBSETS_4A1: &[Subset] = &[DR_SUBSETS[5], DR_SUBSETS[6], DR_SUBSETS[7]];
 
-pub const SUBSETS_4B2: &[Subset] = &[
-    DR_SUBSETS[8],
-    DR_SUBSETS[9],
-    DR_SUBSETS[10],
-];
+pub const SUBSETS_4B2: &[Subset] = &[DR_SUBSETS[8], DR_SUBSETS[9], DR_SUBSETS[10]];
 
-pub const SUBSETS_4A2: &[Subset] = &[
-    DR_SUBSETS[11],
-    DR_SUBSETS[12],
-    DR_SUBSETS[13],
-];
+pub const SUBSETS_4A2: &[Subset] = &[DR_SUBSETS[11], DR_SUBSETS[12], DR_SUBSETS[13]];
 
 pub const SUBSETS_2C3: &[Subset] = &[
     DR_SUBSETS[14],
@@ -133,11 +143,7 @@ pub const SUBSETS_2C3: &[Subset] = &[
     DR_SUBSETS[18],
 ];
 
-pub const SUBSETS_4A3: &[Subset] = &[
-    DR_SUBSETS[19],
-    DR_SUBSETS[20],
-    DR_SUBSETS[21],
-];
+pub const SUBSETS_4A3: &[Subset] = &[DR_SUBSETS[19], DR_SUBSETS[20], DR_SUBSETS[21]];
 
 pub const SUBSETS_4B3: &[Subset] = SUBSETS_4A3;
 
@@ -165,11 +171,7 @@ pub const SUBSETS_0C4: &[Subset] = &[
     DR_SUBSETS[36],
 ];
 
-pub const SUBSETS_4A4: &[Subset] = &[
-    DR_SUBSETS[37],
-    DR_SUBSETS[38],
-    DR_SUBSETS[39],
-];
+pub const SUBSETS_4A4: &[Subset] = &[DR_SUBSETS[37], DR_SUBSETS[38], DR_SUBSETS[39]];
 
 pub const SUBSETS_4B4: &[Subset] = SUBSETS_4A4;
 
@@ -181,15 +183,13 @@ pub const SUBSETS_2C5: &[Subset] = &[
     DR_SUBSETS[44],
 ];
 
-pub const SUBSETS_4B5: &[Subset] = &[
-    DR_SUBSETS[45],
-    DR_SUBSETS[46],
-    DR_SUBSETS[47],
-];
+pub const SUBSETS_4B5: &[Subset] = &[DR_SUBSETS[45], DR_SUBSETS[46], DR_SUBSETS[47]];
 
 pub fn expand_subset_name(name: &str) -> Vec<Subset> {
-    DR_SUBSETS.iter().cloned()
-        .filter(|x|{
+    DR_SUBSETS
+        .iter()
+        .cloned()
+        .filter(|x| {
             if name.len() >= 2 {
                 x.to_string().starts_with(name)
             } else if name.len() == 1 {

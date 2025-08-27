@@ -1,15 +1,16 @@
 use crate::cube::cube::Symmetry;
-use crate::cube::turn::{ApplySymmetry, CubeOuterTurn, CubeTransformation, Edge, InvertibleMut, TransformableMut, TurnableMut};
+use crate::cube::turn::{
+    ApplySymmetry, CubeOuterTurn, CubeTransformation, Edge, InvertibleMut, TransformableMut,
+    TurnableMut,
+};
 
 //One byte per edge, 4 bits for id, 3 bits for eo (UD/FB/RL), 1 bit free
 //UB UR UF UL FR FL BR BL DF DR DB DL
 #[derive(Debug, Clone, Copy)]
 pub struct CenterEdgeCube(
     #[cfg(target_feature = "avx2")] pub core::arch::x86_64::__m128i,
-    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-    pub core::arch::wasm32::v128,
-    #[cfg(all(target_feature = "neon"))]
-    pub core::arch::aarch64::uint8x16_t,
+    #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))] pub core::arch::wasm32::v128,
+    #[cfg(all(target_feature = "neon"))] pub core::arch::aarch64::uint8x16_t,
 );
 
 #[cfg(target_feature = "avx2")]
@@ -31,7 +32,6 @@ impl std::hash::Hash for CenterEdgeCube {
 }
 
 impl PartialEq for CenterEdgeCube {
-
     fn eq(&self, other: &Self) -> bool {
         let a = self.get_edges_raw();
         let b = other.get_edges_raw();
@@ -39,29 +39,27 @@ impl PartialEq for CenterEdgeCube {
     }
 }
 
-impl Eq for CenterEdgeCube {
-
-}
+impl Eq for CenterEdgeCube {}
 
 impl TurnableMut for CenterEdgeCube {
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn turn(&mut self, m: CubeOuterTurn) {
-        let CubeOuterTurn{face, dir} = m;
+        let CubeOuterTurn { face, dir } = m;
         unsafe { avx2::unsafe_turn(self, face, dir) }
     }
 
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn turn(&mut self, m: CubeOuterTurn) {
-        let CubeOuterTurn{face, dir} = m;
+        let CubeOuterTurn { face, dir } = m;
         wasm32::turn(self, face, dir)
     }
 
     #[inline]
     #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
     fn turn(&mut self, m: CubeOuterTurn) {
-        let CubeOuterTurn{face, dir} = m;
+        let CubeOuterTurn { face, dir } = m;
         unsafe { neon::unsafe_turn(self, face, dir) }
     }
 }
@@ -70,7 +68,7 @@ impl TransformableMut for CenterEdgeCube {
     #[inline]
     #[cfg(target_feature = "avx2")]
     fn transform(&mut self, t: CubeTransformation) {
-        let CubeTransformation{axis, dir} = t;
+        let CubeTransformation { axis, dir } = t;
         unsafe {
             avx2::unsafe_transform(self, axis, dir);
         }
@@ -79,14 +77,14 @@ impl TransformableMut for CenterEdgeCube {
     #[inline]
     #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
     fn transform(&mut self, t: CubeTransformation) {
-        let CubeTransformation{axis, dir} = t;
+        let CubeTransformation { axis, dir } = t;
         wasm32::transform(self, axis, dir)
     }
 
     #[inline]
     #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
     fn transform(&mut self, t: CubeTransformation) {
-        let CubeTransformation{axis, dir} = t;
+        let CubeTransformation { axis, dir } = t;
         unsafe { neon::unsafe_transform(self, axis, dir) }
     }
 }
@@ -165,16 +163,24 @@ impl CenterEdgeCube {
 
 #[cfg(feature = "serde_support")]
 impl serde::Serialize for CenterEdgeCube {
-
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
         let mut bytes = [0_u8; 16];
         unsafe {
             #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-            std::arch::wasm32::v128_store(bytes.as_mut_ptr() as *mut std::arch::wasm32::v128, self.0);
+            std::arch::wasm32::v128_store(
+                bytes.as_mut_ptr() as *mut std::arch::wasm32::v128,
+                self.0,
+            );
             #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
             std::arch::aarch64::vst1q_u8(bytes.as_mut_ptr(), self.0);
             #[cfg(target_feature = "avx2")]
-            std::arch::x86_64::_mm_store_si128(bytes.as_mut_ptr() as *mut std::arch::x86_64::__m128i, self.0);
+            std::arch::x86_64::_mm_store_si128(
+                bytes.as_mut_ptr() as *mut std::arch::x86_64::__m128i,
+                self.0,
+            );
         }
         serializer.serialize_bytes(&bytes)
     }
@@ -191,17 +197,23 @@ impl<'de> serde::de::Visitor<'de> for EdgeCubieCubeVisitor {
         formatter.write_str("a byte array of length 16")
     }
 
-    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E> where E: serde::de::Error {
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
         if v.len() != 16 {
             Err(E::custom("Array length must be 16"))
         } else {
             let val = unsafe {
                 #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
-                let val = std::arch::wasm32::v128_load(v.as_ptr() as *const std::arch::wasm32::v128);
+                let val =
+                    std::arch::wasm32::v128_load(v.as_ptr() as *const std::arch::wasm32::v128);
                 #[cfg(all(target_feature = "neon", not(target_feature = "avx2")))]
                 let val = std::arch::aarch64::vld1q_u8(v.as_ptr());
                 #[cfg(target_feature = "avx2")]
-                let val = std::arch::x86_64::_mm_load_si128(v.as_ptr() as *const std::arch::x86_64::__m128i);
+                let val = std::arch::x86_64::_mm_load_si128(
+                    v.as_ptr() as *const std::arch::x86_64::__m128i
+                );
                 val
             };
             Ok(CenterEdgeCube(val))
@@ -212,8 +224,8 @@ impl<'de> serde::de::Visitor<'de> for EdgeCubieCubeVisitor {
 #[cfg(feature = "serde_support")]
 impl<'de> serde::Deserialize<'de> for CenterEdgeCube {
     fn deserialize<D>(deserializer: D) -> Result<CenterEdgeCube, D::Error>
-        where
-            D: serde::Deserializer<'de>,
+    where
+        D: serde::Deserializer<'de>,
     {
         deserializer.deserialize_bytes(EdgeCubieCubeVisitor)
     }
@@ -290,7 +302,8 @@ fn random_edges<T: rand::Rng>(parity: bool, rng: &mut T) -> [u8; 12] {
             4, // M <-> S
             6, // E <-> S
         ];
-        let mut orientation: u8 = default_orientation[(slice[piece_id as usize] ^ slice[position_id as usize]) as usize];
+        let mut orientation: u8 =
+            default_orientation[(slice[piece_id as usize] ^ slice[position_id as usize]) as usize];
         if flipped {
             orientation ^= 7;
         }
@@ -306,7 +319,9 @@ fn random_edges<T: rand::Rng>(parity: bool, rng: &mut T) -> [u8; 12] {
         let flipped = if rng.random_bool(0.5) {
             orientation_parity = !orientation_parity;
             true
-        } else { false };
+        } else {
+            false
+        };
         edge_bytes[i] = get_bytes(i as u8, edge_bytes[i], flipped);
     }
 
@@ -317,27 +332,27 @@ fn random_edges<T: rand::Rng>(parity: bool, rng: &mut T) -> [u8; 12] {
     let flipped = if rng.random_bool(0.5) {
         orientation_parity = !orientation_parity;
         true
-    } else { false };
+    } else {
+        false
+    };
     edge_bytes[10] = get_bytes(10, edge_bytes[10], flipped);
     // Last orientation determined by parity
     edge_bytes[11] = get_bytes(11, edge_bytes[11], orientation_parity);
     edge_bytes
 }
 
-
 #[cfg(target_feature = "avx2")]
 mod avx2 {
     use std::arch::x86_64::{
-        __m128i, _mm_and_si128, _mm_load_si128,
-        _mm_or_si128, _mm_set1_epi8, _mm_setr_epi8,
-        _mm_shuffle_epi8, _mm_slli_epi32, _mm_slli_epi64, _mm_srli_epi32,
-        _mm_store_si128, _mm_xor_si128,
+        __m128i, _mm_and_si128, _mm_load_si128, _mm_or_si128, _mm_set1_epi8, _mm_setr_epi8,
+        _mm_shuffle_epi8, _mm_slli_epi32, _mm_slli_epi64, _mm_srli_epi32, _mm_store_si128,
+        _mm_xor_si128,
     };
 
-    use crate::cube::{CubeAxis, CubeFace, Direction, Edge};
     use crate::cube::cube_edges::CenterEdgeCube;
-    use crate::simd_util::{AlignedU64, AlignedU8};
+    use crate::cube::{CubeAxis, CubeFace, Direction, Edge};
     use crate::simd_util::avx2::C;
+    use crate::simd_util::{AlignedU64, AlignedU8};
 
     const VALID_EDGE_MASK_HI: u64 = 0x00000000FFFFFFFF;
 
@@ -345,68 +360,275 @@ mod avx2 {
     // 0  1  2  3  4  5  6  7  8  9 10 11
     const TURN_EDGE_SHUFFLE: [[__m128i; 3]; 6] = [
         [
-            unsafe { C { a_u8: [3, 0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //U
-            unsafe { C { a_u8: [2, 3, 0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //U2
-            unsafe { C { a_u8: [1, 2, 3, 0, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //U'
+            unsafe {
+                C {
+                    a_u8: [3, 0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //U
+            unsafe {
+                C {
+                    a_u8: [2, 3, 0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //U2
+            unsafe {
+                C {
+                    a_u8: [1, 2, 3, 0, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //U'
         ],
         [
-            unsafe { C { a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //D
-            unsafe { C { a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //D2
-            unsafe { C { a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //D'
+            unsafe {
+                C {
+                    a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //D
+            unsafe {
+                C {
+                    a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //D2
+            unsafe {
+                C {
+                    a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //D'
         ],
         [
-            unsafe { C { a_u8: [0, 1, 5, 3, 2, 8, 6, 7, 4, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //F
-            unsafe { C { a_u8: [0, 1, 8, 3, 5, 4, 6, 7, 2, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //F2
-            unsafe { C { a_u8: [0, 1, 4, 3, 8, 2, 6, 7, 5, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //F'
+            unsafe {
+                C {
+                    a_u8: [0, 1, 5, 3, 2, 8, 6, 7, 4, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //F
+            unsafe {
+                C {
+                    a_u8: [0, 1, 8, 3, 5, 4, 6, 7, 2, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //F2
+            unsafe {
+                C {
+                    a_u8: [0, 1, 4, 3, 8, 2, 6, 7, 5, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //F'
         ],
         [
-            unsafe { C { a_u8: [6, 1, 2, 3, 4, 5, 10, 0, 8, 9, 7, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //B
-            unsafe { C { a_u8: [10, 1, 2, 3, 4, 5, 7, 6, 8, 9, 0, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //B2
-            unsafe { C { a_u8: [7, 1, 2, 3, 4, 5, 0, 10, 8, 9, 6, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //B'
+            unsafe {
+                C {
+                    a_u8: [6, 1, 2, 3, 4, 5, 10, 0, 8, 9, 7, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //B
+            unsafe {
+                C {
+                    a_u8: [10, 1, 2, 3, 4, 5, 7, 6, 8, 9, 0, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //B2
+            unsafe {
+                C {
+                    a_u8: [7, 1, 2, 3, 4, 5, 0, 10, 8, 9, 6, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //B'
         ],
         [
-            unsafe { C { a_u8: [0, 1, 2, 7, 4, 3, 6, 11, 8, 9, 10, 5, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //L
-            unsafe { C { a_u8: [0, 1, 2, 11, 4, 7, 6, 5, 8, 9, 10, 3, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //L2
-            unsafe { C { a_u8: [0, 1, 2, 5, 4, 11, 6, 3, 8, 9, 10, 7, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //L'
+            unsafe {
+                C {
+                    a_u8: [0, 1, 2, 7, 4, 3, 6, 11, 8, 9, 10, 5, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //L
+            unsafe {
+                C {
+                    a_u8: [0, 1, 2, 11, 4, 7, 6, 5, 8, 9, 10, 3, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //L2
+            unsafe {
+                C {
+                    a_u8: [0, 1, 2, 5, 4, 11, 6, 3, 8, 9, 10, 7, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //L'
         ],
         [
-            unsafe { C { a_u8: [0, 4, 2, 3, 9, 5, 1, 7, 8, 6, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //R
-            unsafe { C { a_u8: [0, 9, 2, 3, 6, 5, 4, 7, 8, 1, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //R2
-            unsafe { C { a_u8: [0, 6, 2, 3, 1, 5, 9, 7, 8, 4, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //R'
+            unsafe {
+                C {
+                    a_u8: [0, 4, 2, 3, 9, 5, 1, 7, 8, 6, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //R
+            unsafe {
+                C {
+                    a_u8: [0, 9, 2, 3, 6, 5, 4, 7, 8, 1, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //R2
+            unsafe {
+                C {
+                    a_u8: [0, 6, 2, 3, 1, 5, 9, 7, 8, 4, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //R'
         ],
     ];
 
     const TURN_EO_FLIP: [__m128i; 6] = [
-        unsafe { C { a_u8: [0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ], }.a }, //U
-        unsafe { C { a_u8: [0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, ], }.a }, //D
-        unsafe { C { a_u8: [0, 0, 0b00000100, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, 0, 0, ], }.a }, //F
-        unsafe { C { a_u8: [0b00000100, 0, 0, 0, 0, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, ], }.a }, //B
-        unsafe { C { a_u8: [0, 0, 0, 0b00000010, 0, 0b00000010, 0, 0b00000010, 0, 0, 0, 0b00000010, 0, 0, 0, 0, ], }.a }, //L
-        unsafe { C { a_u8: [0, 0b00000010, 0, 0, 0b00000010, 0, 0b00000010, 0, 0, 0b00000010, 0, 0, 0, 0, 0, 0, ], }.a }, //R
+        unsafe {
+            C {
+                a_u8: [
+                    0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0,
+                ],
+            }
+            .a
+        }, //U
+        unsafe {
+            C {
+                a_u8: [
+                    0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0,
+                    0, 0,
+                ],
+            }
+            .a
+        }, //D
+        unsafe {
+            C {
+                a_u8: [
+                    0, 0, 0b00000100, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0,
+                    0, 0,
+                ],
+            }
+            .a
+        }, //F
+        unsafe {
+            C {
+                a_u8: [
+                    0b00000100, 0, 0, 0, 0, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0,
+                    0, 0,
+                ],
+            }
+            .a
+        }, //B
+        unsafe {
+            C {
+                a_u8: [
+                    0, 0, 0, 0b00000010, 0, 0b00000010, 0, 0b00000010, 0, 0, 0, 0b00000010, 0, 0,
+                    0, 0,
+                ],
+            }
+            .a
+        }, //L
+        unsafe {
+            C {
+                a_u8: [
+                    0, 0b00000010, 0, 0, 0b00000010, 0, 0b00000010, 0, 0, 0b00000010, 0, 0, 0, 0,
+                    0, 0,
+                ],
+            }
+            .a
+        }, //R
     ];
 
     const TRANSFORMATION_EP_SHUFFLE: [[__m128i; 3]; 3] = [
         [
-            unsafe { C { a_u8: [2, 4, 8, 5, 9, 11, 1, 3, 10, 6, 0, 7, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //x
-            unsafe { C { a_u8: [8, 9, 10, 11, 6, 7, 4, 5, 0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //x2
-            unsafe { C { a_u8: [10, 6, 0, 7, 1, 3, 9, 11, 2, 4, 8, 5, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //x'
+            unsafe {
+                C {
+                    a_u8: [2, 4, 8, 5, 9, 11, 1, 3, 10, 6, 0, 7, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //x
+            unsafe {
+                C {
+                    a_u8: [8, 9, 10, 11, 6, 7, 4, 5, 0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //x2
+            unsafe {
+                C {
+                    a_u8: [10, 6, 0, 7, 1, 3, 9, 11, 2, 4, 8, 5, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //x'
         ],
         [
-            unsafe { C { a_u8: [3, 0, 1, 2, 6, 4, 7, 5, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //y
-            unsafe { C { a_u8: [2, 3, 0, 1, 7, 6, 5, 4, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //y2
-            unsafe { C { a_u8: [1, 2, 3, 0, 5, 7, 4, 6, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //y'
+            unsafe {
+                C {
+                    a_u8: [3, 0, 1, 2, 6, 4, 7, 5, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //y
+            unsafe {
+                C {
+                    a_u8: [2, 3, 0, 1, 7, 6, 5, 4, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //y2
+            unsafe {
+                C {
+                    a_u8: [1, 2, 3, 0, 5, 7, 4, 6, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //y'
         ],
         [
-            unsafe { C { a_u8: [7, 3, 5, 11, 2, 8, 0, 10, 4, 1, 6, 9, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //z
-            unsafe { C { a_u8: [10, 11, 8, 9, 5, 4, 7, 6, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //z2
-            unsafe { C { a_u8: [6, 9, 4, 1, 8, 2, 10, 0, 5, 11, 7, 3, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //z'
+            unsafe {
+                C {
+                    a_u8: [7, 3, 5, 11, 2, 8, 0, 10, 4, 1, 6, 9, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //z
+            unsafe {
+                C {
+                    a_u8: [10, 11, 8, 9, 5, 4, 7, 6, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //z2
+            unsafe {
+                C {
+                    a_u8: [6, 9, 4, 1, 8, 2, 10, 0, 5, 11, 7, 3, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //z'
         ],
     ];
 
     const TRANSFORMATION_EO_MAP: [__m128i; 3] = [
-        unsafe { C { a_u8: [0b0000, 0xFF, 0b0010, 0xFF, 0b1000, 0xFF, 0b1010, 0xFF, 0b0100, 0xFF, 0b0110, 0xFF, 0b1100, 0xFF, 0b1110, 0xFF, ], }.a }, //X
-        unsafe { C { a_u8: [0b0000, 0xFF, 0b0100, 0xFF, 0b0010, 0xFF, 0b0110, 0xFF, 0b1000, 0xFF, 0b1100, 0xFF, 0b1010, 0xFF, 0b1110, 0xFF, ], }.a }, //X
-        unsafe { C { a_u8: [0b0000, 0xFF, 0b1000, 0xFF, 0b0100, 0xFF, 0b1100, 0xFF, 0b0010, 0xFF, 0b1010, 0xFF, 0b0110, 0xFF, 0b1110, 0xFF, ], }.a }, //X
+        unsafe {
+            C {
+                a_u8: [
+                    0b0000, 0xFF, 0b0010, 0xFF, 0b1000, 0xFF, 0b1010, 0xFF, 0b0100, 0xFF, 0b0110,
+                    0xFF, 0b1100, 0xFF, 0b1110, 0xFF,
+                ],
+            }
+            .a
+        }, //X
+        unsafe {
+            C {
+                a_u8: [
+                    0b0000, 0xFF, 0b0100, 0xFF, 0b0010, 0xFF, 0b0110, 0xFF, 0b1000, 0xFF, 0b1100,
+                    0xFF, 0b1010, 0xFF, 0b1110, 0xFF,
+                ],
+            }
+            .a
+        }, //X
+        unsafe {
+            C {
+                a_u8: [
+                    0b0000, 0xFF, 0b1000, 0xFF, 0b0100, 0xFF, 0b1100, 0xFF, 0b0010, 0xFF, 0b1010,
+                    0xFF, 0b0110, 0xFF, 0b1110, 0xFF,
+                ],
+            }
+            .a
+        }, //X
     ];
 
     #[target_feature(enable = "avx2")]
@@ -420,15 +642,33 @@ mod avx2 {
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_new_solved() -> CenterEdgeCube {
         CenterEdgeCube(unsafe {
-            _mm_slli_epi64::<4>(_mm_setr_epi8( 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 0, 0, 0))
+            _mm_slli_epi64::<4>(_mm_setr_epi8(
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 0, 0, 0,
+            ))
         })
     }
 
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_from_bytes(bytes: [u8; 12]) -> CenterEdgeCube {
-
         CenterEdgeCube(unsafe {
-            _mm_setr_epi8(bytes[0] as i8, bytes[1] as i8, bytes[2] as i8, bytes[3] as i8, bytes[4] as i8, bytes[5] as i8, bytes[6] as i8, bytes[7] as i8, bytes[8] as i8, bytes[9] as i8, bytes[10] as i8, bytes[11] as i8, 0, 0, 0, 0)
+            _mm_setr_epi8(
+                bytes[0] as i8,
+                bytes[1] as i8,
+                bytes[2] as i8,
+                bytes[3] as i8,
+                bytes[4] as i8,
+                bytes[5] as i8,
+                bytes[6] as i8,
+                bytes[7] as i8,
+                bytes[8] as i8,
+                bytes[9] as i8,
+                bytes[10] as i8,
+                bytes[11] as i8,
+                0,
+                0,
+                0,
+                0,
+            )
         })
     }
 
@@ -468,10 +708,7 @@ mod avx2 {
 
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_turn(cube: &mut CenterEdgeCube, face: CubeFace, dir: Direction) {
-        cube.0 = _mm_shuffle_epi8(
-            cube.0,
-            TURN_EDGE_SHUFFLE[face as usize][dir as usize],
-        );
+        cube.0 = _mm_shuffle_epi8(cube.0, TURN_EDGE_SHUFFLE[face as usize][dir as usize]);
         if dir != Direction::Half {
             cube.0 = _mm_xor_si128(cube.0, TURN_EO_FLIP[face as usize]);
         }
@@ -549,15 +786,17 @@ mod avx2 {
     }
 }
 
-
 #[cfg(target_feature = "neon")]
 mod neon {
-    use std::arch::aarch64::{uint8x16_t, vandq_u8, vdupq_n_u8, veorq_u8, vld1q_u8, vorrq_u8, vqtbl1q_u8, vreinterpretq_u64_u8, vshlq_n_u8, vshrq_n_u8, vst1q_u64, vst1q_u8};
+    use std::arch::aarch64::{
+        uint8x16_t, vandq_u8, vdupq_n_u8, veorq_u8, vld1q_u8, vorrq_u8, vqtbl1q_u8,
+        vreinterpretq_u64_u8, vshlq_n_u8, vshrq_n_u8, vst1q_u64, vst1q_u8,
+    };
 
-    use crate::cube::{CubeAxis, CubeFace, Direction, Edge};
     use crate::cube::cube_edges::CenterEdgeCube;
-    use crate::simd_util::{AlignedU64, AlignedU8};
+    use crate::cube::{CubeAxis, CubeFace, Direction, Edge};
     use crate::simd_util::neon::C16;
+    use crate::simd_util::{AlignedU64, AlignedU8};
 
     const VALID_EDGE_MASK_HI: u64 = 0x00000000FFFFFFFF;
 
@@ -565,72 +804,282 @@ mod neon {
     // 0  1  2  3  4  5  6  7  8  9 10 11
     const TURN_EDGE_SHUFFLE: [[uint8x16_t; 3]; 6] = [
         [
-            unsafe { C16 { a_u8: [3, 0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //U
-            unsafe { C16 { a_u8: [2, 3, 0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //U2
-            unsafe { C16 { a_u8: [1, 2, 3, 0, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //U'
+            unsafe {
+                C16 {
+                    a_u8: [3, 0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //U
+            unsafe {
+                C16 {
+                    a_u8: [2, 3, 0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //U2
+            unsafe {
+                C16 {
+                    a_u8: [1, 2, 3, 0, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //U'
         ],
         [
-            unsafe { C16 { a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //D
-            unsafe { C16 { a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //D2
-            unsafe { C16 { a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //D'
+            unsafe {
+                C16 {
+                    a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //D
+            unsafe {
+                C16 {
+                    a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //D2
+            unsafe {
+                C16 {
+                    a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //D'
         ],
         [
-            unsafe { C16 { a_u8: [0, 1, 5, 3, 2, 8, 6, 7, 4, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //F
-            unsafe { C16 { a_u8: [0, 1, 8, 3, 5, 4, 6, 7, 2, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //F2
-            unsafe { C16 { a_u8: [0, 1, 4, 3, 8, 2, 6, 7, 5, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //F'
+            unsafe {
+                C16 {
+                    a_u8: [0, 1, 5, 3, 2, 8, 6, 7, 4, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //F
+            unsafe {
+                C16 {
+                    a_u8: [0, 1, 8, 3, 5, 4, 6, 7, 2, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //F2
+            unsafe {
+                C16 {
+                    a_u8: [0, 1, 4, 3, 8, 2, 6, 7, 5, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //F'
         ],
         [
-            unsafe { C16 { a_u8: [6, 1, 2, 3, 4, 5, 10, 0, 8, 9, 7, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //B
-            unsafe { C16 { a_u8: [10, 1, 2, 3, 4, 5, 7, 6, 8, 9, 0, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //B2
-            unsafe { C16 { a_u8: [7, 1, 2, 3, 4, 5, 0, 10, 8, 9, 6, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //B'
+            unsafe {
+                C16 {
+                    a_u8: [6, 1, 2, 3, 4, 5, 10, 0, 8, 9, 7, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //B
+            unsafe {
+                C16 {
+                    a_u8: [10, 1, 2, 3, 4, 5, 7, 6, 8, 9, 0, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //B2
+            unsafe {
+                C16 {
+                    a_u8: [7, 1, 2, 3, 4, 5, 0, 10, 8, 9, 6, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //B'
         ],
         [
-            unsafe { C16 { a_u8: [0, 1, 2, 7, 4, 3, 6, 11, 8, 9, 10, 5, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //L
-            unsafe { C16 { a_u8: [0, 1, 2, 11, 4, 7, 6, 5, 8, 9, 10, 3, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //L2
-            unsafe { C16 { a_u8: [0, 1, 2, 5, 4, 11, 6, 3, 8, 9, 10, 7, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //L'
+            unsafe {
+                C16 {
+                    a_u8: [0, 1, 2, 7, 4, 3, 6, 11, 8, 9, 10, 5, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //L
+            unsafe {
+                C16 {
+                    a_u8: [0, 1, 2, 11, 4, 7, 6, 5, 8, 9, 10, 3, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //L2
+            unsafe {
+                C16 {
+                    a_u8: [0, 1, 2, 5, 4, 11, 6, 3, 8, 9, 10, 7, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //L'
         ],
         [
-            unsafe { C16 { a_u8: [0, 4, 2, 3, 9, 5, 1, 7, 8, 6, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //R
-            unsafe { C16 { a_u8: [0, 9, 2, 3, 6, 5, 4, 7, 8, 1, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //R2
-            unsafe { C16 { a_u8: [0, 6, 2, 3, 1, 5, 9, 7, 8, 4, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //R'
+            unsafe {
+                C16 {
+                    a_u8: [0, 4, 2, 3, 9, 5, 1, 7, 8, 6, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //R
+            unsafe {
+                C16 {
+                    a_u8: [0, 9, 2, 3, 6, 5, 4, 7, 8, 1, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //R2
+            unsafe {
+                C16 {
+                    a_u8: [0, 6, 2, 3, 1, 5, 9, 7, 8, 4, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //R'
         ],
     ];
 
     const TURN_EO_FLIP: [uint8x16_t; 6] = [
-        unsafe { C16 { a_u8: [0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ], }.a }, //U
-        unsafe { C16 { a_u8: [0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, ], }.a }, //D
-        unsafe { C16 { a_u8: [0, 0, 0b00000100, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, 0, 0, ], }.a }, //F
-        unsafe { C16 { a_u8: [0b00000100, 0, 0, 0, 0, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, ], }.a }, //B
-        unsafe { C16 { a_u8: [0, 0, 0, 0b00000010, 0, 0b00000010, 0, 0b00000010, 0, 0, 0, 0b00000010, 0, 0, 0, 0, ], }.a }, //L
-        unsafe { C16 { a_u8: [0, 0b00000010, 0, 0, 0b00000010, 0, 0b00000010, 0, 0, 0b00000010, 0, 0, 0, 0, 0, 0, ], }.a }, //R
+        unsafe {
+            C16 {
+                a_u8: [
+                    0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0,
+                ],
+            }
+            .a
+        }, //U
+        unsafe {
+            C16 {
+                a_u8: [
+                    0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0,
+                    0, 0,
+                ],
+            }
+            .a
+        }, //D
+        unsafe {
+            C16 {
+                a_u8: [
+                    0, 0, 0b00000100, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0,
+                    0, 0,
+                ],
+            }
+            .a
+        }, //F
+        unsafe {
+            C16 {
+                a_u8: [
+                    0b00000100, 0, 0, 0, 0, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0,
+                    0, 0,
+                ],
+            }
+            .a
+        }, //B
+        unsafe {
+            C16 {
+                a_u8: [
+                    0, 0, 0, 0b00000010, 0, 0b00000010, 0, 0b00000010, 0, 0, 0, 0b00000010, 0, 0,
+                    0, 0,
+                ],
+            }
+            .a
+        }, //L
+        unsafe {
+            C16 {
+                a_u8: [
+                    0, 0b00000010, 0, 0, 0b00000010, 0, 0b00000010, 0, 0, 0b00000010, 0, 0, 0, 0,
+                    0, 0,
+                ],
+            }
+            .a
+        }, //R
     ];
 
     const TRANSFORMATION_EP_SHUFFLE: [[uint8x16_t; 3]; 3] = [
         [
-            unsafe { C16 { a_u8: [2, 4, 8, 5, 9, 11, 1, 3, 10, 6, 0, 7, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //x
-            unsafe { C16 { a_u8: [8, 9, 10, 11, 6, 7, 4, 5, 0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //x2
-            unsafe { C16 { a_u8: [10, 6, 0, 7, 1, 3, 9, 11, 2, 4, 8, 5, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //x'
+            unsafe {
+                C16 {
+                    a_u8: [2, 4, 8, 5, 9, 11, 1, 3, 10, 6, 0, 7, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //x
+            unsafe {
+                C16 {
+                    a_u8: [8, 9, 10, 11, 6, 7, 4, 5, 0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //x2
+            unsafe {
+                C16 {
+                    a_u8: [10, 6, 0, 7, 1, 3, 9, 11, 2, 4, 8, 5, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //x'
         ],
         [
-            unsafe { C16 { a_u8: [3, 0, 1, 2, 6, 4, 7, 5, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //y
-            unsafe { C16 { a_u8: [2, 3, 0, 1, 7, 6, 5, 4, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //y2
-            unsafe { C16 { a_u8: [1, 2, 3, 0, 5, 7, 4, 6, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //y'
+            unsafe {
+                C16 {
+                    a_u8: [3, 0, 1, 2, 6, 4, 7, 5, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //y
+            unsafe {
+                C16 {
+                    a_u8: [2, 3, 0, 1, 7, 6, 5, 4, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //y2
+            unsafe {
+                C16 {
+                    a_u8: [1, 2, 3, 0, 5, 7, 4, 6, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //y'
         ],
         [
-            unsafe { C16 { a_u8: [7, 3, 5, 11, 2, 8, 0, 10, 4, 1, 6, 9, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //z
-            unsafe { C16 { a_u8: [10, 11, 8, 9, 5, 4, 7, 6, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //z2
-            unsafe { C16 { a_u8: [6, 9, 4, 1, 8, 2, 10, 0, 5, 11, 7, 3, 0xFF, 0xFF, 0xFF, 0xFF], }.a }, //z'
+            unsafe {
+                C16 {
+                    a_u8: [7, 3, 5, 11, 2, 8, 0, 10, 4, 1, 6, 9, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //z
+            unsafe {
+                C16 {
+                    a_u8: [10, 11, 8, 9, 5, 4, 7, 6, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //z2
+            unsafe {
+                C16 {
+                    a_u8: [6, 9, 4, 1, 8, 2, 10, 0, 5, 11, 7, 3, 0xFF, 0xFF, 0xFF, 0xFF],
+                }
+                .a
+            }, //z'
         ],
     ];
 
     const TRANSFORMATION_EO_MAP: [uint8x16_t; 3] = [
-        unsafe { C16 { a_u8: [0b0000, 0xFF, 0b0010, 0xFF, 0b1000, 0xFF, 0b1010, 0xFF, 0b0100, 0xFF, 0b0110, 0xFF, 0b1100, 0xFF, 0b1110, 0xFF, ], }.a }, //X
-        unsafe { C16 { a_u8: [0b0000, 0xFF, 0b0100, 0xFF, 0b0010, 0xFF, 0b0110, 0xFF, 0b1000, 0xFF, 0b1100, 0xFF, 0b1010, 0xFF, 0b1110, 0xFF, ], }.a }, //X
-        unsafe { C16 { a_u8: [0b0000, 0xFF, 0b1000, 0xFF, 0b0100, 0xFF, 0b1100, 0xFF, 0b0010, 0xFF, 0b1010, 0xFF, 0b0110, 0xFF, 0b1110, 0xFF, ], }.a }, //X
+        unsafe {
+            C16 {
+                a_u8: [
+                    0b0000, 0xFF, 0b0010, 0xFF, 0b1000, 0xFF, 0b1010, 0xFF, 0b0100, 0xFF, 0b0110,
+                    0xFF, 0b1100, 0xFF, 0b1110, 0xFF,
+                ],
+            }
+            .a
+        }, //X
+        unsafe {
+            C16 {
+                a_u8: [
+                    0b0000, 0xFF, 0b0100, 0xFF, 0b0010, 0xFF, 0b0110, 0xFF, 0b1000, 0xFF, 0b1100,
+                    0xFF, 0b1010, 0xFF, 0b1110, 0xFF,
+                ],
+            }
+            .a
+        }, //X
+        unsafe {
+            C16 {
+                a_u8: [
+                    0b0000, 0xFF, 0b1000, 0xFF, 0b0100, 0xFF, 0b1100, 0xFF, 0b0010, 0xFF, 0b1010,
+                    0xFF, 0b0110, 0xFF, 0b1110, 0xFF,
+                ],
+            }
+            .a
+        }, //X
     ];
 
     pub(crate) unsafe fn unsafe_mirror_z(cube: &mut CenterEdgeCube) {
-        let mirror_mask = C16 { a_i8: [0, 3, 2, 1, 5, 4, 7, 6, 8, 11, 10, 9, -1, -1, -1, -1]}.a;
+        let mirror_mask = C16 {
+            a_i8: [0, 3, 2, 1, 5, 4, 7, 6, 8, 11, 10, 9, -1, -1, -1, -1],
+        }
+        .a;
         let edges = vqtbl1q_u8(cube.0, mirror_mask);
         let translated_ep = vshlq_n_u8::<4>(vqtbl1q_u8(
             mirror_mask,
@@ -649,13 +1098,24 @@ mod neon {
 
     pub(crate) unsafe fn unsafe_new_solved() -> CenterEdgeCube {
         CenterEdgeCube(unsafe {
-            vshlq_n_u8::<4>(C16 { a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 0, 0, 0]}.a)
+            vshlq_n_u8::<4>(
+                C16 {
+                    a_u8: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 0, 0, 0],
+                }
+                .a,
+            )
         })
     }
 
     pub(crate) unsafe fn unsafe_from_bytes(bytes: [u8; 12]) -> CenterEdgeCube {
         CenterEdgeCube(unsafe {
-            C16 { a_u8: [bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], 0, 0, 0, 0]}.a
+            C16 {
+                a_u8: [
+                    bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+                    bytes[8], bytes[9], bytes[10], bytes[11], 0, 0, 0, 0,
+                ],
+            }
+            .a
         })
     }
 
@@ -689,10 +1149,7 @@ mod neon {
     }
 
     pub(crate) unsafe fn unsafe_turn(cube: &mut CenterEdgeCube, face: CubeFace, dir: Direction) {
-        cube.0 = vqtbl1q_u8(
-            cube.0,
-            TURN_EDGE_SHUFFLE[face as usize][dir as usize],
-        );
+        cube.0 = vqtbl1q_u8(cube.0, TURN_EDGE_SHUFFLE[face as usize][dir as usize]);
         if dir != Direction::Half {
             cube.0 = veorq_u8(cube.0, TURN_EO_FLIP[face as usize]);
         }
@@ -707,10 +1164,7 @@ mod neon {
             cube.0,
             TRANSFORMATION_EP_SHUFFLE[axis as usize][dir as usize],
         );
-        let ep = vshrq_n_u8::<4>(vandq_u8(
-            edges_translated,
-            vdupq_n_u8(0xF0_u8),
-        ));
+        let ep = vshrq_n_u8::<4>(vandq_u8(edges_translated, vdupq_n_u8(0xF0_u8)));
         let eo = vandq_u8(edges_translated, vdupq_n_u8(0b00001110));
         let ep_translated = vshlq_n_u8::<4>(vqtbl1q_u8(
             TRANSFORMATION_EP_SHUFFLE[axis as usize][dir.invert() as usize],
@@ -743,10 +1197,7 @@ mod neon {
 
         //Splice together the edge permutation, and the EO of the edges on the inverse (see niss prediction to see how this works)
         let ep = vandq_u8(
-            vqtbl1q_u8(
-                vqtbl1q_u8(cube.0, edge_shuffle_mask),
-                edge_shuffle_mask,
-            ),
+            vqtbl1q_u8(vqtbl1q_u8(cube.0, edge_shuffle_mask), edge_shuffle_mask),
             vdupq_n_u8(0xF0_u8),
         );
         let eo_shuffle = vqtbl1q_u8(cube.0, vshrq_n_u8::<4>(ep));
@@ -759,13 +1210,12 @@ mod neon {
 #[cfg(all(target_arch = "wasm32", not(target_feature = "avx2")))]
 mod wasm32 {
     use std::arch::wasm32::{
-        u32x4_shl, u32x4_shr, u64x2_extract_lane, u8x16, u8x16_shl,
-        u8x16_swizzle, v128, v128_and, v128_load, v128_or,
-        v128_store, v128_xor,
+        u32x4_shl, u32x4_shr, u64x2_extract_lane, u8x16, u8x16_shl, u8x16_swizzle, v128, v128_and,
+        v128_load, v128_or, v128_store, v128_xor,
     };
 
-    use crate::cube::{CubeAxis, CubeFace, Direction, Edge};
     use crate::cube::cube_edges::CenterEdgeCube;
+    use crate::cube::{CubeAxis, CubeFace, Direction, Edge};
     use crate::wasm_util::u8x16_set1;
 
     //UB UR UF UL FR FL BR BL DF DR DB DL
@@ -804,12 +1254,24 @@ mod wasm32 {
     ];
 
     const TURN_EO_FLIP: [v128; 6] = [
-        u8x16(0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ), //U
-        u8x16(0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, ), //D
-        u8x16(0, 0, 0b00000100, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, 0, 0, ), //F
-        u8x16(0b00000100, 0, 0, 0, 0, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, ), //B
-        u8x16(0, 0, 0, 0b00000010, 0, 0b00000010, 0, 0b00000010, 0, 0, 0, 0b00000010, 0, 0, 0, 0, ), //L
-        u8x16(0, 0b00000010, 0, 0, 0b00000010, 0, 0b00000010, 0, 0, 0b00000010, 0, 0, 0, 0, 0, 0, ), //R
+        u8x16(
+            0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ), //U
+        u8x16(
+            0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0,
+        ), //D
+        u8x16(
+            0, 0, 0b00000100, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, 0, 0,
+        ), //F
+        u8x16(
+            0b00000100, 0, 0, 0, 0, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0,
+        ), //B
+        u8x16(
+            0, 0, 0, 0b00000010, 0, 0b00000010, 0, 0b00000010, 0, 0, 0, 0b00000010, 0, 0, 0, 0,
+        ), //L
+        u8x16(
+            0, 0b00000010, 0, 0, 0b00000010, 0, 0b00000010, 0, 0, 0b00000010, 0, 0, 0, 0, 0, 0,
+        ), //R
     ];
 
     const TRANSFORMATION_EP_SHUFFLE: [[v128; 3]; 3] = [
@@ -831,9 +1293,18 @@ mod wasm32 {
     ];
 
     const TRANSFORMATION_EO_MAP: [v128; 3] = [
-        u8x16(0b0000, 0xFF, 0b0010, 0xFF, 0b1000, 0xFF, 0b1010, 0xFF, 0b0100, 0xFF, 0b0110, 0xFF, 0b1100, 0xFF, 0b1110, 0xFF), //X
-        u8x16(0b0000, 0xFF, 0b0100, 0xFF, 0b0010, 0xFF, 0b0110, 0xFF, 0b1000, 0xFF, 0b1100, 0xFF, 0b1010, 0xFF, 0b1110, 0xFF), //Y
-        u8x16(0b0000, 0xFF, 0b1000, 0xFF, 0b0100, 0xFF, 0b1100, 0xFF, 0b0010, 0xFF, 0b1010, 0xFF, 0b0110, 0xFF, 0b1110, 0xFF), //Z
+        u8x16(
+            0b0000, 0xFF, 0b0010, 0xFF, 0b1000, 0xFF, 0b1010, 0xFF, 0b0100, 0xFF, 0b0110, 0xFF,
+            0b1100, 0xFF, 0b1110, 0xFF,
+        ), //X
+        u8x16(
+            0b0000, 0xFF, 0b0100, 0xFF, 0b0010, 0xFF, 0b0110, 0xFF, 0b1000, 0xFF, 0b1100, 0xFF,
+            0b1010, 0xFF, 0b1110, 0xFF,
+        ), //Y
+        u8x16(
+            0b0000, 0xFF, 0b1000, 0xFF, 0b0100, 0xFF, 0b1100, 0xFF, 0b0010, 0xFF, 0b1010, 0xFF,
+            0b0110, 0xFF, 0b1110, 0xFF,
+        ), //Z
     ];
 
     pub(crate) fn get_edges_raw(cube: &CenterEdgeCube) -> [u64; 2] {
@@ -850,7 +1321,10 @@ mod wasm32 {
     }
 
     pub(crate) fn from_bytes(bytes: [u8; 12]) -> CenterEdgeCube {
-        CenterEdgeCube(u8x16(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], 0, 0, 0, 0))
+        CenterEdgeCube(u8x16(
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11], 0, 0, 0, 0,
+        ))
     }
 
     pub(crate) fn get_edges(cube: &CenterEdgeCube) -> [Edge; 12] {
@@ -883,10 +1357,7 @@ mod wasm32 {
     }
 
     pub(crate) fn turn(cube: &mut CenterEdgeCube, face: CubeFace, dir: Direction) {
-        cube.0 = u8x16_swizzle(
-            cube.0,
-            TURN_EDGE_SHUFFLE[face as usize][dir as usize],
-        );
+        cube.0 = u8x16_swizzle(cube.0, TURN_EDGE_SHUFFLE[face as usize][dir as usize]);
         if dir != Direction::Half {
             cube.0 = v128_xor(cube.0, TURN_EO_FLIP[face as usize]);
         }

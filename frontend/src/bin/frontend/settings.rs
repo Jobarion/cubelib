@@ -1,17 +1,17 @@
-use std::str::FromStr;
+use crate::util::use_local_storage;
+use crate::util::RwSignalTup;
 use cubelib::algs::Algorithm;
 use cubelib::cube::*;
 use leptonic::prelude::*;
 use leptos::*;
 use leptos_icons::IoIcon;
-use crate::util::RwSignalTup;
-use crate::util::use_local_storage;
+use std::str::FromStr;
 
 #[derive(Clone)]
 pub struct SettingsState {
     advanced: RwSignalTup<bool>,
     relative_step_length: RwSignalTup<bool>,
-    additional_triggers: RwSignalTup<Vec<Algorithm>>
+    additional_triggers: RwSignalTup<Vec<Algorithm>>,
 }
 
 impl SettingsState {
@@ -33,11 +33,7 @@ impl SettingsState {
 
     pub fn additional_triggers(&self) -> Signal<Vec<String>> {
         let triggers = self.additional_triggers.0.clone();
-        Signal::derive(move||triggers.get()
-            .into_iter()
-            .map(|x|x.to_string())
-            .collect()
-        )
+        Signal::derive(move || triggers.get().into_iter().map(|x| x.to_string()).collect())
     }
 }
 
@@ -45,7 +41,8 @@ impl SettingsState {
     pub fn from_local_storage() -> Self {
         let advanced = use_local_storage("settings-advanced", false);
         let rel_step_len = use_local_storage("settings-rel-step-len", true);
-        let additional_triggers = use_local_storage("settings-additional-triggers", Vec::<Algorithm>::new());
+        let additional_triggers =
+            use_local_storage("settings-additional-triggers", Vec::<Algorithm>::new());
         Self {
             advanced,
             relative_step_length: rel_step_len,
@@ -59,7 +56,7 @@ pub fn SettingsComponent(active: ReadSignal<bool>, set_active: WriteSignal<bool>
     let settings = use_context::<SettingsState>().expect("Settings context required");
     let (cur_trig, cur_trig_set) = create_signal("".to_string());
 
-    let is_trigger_valid = Signal::derive(move|| {
+    let is_trigger_valid = Signal::derive(move || {
         if let Ok(alg) = Algorithm::from_str(cur_trig.get().as_str()) {
             if !alg.inverse_moves.is_empty() {
                 return false;
@@ -156,11 +153,11 @@ pub fn SettingsComponent(active: ReadSignal<bool>, set_active: WriteSignal<bool>
 pub fn SettingsOptionSmall(
     #[prop(into)] label: String,
     #[prop(into, optional)] description: Option<String>,
-    children: Children) -> impl IntoView {
-
+    children: Children,
+) -> impl IntoView {
     let description = description
         .map(|d| view! {<div class="settings-description">{d}</div>}.into_view())
-        .unwrap_or(view!{}.into_view());
+        .unwrap_or(view! {}.into_view());
 
     view! {
         <div class="settings-container">
@@ -173,9 +170,11 @@ pub fn SettingsOptionSmall(
     }
 }
 
-
 #[component]
-fn TriggerList(triggers: Signal<Vec<Algorithm>>, triggers_set: WriteSignal<Vec<Algorithm>>) -> impl IntoView {
+fn TriggerList(
+    triggers: Signal<Vec<Algorithm>>,
+    triggers_set: WriteSignal<Vec<Algorithm>>,
+) -> impl IntoView {
     view! {
         <div style:width="500px">
         {move || {

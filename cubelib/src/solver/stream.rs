@@ -19,7 +19,7 @@ where
     F: Fn(Solution, u8, &'a CancelToken) -> OUT,
 {
     DFSSolutionIter::new(current_stage)
-        .take_while(move |_|!cancel_token.is_cancelled())
+        .take_while(move |_| !cancel_token.is_cancelled())
         .take_while(|(_, depth)| *depth < 100)
         .flat_map(move |(alg, depth)| {
             let next_stage_depth = depth - alg.len();
@@ -90,9 +90,9 @@ struct DistinctSolutions<I, V> {
 }
 
 impl<I, V> DistinctSolutions<I, V>
-    where
-        I: Iterator<Item = V>,
-        V: Into<Algorithm> + Clone
+where
+    I: Iterator<Item = V>,
+    V: Into<Algorithm> + Clone,
 {
     fn new(iter: I) -> Self {
         Self {
@@ -105,9 +105,9 @@ impl<I, V> DistinctSolutions<I, V>
 }
 
 impl<I, V> Iterator for DistinctSolutions<I, V>
-    where
-        I: Iterator<Item = V>,
-        V: Into<Algorithm> + Clone
+where
+    I: Iterator<Item = V>,
+    V: Into<Algorithm> + Clone,
 {
     type Item = <I as Iterator>::Item;
 
@@ -131,6 +131,8 @@ impl<I, V> Iterator for DistinctSolutions<I, V>
     }
 }
 
-pub fn distinct_algorithms<V: Into<Algorithm> + Clone>(iter: impl Iterator<Item = V>) -> impl Iterator<Item = V> {
+pub fn distinct_algorithms<V: Into<Algorithm> + Clone>(
+    iter: impl Iterator<Item = V>,
+) -> impl Iterator<Item = V> {
     DistinctSolutions::<_, V>::new(iter)
 }

@@ -1,22 +1,22 @@
-use std::cmp::max;
-use std::collections::HashMap;
-use std::str::FromStr;
-use itertools::Itertools;
-use log::{debug, info, warn};
-use tinyset::Set64;
 use crate::algs::Algorithm;
-use crate::cube::*;
-use crate::cube::Cube333;
 use crate::cube::turn::{ApplyAlgorithm, InvertibleMut, TurnableMut};
+use crate::cube::Cube333;
+use crate::cube::*;
 use crate::defs::StepVariant;
+use crate::solver::lookup_table::{DepthEstimate, EmptyVal, NissDepthEstimate};
 use crate::steps::coord::Coord;
 use crate::steps::dr::coords::DRUDEOFBCoord;
-use crate::solver::lookup_table::{DepthEstimate, EmptyVal, NissDepthEstimate};
 use crate::steps::dr::dr_config::HTR_DR_UD_MOVESET;
 use crate::steps::htr::coords::HTRDRUDCoord;
 use crate::steps::htr::htr_config::{HTRPruningTable, HTRSubsetTable};
 use crate::steps::step::{PostStepCheck, PreStepCheck};
 use crate::steps::util::expand_subset_name;
+use itertools::Itertools;
+use log::{debug, info, warn};
+use std::cmp::max;
+use std::collections::HashMap;
+use std::str::FromStr;
+use tinyset::Set64;
 
 pub type Subset = crate::steps::util::Subset;
 pub const DR_SUBSETS: [Subset; 48] = crate::steps::util::DR_SUBSETS;
@@ -24,7 +24,7 @@ pub const DR_SUBSETS: [Subset; 48] = crate::steps::util::DR_SUBSETS;
 #[derive(Clone)]
 pub struct DRSubsetFilter<'a>(&'a HTRSubsetTable, Set64<u8>);
 
-impl <'a> DRSubsetFilter<'a> {
+impl<'a> DRSubsetFilter<'a> {
     pub fn matches_subset(&self, cube: &Cube333) -> bool {
         if DRUDEOFBCoord::from(cube).val() != 0 {
             return false;
@@ -47,9 +47,13 @@ impl <'a> DRSubsetFilter<'a> {
     }
 }
 
-pub fn dr_subset_filter<'a>(subset_table: &'a HTRSubsetTable, subsets: &Vec<String>) -> Option<DRSubsetFilter<'a>> {
-    let subsets = subsets.iter()
-        .flat_map(|subset_name|{
+pub fn dr_subset_filter<'a>(
+    subset_table: &'a HTRSubsetTable,
+    subsets: &Vec<String>,
+) -> Option<DRSubsetFilter<'a>> {
+    let subsets = subsets
+        .iter()
+        .flat_map(|subset_name| {
             let matched_subsets = expand_subset_name(subset_name.as_str());
             if matched_subsets.is_empty() {
                 warn!("Ignoring unrecognized subset name {subset_name}")
@@ -130,12 +134,11 @@ fn gen_coset_0() -> Vec<Cube333> {
 
     loop {
         for cube in to_check {
-            for cube in HTR_DR_UD_MOVESET.aux_moves.iter().cloned()
-                .map(|m|{
-                    let mut cube = cube.clone();
-                    cube.turn(m);
-                    cube
-                }) {
+            for cube in HTR_DR_UD_MOVESET.aux_moves.iter().cloned().map(|m| {
+                let mut cube = cube.clone();
+                cube.turn(m);
+                cube
+            }) {
                 let coord = HTRDRUDCoord::from(&cube);
                 if checked.contains_key(&coord) {
                     continue;
@@ -153,20 +156,26 @@ fn gen_coset_0() -> Vec<Cube333> {
     checked.values().cloned().collect_vec()
 }
 
-fn fill_table(htr_table: &mut HTRPruningTable, subset_table: &mut HTRSubsetTable, generator: &Algorithm, subset_id: u8) -> usize {
+fn fill_table(
+    htr_table: &mut HTRPruningTable,
+    subset_table: &mut HTRSubsetTable,
+    generator: &Algorithm,
+    subset_id: u8,
+) -> usize {
     let mut total_checked = 0;
     let niss_bound = min_niss_moves(generator);
     let mut to_check: Vec<Cube333> = gen_coset_0()
         .into_iter()
-        .flat_map(|c|{
-            vec![c].into_iter()
+        .flat_map(|c| {
+            vec![c]
+                .into_iter()
                 .flat_map(|mut a| {
                     let b = a.clone();
                     a.turn(Turn333::U);
                     a.turn(Turn333::D);
                     vec![a, b].into_iter()
                 })
-                .map(|mut c|{
+                .map(|mut c| {
                     c.apply_alg(generator);
                     c
                 })
@@ -174,17 +183,16 @@ fn fill_table(htr_table: &mut HTRPruningTable, subset_table: &mut HTRSubsetTable
         .collect_vec();
     let mut check_next: Vec<Cube333> = vec![];
     loop {
-        for cube in to_check.iter().cloned().flat_map(|mut a|{
+        for cube in to_check.iter().cloned().flat_map(|mut a| {
             let b = a.clone();
             a.invert();
             vec![a, b].into_iter()
         }) {
-            for cube in HTR_DR_UD_MOVESET.aux_moves.iter().cloned()
-                .map(|m|{
-                    let mut cube = cube.clone();
-                    cube.turn(m);
-                    cube
-                }) {
+            for cube in HTR_DR_UD_MOVESET.aux_moves.iter().cloned().map(|m| {
+                let mut cube = cube.clone();
+                cube.turn(m);
+                cube
+            }) {
                 let coord = HTRDRUDCoord::from(&cube);
                 let (_, niss) = htr_table.get_niss_estimate(coord);
                 if niss != htr_table.empty_val() {

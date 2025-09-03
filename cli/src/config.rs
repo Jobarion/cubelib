@@ -140,8 +140,8 @@ impl SolverConfig {
         if let Some(format) = cmd.format {
             self.format = format;
         }
-        if let Some(all_solutions) = cmd.all_solutions {
-            self.all_solutions = all_solutions;
+        if cmd.all_solutions {
+            self.all_solutions = true;
         }
         if let Some(min) = cmd.min {
             self.min = min;

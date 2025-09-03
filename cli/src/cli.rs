@@ -35,7 +35,7 @@ pub struct SolveCommand {
     #[arg(short, long = "format", help="Solution output format")]
     pub format: Option<SolutionFormat>,
     #[arg(short = 'a', long = "all", help = "Print solutions that would otherwise get filtered out. E.g. an EO ending in F'")]
-    pub all_solutions: Option<bool>,
+    pub all_solutions: bool,
     #[arg(short = 'm', long = "min", help = "Minimum length of solutions")]
     pub min: Option<usize>,
     #[arg(short = 'M', long = "max", help = "Maximum length of solutions")]

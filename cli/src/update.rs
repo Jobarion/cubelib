@@ -36,7 +36,7 @@ pub fn fetch_latest() -> Result<GithubRelease, UpdateError> {
         .build()
         .map_err(|e|UpdateError::ReqwestError(e))?;
 
-    let resp = client.get("https://joba.me/cubelib/releases").send()
+    let resp = client.get("https://codeberg.org/api/v1/repos/joba/cubelib/releases").send()
         .map_err(|e|UpdateError::ReqwestError(e))?;
 
     let resp_json: Option<Vec<GithubReleaseData>> = resp.json()

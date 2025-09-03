@@ -368,6 +368,7 @@ pub fn DRParameters() -> impl IntoView {
         "R U2 F2 R".to_string(),
         "R F2 U2 R".to_string(),
         "R U2 R".to_string(),
+        "R U2 L".to_string(),
         "R F2 R".to_string(),
         "R U R".to_string(),
         "R U' R".to_string(),

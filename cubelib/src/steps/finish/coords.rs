@@ -258,25 +258,25 @@ impl Into<Cube333> for &DRLeaveSliceFinishCoord {
 
 impl CPCoord {
     pub fn parity_even(&self) -> bool {
-        inverse_permutation_n_parity_even::<8>(self.0)
+        inverse_permutation_n_parity_even::<8>(self.0 as u32)
     }
 }
 
 impl DRFinishNonSliceEP {
     pub fn parity_even(&self) -> bool {
-        inverse_permutation_n_parity_even::<8>(self.0)
+        inverse_permutation_n_parity_even::<8>(self.0 as u32)
     }
 }
 
 impl DRFinishSliceCoord {
     pub fn parity_even(&self) -> bool {
-        inverse_permutation_n_parity_even::<4>(self.0 as u16)
+        inverse_permutation_n_parity_even::<4>(self.0 as u32)
     }
 }
 
-fn inverse_permutation_n_parity_even<const N: usize>(perm: u16) -> bool {
-    assert!(N <= 8);
-    let fac = [1, 2, 6, 24, 120, 720, 5040, 40320];
+pub(crate) fn inverse_permutation_n_parity_even<const N: usize>(perm: u32) -> bool {
+    assert!(N <= 12);
+    let fac = [1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600];
     let mut parity = false;
     for i in 1..N {
         parity = !(parity ^ ((perm % fac[i] / fac[i-1]) & 1 == 1));
@@ -285,9 +285,10 @@ fn inverse_permutation_n_parity_even<const N: usize>(perm: u16) -> bool {
 }
 
 // Not optimized at all
-fn inverse_permutation_n<const N: usize>(perm: u16) -> [u8; N] {
-    assert!(N <= 8);
-    let fac = [1, 2, 6, 24, 120, 720, 5040, 40320];
+//TODO move somewhere more appropriate
+pub(crate) fn inverse_permutation_n<const N: usize>(perm: u32) -> [u8; N] {
+    assert!(N <= 12);
+    let fac = [1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600];
     let mut factors = [0;N];
     for i in 1..N {
         factors[i] = perm % fac[i] / fac[i-1];
@@ -321,18 +322,18 @@ mod avx2 {
 
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_inverse_cube_from_drfinish(value: &DRFinishCoord) -> Cube333 {
-        let cp = inverse_permutation_n::<8>(value.0.0);
+        let cp = inverse_permutation_n::<8>(value.0.0 as u32);
         let cp_data = [cp.as_slice(), &[0;8]].concat();
         let val = _mm_load_si128(cp_data.as_ptr() as *const __m128i);
         let corners = CornerCube333::new(_mm_slli_epi32::<5>(val));
 
-        let mut non_slice_edges = inverse_permutation_n::<8>(value.1.0);
+        let mut non_slice_edges = inverse_permutation_n::<8>(value.1.0 as u32);
         for i in 0..8 {
             if non_slice_edges[i] >= 4 {
                 non_slice_edges[i] += 4;
             }
         }
-        let mut slice_edges = inverse_permutation_n::<4>(value.2.0 as u16);
+        let mut slice_edges = inverse_permutation_n::<4>(value.2.0 as u32);
         for i in 0..4 {
             slice_edges[i] += 4;
         }
@@ -348,12 +349,12 @@ mod avx2 {
 
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_inverse_cube_from_drlsfinish(value: &DRLeaveSliceFinishCoord) -> Cube333 {
-        let cp = inverse_permutation_n::<8>(value.0.0);
+        let cp = inverse_permutation_n::<8>(value.0.0 as u32);
         let cp_data = [cp.as_slice(), &[0;8]].concat();
         let val = _mm_load_si128(cp_data.as_ptr() as *const __m128i);
         let corners = CornerCube333::new(_mm_slli_epi32::<5>(val));
 
-        let mut non_slice_edges = inverse_permutation_n::<8>(value.1.0);
+        let mut non_slice_edges = inverse_permutation_n::<8>(value.1.0 as u32);
         for i in 0..8 {
             if non_slice_edges[i] >= 4 {
                 non_slice_edges[i] += 4;

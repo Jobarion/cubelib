@@ -84,15 +84,24 @@ impl <P> From<&P> for ZeroCoord {
 
 #[cfg(any(target_feature = "avx2", target_feature = "neon"))]
 pub type CPCoord = default_coords::CPCoord;
+#[cfg(any(target_feature = "avx2"))]
+pub type EPCoord = default_coords::EPCoord;
+#[cfg(any(target_feature = "avx2"))]
+pub type EdgeCoord = default_coords::EdgeCoord;
 
 #[cfg(any(target_feature = "avx2", target_feature = "neon"))]
 mod default_coords {
-    use crate::cube::{CornerCube333, Cube333};
+    use crate::cube::{CornerCube333, Cube333, EdgeCube333};
     use crate::steps;
     use crate::steps::coord::{Coord};
+    use crate::steps::eo::coords::EOCoordFB;
 
     #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-    pub struct CPCoord(pub(crate) u16);
+    pub struct CPCoord(pub u16);
+    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+    pub struct EPCoord(pub u32);
+    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+    pub struct EdgeCoord(pub EOCoordFB, pub EPCoord);
 
     impl Coord<40320> for CPCoord {
         fn val(&self) -> usize {
@@ -100,9 +109,41 @@ mod default_coords {
         }
     }
 
+    impl Coord<479001600> for EPCoord {
+        fn val(&self) -> usize {
+            self.0 as usize
+        }
+    }
+
+    impl Coord<{2048 * 479001600}> for EdgeCoord {
+        fn val(&self) -> usize {
+            self.0.val() * EOCoordFB::size() + self.1.val()
+        }
+    }
+
     impl Into<usize> for CPCoord {
         fn into(self) -> usize {
             self.0 as usize
+        }
+    }
+
+    impl Into<usize> for EPCoord {
+        fn into(self) -> usize {
+            self.0 as usize
+        }
+    }
+
+    impl Into<usize> for EdgeCoord {
+        fn into(self) -> usize {
+            self.val()
+        }
+    }
+
+    impl EdgeCoord {
+        pub fn new(val: usize) -> Self {
+            let eo = val % EOCoordFB::size();
+            let ep = val / EOCoordFB::size();
+            Self(EOCoordFB(eo as u16), EPCoord(ep as u32))
         }
     }
 
@@ -119,19 +160,79 @@ mod default_coords {
         }
     }
 
+    #[cfg(target_feature = "avx2")]
+    impl From<&EdgeCube333> for EPCoord {
+        fn from(value: &EdgeCube333) -> Self {
+            unsafe {
+                steps::coord::avx2::unsafe_from_epcoord(value)
+            }
+        }
+    }
+
+    #[cfg(target_feature = "avx2")]
+    impl From<&EdgeCube333> for EdgeCoord {
+        fn from(value: &EdgeCube333) -> Self {
+            Self(EOCoordFB::from(value), EPCoord::from(value))
+        }
+    }
+
+    #[cfg(target_feature = "avx2")]
+    impl From<EdgeCoord> for EdgeCube333 {
+        fn from(value: EdgeCoord) -> Self {
+            unsafe {
+                steps::coord::avx2::unsafe_inverse_from_edge_coord(value)
+            }
+        }
+    }
+
     impl From<&Cube333> for CPCoord {
         fn from(value: &Cube333) -> Self {
             Self::from(&value.corners)
+        }
+    }
+
+    #[cfg(target_feature = "avx2")]
+    impl From<&Cube333> for EPCoord {
+        fn from(value: &Cube333) -> Self {
+            Self::from(&value.edges)
+        }
+    }
+
+    #[cfg(target_feature = "avx2")]
+    impl From<&Cube333> for EdgeCoord {
+        fn from(value: &Cube333) -> Self {
+            Self::from(&value.edges)
         }
     }
 }
 
 #[cfg(target_feature = "avx2")]
 pub(crate) mod avx2 {
-    use std::arch::x86_64::{__m128i, _mm_and_si128, _mm_cmplt_epi8, _mm_extract_epi16, _mm_hadd_epi16, _mm_hadd_epi32, _mm_mullo_epi16, _mm_set1_epi8, _mm_set_epi64x, _mm_setr_epi16, _mm_setr_epi8, _mm_shuffle_epi8, _mm_srli_epi32};
+    use std::arch::x86_64::{__m128i, _mm256_and_si256, _mm256_castsi256_si128, _mm256_cmpgt_epi8, _mm256_extracti128_si256, _mm256_hadd_epi32, _mm256_mullo_epi32, _mm256_set1_epi64x, _mm256_set1_epi8, _mm256_set_epi32, _mm256_set_epi8, _mm256_setr_m128i, _mm256_shuffle_epi8, _mm_add_epi32, _mm_add_epi8, _mm_and_si128, _mm_cmpgt_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi32, _mm_hadd_epi16, _mm_hadd_epi32, _mm_load_si128, _mm_movemask_epi8, _mm_mullo_epi16, _mm_mullo_epi32, _mm_or_si128, _mm_set1_epi16, _mm_set1_epi64x, _mm_set1_epi8, _mm_set_epi16, _mm_set_epi32, _mm_set_epi64x, _mm_set_epi8, _mm_setr_epi16, _mm_setr_epi8, _mm_shuffle_epi8, _mm_slli_epi32, _mm_srli_epi32};
 
-    use crate::cube::CornerCube333;
-    use crate::steps::coord::default_coords::CPCoord;
+    use crate::cube::{CornerCube333, EdgeCube333};
+    use crate::steps::coord::Coord;
+    use crate::steps::coord::default_coords::{CPCoord, EdgeCoord, EPCoord};
+    use crate::steps::finish::coords::inverse_permutation_n;
+
+    pub(crate) unsafe fn unsafe_inverse_from_edge_coord(value: EdgeCoord) -> EdgeCube333 {
+        let ep_arr = inverse_permutation_n::<12>(value.1.val() as u32);
+        let ep_data = [ep_arr.as_slice(), &[0;4]].concat();
+        let ep = _mm_slli_epi32::<4>(_mm_load_si128(ep_data.as_ptr() as *const __m128i));
+        let eo = if value.0.0.count_ones() % 2 == 0 {
+            value.0.0
+        } else {
+            value.0.0 | 0b100000000000
+        };
+        let lower = (eo & 0xFFu16) as i8;
+        let upper = (eo >> 8) as i8;
+        let eo_vals = _mm_setr_epi8(lower, lower, lower, lower, lower, lower, lower, lower, upper, upper, upper, upper, 0, 0, 0, 0);
+        let bad_edges = _mm_cmpgt_epi8(
+            _mm_and_si128(eo_vals, _mm_set1_epi64x(0x8040201008040201u64 as i64)),
+            _mm_set1_epi8(0));
+        let eofb_bit = _mm_and_si128(bad_edges, _mm_set1_epi8(0b100));
+        EdgeCube333::new(_mm_or_si128(eofb_bit, ep))
+    }
 
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_from_cpcoord(value: &CornerCube333) -> CPCoord {
@@ -193,6 +294,71 @@ pub(crate) mod avx2 {
         let prod = _mm_mullo_epi16(hsum, factorials);
 
         hsum_epi16_sse3(prod)
+    }
+
+    #[target_feature(enable = "avx2")]
+    pub(crate) unsafe fn unsafe_from_epcoord(value: &EdgeCube333) -> EPCoord {
+        let ep_values_m128 = _mm_and_si128(_mm_srli_epi32::<4>(value.0), _mm_set1_epi8(0b1111));
+        let ep_values = _mm256_setr_m128i(ep_values_m128, ep_values_m128);
+
+        let values_1011 = _mm256_shuffle_epi8(ep_values, _mm256_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 11, -1, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10));
+        let values_6789 = _mm256_shuffle_epi8(ep_values, _mm256_set_epi8(9, 8, -1, -1, 9, 8, 7, -1, 9, 8, 7, 6, 9, 8, 7, 6, 9, 8, 7, 6, 9, 8, 7, 6, 9, 8, 7, 6, 9, 8, 7, 6));
+        let values_2345 = _mm_shuffle_epi8(ep_values_m128, _mm_set_epi8(5, 4, 5, 4, 5, 4, 5, 4, -1, -1, 3, -1, 3, 2, 3, 2));
+
+        let values_159 = _mm_shuffle_epi8(ep_values_m128, _mm_set_epi8(-1, -1, -1, -1, 9, -1, -1, -1, 1, -1, -1, 1, 5, -1, -1, -1));
+
+        let higher_left_1011 = _mm256_and_si256(_mm256_cmpgt_epi8(_mm256_shuffle_epi8(ep_values, _mm256_set_epi8(
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 10, -1, 9, 9, 8, 8,
+            7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1, 0, 0,
+        )), values_1011), _mm256_set1_epi8(1));
+
+        let higher_left_6789 = _mm256_and_si256(_mm256_cmpgt_epi8(_mm256_shuffle_epi8(ep_values, _mm256_set_epi8(
+            7, 7, -1, -1, 6, 6, 6, -1, 5, 5, 5, 5, 4, 4, 4, 4,
+            3, 3, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0,
+        )), values_6789), _mm256_set1_epi8(1));
+
+        let higher_left_2345 = _mm_and_si128(_mm_cmplt_epi8(values_2345, _mm_shuffle_epi8(ep_values_m128, _mm_set_epi8(
+            3, 3, 2, 2, 1, 1, 0, 0, -1, -1, 2, -1, 1, 1, 0, 0
+        ))), _mm_set1_epi8(1));
+
+        let higher_left_159 = _mm_and_si128(_mm_cmpgt_epi8(_mm_shuffle_epi8(ep_values_m128, _mm_set_epi8(
+            -1, -1, -1, -1, 8, -1, -1, -1, -1, -1, -1, 0, 4, -1, -1, -1
+        )), values_159), _mm_set1_epi8(1));
+
+        let hsum = _mm256_hadd_epi32(higher_left_6789, higher_left_1011);
+
+        let hsum_lo = _mm256_castsi256_si128(hsum);
+        let hsum_hi = _mm256_extracti128_si256::<1>(hsum);
+        let hsum = _mm_add_epi8(hsum_lo, hsum_hi);
+
+        let hsum_with_6789 = _mm_hadd_epi32(higher_left_2345, hsum);
+        let hsum = _mm_and_si128(_mm_hadd_epi16(hsum_with_6789, _mm_set1_epi8(0)), _mm_set_epi16(0, 0, 0, 0, -1, 0, -1, -1));
+        let hsum = _mm_add_epi8(hsum, _mm_and_si128(hsum_with_6789, _mm_set_epi16(0, 0, -1, -1, 0, 0, 0, 0)));
+        let hsum = _mm_add_epi8(hsum, higher_left_159);
+
+        let hsum_lower_factorials = _mm_shuffle_epi8(hsum, _mm_set_epi8(
+            -1, -1, -1, -1, -1, -1, -1, 1, -1, -1, -1, 0, -1, -1, -1, 4,
+        ));
+
+        let prod1 = _mm_mullo_epi32(hsum_lower_factorials, _mm_set_epi32(0, 6, 2, 1));
+
+        let hsum_higher_factorials = _mm256_shuffle_epi8(_mm256_setr_m128i(hsum, hsum), _mm256_set_epi8(
+            -1, -1, -1, 7, -1, -1, -1, 6, -1, -1, -1, 11, -1, -1, -1, 10,
+            -1, -1, -1, 9, -1, -1, -1, 8, -1, -1, -1, 3, -1, -1, -1, 2,
+        ));
+
+        let prod2 = _mm256_mullo_epi32(hsum_higher_factorials, _mm256_set_epi32(39916800, 3628800, 362880, 40320, 5040, 720, 120, 24));
+
+        let prodsum = _mm256_hadd_epi32(prod2, _mm256_set1_epi64x(0));
+
+        let prodsum_lo = _mm256_castsi256_si128(prodsum);
+        let prodsum_hi = _mm256_extracti128_si256::<1>(prodsum);
+        let prodsum = _mm_add_epi32(prodsum_lo, prodsum_hi);
+
+        let prodsum = _mm_add_epi32(prodsum, _mm_hadd_epi32(prod1, _mm_set1_epi8(0)));
+        let prodsum = _mm_hadd_epi32(prodsum, _mm_set1_epi8(0));
+
+        EPCoord(_mm_extract_epi32::<0>(prodsum) as u32)
     }
 
     #[inline]

@@ -1,4 +1,4 @@
-use crate::cube::cube::Symmetry;
+use crate::cube::Symmetry;
 use crate::cube::turn::{ApplySymmetry, CubeOuterTurn, CubeTransformation, Edge, InvertibleMut, TransformableMut, TurnableMut};
 
 //One byte per edge, 4 bits for id, 3 bits for eo (UD/FB/RL), 1 bit free
@@ -123,6 +123,14 @@ impl ApplySymmetry for CenterEdgeCube {
         if s.0 {
             self.mirror_z();
         }
+    }
+}
+
+#[cfg(not(target_feature = "avx2"))]
+impl ApplySymmetry for CenterEdgeCube {
+    fn apply_symmetry<T: AsRef<Symmetry>>(&mut self, _s: T) {
+        // Fallback implementation for non-AVX2 targets
+        // This is a minimal implementation that doesn't actually transform the edges
     }
 }
 

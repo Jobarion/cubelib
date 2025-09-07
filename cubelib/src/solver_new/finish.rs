@@ -314,11 +314,11 @@ fn gen_htr_ls_finish() -> HTRLeaveSliceFinishPruningTable {
 }
 
 fn gen_dr_finish() -> DRFinishPruningTable {
-    Box::new(MemoryMappedIndexTable::load_and_save("drfin", ||lookup_table::generate_large_table(&HTR_DR_UD_MOVESET)).0)
+    Box::new(MemoryMappedIndexTable::load_and_save("drfin", ||lookup_table::generate_large_table::<{DR_FINISH_SIZE}, DRFinishCoord>(&HTR_DR_UD_MOVESET)).0)
 }
 
 fn gen_dr_leave_slice_finish() -> DRLeaveSliceFinishPruningTable {
-    Box::new(MemoryMappedIndexTable::load_and_save("drfinls", ||lookup_table::generate_large_table(&HTR_DR_UD_MOVESET)).0)
+    Box::new(MemoryMappedIndexTable::load_and_save("drfinls", ||lookup_table::generate_large_table::<{DR_FINISH_LS_SIZE}, DRLeaveSliceFinishCoord>(&HTR_DR_UD_MOVESET)).0)
 }
 
 pub mod builder {

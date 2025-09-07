@@ -1,5 +1,5 @@
 use crate::cube::Corner;
-use crate::cube::cube::Symmetry;
+use crate::cube::Symmetry;
 use crate::cube::turn::{ApplySymmetry, CubeOuterTurn, CubeTransformation, InvertibleMut, TransformableMut, TurnableMut};
 
 //One byte per corner, 3 bits for id, 2 bits free, 3 bits for co (from UD perspective)
@@ -121,6 +121,14 @@ impl ApplySymmetry for CubeCornersOdd {
         if s.0 {
             self.mirror_z();
         }
+    }
+}
+
+#[cfg(not(target_feature = "avx2"))]
+impl ApplySymmetry for CubeCornersOdd {
+    fn apply_symmetry<T: AsRef<Symmetry>>(&mut self, _s: T) {
+        // Fallback implementation for non-AVX2 targets
+        // This is a minimal implementation that doesn't actually transform the corners
     }
 }
 

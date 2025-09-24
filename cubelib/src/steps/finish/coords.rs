@@ -346,7 +346,7 @@ pub(crate) fn inverse_permutation_n<const N: usize>(perm: u32) -> [u8; N] {
 
 #[cfg(target_feature = "avx2")]
 mod avx2 {
-    use std::arch::x86_64::{__m128i, _mm_and_si128, _mm_cmpeq_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi16, _mm_hadd_epi32, _mm_load_si128, _mm_movemask_epi8, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi8, _mm_set_epi16, _mm_set_epi64x, _mm_set_epi8, _mm_setr_epi16, _mm_setr_epi8, _mm_shuffle_epi8, _mm_slli_epi32, _mm_srli_epi32};
+    use std::arch::x86_64::{__m128i, _mm_and_si128, _mm_cmpeq_epi8, _mm_cmplt_epi8, _mm_extract_epi16, _mm_extract_epi64, _mm_hadd_epi16, _mm_hadd_epi32, _mm_load_si128, _mm_movemask_epi8, _mm_mullo_epi16, _mm_or_si128, _mm_sad_epu8, _mm_set1_epi8, _mm_set_epi16, _mm_set_epi8, _mm_setr_epi16, _mm_setr_epi8, _mm_shuffle_epi8, _mm_slli_epi32, _mm_srli_epi32};
     use crate::cube::*;
     use crate::steps::coord::avx2::unsafe_permutation_8;
     use crate::steps::finish::coords::{CPCoord, DRFinishCoord, DRFinishNonSliceEP, DRFinishSliceCoord, DRLeaveSliceFinishCoord, FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord, inverse_permutation_n};
@@ -425,14 +425,6 @@ mod avx2 {
     pub(crate) unsafe fn unsafe_from_cpcoord(value: &CornerCube333) -> CPCoord {
         let cp_values = _mm_and_si128(_mm_srli_epi32::<5>(value.0), _mm_set1_epi8(0b111));
         CPCoord(unsafe_permutation_8(cp_values))
-    }
-
-    #[inline]
-    unsafe fn hsum_epi16_sse3(v: __m128i) -> u16 {
-        let sum = _mm_hadd_epi16(v, _mm_set1_epi8(0));
-        let sum = _mm_hadd_epi16(sum, _mm_set1_epi8(0));
-        let sum = _mm_hadd_epi16(sum, _mm_set1_epi8(0));
-        _mm_extract_epi16::<0>(sum) as u16
     }
 
     #[target_feature(enable = "avx2")]

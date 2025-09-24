@@ -605,7 +605,7 @@ mod avx2 {
 
 #[cfg(target_feature = "neon")]
 mod neon {
-    use std::arch::aarch64::{uint8x8_t, vadd_u8, vaddq_u8, vaddv_u8, vaddvq_u16, vand_u8, vandq_u8, vceq_u8, vclt_u8, vcltq_u8, vcombine_u8, vdup_n_u8, vdupq_n_u8, vget_low_u8, vld1_u8, vld1q_u8, vmul_u8, vmulq_u16, vorr_u8, vorrq_u8, vqtbl1_u8, vqtbl1q_u8, vreinterpretq_u16_u8, vshl_n_u8, vshlq_n_u8, vshr_n_u8, vshrq_n_u8, vtbl1_u8, vzip1q_u8};
+    use std::arch::aarch64::{vadd_u8, vaddq_u8, vaddv_u8, vaddvq_u16, vand_u8, vandq_u8, vceq_u8, vclt_u8, vcltq_u8, vcombine_u8, vdup_n_u8, vdupq_n_u8, vget_low_u8, vld1_u8, vld1q_u8, vmul_u8, vmulq_u16, vorr_u8, vorrq_u8, vqtbl1_u8, vqtbl1q_u8, vreinterpretq_u16_u8, vshl_n_u8, vshlq_n_u8, vshr_n_u8, vshrq_n_u8, vtbl1_u8, vzip1q_u8};
 
     use crate::cube::{CornerCube333, Cube333, EdgeCube333};
     use crate::simd_util::neon::{C16, C8, extract_most_significant_bits_u8};

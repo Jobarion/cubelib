@@ -91,17 +91,18 @@ pub type EdgeCoord = default_coords::EdgeCoord;
 
 #[cfg(any(target_feature = "avx2", target_feature = "neon"))]
 mod default_coords {
-    use crate::cube::{CornerCube333, Cube333, EdgeCube333};
+    use crate::cube::{CornerCube333, Cube333};
     use crate::steps;
     use crate::steps::coord::{Coord};
-    use crate::steps::eo::coords::EOCoordFB;
 
     #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
     pub struct CPCoord(pub u16);
+    #[cfg(target_feature = "avx2")]
     #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
     pub struct EPCoord(pub u32);
+    #[cfg(target_feature = "avx2")]
     #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-    pub struct EdgeCoord(pub EOCoordFB, pub EPCoord);
+    pub struct EdgeCoord(pub steps::eo::coords::EOCoordFB, pub EPCoord);
 
     impl Coord<40320> for CPCoord {
         fn val(&self) -> usize {
@@ -109,15 +110,17 @@ mod default_coords {
         }
     }
 
+    #[cfg(target_feature = "avx2")]
     impl Coord<479001600> for EPCoord {
         fn val(&self) -> usize {
             self.0 as usize
         }
     }
 
+    #[cfg(target_feature = "avx2")]
     impl Coord<{2048 * 479001600}> for EdgeCoord {
         fn val(&self) -> usize {
-            self.0.val() * EOCoordFB::size() + self.1.val()
+            self.0.val() * steps::eo::coords::EOCoordFB::size() + self.1.val()
         }
     }
 
@@ -127,23 +130,26 @@ mod default_coords {
         }
     }
 
+    #[cfg(target_feature = "avx2")]
     impl Into<usize> for EPCoord {
         fn into(self) -> usize {
             self.0 as usize
         }
     }
 
+    #[cfg(target_feature = "avx2")]
     impl Into<usize> for EdgeCoord {
         fn into(self) -> usize {
             self.val()
         }
     }
 
+    #[cfg(target_feature = "avx2")]
     impl EdgeCoord {
         pub fn new(val: usize) -> Self {
-            let eo = val % EOCoordFB::size();
-            let ep = val / EOCoordFB::size();
-            Self(EOCoordFB(eo as u16), EPCoord(ep as u32))
+            let eo = val % steps::eo::coords::EOCoordFB::size();
+            let ep = val / steps::eo::coords::EOCoordFB::size();
+            Self(steps::eo::coords::EOCoordFB(eo as u16), EPCoord(ep as u32))
         }
     }
 
@@ -161,8 +167,8 @@ mod default_coords {
     }
 
     #[cfg(target_feature = "avx2")]
-    impl From<&EdgeCube333> for EPCoord {
-        fn from(value: &EdgeCube333) -> Self {
+    impl From<&crate::cube::EdgeCube333> for EPCoord {
+        fn from(value: &crate::cube::EdgeCube333) -> Self {
             unsafe {
                 steps::coord::avx2::unsafe_from_epcoord(value)
             }
@@ -170,14 +176,14 @@ mod default_coords {
     }
 
     #[cfg(target_feature = "avx2")]
-    impl From<&EdgeCube333> for EdgeCoord {
-        fn from(value: &EdgeCube333) -> Self {
-            Self(EOCoordFB::from(value), EPCoord::from(value))
+    impl From<&crate::cube::EdgeCube333> for EdgeCoord {
+        fn from(value: &crate::cube::EdgeCube333) -> Self {
+            Self(crate::steps::eo::coords::EOCoordFB::from(value), EPCoord::from(value))
         }
     }
 
     #[cfg(target_feature = "avx2")]
-    impl From<EdgeCoord> for EdgeCube333 {
+    impl From<EdgeCoord> for crate::cube::EdgeCube333 {
         fn from(value: EdgeCoord) -> Self {
             unsafe {
                 steps::coord::avx2::unsafe_inverse_from_edge_coord(value)

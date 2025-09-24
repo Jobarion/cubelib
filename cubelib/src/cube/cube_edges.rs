@@ -419,17 +419,15 @@ mod avx2 {
 
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_new_solved() -> CenterEdgeCube {
-        CenterEdgeCube(unsafe {
-            _mm_slli_epi64::<4>(_mm_setr_epi8( 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 0, 0, 0))
-        })
+        CenterEdgeCube(_mm_slli_epi64::<4>(_mm_setr_epi8( 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 0, 0, 0)))
     }
 
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_from_bytes(bytes: [u8; 12]) -> CenterEdgeCube {
-
-        CenterEdgeCube(unsafe {
-            _mm_setr_epi8(bytes[0] as i8, bytes[1] as i8, bytes[2] as i8, bytes[3] as i8, bytes[4] as i8, bytes[5] as i8, bytes[6] as i8, bytes[7] as i8, bytes[8] as i8, bytes[9] as i8, bytes[10] as i8, bytes[11] as i8, 0, 0, 0, 0)
-        })
+        CenterEdgeCube(_mm_setr_epi8(bytes[0] as i8, bytes[1] as i8, bytes[2] as i8, bytes[3] as i8,
+                                     bytes[4] as i8, bytes[5] as i8, bytes[6] as i8, bytes[7] as i8,
+                                     bytes[8] as i8, bytes[9] as i8, bytes[10] as i8, bytes[11] as i8,
+                                     0, 0, 0, 0))
     }
 
     #[target_feature(enable = "avx2")]

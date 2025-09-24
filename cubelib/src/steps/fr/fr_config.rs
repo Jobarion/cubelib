@@ -34,7 +34,7 @@ pub type FRPruningTable = InMemoryIndexTable<{ FRUD_WITH_SLICE_SIZE }, FRUDWithS
 pub type FRLeaveSlicePruningTableStep<'a> = DefaultPruningTableStep::<'a, {FRUD_NO_SLICE_SIZE}, FRUDNoSliceCoord, { HTRDRUD_SIZE }, HTRDRUDCoord>;
 pub type FRPruningTableStep<'a> = DefaultPruningTableStep::<'a, {FRUD_WITH_SLICE_SIZE}, FRUDWithSliceCoord, { HTRDRUD_SIZE }, HTRDRUDCoord>;
 
-pub fn from_step_config(table: &FRPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
+pub fn from_step_config(table: &FRPruningTable, config: StepConfig) -> Result<(Step333<'_>, DefaultStepOptions), String> {
     let step = if let Some(substeps) = config.substeps {
         let axis: Result<Vec<CubeAxis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
             "frud" | "ud" => Ok(CubeAxis::UD),
@@ -66,7 +66,7 @@ pub fn from_step_config(table: &FRPruningTable, config: StepConfig) -> Result<(S
     Ok((step, search_opts))
 }
 
-pub fn from_step_config_no_slice(table: &FRLeaveSlicePruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
+pub fn from_step_config_no_slice(table: &FRLeaveSlicePruningTable, config: StepConfig) -> Result<(Step333<'_>, DefaultStepOptions), String> {
     let step = if let Some(substeps) = config.substeps {
         let axis: Result<Vec<CubeAxis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
             "frud" | "ud" => Ok(CubeAxis::UD),
@@ -98,11 +98,11 @@ pub fn from_step_config_no_slice(table: &FRLeaveSlicePruningTable, config: StepC
     Ok((step, search_opts))
 }
 
-pub fn fr_no_slice_any(table: &FRLeaveSlicePruningTable) -> Step333 {
+pub fn fr_no_slice_any(table: &FRLeaveSlicePruningTable) -> Step333<'_> {
     fr_no_slice(table, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR])
 }
 
-pub fn fr_any(table: &FRPruningTable) -> Step333 {
+pub fn fr_any(table: &FRPruningTable) -> Step333<'_> {
     fr(table, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR])
 }
 

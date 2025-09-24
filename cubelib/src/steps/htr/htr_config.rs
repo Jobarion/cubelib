@@ -14,7 +14,7 @@ pub type HTRPruningTable = InMemoryNissIndexTable<{ HTRDRUD_SIZE }, HTRDRUDCoord
 pub type HTRSubsetTable = InMemoryIndexTable<{ HTRDRUD_SIZE }, HTRDRUDCoord>;
 pub type HTRPruningTableStep<'a> = DefaultPruningTableStep<'a, {HTRDRUD_SIZE}, HTRDRUDCoord, {DRUDEOFB_SIZE}, DRUDEOFBCoord>;
 
-pub fn from_step_config(table: &HTRPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
+pub fn from_step_config(table: &HTRPruningTable, config: StepConfig) -> Result<(Step333<'_>, DefaultStepOptions), String> {
     let step = if let Some(substeps) = config.substeps {
         let axis: Result<Vec<CubeAxis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
             "htrud" | "ud" => Ok(CubeAxis::UD),
@@ -46,7 +46,7 @@ pub fn from_step_config(table: &HTRPruningTable, config: StepConfig) -> Result<(
     Ok((step, search_opts))
 }
 
-pub fn htr_any(table: &HTRPruningTable) -> Step333 {
+pub fn htr_any(table: &HTRPruningTable) -> Step333<'_> {
     htr(table, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR])
 }
 

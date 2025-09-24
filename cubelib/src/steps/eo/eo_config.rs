@@ -51,7 +51,7 @@ pub struct EOStepTable<'a> {
     variant: crate::defs::StepVariant,
 }
 
-pub fn from_step_config(table: &EOPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
+pub fn from_step_config(table: &EOPruningTable, config: StepConfig) -> Result<(Step333<'_>, DefaultStepOptions), String> {
     let step = if let Some(substeps) = config.substeps {
         let axis: Result<Vec<CubeAxis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
             "eoud" | "ud" => Ok(CubeAxis::UD),
@@ -83,11 +83,11 @@ pub fn from_step_config(table: &EOPruningTable, config: StepConfig) -> Result<(S
     Ok((step, search_opts))
 }
 
-pub fn eo_any(table: &EOPruningTable) -> Step333 {
+pub fn eo_any(table: &EOPruningTable) -> Step333<'_> {
     eo(table, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR])
 }
 
-pub fn eo(table: &EOPruningTable, eo_axis: Vec<CubeAxis>) -> Step333 {
+pub fn eo(table: &EOPruningTable, eo_axis: Vec<CubeAxis>) -> Step333<'_> {
     let step_variants = eo_axis
         .into_iter()
         .map(move |x| {

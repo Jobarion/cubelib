@@ -35,7 +35,7 @@ pub fn gen_tables(steps: &Vec<StepConfig>, tables: &mut PruningTables333) {
     }
 }
 
-pub fn build_steps(steps: Vec<StepConfig>, tables: &PruningTables333) -> Result<Vec<(Step, DefaultStepOptions)>, String> {
+pub fn build_steps(steps: Vec<StepConfig>, tables: &PruningTables333) -> Result<Vec<(Step<'_>, DefaultStepOptions)>, String> {
     let previous = vec![None].into_iter().chain(steps.iter().map(|x|Some(x.kind.clone()))).collect_vec();
     let steps = steps.into_iter().zip(previous.into_iter()).collect_vec();
 

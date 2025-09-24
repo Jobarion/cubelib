@@ -48,7 +48,7 @@ pub type HTRFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { HTR_FIN
 pub type HTRLeaveSliceFinishPruningTable = InMemoryIndexTable<{ HTR_LEAVE_SLICE_FINISH_SIZE }, HTRLeaveSliceFinishCoord>;
 pub type HTRLeaveSliceFinishPruningTableStep<'a> = DefaultPruningTableStep::<'a, { HTR_LEAVE_SLICE_FINISH_SIZE }, HTRLeaveSliceFinishCoord, { HTRDRUD_SIZE }, HTRDRUDCoord>;
 
-pub fn from_step_config_fr(table: &FRFinishPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
+pub fn from_step_config_fr(table: &FRFinishPruningTable, config: StepConfig) -> Result<(Step333<'_>, DefaultStepOptions), String> {
     let step = if let Some(substeps) = config.substeps {
         let axis: Result<Vec<CubeAxis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
             "finishud" | "finud" | "ud" => Ok(CubeAxis::UD),
@@ -80,7 +80,7 @@ pub fn from_step_config_fr(table: &FRFinishPruningTable, config: StepConfig) -> 
     Ok((step, search_opts))
 }
 
-pub fn from_step_config_fr_leave_slice(table: &FRFinishPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
+pub fn from_step_config_fr_leave_slice(table: &FRFinishPruningTable, config: StepConfig) -> Result<(Step333<'_>, DefaultStepOptions), String> {
     let step = if let Some(substeps) = config.substeps {
         let axis: Result<Vec<CubeAxis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
             "finishud" | "finud" | "ud" => Ok(CubeAxis::UD),
@@ -112,7 +112,7 @@ pub fn from_step_config_fr_leave_slice(table: &FRFinishPruningTable, config: Ste
     Ok((step, search_opts))
 }
 
-pub fn from_step_config_htr(table: &HTRFinishPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
+pub fn from_step_config_htr(table: &HTRFinishPruningTable, config: StepConfig) -> Result<(Step333<'_>, DefaultStepOptions), String> {
     let search_opts = DefaultStepOptions::new(
         config.min.unwrap_or(0),
         config.max.unwrap_or(10),
@@ -128,7 +128,7 @@ pub fn from_step_config_htr(table: &HTRFinishPruningTable, config: StepConfig) -
     Ok((htr_finish(table), search_opts))
 }
 
-pub fn from_step_config_htr_leave_slice(table: &HTRLeaveSliceFinishPruningTable, config: StepConfig) -> Result<(Step333, DefaultStepOptions), String> {
+pub fn from_step_config_htr_leave_slice(table: &HTRLeaveSliceFinishPruningTable, config: StepConfig) -> Result<(Step333<'_>, DefaultStepOptions), String> {
     let step = if let Some(substeps) = config.substeps {
         let axis: Result<Vec<CubeAxis>, String> = substeps.into_iter().map(|step| match step.to_lowercase().as_str() {
             "finishud" | "finud" | "ud" => Ok(CubeAxis::UD),
@@ -160,7 +160,7 @@ pub fn from_step_config_htr_leave_slice(table: &HTRLeaveSliceFinishPruningTable,
     Ok((step, search_opts))
 }
 
-pub fn fr_finish_any(table: &FRFinishPruningTable) -> Step333 {
+pub fn fr_finish_any(table: &FRFinishPruningTable) -> Step333<'_> {
     fr_finish(table, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR])
 }
 
@@ -180,13 +180,13 @@ pub fn fr_finish<'a>(table: &'a FRFinishPruningTable, fr_axis: Vec<CubeAxis>) ->
     Step::new(step_variants, StepKind::FIN, true)
 }
 
-pub fn htr_finish(table: &HTRFinishPruningTable) -> Step333 {
+pub fn htr_finish(table: &HTRFinishPruningTable) -> Step333<'_> {
     Step::new(vec![
         Box::new(HTRFinishPruningTableStep::new(&HTR_FINISH_MOVESET, vec![], table, Rc::new(vec![]), crate::defs::StepVariant::HTRFIN))
     ], StepKind::FIN, true)
 }
 
-pub fn htr_finish_leave_slice_any(table: &HTRLeaveSliceFinishPruningTable) -> Step333 {
+pub fn htr_finish_leave_slice_any(table: &HTRLeaveSliceFinishPruningTable) -> Step333<'_> {
     htr_finish_leave_slice(table, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR])
 }
 
@@ -207,7 +207,7 @@ pub fn htr_finish_leave_slice<'a>(table: &'a HTRLeaveSliceFinishPruningTable, sl
 }
 
 
-pub fn fr_finish_leave_slice_any(table: &FRFinishPruningTable) -> Step333 {
+pub fn fr_finish_leave_slice_any(table: &FRFinishPruningTable) -> Step333<'_> {
     fr_finish_leave_slice(table, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR])
 }
 

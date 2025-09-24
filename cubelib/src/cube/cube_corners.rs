@@ -403,17 +403,13 @@ mod avx2 {
     #[target_feature(enable = "avx2")]
     #[inline]
     pub(crate) unsafe fn unsafe_new_solved() -> CubeCornersOdd {
-        CubeCornersOdd(unsafe {
-            _mm_slli_epi64::<5>(_mm_setr_epi8( 0, 1, 2, 3, 4, 5, 6, 7, 0, 0, 0, 0, 0, 0, 0,0))
-        })
+        CubeCornersOdd(_mm_slli_epi64::<5>(_mm_setr_epi8( 0, 1, 2, 3, 4, 5, 6, 7, 0, 0, 0, 0, 0, 0, 0,0)))
     }
 
     #[target_feature(enable = "avx2")]
     #[inline]
     pub(crate) unsafe fn unsafe_from_bytes(bytes: [u8; 8]) -> CubeCornersOdd {
-        CubeCornersOdd(unsafe {
-            _mm_setr_epi8(bytes[0] as i8, bytes[1] as i8, bytes[2] as i8, bytes[3] as i8, bytes[4] as i8, bytes[5] as i8, bytes[6] as i8, bytes[7] as i8, 0, 0, 0, 0, 0, 0, 0,0)
-        })
+        CubeCornersOdd(_mm_setr_epi8(bytes[0] as i8, bytes[1] as i8, bytes[2] as i8, bytes[3] as i8, bytes[4] as i8, bytes[5] as i8, bytes[6] as i8, bytes[7] as i8, 0, 0, 0, 0, 0, 0, 0,0))
     }
 
     #[target_feature(enable = "avx2")]
@@ -515,13 +511,11 @@ mod avx2 {
     #[target_feature(enable = "avx2")]
     #[inline]
     pub(crate) unsafe fn unsafe_invert(cube: &mut CubeCornersOdd) {
-        let corner_ids = unsafe {
-            (_mm_extract_epi64::<0>(_mm_srli_epi32::<5>(_mm_and_si128(
+        let corner_ids = (_mm_extract_epi64::<0>(_mm_srli_epi32::<5>(_mm_and_si128(
                 cube.0,
                 _mm_set1_epi8(0xE0_u8 as i8),
             ))) as u64)
-                .to_le_bytes()
-        };
+                .to_le_bytes();
 
         let mut corner_shuffle = corner_ids.clone();
         for i in 0..8 {

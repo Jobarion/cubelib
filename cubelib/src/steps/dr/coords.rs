@@ -189,76 +189,73 @@ mod avx2 {
     pub(crate) unsafe fn unsafe_from_udslice_unsorted_coord(
         value: &EdgeCube333,
     ) -> UDSliceUnsortedCoord {
-        let coord = unsafe {
-            let slice_edges =
-                _mm_srli_epi32::<6>(_mm_and_si128(value.0, _mm_set1_epi8(0b01000000)));
-            //Our edge order is
-            // UB UR UF UL FR FL BR BL DF DR DB DL
+        let slice_edges =
+            _mm_srli_epi32::<6>(_mm_and_si128(value.0, _mm_set1_epi8(0b01000000)));
+        //Our edge order is
+        // UB UR UF UL FR FL BR BL DF DR DB DL
 
-            //Kociemba uses
-            // UR UF UL UB DR DF DL DB FR FL BL BR
+        //Kociemba uses
+        // UR UF UL UB DR DF DL DB FR FL BL BR
 
-            //We map to Kociemba's order here to make things simpler for us, but this could be optimized out if we just adjust the later shuffle masks
-            let slice_edges = _mm_shuffle_epi8(
-                slice_edges,
-                _mm_setr_epi8( 1, 2, 3, 0, 9, 8, 11, 10, 4, 5, 7, 6, -1, -1, -1,-1),
-            );
+        //We map to Kociemba's order here to make things simpler for us, but this could be optimized out if we just adjust the later shuffle masks
+        let slice_edges = _mm_shuffle_epi8(
+            slice_edges,
+            _mm_setr_epi8( 1, 2, 3, 0, 9, 8, 11, 10, 4, 5, 7, 6, -1, -1, -1,-1),
+        );
 
-            let non_slice_edge_mask = _mm_cmpeq_epi8(slice_edges, _mm_set1_epi8(0));
+        let non_slice_edge_mask = _mm_cmpeq_epi8(slice_edges, _mm_set1_epi8(0));
 
-            let edge_sums = _mm_add_epi8(slice_edges, _mm_shuffle_epi8(
-                slice_edges,
-                _mm_setr_epi8(-1, 0, 1, 2, -1, 4, 5, 6, -1, 8, 9, 10, -1, -1, -1 ,-1),
-            ));
+        let edge_sums = _mm_add_epi8(slice_edges, _mm_shuffle_epi8(
+            slice_edges,
+            _mm_setr_epi8(-1, 0, 1, 2, -1, 4, 5, 6, -1, 8, 9, 10, -1, -1, -1 ,-1),
+        ));
 
-            let edge_sums = _mm_add_epi8(edge_sums, _mm_shuffle_epi8(
-                edge_sums,
-                _mm_setr_epi8(-1, -1, 0, 1, -1, -1, 4, 5, -1, -1, 8, 9, -1, -1, -1, -1),
-            ));
+        let edge_sums = _mm_add_epi8(edge_sums, _mm_shuffle_epi8(
+            edge_sums,
+            _mm_setr_epi8(-1, -1, 0, 1, -1, -1, 4, 5, -1, -1, 8, 9, -1, -1, -1, -1),
+        ));
 
-            let edge_sums = _mm_add_epi8(edge_sums, _mm_shuffle_epi8(
-                edge_sums,
-                _mm_setr_epi8(-1, -1, -1, -1, 3 , 3, 3, 3, -1, -1, -1, -1, -1, -1, -1, -1),
-            ));
+        let edge_sums = _mm_add_epi8(edge_sums, _mm_shuffle_epi8(
+            edge_sums,
+            _mm_setr_epi8(-1, -1, -1, -1, 3 , 3, 3, 3, -1, -1, -1, -1, -1, -1, -1, -1),
+        ));
 
-            let edge_sums = _mm_add_epi8(edge_sums, _mm_shuffle_epi8(
-                edge_sums,
-                _mm_setr_epi8(-1, -1, -1, -1, -1, -1, -1, -1, 7, 7, 7, 7, -1, -1, -1, -1),
-            ));
+        let edge_sums = _mm_add_epi8(edge_sums, _mm_shuffle_epi8(
+            edge_sums,
+            _mm_setr_epi8(-1, -1, -1, -1, -1, -1, -1, -1, 7, 7, 7, 7, -1, -1, -1, -1),
+        ));
 
-            let non_slice_edge_sums = _mm_and_si128(edge_sums, non_slice_edge_mask);
+        let non_slice_edge_sums = _mm_and_si128(edge_sums, non_slice_edge_mask);
 
-            let lut_index = _mm_and_si128(
-                _mm_sub_epi8(non_slice_edge_sums, _mm_set1_epi8(1)),
-                _mm_set1_epi8(0b10001111_u8 as i8),
-            );
-            let lut_index = _mm_add_epi8(
-                lut_index,
-                _mm_setr_epi8( 0, 4, 8, 12, 0, 4, 8, 12, 0, 4, 8, 12, 0, 0, 0,0),
-            );
+        let lut_index = _mm_and_si128(
+            _mm_sub_epi8(non_slice_edge_sums, _mm_set1_epi8(1)),
+            _mm_set1_epi8(0b10001111_u8 as i8),
+        );
+        let lut_index = _mm_add_epi8(
+            lut_index,
+            _mm_setr_epi8( 0, 4, 8, 12, 0, 4, 8, 12, 0, 4, 8, 12, 0, 0, 0,0),
+        );
 
-            let binom0123 = _mm_and_si128(
-                _mm_shuffle_epi8(UD_SLICE_BINOM_0, lut_index),
-                _mm_setr_epi32( -1, 0, 0,0),
-            );
-            let binom4567 = _mm_and_si128(
-                _mm_shuffle_epi8(UD_SLICE_BINOM_1, lut_index),
-                _mm_setr_epi32( 0, -1, 0,0),
-            );
-            let binom891011 = _mm_and_si128(
-                _mm_shuffle_epi8(UD_SLICE_BINOM_2, lut_index),
-                _mm_setr_epi32( 0, 0, -1,0),
-            );
+        let binom0123 = _mm_and_si128(
+            _mm_shuffle_epi8(UD_SLICE_BINOM_0, lut_index),
+            _mm_setr_epi32( -1, 0, 0,0),
+        );
+        let binom4567 = _mm_and_si128(
+            _mm_shuffle_epi8(UD_SLICE_BINOM_1, lut_index),
+            _mm_setr_epi32( 0, -1, 0,0),
+        );
+        let binom891011 = _mm_and_si128(
+            _mm_shuffle_epi8(UD_SLICE_BINOM_2, lut_index),
+            _mm_setr_epi32( 0, 0, -1,0),
+        );
 
-            let hsum = _mm_or_si128(binom0123, _mm_or_si128(binom4567, binom891011));
+        let hsum = _mm_or_si128(binom0123, _mm_or_si128(binom4567, binom891011));
 
-            let hsum_u16 = _mm_sad_epu8(hsum, _mm_set1_epi8(0));
+        let hsum_u16 = _mm_sad_epu8(hsum, _mm_set1_epi8(0));
 
-            let hsum = _mm_hadd_epi32(_mm_shuffle_epi32::<0b11111000>(hsum_u16), _mm_set1_epi32(0));
+        let hsum = _mm_hadd_epi32(_mm_shuffle_epi32::<0b11111000>(hsum_u16), _mm_set1_epi32(0));
 
-            _mm_extract_epi16::<0>(hsum) as u16
-        };
-        UDSliceUnsortedCoord(coord)
+        UDSliceUnsortedCoord(_mm_extract_epi16::<0>(hsum) as u16)
     }
 
     const FACTORIAL: [u32; 12] = [

@@ -123,6 +123,10 @@ impl From<&EdgeCube333> for DRFinishSliceCoord {
     fn from(value: &EdgeCube333) -> Self {
         unsafe { avx2::unsafe_from_drfinish_slice_coord(value) }
     }
+    #[cfg(target_feature = "neon")]
+    fn from(value: &EdgeCube333) -> Self {
+        unsafe { neon::unsafe_from_drfinish_slice_coord(value) }
+    }
 }
 
 impl From<&EdgeCube333> for DRFinishNonSliceEP {
@@ -130,10 +134,14 @@ impl From<&EdgeCube333> for DRFinishNonSliceEP {
     fn from(value: &EdgeCube333) -> Self {
         unsafe { avx2::unsafe_from_drfinish_edges_coord(value) }
     }
+    #[cfg(target_feature = "neon")]
+    fn from(value: &EdgeCube333) -> Self {
+        unsafe { neon::unsafe_from_drfinish_edges_coord(value) }
+    }
 }
 
+#[cfg(any(target_feature = "avx2", target_feature = "neon"))]
 impl From<&Cube333> for DRFinishCoord {
-    #[cfg(target_feature = "avx2")]
     fn from(value: &Cube333) -> Self {
         let cp = CPCoord::from(&value.corners);
         let slice_ep = DRFinishSliceCoord::from(&value.edges);
@@ -157,8 +165,8 @@ impl From<usize> for DRFinishCoord {
     }
 }
 
+#[cfg(any(target_feature = "avx2", target_feature = "neon"))]
 impl From<&Cube333> for DRLeaveSliceFinishCoord {
-    #[cfg(target_feature = "avx2")]
     fn from(value: &Cube333) -> Self {
         let cp = CPCoord::from(&value.corners);
         let non_slice_ep = DRFinishNonSliceEP::from(&value.edges);
@@ -234,11 +242,19 @@ impl From<&Cube333> for HTRLeaveSliceFinishCoord {
     }
 }
 
+#[cfg(target_feature = "avx2")]
 impl From<&CornerCube333> for CPCoord {
     #[inline]
-    #[cfg(target_feature = "avx2")]
     fn from(value: &CornerCube333) -> Self {
         unsafe { avx2::unsafe_from_cpcoord(value) }
+    }
+}
+
+#[cfg(target_feature = "neon")]
+impl From<&CornerCube333> for CPCoord {
+    #[inline]
+    fn from(value: &CornerCube333) -> Self {
+        unsafe { neon::unsafe_from_cpcoord(value) }
     }
 }
 
@@ -249,10 +265,24 @@ impl Into<Cube333> for &DRFinishCoord {
     }
 }
 
+#[cfg(target_feature = "neon")]
+impl Into<Cube333> for &DRFinishCoord {
+    fn into(self) -> Cube333 {
+        unsafe { neon::unsafe_inverse_cube_from_drfinish(self) }
+    }
+}
+
 #[cfg(target_feature = "avx2")]
 impl Into<Cube333> for &DRLeaveSliceFinishCoord {
     fn into(self) -> Cube333 {
         unsafe { avx2::unsafe_inverse_cube_from_drlsfinish(self) }
+    }
+}
+
+#[cfg(target_feature = "neon")]
+impl Into<Cube333> for &DRLeaveSliceFinishCoord {
+    fn into(self) -> Cube333 {
+        unsafe { neon::unsafe_inverse_cube_from_drlsfinish(self) }
     }
 }
 
@@ -638,11 +668,23 @@ mod avx2 {
 
 #[cfg(target_feature = "neon")]
 mod neon {
-    use std::arch::aarch64::{vaddq_u8, vaddv_u8, vaddvq_u16, vand_u8, vandq_u8, vceq_u8, vclt_u8, vcltq_u8, vcombine_u8, vdup_n_u8, vdupq_n_u8, vget_low_u8, vmulq_u16, vorr_u8, vorrq_u8, vqtbl1_u8, vqtbl1q_u8, vreinterpretq_u16_u8, vshr_n_u8, vshrq_n_u8, vtbl1_u8, vzip1q_u8};
+    use std::arch::aarch64::{uint8x8_t, vadd_u8, vaddq_u8, vaddv_u8, vaddvq_u16, vand_u8, vandq_u8, vceq_u8, vclt_u8, vcltq_u8, vcombine_u8, vdup_n_u8, vdupq_n_u8, vget_low_u8, vld1_u8, vld1q_u8, vmul_u8, vmulq_u16, vorr_u8, vorrq_u8, vqtbl1_u8, vqtbl1q_u8, vreinterpretq_u16_u8, vshl_n_u8, vshlq_n_u8, vshr_n_u8, vshrq_n_u8, vtbl1_u8, vzip1q_u8};
 
-    use crate::cube::Cube333;
+    use crate::cube::{CornerCube333, Cube333, EdgeCube333};
     use crate::simd_util::neon::{C16, C8, extract_most_significant_bits_u8};
-    use crate::steps::finish::coords::{FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord};
+    use crate::steps::coord::neon::unsafe_permutation_8;
+    use crate::steps::finish::coords::{CPCoord, DRFinishCoord, DRFinishNonSliceEP, DRFinishSliceCoord, DRLeaveSliceFinishCoord, FRUDFinishCoord, HTRFinishCoord, HTRLeaveSliceFinishCoord, inverse_permutation_n};
+
+    pub(crate) unsafe fn unsafe_from_drfinish_slice_coord(value: &EdgeCube333) -> DRFinishSliceCoord {
+        let edges = vqtbl1_u8(value.0, C8 { a_i8: [5, 6, 7, 6, 7, 7, -1, -1]}.a);
+        let higher_left = vqtbl1_u8(value.0, C8 { a_i8: [4, 4, 4, 5, 5, 6, -1, -1]}.a);
+
+        let higher_left = vand_u8(vclt_u8(edges, higher_left), vdup_n_u8(1));
+        let sum = vadd_u8(higher_left, vtbl1_u8(higher_left, C8 { a_i8: [-1, 3, 4, -1, -1, -1, -1, -1]}.a));
+        let sum = vadd_u8(sum, vtbl1_u8(sum, C8 { a_i8: [-1, -1, 5, -1, -1, -1, -1, -1]}.a));
+        let prod = vmul_u8(sum, C8 { a_u8: [1, 2, 6, 0, 0, 0, 0, 0]}.a);
+        DRFinishSliceCoord(vaddv_u8(prod))
+    }
 
     pub unsafe fn unsafe_from_fr_finish_coord(cube: &Cube333) -> FRUDFinishCoord {
         let correct_ufl_corner_position = vceq_u8(cube.corners.0, vdup_n_u8(0b01100000));
@@ -723,6 +765,65 @@ mod neon {
         let edge_sum_ms = vaddvq_u16(binom) as u32;
 
         HTRFinishCoord(cp_eep_value + edge_sum_ms * 1152)
+    }
+
+    pub(crate) unsafe fn unsafe_from_drfinish_edges_coord(value: &EdgeCube333) -> DRFinishNonSliceEP {
+        let non_slice_edges = vqtbl1_u8(value.0, C8{ a_u8: [0, 1, 2, 3, 8, 9, 10, 11]}.a);
+        DRFinishNonSliceEP(unsafe_permutation_8(vand_u8(vshr_n_u8::<4>(non_slice_edges), vdup_n_u8(0xF))))
+    }
+
+    pub(crate) unsafe fn unsafe_from_cpcoord(value: &CornerCube333) -> CPCoord {
+        let cp_values = vand_u8(vshr_n_u8::<5>(value.0), vdup_n_u8(0b111));
+        CPCoord(unsafe_permutation_8(cp_values))
+    }
+
+    pub(crate) unsafe fn unsafe_inverse_cube_from_drfinish(value: &DRFinishCoord) -> Cube333 {
+        let cp = inverse_permutation_n::<8>(value.0.0 as u32);
+        let cp_data = [cp.as_slice(), &[0;8]].concat();
+
+        let val = std::arch::aarch64::vld1_u8(cp_data.as_ptr());
+        let corners = CornerCube333::new(vshl_n_u8::<5>(val));
+
+        let mut non_slice_edges = inverse_permutation_n::<8>(value.1.0 as u32);
+        for i in 0..8 {
+            if non_slice_edges[i] >= 4 {
+                non_slice_edges[i] += 4;
+            }
+        }
+        let mut slice_edges = inverse_permutation_n::<4>(value.2.0 as u32);
+        for i in 0..4 {
+            slice_edges[i] += 4;
+        }
+        let ep_data = [
+            [&non_slice_edges[0..4], &slice_edges].concat(),
+            [&non_slice_edges[4..8], &[0;4]].concat(),
+        ].concat();
+
+        let val = vld1q_u8(ep_data.as_ptr());
+        let edges = EdgeCube333::new(vshlq_n_u8::<4>(val));
+        Cube333::new(edges, corners)
+    }
+
+    pub(crate) unsafe fn unsafe_inverse_cube_from_drlsfinish(value: &DRLeaveSliceFinishCoord) -> Cube333 {
+        let cp = inverse_permutation_n::<8>(value.0.0 as u32);
+        let cp_data = [cp.as_slice(), &[0;8]].concat();
+        let val = vld1_u8(cp_data.as_ptr());
+        let corners = CornerCube333::new(vshl_n_u8::<5>(val));
+
+        let mut non_slice_edges = inverse_permutation_n::<8>(value.1.0 as u32);
+        for i in 0..8 {
+            if non_slice_edges[i] >= 4 {
+                non_slice_edges[i] += 4;
+            }
+        }
+        let ep_data = [
+            [&non_slice_edges[0..4], &[4, 5, 6, 7]].concat(),
+            [&non_slice_edges[4..8], &[0;4]].concat(),
+        ].concat();
+
+        let val = vld1q_u8(ep_data.as_ptr());
+        let edges = EdgeCube333::new(vshlq_n_u8::<4>(val));
+        Cube333::new(edges, corners)
     }
 }
 

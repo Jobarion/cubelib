@@ -113,7 +113,7 @@ impl InvertibleMut for CenterEdgeCube {
     }
 }
 
-#[cfg(target_feature = "avx2")]
+#[cfg(any(target_feature = "avx2", target_feature = "neon"))]
 impl ApplySymmetry for CenterEdgeCube {
     fn apply_symmetry<T: AsRef<Symmetry>>(&mut self, s: T) {
         let s = s.as_ref();
@@ -129,6 +129,11 @@ impl ApplySymmetry for CenterEdgeCube {
 impl CenterEdgeCube {
     #[cfg(target_feature = "avx2")]
     pub fn new(state: std::arch::x86_64::__m128i) -> CenterEdgeCube {
+        CenterEdgeCube(state)
+    }
+
+    #[cfg(target_feature = "neon")]
+    pub fn new(state: std::arch::aarch64::uint8x16_t) -> CenterEdgeCube {
         CenterEdgeCube(state)
     }
 

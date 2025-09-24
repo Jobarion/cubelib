@@ -242,7 +242,6 @@ pub(crate) mod avx2 {
 
     #[target_feature(enable = "avx2")]
     pub(crate) unsafe fn unsafe_permutation_8(val: __m128i) -> u16 {
-
         //We interleave the values to make using hadd_epi_<16/32> easier when we combine them
         let values_67 = _mm_shuffle_epi8(
             val,
@@ -390,7 +389,7 @@ pub(crate) mod neon {
         );
         let higher_left_367 = vandq_u8(vcltq_u8(
             values_367,
-            C16 { a_i8: [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 5, 6] }.a
+            vqtbl1q_u8(val, C16 { a_i8: [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 5, 6] }.a)
         ), vdupq_n_u8(1));
 
         let sum_367 = vaddq_u8(
@@ -412,7 +411,7 @@ pub(crate) mod neon {
         );
         let higher_left_1245 = vandq_u8(vcltq_u8(
             values_1245,
-            C16 { a_i8: [0, 0, 1, 0, 1, 2, 0, 3, 1, 2, 3, 4, -1, -1, -1, -1] }.a
+            vqtbl1q_u8(val, C16 { a_i8: [0, 0, 1, 0, 1, 2, 0, 3, 1, 2, 3, 4, -1, -1, -1, -1] }.a)
         ), vdupq_n_u8(1));
 
         let sum_1245 = vaddq_u8(

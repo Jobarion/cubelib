@@ -244,7 +244,7 @@ impl DRFinishStep {
 }
 
 pub struct HTRFinishStep;
-pub type HTRFinishBuilder = builder::HTRFinishBuilderInternal<false, false, false>;
+pub type HTRFinishBuilder = builder::HTRFinishBuilderInternal<false, false, false, false>;
 
 impl HTRFinishStep {
     pub fn builder() -> HTRFinishBuilder {
@@ -253,10 +253,10 @@ impl HTRFinishStep {
 }
 
 impl HTRFinishStep {
-    pub fn new(dfs: DFSParameters, leave_slice: bool) -> StepGroup {
+    pub fn new(dfs: DFSParameters, ls_axis: Vec<CubeAxis>, leave_slice: bool) -> StepGroup {
         debug!("Step fin with options {dfs:?}");
         if leave_slice {
-            let variants = [CubeAxis::UD, CubeAxis::LR, CubeAxis::FB].into_iter()
+            let variants = ls_axis.into_iter()
                 .map(|slice|match slice {
                     CubeAxis::UD => (vec![], slice),
                     CubeAxis::FB => (vec![Transformation333::X], slice),
@@ -440,44 +440,54 @@ pub mod builder {
         }
     }
 
-    pub struct HTRFinishBuilderInternal<const A: bool, const B: bool, const C: bool> {
+    pub struct HTRFinishBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool> {
         _a_max_length: usize,
         _b_max_absolute_length: usize,
         _c_leave_slice: bool,
+        _d_ls_axis: Vec<CubeAxis>,
     }
 
-    impl <const A: bool, const B: bool, const C: bool> HTRFinishBuilderInternal<A, B, C> {
-        fn convert<const _A: bool, const _B: bool, const _C: bool>(self) -> HTRFinishBuilderInternal<_A, _B, _C> {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool> HTRFinishBuilderInternal<A, B, C, D> {
+        fn convert<const _A: bool, const _B: bool, const _C: bool, const _D: bool>(self) -> HTRFinishBuilderInternal<_A, _B, _C, _D> {
             HTRFinishBuilderInternal {
                 _a_max_length: self._a_max_length,
                 _b_max_absolute_length: self._b_max_absolute_length,
                 _c_leave_slice: self._c_leave_slice,
+                _d_ls_axis: self._d_ls_axis,
             }
         }
     }
 
-    impl <const B: bool, const C: bool> HTRFinishBuilderInternal<false, B, C> {
-        pub fn max_length(mut self, max_length: usize) -> HTRFinishBuilderInternal<true, B, C> {
+    impl <const B: bool, const C: bool, const D: bool> HTRFinishBuilderInternal<false, B, C, D> {
+        pub fn max_length(mut self, max_length: usize) -> HTRFinishBuilderInternal<true, B, C, D> {
             self._a_max_length = max_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const C: bool> HTRFinishBuilderInternal<A, false, C> {
-        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> HTRFinishBuilderInternal<A, true, C> {
+    impl <const A: bool, const C: bool, const D: bool> HTRFinishBuilderInternal<A, false, C, D> {
+        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> HTRFinishBuilderInternal<A, true, C, D> {
             self._b_max_absolute_length = max_absolute_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool> HTRFinishBuilderInternal<A, B, false> {
-        pub fn leave_slice(mut self) -> HTRFinishBuilderInternal<A, B, true> {
+    impl <const A: bool, const B: bool, const D: bool> HTRFinishBuilderInternal<A, B, false, D> {
+        pub fn leave_slice(mut self) -> HTRFinishBuilderInternal<A, B, true, D> {
             self._c_leave_slice = true;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool> HTRFinishBuilderInternal<A, B, C> {
+    impl <const A: bool, const B: bool, const C: bool> HTRFinishBuilderInternal<A, B, C, false> {
+        pub fn leave_slice_axis(mut self, ls_axis: Vec<CubeAxis>) -> HTRFinishBuilderInternal<A, B, true, true> {
+            self._c_leave_slice = true;
+            self._d_ls_axis = ls_axis;
+            self.convert()
+        }
+    }
+
+    impl <const A: bool, const B: bool, const C: bool, const D: bool> HTRFinishBuilderInternal<A, B, C, D> {
         pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: NissSwitchType::Never,
@@ -486,27 +496,28 @@ pub mod builder {
                 absolute_max_moves: Some(self._b_max_absolute_length),
                 ignore_previous_step_restrictions: false,
             };
-            HTRFinishStep::new(dfs, self._c_leave_slice)
+            HTRFinishStep::new(dfs, self._d_ls_axis, self._c_leave_slice)
         }
     }
 
-    impl HTRFinishBuilderInternal<false, false, false> {
+    impl HTRFinishBuilderInternal<false, false, false, false> {
         pub fn new() -> Self {
             Self {
                 _a_max_length: 14,
                 _b_max_absolute_length: 50,
                 _c_leave_slice: false,
+                _d_ls_axis: vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR],
             }
         }
     }
 
-    impl Default for HTRFinishBuilderInternal<false, false, false> {
+    impl Default for HTRFinishBuilderInternal<false, false, false, false> {
         fn default() -> Self {
             Self::new()
         }
     }
 
-    impl TryFrom<StepConfig> for HTRFinishBuilderInternal<false, false, false> {
+    impl TryFrom<StepConfig> for HTRFinishBuilderInternal<false, false, false, false> {
         type Error = ();
 
         fn try_from(value: StepConfig) -> Result<Self, Self::Error> {
@@ -525,6 +536,20 @@ pub mod builder {
             }
             if value.kind == StepKind::FINLS {
                 defaults._c_leave_slice = true;
+            }
+            if let Some(variants) = value.substeps {
+                if value.kind == StepKind::FIN {
+                    return Err(())
+                }
+                let axis: Result<Vec<CubeAxis>, Self::Error> = variants.into_iter()
+                    .map(|variant| match variant.to_lowercase().as_str() {
+                        "finishlsud" | "finlsud" | "finishud" | "finud" | "ud" => Ok(CubeAxis::UD),
+                        "finishlsfd" | "finlsfb" | "finishfd" | "finfb" | "fb" => Ok(CubeAxis::FB),
+                        "finishlslr" | "finlslr" | "finishlr" | "finlr" | "lr" => Ok(CubeAxis::LR),
+                        _ => Err(()),
+                    })
+                    .collect();
+                defaults._d_ls_axis = axis?;
             }
             Ok(defaults)
         }

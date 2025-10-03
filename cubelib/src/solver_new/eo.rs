@@ -81,7 +81,7 @@ pub mod builder {
 
     pub struct EOBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> {
         _a_max_length: usize,
-        _b_max_absolute_length: usize,
+        // _b_max_absolute_length: usize,
         _c_niss: NissSwitchType,
         _d_eo_axis: Vec<CubeAxis>,
         _e_min_length: usize,
@@ -91,7 +91,7 @@ pub mod builder {
         fn convert<const _A: bool, const _B: bool, const _C: bool, const _D: bool, const _E: bool>(self) -> EOBuilderInternal<_A, _B, _C, _D, _E> {
             EOBuilderInternal {
                 _a_max_length: self._a_max_length,
-                _b_max_absolute_length: self._b_max_absolute_length,
+                // _b_max_absolute_length: self._b_max_absolute_length,
                 _c_niss: self._c_niss,
                 _d_eo_axis: self._d_eo_axis,
                 _e_min_length: self._e_min_length,
@@ -106,12 +106,12 @@ pub mod builder {
         }
     }
 
-    impl <const A: bool, const C: bool, const D: bool, const E: bool> EOBuilderInternal<A, false, C, D, E> {
-        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> EOBuilderInternal<A, true, C, D, E> {
-            self._b_max_absolute_length = max_absolute_length;
-            self.convert()
-        }
-    }
+    // impl <const A: bool, const C: bool, const D: bool, const E: bool> EOBuilderInternal<A, false, C, D, E> {
+    //     pub fn max_absolute_length(mut self, max_absolute_length: usize) -> EOBuilderInternal<A, true, C, D, E> {
+    //         self._b_max_absolute_length = max_absolute_length;
+    //         self.convert()
+    //     }
+    // }
 
     impl <const A: bool, const B: bool, const D: bool, const E: bool> EOBuilderInternal<A, B, false, D, E> {
         pub fn niss(mut self, niss: NissSwitchType) -> EOBuilderInternal<A, B, true, D, E> {
@@ -140,7 +140,7 @@ pub mod builder {
                 niss_type: self._c_niss,
                 min_moves: self._e_min_length,
                 max_moves: self._a_max_length,
-                absolute_max_moves: Some(self._b_max_absolute_length),
+                absolute_max_moves: None,//Some(self._b_max_absolute_length),
                 ignore_previous_step_restrictions: false,
             };
             EOStep::new(dfs, self._d_eo_axis)
@@ -151,7 +151,7 @@ pub mod builder {
         pub fn new() -> Self {
             Self {
                 _a_max_length: 5,
-                _b_max_absolute_length: 5,
+                // _b_max_absolute_length: 5,
                 _e_min_length: 0,
                 _c_niss: NissSwitchType::Always,
                 _d_eo_axis: vec![CubeAxis::X, CubeAxis::Y, CubeAxis::Z],
@@ -179,9 +179,9 @@ pub mod builder {
             if let Some(max) = value.max {
                 defaults._a_max_length = max as usize;
             }
-            if let Some(abs_max) = value.absolute_max {
-                defaults._b_max_absolute_length = abs_max as usize;
-            }
+            // if let Some(abs_max) = value.absolute_max {
+            //     defaults._b_max_absolute_length = abs_max as usize;
+            // }
             if let Some(niss) = value.niss {
                 defaults._c_niss = niss;
             }

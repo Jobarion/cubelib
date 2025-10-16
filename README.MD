@@ -1,5 +1,5 @@
 # Cubelib
-Cubelib is a project that aims to provide a robust and feature rich and most importantly _fast_ library for dealing with 3x3 Rubik's cubes.
+Cubelib is a project that aims to provide a robust and feature rich and library for dealing with 3x3 Rubik's cubes in the context of Fewest Moves solving (FMC).
 See https://joba.me/mallard for a website that's using cubelib to generate human-findable FMC solutions.
 
 **Download the latest release [here](https://github.com/Jobarion/cubelib/releases/latest)** 
@@ -8,7 +8,7 @@ See https://joba.me/mallard for a website that's using cubelib to generate human
 - Provide simple APIs for manipulating Rubik's cubes (turning, rotating, inverting).
 - Implement a solver that can efficiently get Rubik's cubes from one subgroup into another.
 - Implement common subgroups that are useful for FMC solving for the solver mentioned above.
-- Provide a simple-to-use API for defining custom subgroups.
+- Provide an API for defining custom subgroups.
 - Offer a feature-rich, yet reasonably easy to understand CLI for FMC solving.
 - Implement all of the above in a way that is fast while trying to minimize the use of pre-generated data that has to be stored on disk.
 
@@ -17,36 +17,36 @@ See https://joba.me/mallard for a website that's using cubelib to generate human
 Cubelib aims to define reasonable defaults to make using it as easy as possible.
 To solve a scrambled cube, simply run `cubelib solve <scramble>`. This will return a single solution, broken down into steps. 
 
-Because direct, optimal solutions are rarely ever useful, **Cubelib will by default first solve EO, then DR, then HTR, FR and finally the full cube**. It will also try to pick reasonable defaults for each steps, including restricting DRs to commonly known triggers. This is the major difference between Cubelib and other tools.
+Because direct, optimal solutions are rarely ever useful, **Cubelib will by default first solve EO, then DR, then HTR and finally the full cube**. It will also try to pick reasonable defaults for each steps, including restricting DRs to commonly known triggers. This is the major difference between Cubelib and other tools.
 
 Example of a simple solve:
 ```
-> cubelib solve --niss --quality 5000 "R' U' F R2 U2 L2 F2 D2 R2 B' U2 L2 B F' R B' F' R' U2 B' R2 U' L' D R' U' F"
+> cubelib solve --quality 5000 "R' U' F R2 U2 L2 F2 D2 R2 B' U2 L2 B F' R B' F' R' U2 B' R2 U' L' D R' U' F"
 
-(B' D' L')            //eo-lr      (3/3)
-(B D)                 //rzp-lr     (2/5)
-F2 D F2 L2 D' F       //dr-ud-eolr (6/11)
-L2 U2 B2 D'           //htr-ud     (4/15)
-B2 R2 D2 B2 D2 F2 R2  //finish     (7/22)
+(B' D' L')           // eolr       (3/3)
+(B)                  // rzpud-eolr (1/4)
+F2 D F2 L2 D' F      // drud-eolr  (6/10)
+(U F2 L2 F2 R2 U)    // htr-drud   (6/16)
+(D2 L2 U2 R2 B2 U2)  // fin        (6/22)
+Solution (22): F2 D F2 L2 D' F U2 B2 R2 U2 L2 U' D2 R2 F2 L2 F2 U' B' L D B
 
-Solution (22): F2 D F2 L2 D' F L2 U2 B2 D' B2 R2 D2 B2 D2 F2 R2 D' B' L D B
 ```
 
 There are a couple of options that can be set globally for all steps.
 
-| Argument                           | Description                                                                                                                                          | 
-|------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|  
-| `-n <count>`                       | By default only a single solution is returned. Use this option to define the number of solutions that will be returned                               |
-| `-m <min>` `--min <min>`           | Return only solutions with a minimum length                                                                                                          |
-| `-M <max>` `--max <max>`           | Return only solutions with a maximum length                                                                                                          |
-| `--format`                         | The format used to output solutions. Either `detailed` (default), `compact`, `plain`.                                                                |
-| `-a` `--all`                       | Print solutions that would otherwise get filtered out. E.g. an EO ending in F'                                                                       |
-| `-q <number>` `--quality <number>` | Higher values result in better/shorter solutions, but they take longer to find. Set to `0` for optimal search. The default is `100`                  |
-| `-s` `--steps`                     | Configure the solver pipeline. More information below. Defaults to `EO > RZP > DR[triggers=R,RU2R,RU'R] > HTR > FIN`                                 | 
-| `--backend`                        | Cubelib supports two solver backends. The old one is `iter-stream`, the newer, faster, but more experimental (default) one is `multi-patch-channel`. | 
+| Argument                           | Description                                                                                                                                         | 
+|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|  
+| `-n <count>`                       | By default only a single solution is returned. Use this option to define the number of solutions that will be returned                              |
+| `-m <min>` `--min <min>`           | Return only solutions with a minimum length                                                                                                         |
+| `-M <max>` `--max <max>`           | Return only solutions with a maximum length                                                                                                         |
+| `--format`                         | The format used to output solutions. Either `detailed` (default), `compact`, `plain`.                                                               |
+| `-a` `--all`                       | Print solutions that would otherwise get filtered out. E.g. an EO ending in F'                                                                      |
+| `-q <number>` `--quality <number>` | Higher values result in better/shorter solutions, but they take longer to find. Set to `0` for optimal search. The default is `100`                 |
+| `-s` `--steps`                     | Configure the solver pipeline. More information below. Defaults to `EO > RZP > DR[triggers=R,RU2R,RU'R] > HTR > FIN`                                | 
+| `--backend`                        | Cubelib supports two solver backends. The old one is `iter-stream`, the newer, faster, but more experimental (default) one is `multi-path-channel`. | 
 
 ## Step configurations
-By default Cubelib always solves EO, then DR, HTR and FR before finishing the solve. This order, and the behaviour of these stages can be changed by providing a custom step configuration.
+By default, Cubelib always solves EO, then DR and finally HTR before finishing the solve. This order, and the behaviour of these stages can be changed by providing a custom step configuration.
 A step configuration is a list of steps separated by `>`. The default step configuration is `EO > RZP > DR[triggers=R,RU2R,RU'R] > HTR > FIN`. Each step can be configured by providing additional options. For example, to only look for EOs on UD or FB with a length of 3 to 5 moves, we could write `EO[ud;fb;min=3;max=5]`.
 
 ### Complex step configurations
@@ -60,13 +60,12 @@ The finish from HTR would either be a direct one that is up to 6 moves long, or 
 
 ### Properties supported by all steps
 | Option    | Description                                                                                                                                                     |
-|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------| 
-| `min`     | Minimum number of turns for this step, inclusive                                                                                                                |  
+|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|  
 | `max`     | Maximum number of turns for this step, inclusive                                                                                                                |
 | `niss`    | One of `none` (keep the orientation of the previous step), `before` (switching before the step is allowed), and `always` (switching during the step is allowed) |
 | `limit`   | Limit option for this step. See global options above for more information.                                                                                      |
 | `max-use` | **Only supported by the multi-path-solver backend**. Limits how often a solution to a previous step can be used in the output of this step. Example: `EO > DR > HTR > FIN[max-use=DR:1]` defines that each finish must use a unique DR. Note that if this property is defined on a non finish step, the resulting output can no longer be guaranteed to be optimal.
-If any of these properties are set, they will override global arguments. Any property not set will default to the global setting, or to (step specific) defaults.
+If any of these properties are set, they will override global arguments. Any property not set will default to step specific defaults.
 
 ### Steps
 By default, all steps are executed in all possible orientations. This can be changed for each step.
@@ -102,7 +101,7 @@ Orients the edges on a second axis, and orients the corners.
  - Additional options
    - DR can be restricted to specific triggers by setting `triggers=<trigger1>,<trigger2>,...`. 
      E.g. `triggers=RUR,RU2R,R` would allow only those three triggers **in all possible orientations**. (i.e. `L U' L` is allowed, `R U' R` wouldn't. Inverting the last move is also always allowed).
-     This option implicitly adds an RZP step with default options if one wasn't already defined. If you would like to avoid that, define an RZP step manually with `max=0`. Must not be preceded by an AR step
+     This option implicitly adds an RZP step with default options if one wasn't already defined. If you would like to avoid that, define an RZP step manually with `max=0`.
      
 
 #### HTR
@@ -131,14 +130,17 @@ Cubelib does not yet support insertions, so these will have to be done manually.
 #### FIN
 Solves the cube.
 - Variations: -
-- Prerequisite: FR or HTR
+- Prerequisite: DR, FR or HTR
 - Default NISS option: `none`
-- 
+- Additional options
+  - If the previous step is HTR, Cubelib can find HTR breaking finishes (i.e. including 3-cycle edge insertion) by setting `htr-breaking=true`
 #### FINLS
 Solves the cube, leaving any one slice unsolved.
 - Variations: `ud`, `fb`, `lr`.
 - Prerequisite: HTR or FRLS
 - Default NISS option: `none`
+- Additional options
+    - If the previous step is HTR, Cubelib can find HTR breaking finishes (i.e. including 3-cycle edge insertion) by setting `htr-breaking=true`
 
 ### Examples
 Find all EOs on the `ud` and `fb` axis between 2 and 5 moves, optionally using niss, and then to turn at most 10 of those EOs into DRs on the `fb` or `lr` axis without using NISS:
@@ -168,9 +170,20 @@ cubelib scramble
 cubelib invert <scramble>
 ```
 
+## CLI Download
+The pruning tables for `DR > FIN`, `DR > FINLS` and `HTR > FIN[htr-breaking=true]` can be quite big and take a long time to generate. Downloading them is significantly faster, and therefore recommended.
+```commandline
+cubelib download <table>
+```
+
+## CLI Update
+Cubelib can update itself in place, downloading the latest release from GitHub.
+```commandline
+cubelib update
+```
+
 ## File based Config
-The defaults for the cli commands can be set with a config file. This config file is read from `$HOME/.cubelib/config.toml`.
-The config file is structured like this.
+The defaults for the cli commands can be set with a config file. The precedence is CLI > Config File > Defaults. This config file is read from `$HOME/.cubelib/config.toml` and is structured like this.
 ```toml
 # Global settings
 log = "warn"
@@ -180,8 +193,7 @@ log = "warn"
 quality = 100
 solution_count = 1
 format = "detailed"
-all_solutions = false
-min = 0
+all_solutions = false 
 steps = "EO > DR > HTR > FIN"
 
 # New steps for the solve command
@@ -204,16 +216,20 @@ max = 4
 ```
 
 ## Building CLI from source
-Make sure you have [latest stable version](https://www.rust-lang.org/tools/install) of rust installed.
+Make sure you have [latest version](https://www.rust-lang.org/tools/install) of rust installed.
 
 If you are using rustup, it should be as simple as:
 ```commandline
 rustup install 1.85.1
 ```
+Since Cubelib requires nightly rust, switch to nightly
+```
+cd cli && rustup override set nightly
+```
 
 And then build the release file:
 ```commandline
-cd cli && cargo +1.85.1 build --release
+cargo build --release
 ```
 
 ## APIs
@@ -221,8 +237,8 @@ There is no API documentation yet. If you're interested in actually using this p
 For the most common use cases examples can be found in the [examples](/cubelib/examples) directory.
 
 ## Future work
- - Support directly finishing from HTR or solving DRs without first doing EO.
- - Save pruning tables locally to start more quickly. This is very easy, but generating the current tables only takes a few seconds on modern hardware so this isn't a priority.
+ - ~~Support directly finishing from HTR or~~ solving DRs without first doing EO.
+ - ~~Save pruning tables locally to start more quickly. This is very easy, but generating the current tables only takes a few seconds on modern hardware so this isn't a priority.~~
  - Support WebAssembly as a target and create JavaScript bindings.
  - Depending on WebAssembly support, deploy this project as a website.
  - Stabilize the API
@@ -232,3 +248,4 @@ For the most common use cases examples can be found in the [examples](/cubelib/e
  - This project would not be possible without methods developed by Herbert Kociemba for the Two Step Algorithm and [Cube Explorer](http://kociemba.org/cube.htm).
  - Morwen Thistlethwaite's Algorithm for solving the Rubik's cube is what made modern FMC solving possible. This project is essentially an implementation of a variant of this algorithm.
  - Jaap Scherphuis's description of orbit twists for the transition from Thistlethwaite's G2 to G3 was the only one I could find on this fairly obscure topic, and it was immensely helpful.
+ - Torchlight, for explaining how to calculate the orbit twist from a DR state.

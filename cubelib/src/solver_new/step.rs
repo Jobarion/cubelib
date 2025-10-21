@@ -301,7 +301,7 @@ impl StepIORunner {
                  _ => None,
             };
             let cancel_previous_count = if let Some(dr_axis) = dr_fin_axis {
-                DRFinishStep::get_possible_cancellation_count(input, dr_axis)
+                DRFinishStep::get_possible_cancellation_count(input, dr_axis).min(4)
             } else {
                 0
             };

@@ -174,41 +174,27 @@ impl Algorithm {
             if turns.is_empty() {
                 return turns;
             }
-            let mut canonical = vec![];
-            let mut previous_axis_opt = None;
-            let mut previous_direction_0 = 0;
-            let mut previous_direction_1 = 0;
+            let mut canonical_axis_moves: Vec<(CubeAxis, [u8; 6])> = vec![];
             for Turn333 {face, dir} in turns {
-                if let Some(previous_axis) = previous_axis_opt {
-                    if !face.is_on_axis(previous_axis) {
-                        let (face_0, face_1) = previous_axis.get_faces();
-                        if let Some(direction_0) = Direction::from_qt(previous_direction_0) {
-                            canonical.push(Turn333 { face: face_0, dir: direction_0 });
-                        }
-                        if let Some(direction_1) = Direction::from_qt(previous_direction_1) {
-                            canonical.push(Turn333 { face: face_1, dir: direction_1 });
-                        }
-                        previous_direction_0 = 0;
-                        previous_direction_1 = 0;
+                let face_id = face as usize; // This relies on the face order being UDFBLR.
+                if let Some((axis, ref mut dirs)) = canonical_axis_moves.last_mut() {
+                    if face.is_on_axis(*axis) {
+                        dirs[face_id] += dir.to_qt();
+                        canonical_axis_moves.pop_if(|(_, x)|x.iter().all(|x|(*x % 4) == 0));
+                        continue;
                     }
                 }
-                previous_axis_opt = Some(face.into());
-                if face == Into::<CubeAxis>::into(face).get_faces().0 {
-                    previous_direction_0 += dir.to_qt();
-                } else {
-                    previous_direction_1 += dir.to_qt();
-                }
+                let mut dirs = [0; 6];
+                dirs[face_id] = dir.to_qt();
+                canonical_axis_moves.push((face.into(), dirs));
             }
-            if let Some(previous_axis) = previous_axis_opt {
-                let (face_0, face_1) = previous_axis.get_faces();
-                if let Some(direction_0) = Direction::from_qt(previous_direction_0) {
-                    canonical.push(Turn333 { face: face_0, dir: direction_0 });
-                }
-                if let Some(direction_1) = Direction::from_qt(previous_direction_1) {
-                    canonical.push(Turn333 { face: face_1, dir: direction_1 });
-                }
-            }
-            canonical
+            canonical_axis_moves.into_iter()
+                .flat_map(|(_, axis_dirs)|axis_dirs.into_iter()
+                    .enumerate()
+                    .flat_map(|(face, qt)| Direction::from_qt(qt).map(|dir|(face, dir)))
+                    .map(|(idx, dir)|Turn333 { face: CubeFace::from(idx), dir})
+                )
+                .collect()
         }
         Self {
             normal_moves: canonicalize_vec(self.normal_moves),
@@ -294,5 +280,17 @@ mod test {
     fn test_canonicalize() {
         let alg = Algorithm::from_str("U2 D2 U2 R R F F' L R B F R L").unwrap().canonicalize();
         assert_eq!("D2 R2 L R F B L R", alg.to_string())
+    }
+
+    #[test]
+    fn test_canonicalize_long_sequence() {
+        let alg = Algorithm::from_str("U2 U2 U2 U2 U2").unwrap().canonicalize();
+        assert_eq!("U2", alg.to_string())
+    }
+
+    #[test]
+    fn test_canonicalize_multi_axis() {
+        let alg = Algorithm::from_str("F U2 F F' U2 F").unwrap().canonicalize();
+        assert_eq!("F2", alg.to_string())
     }
 }

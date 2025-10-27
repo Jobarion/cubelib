@@ -80,6 +80,7 @@ impl FRFinishStep {
                     StepGroup::single(Box::new(PruningTableStep::<FR_FINISH_SIZE, FRUDFinishCoord, FRUD_NO_SLICE_SIZE, FRUDNoSliceCoord>  {
                         table: &FR_FINISH_TABLE,
                         options: dfs.clone(),
+                        pre_step_check: vec![],
                         pre_step_trans: trans,
                         variant: StepVariant::FRFINLS(fr),
                         post_step_check: vec![],
@@ -90,6 +91,7 @@ impl FRFinishStep {
                     StepGroup::single(Box::new(PruningTableStep::<FR_FINISH_SIZE, FRUDFinishCoord, FRUD_WITH_SLICE_SIZE, FRUDWithSliceCoord>  {
                         table: &FR_FINISH_TABLE,
                         options: dfs.clone(),
+                        pre_step_check: vec![],
                         pre_step_trans: trans,
                         variant: StepVariant::FRFIN(fr),
                         post_step_check: vec![],
@@ -104,7 +106,7 @@ impl FRFinishStep {
 }
 
 pub struct DRFinishStep;
-pub type DRFinishBuilder = builder::DRFinishBuilderInternal<false, false, false, false>;
+pub type DRFinishBuilder = builder::DRFinishBuilderInternal<false, false, false, false, false>;
 
 impl DRFinishStep {
     pub fn builder() -> DRFinishBuilder {
@@ -182,6 +184,7 @@ mod test {
                 },
             ],
             ends_on_normal: false,
+            vr_solution: None,
         };
         assert_eq!(0, DRFinishStep::get_possible_cancellation_count(&solution, CubeAxis::FB));
         assert_eq!(3, DRFinishStep::get_possible_cancellation_count(&solution, CubeAxis::LR));
@@ -209,6 +212,7 @@ mod test {
                 },
             ],
             ends_on_normal: false,
+            vr_solution: None,
         };
         assert_eq!(0, DRFinishStep::get_possible_cancellation_count(&solution, CubeAxis::FB));
         assert_eq!(7, DRFinishStep::get_possible_cancellation_count(&solution, CubeAxis::LR));
@@ -236,6 +240,7 @@ mod test {
                 },
             ],
             ends_on_normal: false,
+            vr_solution: None,
         };
         assert_eq!(4, DRFinishStep::get_possible_cancellation_count(&solution, CubeAxis::FB));
         assert_eq!(0, DRFinishStep::get_possible_cancellation_count(&solution, CubeAxis::LR));
@@ -258,6 +263,7 @@ impl DRFinishStep {
                         table: &DR_LEAVE_SLICE_FINISH_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
+                        pre_step_check: vec![],
                         variant: StepVariant::DRFINLS(axis),
                         post_step_check: vec![],
                         move_set: &FINISH_DR_MOVESET,
@@ -268,6 +274,7 @@ impl DRFinishStep {
                         table: &DR_FINISH_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
+                        pre_step_check: vec![],
                         variant: StepVariant::DRFIN(axis),
                         post_step_check: vec![],
                         move_set: &FINISH_DR_MOVESET,
@@ -293,6 +300,11 @@ impl HTRFinishStep {
     pub fn new(dfs: DFSParameters, ls_axis: Vec<CubeAxis>, leave_slice: bool) -> StepGroup {
         debug!("Step fin with options {dfs:?}");
         if leave_slice {
+            let (follow_dr, ls_axis) = if ls_axis.is_empty() {
+                (true, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR])
+            } else {
+                (false, ls_axis)
+            };
             let variants = ls_axis.into_iter()
                 .map(|slice|match slice {
                     CubeAxis::UD => (vec![], slice),
@@ -300,10 +312,16 @@ impl HTRFinishStep {
                     CubeAxis::LR => (vec![Transformation333::Z], slice),
                 })
                 .map(|(trans, slice)|{
+                    let pre_check: Vec<Box<dyn PreStepCheck + Send + 'static>> = if follow_dr {
+                        vec![Box::new(DRAxisPreStepCheck(slice))]
+                    } else {
+                        vec![]
+                    };
                     StepGroup::single(Box::new(PruningTableStep::<HTR_LEAVE_SLICE_FINISH_SIZE, HTRLeaveSliceFinishCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
                         table: &HTR_LEAVE_SLICE_FINISH_TABLE,
                         options: dfs.clone(),
                         pre_step_trans: trans,
+                        pre_step_check: pre_check,
                         variant: StepVariant::HTRFINLS(slice),
                         post_step_check: vec![],
                         move_set: &FINISH_HTR_MOVESET,
@@ -317,6 +335,7 @@ impl HTRFinishStep {
                 table: &HTR_FINISH_TABLE,
                 options: dfs.clone(),
                 pre_step_trans: vec![],
+                pre_step_check: vec![],
                 variant: StepVariant::HTRFIN,
                 post_step_check: vec![],
                 move_set: &FINISH_HTR_MOVESET,
@@ -356,6 +375,20 @@ fn gen_dr_finish() -> DRFinishPruningTable {
 
 fn gen_dr_leave_slice_finish() -> DRLeaveSliceFinishPruningTable {
     Box::new(MemoryMappedIndexTable::load_and_save("drfinls", ||lookup_table::generate_large_table(&HTR_DR_UD_MOVESET)).0)
+}
+
+struct DRAxisPreStepCheck(CubeAxis);
+
+impl PreStepCheck for DRAxisPreStepCheck {
+    fn is_cube_ready(&self, _: &Cube333, sol: Option<&Solution>) -> bool {
+        sol.map(|sol|sol.steps.iter()
+            .any(|x|if let StepVariant::DR { dr_axis, .. } = x.variant {
+                dr_axis == self.0
+            } else {
+                false
+            }))
+            .unwrap_or(true)
+    }
 }
 
 pub mod builder {
@@ -543,7 +576,7 @@ pub mod builder {
                 _a_max_length: 14,
                 _b_max_absolute_length: 50,
                 _c_leave_slice: false,
-                _d_ls_axis: vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR],
+                _d_ls_axis: vec![], // Empty means same as DR
             }
         }
     }
@@ -591,53 +624,62 @@ pub mod builder {
             Ok(defaults)
         }
     }
-    pub struct DRFinishBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool> {
+    pub struct DRFinishBuilderInternal<const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> {
         _a_max_length: usize,
         _b_max_absolute_length: usize,
         _c_leave_slice: bool,
         _d_from_htr: bool,
+        _e_ls_axis: Vec<CubeAxis>
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const D: bool> DRFinishBuilderInternal<A, B, C, D> {
-        fn convert<const _A: bool, const _B: bool, const _C: bool, const _D: bool>(self) -> DRFinishBuilderInternal<_A, _B, _C, _D> {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> DRFinishBuilderInternal<A, B, C, D, E> {
+        fn convert<const _A: bool, const _B: bool, const _C: bool, const _D: bool, const _E: bool>(self) -> DRFinishBuilderInternal<_A, _B, _C, _D, _E> {
             DRFinishBuilderInternal {
                 _a_max_length: self._a_max_length,
                 _b_max_absolute_length: self._b_max_absolute_length,
                 _c_leave_slice: self._c_leave_slice,
                 _d_from_htr: self._d_from_htr,
+                _e_ls_axis: self._e_ls_axis,
             }
         }
     }
 
-    impl <const B: bool, const C: bool, const D: bool> DRFinishBuilderInternal<false, B, C, D> {
-        pub fn max_length(mut self, max_length: usize) -> DRFinishBuilderInternal<true, B, C, D> {
+    impl <const B: bool, const C: bool, const D: bool, const E: bool> DRFinishBuilderInternal<false, B, C, D, E> {
+        pub fn max_length(mut self, max_length: usize) -> DRFinishBuilderInternal<true, B, C, D, E> {
             self._a_max_length = max_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const C: bool, const D: bool> DRFinishBuilderInternal<A, false, C, D> {
-        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> DRFinishBuilderInternal<A, true, C, D> {
+    impl <const A: bool, const C: bool, const D: bool, const E: bool> DRFinishBuilderInternal<A, false, C, D, E> {
+        pub fn max_absolute_length(mut self, max_absolute_length: usize) -> DRFinishBuilderInternal<A, true, C, D, E> {
             self._b_max_absolute_length = max_absolute_length;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const D: bool> DRFinishBuilderInternal<A, B, false, D> {
-        pub fn leave_slice(mut self) -> DRFinishBuilderInternal<A, B, true, D> {
+    impl <const A: bool, const B: bool, const D: bool, const E: bool> DRFinishBuilderInternal<A, B, false, D, E> {
+        pub fn leave_slice(mut self) -> DRFinishBuilderInternal<A, B, true, D, E> {
             self._c_leave_slice = true;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool> DRFinishBuilderInternal<A, B, C, false> {
-        pub fn from_htr(mut self) -> DRFinishBuilderInternal<A, B, C, true> {
+    impl <const A: bool, const B: bool, const C: bool, const E: bool> DRFinishBuilderInternal<A, B, C, false, E> {
+        pub fn from_htr(mut self) -> DRFinishBuilderInternal<A, B, C, true, E> {
             self._d_from_htr = true;
             self.convert()
         }
     }
 
-    impl <const A: bool, const B: bool, const C: bool, const D: bool> DRFinishBuilderInternal<A, B, C, D> {
+    impl <const A: bool, const B: bool, const C: bool, const D: bool> DRFinishBuilderInternal<A, B, C, D, false> {
+        pub fn leave_slice_axis<T: Into<Vec<CubeAxis>>>(mut self, ls_axis: T) -> DRFinishBuilderInternal<A, B, C, D, true> {
+            self._e_ls_axis = ls_axis.into();
+            self.convert()
+        }
+    }
+
+    impl <const A: bool, const B: bool, const C: bool, const D: bool, const E: bool> DRFinishBuilderInternal<A, B, C, D, E> {
         pub fn build(self) -> StepGroup {
             let dfs = DFSParameters {
                 niss_type: NissSwitchType::Never,
@@ -646,28 +688,29 @@ pub mod builder {
                 absolute_max_moves: Some(self._b_max_absolute_length),
                 ignore_previous_step_restrictions: self._d_from_htr,
             };
-            DRFinishStep::new(dfs, vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR], self._c_leave_slice)
+            DRFinishStep::new(dfs, self._e_ls_axis, self._c_leave_slice)
         }
     }
 
-    impl DRFinishBuilderInternal<false, false, false, false> {
+    impl DRFinishBuilderInternal<false, false, false, false, false> {
         pub fn new() -> Self {
             Self {
                 _a_max_length: 14,
                 _b_max_absolute_length: 50,
                 _c_leave_slice: false,
                 _d_from_htr: false,
+                _e_ls_axis: vec![CubeAxis::UD, CubeAxis::FB, CubeAxis::LR],
             }
         }
     }
 
-    impl Default for DRFinishBuilderInternal<false, false, false, false> {
+    impl Default for DRFinishBuilderInternal<false, false, false, false, false> {
         fn default() -> Self {
             Self::new()
         }
     }
 
-    impl TryFrom<StepConfig> for DRFinishBuilderInternal<false, false, false, false> {
+    impl TryFrom<StepConfig> for DRFinishBuilderInternal<false, false, false, false, false> {
         type Error = ();
 
         fn try_from(value: StepConfig) -> Result<Self, Self::Error> {
@@ -686,6 +729,20 @@ pub mod builder {
             }
             if value.kind == StepKind::FINLS {
                 defaults._c_leave_slice = true;
+            }
+            if let Some(variants) = value.substeps {
+                if value.kind == StepKind::FIN {
+                    return Err(())
+                }
+                let axis: Result<Vec<CubeAxis>, Self::Error> = variants.into_iter()
+                    .map(|variant| match variant.to_lowercase().as_str() {
+                        "finishlsud" | "finlsud" | "finishud" | "finud" | "ud" => Ok(CubeAxis::UD),
+                        "finishlsfd" | "finlsfb" | "finishfd" | "finfb" | "fb" => Ok(CubeAxis::FB),
+                        "finishlslr" | "finlslr" | "finishlr" | "finlr" | "lr" => Ok(CubeAxis::LR),
+                        _ => Err(()),
+                    })
+                    .collect();
+                defaults._e_ls_axis = axis?;
             }
             Ok(defaults)
         }

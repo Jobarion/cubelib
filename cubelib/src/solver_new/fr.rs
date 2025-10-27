@@ -53,6 +53,7 @@ impl FRStep {
                     StepGroup::single(Box::new(PruningTableStep::<FRUD_NO_SLICE_SIZE, FRUDNoSliceCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
                         table: &FR_LEAVE_SLICE_TABLE,
                         options: dfs.clone(),
+                        pre_step_check: vec![],
                         pre_step_trans: trans,
                         variant: StepVariant::FRLS(fr),
                         post_step_check: vec![],
@@ -63,6 +64,7 @@ impl FRStep {
                     StepGroup::single(Box::new(PruningTableStep::<FRUD_WITH_SLICE_SIZE, FRUDWithSliceCoord, HTRDRUD_SIZE, HTRDRUDCoord>  {
                         table: &FR_TABLE,
                         options: dfs.clone(),
+                        pre_step_check: vec![],
                         pre_step_trans: trans,
                         variant: StepVariant::FR(fr),
                         post_step_check: vec![],

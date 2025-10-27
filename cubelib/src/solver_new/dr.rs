@@ -11,6 +11,7 @@ use crate::cube::turn::{TransformableMut, TurnableMut};
 use crate::defs::StepVariant;
 use crate::solver::lookup_table;
 use crate::solver::lookup_table::{DepthEstimate, InMemoryIndexTable};
+use crate::solver::solution::Solution;
 use crate::solver_new::*;
 use crate::solver_new::dr::builder::RZPSettings;
 use crate::solver_new::group::StepGroup;
@@ -109,6 +110,7 @@ impl DRStep {
                     StepGroup::single(Box::new(PruningTableStep::<DRUDEOFB_SIZE, DRUDEOFBCoord, 2048, EOCoordFB> {
                         table: &DR_TABLE,
                         options: dfs.clone(),
+                        pre_step_check: vec![],
                         pre_step_trans: trans,
                         post_step_check: psc,
                         move_set: &DRUD_EOFB_MOVESET,
@@ -237,7 +239,7 @@ struct DRARStep {
 }
 
 impl PreStepCheck for DRARStep {
-    fn is_cube_ready(&self, cube: &Cube333, _: Option<StepVariant>) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
         if EOCoordFB::from(cube).val() != 0 {
             return false;
         }
@@ -295,7 +297,7 @@ struct DRTriggerStep {
 }
 
 impl PreStepCheck for DRTriggerStep {
-    fn is_cube_ready(&self, cube: &Cube333, _: Option<StepVariant>) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
         if EOCoordFB::from(cube).val() != 0 {
             return false;
         }
@@ -396,7 +398,7 @@ impl RZPStep {
 }
 
 impl PreStepCheck for RZPStep {
-    fn is_cube_ready(&self, cube: &Cube333, _: Option<StepVariant>) -> bool {
+    fn is_cube_ready(&self, cube: &Cube333, _: Option<&Solution>) -> bool {
         cube.count_bad_edges_fb() == 0
     }
 }
@@ -533,7 +535,18 @@ mod builder {
     }
 
     impl <const A: bool, const B: bool, const C: bool, const E: bool, const F: bool, const G: bool, const H: bool> DRBuilderInternal<A, B, C, false, E, F, G, H> {
-        pub fn axis(mut self, dr_eo_axis: HashMap<CubeAxis, Vec<CubeAxis>>) -> DRBuilderInternal<A, B, C, true, E, F, G, H> {
+        pub fn axis<T: IntoIterator<Item = CubeAxis>>(mut self, dr_eo_axis: T) -> DRBuilderInternal<A, B, C, true, E, F, G, H> {
+            self._d_dr_eo_axis = dr_eo_axis.into_iter()
+                .map(|x|(x, match x {
+                    CubeAxis::UD => vec![CubeAxis::FB, CubeAxis::LR],
+                    CubeAxis::FB => vec![CubeAxis::UD, CubeAxis::LR],
+                    CubeAxis::LR => vec![CubeAxis::UD, CubeAxis::FB],
+                }))
+                .collect();
+            self.convert()
+        }
+
+        pub fn dr_eo_axis(mut self, dr_eo_axis: HashMap<CubeAxis, Vec<CubeAxis>>) -> DRBuilderInternal<A, B, C, true, E, F, G, H> {
             self._d_dr_eo_axis = dr_eo_axis;
             self.convert()
         }

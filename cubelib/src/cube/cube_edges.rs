@@ -10,9 +10,9 @@ pub struct CenterEdgeCube(
     pub core::arch::wasm32::v128,
     #[cfg(all(target_feature = "neon"))]
     pub core::arch::aarch64::uint8x16_t,
+    // pub std::simd::u8x16;,
 );
 
-#[cfg(target_feature = "avx2")]
 impl std::hash::Hash for CenterEdgeCube {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         let parts = self.get_edges_raw();
@@ -21,14 +21,23 @@ impl std::hash::Hash for CenterEdgeCube {
     }
 }
 
-#[cfg(target_feature = "neon")]
-impl std::hash::Hash for CenterEdgeCube {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let parts = self.get_edges_raw();
-        state.write_u64(parts[0]);
-        state.write_u64(parts[1]);
-    }
-}
+// #[cfg(target_feature = "avx2")]
+// impl std::hash::Hash for CenterEdgeCube {
+//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+//         let parts = self.get_edges_raw();
+//         state.write_u64(parts[0]);
+//         state.write_u64(parts[1]);
+//     }
+// }
+//
+// #[cfg(target_feature = "neon")]
+// impl std::hash::Hash for CenterEdgeCube {
+//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+//         let parts = self.get_edges_raw();
+//         state.write_u64(parts[0]);
+//         state.write_u64(parts[1]);
+//     }
+// }
 
 impl PartialEq for CenterEdgeCube {
 
@@ -329,6 +338,170 @@ fn random_edges<T: rand::Rng>(parity: bool, rng: &mut T) -> [u8; 12] {
     edge_bytes
 }
 
+// mod portable_simd {
+//     use std::simd::{simd_swizzle, u8x16};
+//     use crate::cube::{CubeAxis, CubeFace, Direction, Edge};
+//     use crate::cube::cube_edges::CenterEdgeCube;
+//
+//     const VALID_EDGE_MASK_HI: u64 = 0x00000000FFFFFFFF;
+//
+//     //UB UR UF UL FR FL BR BL DF DR DB DL
+//     // 0  1  2  3  4  5  6  7  8  9 10 11
+//     const TURN_EDGE_SHUFFLE: [[u8x16; 3]; 6] = [
+//         [
+//             u8x16::from_array([3, 0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF]), //U
+//             u8x16::from_array([2, 3, 0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF]), //U2
+//             u8x16::from_array([1, 2, 3, 0, 4, 5, 6, 7, 8, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF]), //U'
+//         ],
+//         [
+//             u8x16::from_array([0, 1, 2, 3, 4, 5, 6, 7, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF]), //D
+//             u8x16::from_array([0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF]), //D2
+//             u8x16::from_array([0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF]), //D'
+//         ],
+//         [
+//             u8x16::from_array([0, 1, 5, 3, 2, 8, 6, 7, 4, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF]), //F
+//             u8x16::from_array([0, 1, 8, 3, 5, 4, 6, 7, 2, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF]), //F2
+//             u8x16::from_array([0, 1, 4, 3, 8, 2, 6, 7, 5, 9, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF]), //F'
+//         ],
+//         [
+//             u8x16::from_array([6, 1, 2, 3, 4, 5, 10, 0, 8, 9, 7, 11, 0xFF, 0xFF, 0xFF, 0xFF]), //B
+//             u8x16::from_array([10, 1, 2, 3, 4, 5, 7, 6, 8, 9, 0, 11, 0xFF, 0xFF, 0xFF, 0xFF]), //B2
+//             u8x16::from_array([7, 1, 2, 3, 4, 5, 0, 10, 8, 9, 6, 11, 0xFF, 0xFF, 0xFF, 0xFF]), //B'
+//         ],
+//         [
+//             u8x16::from_array([0, 1, 2, 7, 4, 3, 6, 11, 8, 9, 10, 5, 0xFF, 0xFF, 0xFF, 0xFF]), //L
+//             u8x16::from_array([0, 1, 2, 11, 4, 7, 6, 5, 8, 9, 10, 3, 0xFF, 0xFF, 0xFF, 0xFF]), //L2
+//             u8x16::from_array([0, 1, 2, 5, 4, 11, 6, 3, 8, 9, 10, 7, 0xFF, 0xFF, 0xFF, 0xFF]), //L'
+//         ],
+//         [
+//             u8x16::from_array([0, 4, 2, 3, 9, 5, 1, 7, 8, 6, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF]), //R
+//             u8x16::from_array([0, 9, 2, 3, 6, 5, 4, 7, 8, 1, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF]), //R2
+//             u8x16::from_array([0, 6, 2, 3, 1, 5, 9, 7, 8, 4, 10, 11, 0xFF, 0xFF, 0xFF, 0xFF]), //R'
+//         ],
+//     ];
+//
+//     const TURN_EO_FLIP: [u8x16; 6] = [
+//         u8x16::from_array([0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ]), //U
+//         u8x16::from_array([0, 0, 0, 0, 0, 0, 0, 0, 0b00001000, 0b00001000, 0b00001000, 0b00001000, 0, 0, 0, 0, ]), //D
+//         u8x16::from_array([0, 0, 0b00000100, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, 0, 0, ]), //F
+//         u8x16::from_array([0b00000100, 0, 0, 0, 0, 0, 0b00000100, 0b00000100, 0, 0, 0b00000100, 0, 0, 0, 0, 0, ]), //B
+//         u8x16::from_array([0, 0, 0, 0b00000010, 0, 0b00000010, 0, 0b00000010, 0, 0, 0, 0b00000010, 0, 0, 0, 0, ]), //L
+//         u8x16::from_array([0, 0b00000010, 0, 0, 0b00000010, 0, 0b00000010, 0, 0, 0b00000010, 0, 0, 0, 0, 0, 0, ]), //R
+//     ];
+//
+//     const TRANSFORMATION_EP_SHUFFLE: [[u8x16; 3]; 3] = [
+//         [
+//             u8x16::from_array([2, 4, 8, 5, 9, 11, 1, 3, 10, 6, 0, 7, 0xFF, 0xFF, 0xFF, 0xFF]), //x
+//             u8x16::from_array([8, 9, 10, 11, 6, 7, 4, 5, 0, 1, 2, 3, 0xFF, 0xFF, 0xFF, 0xFF]), //x2
+//             u8x16::from_array([10, 6, 0, 7, 1, 3, 9, 11, 2, 4, 8, 5, 0xFF, 0xFF, 0xFF, 0xFF]), //x'
+//         ],
+//         [
+//             u8x16::from_array([3, 0, 1, 2, 6, 4, 7, 5, 9, 10, 11, 8, 0xFF, 0xFF, 0xFF, 0xFF]), //y
+//             u8x16::from_array([2, 3, 0, 1, 7, 6, 5, 4, 10, 11, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF]), //y2
+//             u8x16::from_array([1, 2, 3, 0, 5, 7, 4, 6, 11, 8, 9, 10, 0xFF, 0xFF, 0xFF, 0xFF]), //y'
+//         ],
+//         [
+//             u8x16::from_array([7, 3, 5, 11, 2, 8, 0, 10, 4, 1, 6, 9, 0xFF, 0xFF, 0xFF, 0xFF]), //z
+//             u8x16::from_array([10, 11, 8, 9, 5, 4, 7, 6, 2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF]), //z2
+//             u8x16::from_array([6, 9, 4, 1, 8, 2, 10, 0, 5, 11, 7, 3, 0xFF, 0xFF, 0xFF, 0xFF]), //z'
+//         ],
+//     ];
+//
+//     const TRANSFORMATION_EO_MAP: [u8x16; 3] = [
+//         u8x16::from_array([0b0000, 0xFF, 0b0010, 0xFF, 0b1000, 0xFF, 0b1010, 0xFF, 0b0100, 0xFF, 0b0110, 0xFF, 0b1100, 0xFF, 0b1110, 0xFF, ]), //X
+//         u8x16::from_array([0b0000, 0xFF, 0b0100, 0xFF, 0b0010, 0xFF, 0b0110, 0xFF, 0b1000, 0xFF, 0b1100, 0xFF, 0b1010, 0xFF, 0b1110, 0xFF, ]), //Y
+//         u8x16::from_array([0b0000, 0xFF, 0b1000, 0xFF, 0b0100, 0xFF, 0b1100, 0xFF, 0b0010, 0xFF, 0b1010, 0xFF, 0b0110, 0xFF, 0b1110, 0xFF, ]), //Z
+//     ];
+//
+//     pub(crate) unsafe fn unsafe_get_edges_raw(cube: &CenterEdgeCube) -> &[u64; 2] {
+//         (cube.0.into() as std::simd::u64x2).as_array()
+//     }
+//
+//     pub(crate) unsafe fn unsafe_new_solved() -> CenterEdgeCube {
+//         CenterEdgeCube(u8x16::from_array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 0, 0, 0]))
+//     }
+//
+//     pub(crate) unsafe fn unsafe_from_bytes(bytes: [u8; 12]) -> CenterEdgeCube {
+//         let mut data = [0; 16];
+//         data.copy_from_slice(&bytes);
+//         CenterEdgeCube(u8x16::from_array(data))
+//     }
+//
+//     pub(crate) unsafe fn unsafe_turn(cube: &mut CenterEdgeCube, face: CubeFace, dir: Direction) {
+//         cube.0 = cube.0.swizzle_dyn(TURN_EDGE_SHUFFLE[face as usize][dir as usize]);
+//         if dir != Direction::Half {
+//             cube.0 = cube.0 ^ &TURN_EO_FLIP[face as usize];
+//         }
+//     }
+//
+//     // pub(crate) unsafe fn unsafe_mirror_z(cube: &mut CenterEdgeCube) {
+//     //     let mirror_mask = _mm_setr_epi8(0, 3, 2, 1, 5, 4, 7, 6, 8, 11, 10, 9, -1, -1, -1, -1);
+//     //     let edges = _mm_shuffle_epi8(cube.0, mirror_mask);
+//     //     let translated_ep = _mm_slli_epi32::<4>(_mm_shuffle_epi8(
+//     //         mirror_mask,
+//     //         _mm_and_si128(_mm_set1_epi8(0xF), _mm_srli_epi32::<4>(edges)),
+//     //     ));
+//     //     let translated_eo = _mm_and_si128(edges, _mm_set1_epi8(0xF));
+//     //     cube.0 = _mm_or_si128(translated_ep, translated_eo);
+//     // }
+//     //
+//     // pub(crate) unsafe fn unsafe_transform(
+//     //     cube: &mut CenterEdgeCube,
+//     //     axis: CubeAxis,
+//     //     dir: Direction,
+//     // ) {
+//     //     let edges_translated = _mm_shuffle_epi8(
+//     //         cube.0,
+//     //         TRANSFORMATION_EP_SHUFFLE[axis as usize][dir as usize],
+//     //     );
+//     //     let ep = _mm_srli_epi32::<4>(_mm_and_si128(
+//     //         edges_translated,
+//     //         _mm_set1_epi8(0xF0_u8 as i8),
+//     //     ));
+//     //     let eo = _mm_and_si128(edges_translated, _mm_set1_epi8(0b00001110));
+//     //     let ep_translated = _mm_slli_epi32::<4>(_mm_shuffle_epi8(
+//     //         TRANSFORMATION_EP_SHUFFLE[axis as usize][dir.invert() as usize],
+//     //         ep,
+//     //     ));
+//     //     let eo = if dir != Direction::Half {
+//     //         _mm_shuffle_epi8(TRANSFORMATION_EO_MAP[axis], eo)
+//     //     } else {
+//     //         eo
+//     //     };
+//     //     cube.0 = _mm_or_si128(ep_translated, eo);
+//     // }
+//     //
+//     // pub(crate) unsafe fn unsafe_invert(cube: &mut CenterEdgeCube) {
+//     //     let edge_ids = unsafe {
+//     //         let mut a_arr = AlignedU8([0u8; 16]);
+//     //         _mm_store_si128(
+//     //             a_arr.0.as_mut_ptr() as *mut __m128i,
+//     //             _mm_srli_epi32::<4>(_mm_and_si128(cube.0, _mm_set1_epi8(0xF0_u8 as i8))),
+//     //         );
+//     //         a_arr
+//     //     };
+//     //     //This essentially calculates the inverse of _mm_shuffle_epi8(solved_cube.edges, self.edges), same for corners
+//     //     let mut edge_shuffle = AlignedU8([0u8; 16]);
+//     //     let edges = edge_ids.0;
+//     //     for i in 0..12 {
+//     //         edge_shuffle.0[edges[i] as usize] = i as u8;
+//     //     }
+//     //     let edge_shuffle_mask = _mm_load_si128(edge_shuffle.0.as_ptr() as *const __m128i);
+//     //
+//     //     //Splice together the edge permutation, and the EO of the edges on the inverse (see niss prediction to see how this works)
+//     //     let ep = _mm_and_si128(
+//     //         _mm_shuffle_epi8(
+//     //             _mm_shuffle_epi8(cube.0, edge_shuffle_mask),
+//     //             edge_shuffle_mask,
+//     //         ),
+//     //         _mm_set1_epi8(0xF0_u8 as i8),
+//     //     );
+//     //     let eo_shuffle = _mm_shuffle_epi8(cube.0, _mm_srli_epi32::<4>(ep));
+//     //     let eo = _mm_and_si128(eo_shuffle, _mm_set1_epi8(0b1110));
+//     //
+//     //     cube.0 = _mm_or_si128(ep, eo);
+//     // }
+// }
 
 #[cfg(target_feature = "avx2")]
 mod avx2 {

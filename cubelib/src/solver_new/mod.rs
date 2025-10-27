@@ -24,6 +24,7 @@ pub mod util_cube;
 pub mod fr;
 pub mod finish;
 pub mod ar;
+pub mod vr;
 
 pub type Sender<T> = crossbeam::channel::Sender<T>;
 pub type Receiver<T> = crossbeam::channel::Receiver<T>;

@@ -1,5 +1,6 @@
 #![feature(lazy_type_alias)]
 #![feature(lock_value_accessors)]
+#![feature(portable_simd)]
 #![allow(incomplete_features)]
 extern crate core;
 

@@ -53,6 +53,7 @@ impl EOStep {
                 table: &EO_TABLE,
                 options: dfs.clone(),
                 pre_step_trans: trans,
+                pre_step_check: vec![],
                 variant,
                 post_step_check: vec![],
                 move_set: &EOFB_MOVESET,

@@ -3,7 +3,7 @@ extern crate core;
 
 use std::collections::HashMap;
 use home::home_dir;
-use std::fs;
+use std::{env, fs};
 use std::fs::File;
 use std::io::{BufWriter, ErrorKind, Read, Write};
 use std::path::PathBuf;
@@ -210,11 +210,12 @@ fn update(latest_version: Option<GithubRelease>) {
         return;
     };
 
+    let temp_dir = TempDir::new().expect("tempdir required");
+    debug!("Created temp dir: {temp_dir:?}");
+
     let pb = indicatif::ProgressBar::new(asset.size);
     pb.set_message(format!("Downloading {}", asset.name));
     pb.set_style(ProgressStyle::with_template("[{elapsed_precise}] {bar:40} {decimal_bytes}/{decimal_total_bytes}").unwrap());
-
-    let temp_dir = TempDir::new().expect("tempdir required");
     let zip_file = File::create(temp_dir.path().join("cubelib.zip")).expect("file creation error");
     let mut writer = BufWriter::new(zip_file);
     let client = reqwest::blocking::Client::builder()
@@ -254,7 +255,11 @@ fn update(latest_version: Option<GithubRelease>) {
     archive.extract_unwrapped_root_dir(temp_dir.path(), root_dir_common_filter).expect("zip extract error");
     drop(archive);
 
-    match self_replace(temp_dir.path().join(executable_name)) {
+    let new_exe = temp_dir.path().join(executable_name);
+    debug!("Current executable is located at {:?}", env::current_exe());
+    info!("Replacing current executable with {new_exe:?}");
+
+    match self_replace(new_exe) {
         Ok(_) => info!("Updated successfully"),
         Err(e) => error!("Failed to update binary: {e:?}"),
     }

@@ -97,6 +97,7 @@ impl Into<usize> for CubeOuterTurn {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub struct CubeTransformation {
     pub axis: CubeAxis,
     pub dir: Direction,
@@ -189,13 +190,16 @@ impl CubeFace {
         Self::TRANSFORMATIONS[self][t.axis][t.dir as usize]
     }
 
-    pub fn is_on_axis(self, a: CubeAxis) -> bool {
-        match (self, a) {
-            (Up, CubeAxis::UD) | (Down, CubeAxis::UD) => true,
-            (Front, CubeAxis::FB) | (Back, CubeAxis::FB) => true,
-            (Left, CubeAxis::LR) | (Right, CubeAxis::LR) => true,
-            _ => false,
+    pub fn get_axis(self) -> CubeAxis {
+        match self {
+            Up | Down => CubeAxis::UD,
+            Front | Back => CubeAxis::FB,
+            Left | Right => CubeAxis::LR,
         }
+    }
+
+    pub fn is_on_axis(self, a: CubeAxis) -> bool {
+        self.get_axis() == a
     }
 }
 
@@ -331,6 +335,14 @@ impl Direction {
             Clockwise => 1,
             Half => 2,
             CounterClockwise => 3,
+        }
+    }
+
+    pub(crate) fn to_symbol(&self) -> &'static str {
+        match self {
+            Clockwise => "",
+            Half => "2",
+            CounterClockwise => "'",
         }
     }
 }

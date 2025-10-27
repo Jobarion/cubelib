@@ -430,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "cubelib"
-version = "2.4.2"
+version = "2.4.4"
 dependencies = [
  "crossbeam",
  "home",
@@ -449,7 +449,7 @@ dependencies = [
 
 [[package]]
 name = "cubelib-cli"
-version = "2.4.4"
+version = "2.5.0"
 dependencies = [
  "chrono",
  "clap",

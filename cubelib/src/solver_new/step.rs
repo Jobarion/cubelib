@@ -8,7 +8,7 @@ use std::thread::JoinHandle;
 use log::trace;
 use sorted_insert::{SortedInsertBinaryBy};
 use crate::algs::Algorithm;
-use crate::cube::{Cube333, Symmetry, Transformation333, Turn333};
+use crate::cube::{Cube333, Transformation333, Turn333};
 use crate::cube::turn::*;
 use crate::defs::{NissSwitchType, StepVariant};
 use crate::solver::df_search::CancelToken;
@@ -27,6 +27,7 @@ pub struct PruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'sta
     pub pre_step_trans: Vec<Transformation333>,
     pub variant: StepVariant,
     pub post_step_check: Vec<Box<dyn PostStepCheck + Send + 'static>>,
+    pub pre_step_check: Vec<Box<dyn PreStepCheck + Send + 'static>>,
     pub move_set: &'a MoveSet,
     pub _pc: PhantomData<PC>,
 }
@@ -41,25 +42,18 @@ pub struct NissPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 
     pub _pc: PhantomData<PC>,
 }
 
-pub struct SymPruningTableStep<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE> + 'static, const PC_SIZE: usize, PC: Coord<PC_SIZE> + 'static> {
-    pub table: &'b Box<dyn DepthEstimate<C_SIZE, C>>,
-    pub symmetries: &'a [Symmetry],
-    pub options: DFSParameters,
-    pub pre_step_trans: Vec<Transformation333>,
-    pub variant: StepVariant,
-    pub post_step_check: Vec<Box<dyn PostStepCheck + Send + 'static>>,
-    pub move_set: &'a MoveSet,
-    pub _pc: PhantomData<PC>,
-}
-
 impl<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for PruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where PC: for<'c> From<&'c Cube333> {
-    fn is_cube_ready(&self, cube: &Cube333, previous: Option<StepVariant>) -> bool {
-        if let Some(previous) = previous {
+    fn is_cube_ready(&self, cube: &Cube333, previous: Option<&Solution>) -> bool {
+        if let Some(previous) = previous.and_then(|x|x.steps.last().map(|x|x.variant)) {
             if !previous.can_solve_next(&self.variant) {
                 return false
             }
         }
-        PC::from(cube).val() == 0
+        if PC::from(cube).val() == 0 {
+            self.pre_step_check.iter().all(|x|x.is_cube_ready(cube, previous.clone()))
+        } else {
+            false
+        }
     }
 }
 
@@ -99,8 +93,8 @@ impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: C
 }
 
 impl<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for NissPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where PC: for<'c> From<&'c Cube333> {
-    fn is_cube_ready(&self, cube: &Cube333, previous: Option<StepVariant>) -> bool {
-        if let Some(previous) = previous {
+    fn is_cube_ready(&self, cube: &Cube333, previous: Option<&Solution>) -> bool {
+        if let Some(previous) = previous.and_then(|x|x.steps.last().map(|x|x.variant)) {
             if !previous.can_solve_next(&self.variant) {
                 return false
             }
@@ -144,51 +138,10 @@ impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: C
     }
 }
 
-impl<'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PreStepCheck for SymPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where PC: for<'c> From<&'c Cube333> {
-    fn is_cube_ready(&self, cube: &Cube333, _: Option<StepVariant>) -> bool {
-        PC::from(cube).val() == 0
-    }
-}
-
-impl<'a, 'b,const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> PostStepCheck for SymPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> {
-    fn is_solution_admissible(&self, cube: &Cube333, alg: &Algorithm) -> bool {
-        self.post_step_check.iter()
-            .all(|psc|psc.is_solution_admissible(cube, alg))
-    }
-}
-
-impl <'a, 'b, const C_SIZE: usize, C: Coord<C_SIZE>, const PC_SIZE: usize, PC: Coord<PC_SIZE>> Step for SymPruningTableStep<'a, 'b, C_SIZE, C, PC_SIZE, PC> where C: for<'c> From<&'c Cube333>, PC: for<'d> From<&'d Cube333>  {
-    fn get_dfs_parameters(&self) -> DFSParameters {
-        self.options.clone()
-    }
-
-    fn get_moveset(&self, _: &Cube333, _: usize) -> &'a MoveSet {
-        self.move_set
-    }
-
-    fn heuristic(&self, state: &Cube333, can_niss_switch: bool, _: usize) -> usize {
-        let coord = C::min_with_symmetries(state, self.symmetries);
-        let heuristic = self.table.get(coord) as usize;
-        if can_niss_switch {
-            min(1, heuristic)
-        } else {
-            heuristic
-        }
-    }
-
-    fn pre_step_trans(&self) -> &'_ Vec<Transformation333> {
-        &self.pre_step_trans
-    }
-
-    fn get_variant(&self) -> StepVariant {
-        self.variant
-    }
-}
-
 pub struct StepWorker {
-    join_handle: Option<JoinHandle<()>>,
-    cancel_token: Arc<CancelToken>,
-    step_runner: ThreadState<()>,
+    pub(crate) join_handle: Option<JoinHandle<()>>,
+    pub(crate) cancel_token: Arc<CancelToken>,
+    pub(crate) step_runner: ThreadState<()>,
 }
 
 impl Worker<()> for StepWorker {
@@ -228,7 +181,6 @@ impl Run<()> for StepIORunner {
 }
 
 impl StepIORunner {
-
     fn run_internal(&mut self, rc: Receiver<Solution>) {
         let next = if let Ok(next) = rc.recv() {
             next
@@ -377,7 +329,7 @@ impl StepIORunner {
             previous_normal = previous_normal.map(|m|m.transform(t));
             previous_inverse = previous_inverse.map(|m|m.transform(t));
         }
-        if !self.step.is_cube_ready(&cube, input.steps.last().map(|s|s.variant)) {
+        if !self.step.is_cube_ready(&cube, Some(input)) {
             return Ok(());
         }
 

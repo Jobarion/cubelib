@@ -55,6 +55,7 @@ impl ARStep {
                     table: &EO_ARM_TABLE,
                     options: dfs.clone(),
                     pre_step_trans: trans,
+                    pre_step_check: vec![],
                     post_step_check: vec![],
                     move_set: &ARUD_EOFB_MOVESET,
                     variant,

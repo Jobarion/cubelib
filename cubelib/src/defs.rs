@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::string::ToString;
@@ -15,7 +16,49 @@ pub enum StepKind {
     FRLS,
     FIN,
     FINLS,
+    VR,
     Other(String)
+}
+
+impl PartialOrd for StepKind {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.eq(&other) {
+            return Some(Ordering::Equal)
+        }
+        match (self, other) {
+            (Self::EO, _) => Some(Ordering::Less),
+            (_, Self::EO) => Some(Ordering::Greater),
+            (Self::RZP, Self::AR) => None,
+            (Self::AR, Self::RZP) => None,
+            (Self::RZP, _) => Some(Ordering::Less),
+            (_, Self::RZP) => Some(Ordering::Greater),
+            (Self::AR, _) => Some(Ordering::Less),
+            (_, Self::AR) => Some(Ordering::Greater),
+            (Self::DR, _) => Some(Ordering::Less),
+            (_, Self::DR) => Some(Ordering::Greater),
+            (Self::HTR, _) => Some(Ordering::Less),
+            (_, Self::HTR) => Some(Ordering::Greater),
+            (Self::FR, Self::FIN) => Some(Ordering::Less),
+            (Self::FIN, Self::FR) => Some(Ordering::Greater),
+            (Self::FRLS, Self::FINLS) => Some(Ordering::Less),
+            (Self::FINLS, Self::FRLS) => Some(Ordering::Greater),
+            _ => None,
+        }
+    }
+}
+
+impl PartialOrd for StepVariant {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.eq(other) {
+            return Some(Ordering::Equal)
+        }
+        let self_kind = StepKind::from(self.clone());
+        let other_kind = StepKind::from(self.clone());
+        if self_kind == other_kind {
+            return None
+        }
+        self_kind.partial_cmp(&other_kind)
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -131,6 +174,7 @@ impl FromStr for StepKind {
             "frls" => Ok(Self::FRLS),
             "finish" | "fin" => Ok(Self::FIN),
             "finls" => Ok(Self::FINLS),
+            "vr" => Ok(Self::VR),
             x=> Ok(Self::Other(x.to_string()))
         }
     }
@@ -148,6 +192,7 @@ impl Into<String> for StepKind {
             StepKind::FRLS => "frls".to_string(),
             StepKind::FIN => "finish".to_string(),
             StepKind::FINLS => "finls".to_string(),
+            StepKind::VR => "vr".to_string(),
             StepKind::Other(x) => x,
         }
     }

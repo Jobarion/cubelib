@@ -178,4 +178,10 @@ mod test {
         let cube: Cube333 = Algorithm::from_str("R U2 F2 U2 R").unwrap().into();
         assert_eq!(cube.get_cube_state(), CubeState::DR(CubeAxis::LR));
     }
+
+    #[test]
+    fn test_dr_ud_not_dr_fb() {
+        assert!(!(CubeState::DR(CubeAxis::UD) <= CubeState::DR(CubeAxis::FB)));
+        assert!(!(CubeState::DR(CubeAxis::UD) >= CubeState::DR(CubeAxis::FB)));
+    }
 }

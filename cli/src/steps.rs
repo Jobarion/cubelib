@@ -13,6 +13,7 @@ use cubelib::solver_new::group::{StepGroup, StepPredicate};
 use cubelib::solver_new::htr::HTRBuilder;
 use cubelib::solver_new::util_cube::CubeState;
 use cubelib::solver_new::util_steps::{FilterFirstN, FilterFirstNStepVariant};
+use cubelib::solver_new::vr::VRStep;
 use cubelib::steps::finish::coords::{DR_FINISH_LS_SIZE, DR_FINISH_SIZE, DRFinishCoord, DRLeaveSliceFinishCoord};
 use cubelib::steps::step::StepConfig;
 use log::{debug, warn};
@@ -209,10 +210,15 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
                 Some(HTRFinishBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FIN step")?.build())
             }
         },
+        (Some(StepKind::FINLS), StepKind::VR) => {
+            Some(VRStep::new(step_prototype.params.get("vr-in").and_then(|x|usize::from_str(x).ok()).unwrap_or(2), false))
+        },
+        // A bit cursed, as this just replaces the previously found VR by looking for another one
+        (Some(StepKind::VR), StepKind::FIN) => Some(VRStep::new(previous.unwrap().params.get("vr-in").and_then(|x|usize::from_str(x).ok()).unwrap_or(2), true)),
+        (Some(StepKind::FINLS), StepKind::FIN) => Some(VRStep::new(2, true)),
         (None, x) => return Err(format!("{x:?} is not supported as a first step", )),
         (Some(a), b) => return Err(format!("Step order {a:?} > {b:?} is not supported")),
     };
-
     if let Some(step) = step.as_mut() {
         if let Some(max_use) = max_use {
             let filters: Result<Vec<Box<dyn StepPredicate>>, String> = max_use.split(",")

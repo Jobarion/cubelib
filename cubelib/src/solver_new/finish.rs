@@ -608,9 +608,6 @@ pub mod builder {
                 defaults._c_leave_slice = true;
             }
             if let Some(variants) = value.substeps {
-                if value.kind == StepKind::FIN {
-                    return Err(())
-                }
                 let axis: Result<Vec<CubeAxis>, Self::Error> = variants.into_iter()
                     .map(|variant| match variant.to_lowercase().as_str() {
                         "finishlsud" | "finlsud" | "finishud" | "finud" | "ud" => Ok(CubeAxis::UD),
@@ -731,9 +728,6 @@ pub mod builder {
                 defaults._c_leave_slice = true;
             }
             if let Some(variants) = value.substeps {
-                if value.kind == StepKind::FIN {
-                    return Err(())
-                }
                 let axis: Result<Vec<CubeAxis>, Self::Error> = variants.into_iter()
                     .map(|variant| match variant.to_lowercase().as_str() {
                         "finishlsud" | "finlsud" | "finishud" | "finud" | "ud" => Ok(CubeAxis::UD),

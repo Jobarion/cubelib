@@ -283,6 +283,7 @@ impl StepIORunner {
             variant: self.step.get_variant(),
             alg: result.clone(),
             comment: "".to_string(),
+            e_insertions: Default::default(),
         });
         if self.current_length < input.len() {
             self.output_buffer.borrow_mut().sorted_insert_binary_by(input.clone(), |a, b|b.len().cmp(&a.len()));

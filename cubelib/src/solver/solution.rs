@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter};
+#[cfg(feature = "serde_support")]
+use serde_with::serde_as;
 use itertools::Itertools;
 use crate::algs::Algorithm;
 use crate::cube::turn::{ApplyAlgorithm, CubeAxis, CubeFace, Direction, Invertible, InvertibleMut, Transformable, TurnableMut};
@@ -12,15 +14,18 @@ use crate::solver_new::vr::VRInsertions;
 pub struct Solution {
     pub steps: Vec<SolutionStep>,
     pub ends_on_normal: bool,
-    pub vr_solution: Option<VRInsertions>,
+    pub insertion_direction: Option<Transformation333>,
 }
 
 #[derive(Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde_support", serde_as)]
 #[cfg_attr(feature = "serde_support", derive(serde::Serialize, serde::Deserialize))]
 pub struct SolutionStep {
     pub variant: StepVariant,
     pub alg: Algorithm,
-    pub comment: String
+    pub comment: String,
+    #[cfg_attr(feature = "serde_support", serde_as(as = "Vec<(_, _)>"))]
+    pub e_insertions: HashMap<usize, Direction>,
 }
 
 impl Solution {
@@ -28,7 +33,19 @@ impl Solution {
     const E_INSERTION_FOOTNOTE_SYMBOL: [&'static str; 3] = ["^", "@", "#"];
 
     pub fn new() -> Solution {
-        Solution { steps: vec![], ends_on_normal: true, vr_solution: None }
+        Solution { steps: vec![], ends_on_normal: true, insertion_direction: None }
+    }
+
+    pub fn set_vr_insertions(&mut self, vr_solution: VRInsertions) {
+        let VRInsertions(mut insertions, trans) = vr_solution;
+        self.insertion_direction = trans;
+        for step in self.steps.iter_mut() {
+            if let Some(insertion) = insertions.remove(&step.variant) {
+                step.e_insertions = insertion.into_iter().collect();
+            } else if !step.e_insertions.is_empty() {
+                step.e_insertions = Default::default();
+            }
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -78,19 +95,19 @@ impl Solution {
         Solution {
             steps,
             ends_on_normal: self.ends_on_normal,
-            vr_solution: self.vr_solution
+            insertion_direction: self.insertion_direction
         }
     }
 
-    fn to_compact_alg_with_insertions(self) -> Algorithm {
-        let VRInsertions(mut insertions, trans) = if let Some(insertions) = self.vr_solution {
-            insertions
+    fn to_compact_alg_with_insertions(mut self) -> Algorithm {
+        let trans = if let Some(trans) = self.insertion_direction {
+            trans
         } else {
             return self.into()
         };
         // We assume that a Solution with a VR is always finished.
         let mut trans_qt = 0;
-        let primary_face = match trans.map(|x|x.axis).unwrap_or(CubeAxis::UD) {
+        let primary_face = match trans.axis {
             CubeAxis::UD => CubeFace::Up,
             CubeAxis::FB => CubeFace::Right,
             CubeAxis::LR => CubeFace::Back,
@@ -109,9 +126,9 @@ impl Solution {
                 })
                 .unwrap_or(turn)
         }
-        for step in &self.steps {
+        for step in &mut self.steps {
             for (idx, turn) in step.alg.normal_moves.iter().enumerate() {
-                if let Some(dir) = insertions.get_mut(&step.variant).and_then(|map|map.remove(&idx)) {
+                if let Some(dir) = step.e_insertions.remove(&idx) {
                     trans_qt = (trans_qt + dir.to_qt()) % 4;
                     turns.push(Turn333::new(primary_face, dir));
                     turns.push(Turn333::new(primary_face.opposite(), dir.invert()));
@@ -119,17 +136,17 @@ impl Solution {
                 turns.push(transform_turn(*turn, trans_axis, trans_qt));
             }
             if step.alg.normal_moves.len() > 0 {
-                if let Some(dir) = insertions.get_mut(&step.variant).and_then(|map|map.remove(&step.alg.normal_moves.len())) {
+                if let Some(dir) = step.e_insertions.remove(&step.alg.normal_moves.len()) {
                     trans_qt = (trans_qt + dir.to_qt()) % 4;
                     turns.push(Turn333::new(primary_face, dir));
                     turns.push(Turn333::new(primary_face.opposite(), dir.invert()));
                 }
             }
         }
-        for step in self.steps.iter().rev() {
+        for step in self.steps.iter_mut().rev() {
             for (idx, turn) in step.alg.inverse_moves.iter().rev().enumerate() {
                 let idx = idx + step.alg.normal_moves.len();
-                if let Some(dir) = insertions.get_mut(&step.variant).and_then(|map|map.remove(&idx)) {
+                if let Some(dir) = step.e_insertions.remove(&idx) {
                     trans_qt = (trans_qt + dir.to_qt()) % 4;
                     turns.push(Turn333::new(primary_face, dir));
                     turns.push(Turn333::new(primary_face.opposite(), dir.invert()));
@@ -137,15 +154,13 @@ impl Solution {
                 turns.push(transform_turn(turn.invert(), trans_axis, trans_qt));
             }
             if step.alg.inverse_moves.len() > 0 {
-                if let Some(dir) = insertions.get_mut(&step.variant).and_then(|map|map.remove(&step.alg.len())) {
+                if let Some(dir) = step.e_insertions.remove(&step.alg.inverse_moves.len()) {
                     trans_qt = (trans_qt + dir.to_qt()) % 4;
                     turns.push(Turn333::new(primary_face, dir));
                     turns.push(Turn333::new(primary_face.opposite(), dir.invert()));
                 }
             }
-        }
-        for step in self.steps.iter() {
-            assert!(insertions.get(&step.variant).map(|x|x.is_empty()).unwrap_or(true));
+            assert!(step.e_insertions.is_empty());
         }
         Algorithm {
             normal_moves: turns,
@@ -156,7 +171,7 @@ impl Solution {
 
 impl Into<Algorithm> for Solution {
     fn into(self) -> Algorithm {
-        if self.vr_solution.is_some() {
+        if self.insertion_direction.is_some() {
             self.to_compact_alg_with_insertions()
         } else {
             let mut start = Algorithm::new();
@@ -182,7 +197,7 @@ impl Clone for Solution {
         Solution {
             steps: self.steps.clone(),
             ends_on_normal: self.ends_on_normal,
-            vr_solution: self.vr_solution.clone()
+            insertion_direction: self.insertion_direction,
         }
     }
 }
@@ -246,11 +261,11 @@ fn write_alg_side_with_insertions_placeholders(moves: &Vec<Turn333>, insertions:
 impl Display for Solution {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let compact = self.clone();
-        let VRInsertions(mut insertions, trans) = self.vr_solution.clone().unwrap_or(VRInsertions(HashMap::new(), None));
+
         let longest_alg_length = compact
             .steps
             .iter()
-            .map(|s| s.alg.to_string().len() + insertions.get(&s.variant).map(|x|x.len() * 2).unwrap_or(0))
+            .map(|s| s.alg.to_string().len() + s.e_insertions.len() * 2)
             .max()
             .unwrap_or(0);
         let longest_name_length = compact
@@ -259,13 +274,14 @@ impl Display for Solution {
             .map(|s| s.variant.to_string().len() + if s.comment.is_empty() { 0 } else { s.comment.len() + 3 })
             .max()
             .unwrap_or(0);
-        let footnotes: HashSet<Direction> = insertions.values().flat_map(|x|x.values().cloned())
+        let footnotes: HashSet<Direction> = self.steps.iter()
+            .flat_map(|x|x.e_insertions.iter().map(|x|x.1.clone()))
             .collect();
-        let slice_name = match trans {
-            None => "E",
+        let slice_name = match self.insertion_direction {
+            Some(x) if x.axis == CubeAxis::Y => "E",
             Some(x) if x.axis == CubeAxis::X => "S",
             Some(x) if x.axis == CubeAxis::Z => "M",
-            _ => unreachable!()
+            _ => "",
         };
         let footnotes_line = [Direction::Clockwise, Direction::Half, Direction::CounterClockwise]
             .into_iter()
@@ -282,8 +298,7 @@ impl Display for Solution {
         let longest_alg_length = longest_alg_length.max(footnotes_line.len());
         let mut collected_alg = Algorithm::new();
         for (idx, step) in compact.steps.iter().enumerate() {
-            let insertions = insertions.remove(&step.variant).unwrap_or(HashMap::new());
-            let alg_string = write_alg_with_insertion_placeholders(&step.alg, &insertions);
+            let alg_string = write_alg_with_insertion_placeholders(&step.alg, &step.e_insertions);
 
             let alg_length = step.alg.len();
             let previous_length = collected_alg.len();
@@ -304,7 +319,7 @@ impl Display for Solution {
             } else {
                 format!("({alg_length}-{cancelled_moves}/{})", collected_alg.len())
             };
-            let variant_name = if self.vr_solution.is_some() {
+            let variant_name = if self.insertion_direction.is_some() {
                 match step.variant {
                     StepVariant::DRFINLS(x) => StepVariant::DRFIN(x),
                     StepVariant::HTRFINLS(x) => StepVariant::DRFIN(x),
@@ -317,7 +332,7 @@ impl Display for Solution {
             let name = format!("{}{comment}", variant_name.to_string());
             writeln!(f, "{:longest_alg_length$}  // {name:longest_name_length$} {length_comment}", alg_string)?;
         }
-        if self.vr_solution.is_some() {
+        if self.insertion_direction.is_some() {
             let collected_alg_with_insertions = self.clone().to_compact_alg_with_insertions();
             let len_diff = collected_alg_with_insertions.len() as isize - collected_alg.len() as isize;
 
@@ -348,7 +363,7 @@ pub trait ApplySolution<C: TurnableMut> {
 
 impl <C: TurnableMut + InvertibleMut> ApplySolution<C> for C {
     fn apply_solution(&mut self, solution: &Solution) {
-        if solution.vr_solution.is_some() {
+        if solution.insertion_direction.is_some() {
             let alg = solution.clone().to_compact_alg_with_insertions();
             self.apply_alg(&alg);
         } else {

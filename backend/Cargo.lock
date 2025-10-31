@@ -606,7 +606,7 @@ dependencies = [
 
 [[package]]
 name = "cubelib"
-version = "2.4.2"
+version = "2.5.0"
 dependencies = [
  "crossbeam",
  "home",

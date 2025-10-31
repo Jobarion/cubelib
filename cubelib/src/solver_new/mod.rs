@@ -1,41 +1,74 @@
+#[cfg(feature = "multi-path-channel-solver")]
 use std::str::FromStr;
+#[cfg(feature = "multi-path-channel-solver")]
 use crate::algs::Algorithm;
+#[cfg(feature = "multi-path-channel-solver")]
 use crate::cube::{Cube333, Transformation333};
+#[cfg(feature = "multi-path-channel-solver")]
 use crate::defs::{StepKind, StepVariant};
+#[cfg(feature = "multi-path-channel-solver")]
 use crate::solver_new::dr::{DRBuilder, RZPBuilder, RZPStep};
+#[cfg(feature = "multi-path-channel-solver")]
 use crate::solver_new::eo::EOBuilder;
-use crate::solver_new::finish::{DRFinishBuilder, FRFinishBuilder, HTRFinishBuilder};
-use crate::solver_new::fr::FRBuilder;
-use crate::solver_new::group::StepGroup;
+#[cfg(feature = "multi-path-channel-solver")]
 use crate::solver_new::htr::HTRBuilder;
+#[cfg(feature = "multi-path-channel-solver")]
+use crate::solver_new::finish::{DRFinishBuilder, FRFinishBuilder, HTRFinishBuilder};
+#[cfg(feature = "multi-path-channel-solver")]
+use crate::solver_new::fr::FRBuilder;
+#[cfg(feature = "multi-path-channel-solver")]
+use crate::solver_new::group::StepGroup;
+#[cfg(feature = "multi-path-channel-solver")]
 use crate::solver_new::step::{DFSParameters, MoveSet};
+#[cfg(feature = "multi-path-channel-solver")]
 use crate::solver_new::thread_util::{ToWorker, Worker};
+#[cfg(feature = "multi-path-channel-solver")]
 use crate::steps::step::{PostStepCheck, PreStepCheck, StepConfig};
+#[cfg(feature = "multi-path-channel-solver")]
 use crate::solver_new::util_steps::FilterExcluded;
 
+#[cfg(feature = "multi-path-channel-solver")]
 pub mod step;
+#[cfg(feature = "multi-path-channel-solver")]
 pub mod eo;
+#[cfg(feature = "multi-path-channel-solver")]
 pub mod dr;
+#[cfg(feature = "multi-path-channel-solver")]
 pub mod group;
+#[cfg(feature = "multi-path-channel-solver")]
 pub mod thread_util;
+#[cfg(feature = "multi-path-channel-solver")]
 pub mod util_steps;
+#[cfg(feature = "multi-path-channel-solver")]
 pub mod htr;
+#[cfg(feature = "multi-path-channel-solver")]
 pub mod util_cube;
+#[cfg(feature = "multi-path-channel-solver")]
 pub mod fr;
+#[cfg(feature = "multi-path-channel-solver")]
 pub mod finish;
+#[cfg(feature = "multi-path-channel-solver")]
 pub mod ar;
 pub mod vr;
 
+#[cfg(feature = "multi-path-channel-solver")]
 pub type Sender<T> = crossbeam::channel::Sender<T>;
+#[cfg(feature = "multi-path-channel-solver")]
 pub type Receiver<T> = crossbeam::channel::Receiver<T>;
+#[cfg(feature = "multi-path-channel-solver")]
 pub type SendError<T> = crossbeam::channel::SendError<T>;
+#[cfg(feature = "multi-path-channel-solver")]
 pub type RecvError = crossbeam::channel::RecvError;
+#[cfg(feature = "multi-path-channel-solver")]
 pub type TryRecvError = crossbeam::channel::TryRecvError;
+#[cfg(feature = "multi-path-channel-solver")]
 
+#[cfg(feature = "multi-path-channel-solver")]
 pub fn bounded_channel<T>(size: usize) -> (Sender<T>, Receiver<T>) {
     crossbeam::channel::bounded(size)
 }
 
+#[cfg(feature = "multi-path-channel-solver")]
 pub trait Step: PreStepCheck + PostStepCheck {
     fn get_dfs_parameters(&self) -> DFSParameters;
     fn get_moveset(&self, state: &Cube333, depth_left: usize) -> &'_ MoveSet;
@@ -44,6 +77,7 @@ pub trait Step: PreStepCheck + PostStepCheck {
     fn get_variant(&self) -> StepVariant;
 }
 
+#[cfg(feature = "multi-path-channel-solver")]
 pub fn build_steps(mut steps: Vec<StepConfig>) -> Result<StepGroup, String> {
     let mut step_groups = vec![];
     let mut previous = None;
@@ -104,7 +138,13 @@ pub fn build_steps(mut steps: Vec<StepConfig>) -> Result<StepGroup, String> {
                     HTRFinishBuilder::try_from(step).map_err(|_|"Failed to parse FIN step")?.build()
                 }
             },
-            (Some(StepKind::DR), StepKind::FIN) => DRFinishBuilder::try_from(step).map_err(|_|"Failed to parse FIN step")?.build(),
+            (Some(StepKind::DR), StepKind::FIN) | (Some(StepKind::DR), StepKind::FINLS) => {
+                step.params.remove("htr-breaking");
+                DRFinishBuilder::try_from(step).map_err(|_|"Failed to parse FIN step")?.build()
+            },
+            // (Some(StepKind::FINLS), StepKind::FIN) => {
+            //     crate::solver_new::vr::VRStep::new(2, true)
+            // },
             (None, x) => return Err(format!("{x:?} is not supported as a first step", )),
             (Some(a), b) => return Err(format!("Step order {a:?} > {b:?} is not supported")),
         };

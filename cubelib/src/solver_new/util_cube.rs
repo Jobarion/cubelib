@@ -20,7 +20,6 @@ pub enum CubeState {
 }
 
 impl CubeState {
-
     const ORD_SCRAMBLED: u8 = 0;
     const ORD_EO: u8 = 1;
     const ORD_DR: u8 = 2;
@@ -105,6 +104,7 @@ impl PartialOrd for CubeState {
 }
 
 impl Cube333 {
+
     pub fn get_cube_state(&self) -> CubeState {
         let mut eo_solved_on = vec![];
         if self.count_bad_edges_fb() == 0 {

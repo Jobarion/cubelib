@@ -325,6 +325,7 @@ pub fn next_step<
                                 alg: step_alg,
                                 variant,
                                 comment: String::default(),
+                                e_insertions: Default::default(),
                             };
                             sol.add_step(sol_step);
                         }

@@ -4,7 +4,7 @@ use cubelib::defs::*;
 use cubelib::cube::*;
 use cubelib::steps::step::StepConfig;
 use leptos::*;
-
+use std::default::Default;
 #[cfg(feature = "backend")]
 pub use backend::SolutionComponent;
 #[cfg(feature = "wasm_solver")]
@@ -220,8 +220,8 @@ pub mod backend {
         let current_bytes = RefCell::<Vec<u8>>::new(vec![]);
 
         let body = serde_json::to_vec(&request).unwrap();
-        let mut req = Request::post("https://joba.me/cubeapi/solve_stream?backend=multi_path_channel", body);
-        // let mut req = Request::post("http://localhost:8049/solve_stream?backend=multi_path_channel", body);
+        // let mut req = Request::post("https://joba.me/cubeapi/solve_stream?backend=multi_path_channel", body);
+        let mut req = Request::post("http://localhost:8049/solve_stream?backend=multi_path_channel", body);
         req.headers.insert("content-type".to_string(), "application/json".to_string());
 
         ehttp::streaming::fetch(req, move |res: ehttp::Result<ehttp::streaming::Part>| {
@@ -407,7 +407,21 @@ fn get_step_configs(eo: EOConfig, rzp: RZPConfig, dr: DRConfig, htr: HTRConfig, 
             params,
             excluded: fin.excluded.0.get(),
         });
-
+        // if fin.leave_slice.0.get() {
+        //     steps_config.push(StepConfig {
+        //         kind: StepKind::FIN,
+        //         substeps: None,
+        //         min: None,
+        //         max: None,
+        //         absolute_min: None,
+        //         absolute_max: None,
+        //         step_limit: None,
+        //         quality: 0,
+        //         niss: None,
+        //         params: HashMap::new(),
+        //         excluded: HashSet::new(),
+        //     });
+        // }
     }
     steps_config
 }

@@ -50,6 +50,8 @@ pub mod finish;
 #[cfg(feature = "multi-path-channel-solver")]
 pub mod ar;
 pub mod vr;
+#[cfg(feature = "multi-path-channel-solver")]
+pub mod dr_subset;
 
 #[cfg(feature = "multi-path-channel-solver")]
 pub type Sender<T> = crossbeam::channel::Sender<T>;

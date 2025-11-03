@@ -6,7 +6,7 @@ use itertools::Itertools;
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Subset {
     pub discriminator: Option<&'static str>,
-    pub generator: &'static str, //We need a const array, and creating an FromStr isn't const
+    pub generator: &'static str,
     pub corners: u8,
     pub edges: u8,
     pub qt_corners: u8,

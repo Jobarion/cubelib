@@ -6,7 +6,7 @@ sequence = { group ~ (">" ~ group)+ }
 parallel = { group ~ ("|" ~ group)+ }
 
 step = { kind ~ ("[" ~ parameters ~ "]")? }
-kind = { ASCII_ALPHA+ }
+kind = { (ASCII_ALPHANUMERIC | "-" | "_")+ }
 parameters = _{ parameter ~ (";" ~ parameter)* }
 parameter = _{ key ~ "=" ~ value | variant }
 key = { (ASCII_ALPHA | "-")+ }

@@ -6,6 +6,7 @@ use cubelib::defs::{NissSwitchType, StepKind};
 use cubelib::solver::lookup_table::{LoadFromDisk, MemoryMappedIndexTable, TableError};
 use cubelib::solver_new::ar::ARBuilder;
 use cubelib::solver_new::dr::{DRBuilder, RZPBuilder, RZPStep};
+use cubelib::solver_new::dr_subset::DRSubsetBuilder;
 use cubelib::solver_new::eo::EOBuilder;
 use cubelib::solver_new::finish::{DRFinishBuilder, FRFinishBuilder, HTRFinishBuilder};
 use cubelib::solver_new::fr::FRBuilder;
@@ -190,6 +191,8 @@ fn parse_step(p: Pair<Rule>, previous: Option<StepConfig>, prototypes: &HashMap<
             })
         },
         (Some(StepKind::DR), StepKind::HTR) => Some(HTRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse HTR step")?.build()),
+        (Some(StepKind::DR), StepKind::DR_4A1_4E) => Some(DRSubsetBuilder::try_from(step_prototype).map_err(|_|"Failed to parse DR4A1_4E step")?.build()),
+        (Some(StepKind::DR_4A1_4E), StepKind::HTR) => Some(HTRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse HTR step")?.build()),
         (Some(StepKind::HTR), StepKind::FR) | (Some(StepKind::HTR), StepKind::FRLS)  => Some(FRBuilder::try_from(step_prototype).map_err(|_|"Failed to parse FR step")?.build()),
         (Some(StepKind::DR), StepKind::FIN) | (Some(StepKind::DR), StepKind::FINLS) => {
             step_prototype.params.remove("htr-breaking");

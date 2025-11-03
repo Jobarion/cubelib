@@ -507,7 +507,7 @@ fn find_and_print_solutions_multi_path_channel(cube: Cube333, config: SolverConf
     let mut predicates = vec![];
 
     let last_qt_diretion_relevant = match last_step {
-        StepKind::EO | StepKind::RZP | StepKind::DR | StepKind::HTR => false,
+        StepKind::EO | StepKind::RZP | StepKind::DR | StepKind::HTR | StepKind::DR_4A1_4E => false,
         _ => true
     };
 

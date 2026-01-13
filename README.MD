@@ -1,3 +1,5 @@
+** This project has moved to Codeberg: https://codeberg.org/joba/cubelib **
+
 # Cubelib
 Cubelib is a project that aims to provide a robust and feature rich and library for dealing with 3x3 Rubik's cubes in the context of Fewest Moves solving (FMC).
 See https://joba.me/mallard for a website that's using cubelib to generate human-findable FMC solutions.
